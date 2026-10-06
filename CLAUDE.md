@@ -30,10 +30,13 @@ engine-dependent tests below; set `GEN1RECOMP_ROOT` if it isn't a sibling direct
 ```sh
 ./scripts/bootstrap.sh
 ```
-> **Windows checkout quirk** (same one Wilds of Kanto Revival's CLAUDE.md notes): the `ln -sfn`
-> link can land stale if files were added to this repo after an earlier link was created.
-> `scripts/bootstrap.sh` checks for this and tells you to rerun it; GitHub Actions (Linux) is
-> unaffected.
+> **Windows note:** on at least one real Windows/Git Bash setup, plain `ln -s` silently fell back
+> to a one-time recursive COPY instead of a real link or junction -- no error, just permanently
+> stale content the moment anything in this repo changed. `scripts/bootstrap.sh` detects Windows
+> and creates a real NTFS Junction via PowerShell instead (`New-Item -ItemType Junction`, the same
+> mechanism gen1recomp's other `mods/*` dev links use) -- confirmed live with no relink needed
+> after editing a file through the real repo. GitHub Actions (Linux) still uses plain `ln -s`,
+> which is a genuine symlink there.
 
 Run a single standalone unit test (plain Lua, no engine needed):
 ```sh

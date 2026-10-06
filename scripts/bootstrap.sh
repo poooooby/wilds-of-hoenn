@@ -22,19 +22,43 @@ fail() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 LINK="$ENGINE/mods/wilds_of_hoenn"
 mkdir -p "$ENGINE/mods"
 
-# Windows checkout quirk (same one Wilds of Kanto Revival's CLAUDE.md
-# notes, but worse than documented there): `ln -sfn` over an EXISTING
-# link can land a junction that serves STALE CONTENT for a file that
-# exists on both sides (not just omit a file added after the link was
-# made) -- bit us for real, twice, on DIFFERENT files each time
-# (options.lua once, lib/actor_renderer.lua another time) while OTHER
-# files through the same link stayed fresh. Staleness is apparently
-# per-file, not per-link, so checking only one file (the original
-# options.lua-only check) can pass clean while another file is still
-# stale -- this now diffs every git-tracked source file, not just one.
+# Found the real root cause after chasing this as an "ln -sfn can go
+# stale" quirk through two rounds of hardening: on this Windows/Git Bash
+# setup, `ln -s` was never creating a symlink OR a junction at all -- it
+# was silently falling back to a one-time RECURSIVE COPY (no error, no
+# warning). Every "stale file" was really just "changed in the real repo
+# since the last bootstrap.sh run" -- confirmed by comparing Explorer's
+# reparse-point icon against other mods/ entries (national_dex_gen3,
+# overworld_wild_spawns) that genuinely are Junctions, and by
+# `Get-Item .. | Select LinkType,Attributes` showing plain `Directory`
+# with no `ReparsePoint` for ours. A real Junction (same mechanism the
+# other mods use, and what conf.lua's own comment on
+# love.filesystem.setSymlinksEnabled calls out as "the mklink /J
+# workflow on Windows") stays live with NO relink ever needed -- proven
+# by editing a file in the real repo with no relink and reading the
+# change straight back through the link.
+#
+# `ln -s` is kept for Linux/Mac (GitHub Actions, a real checkout) where
+# it's a genuine symlink with no such fallback.
+is_windows() {
+  [ "${OS:-}" = "Windows_NT" ] || case "$(uname -s 2>/dev/null || true)" in
+    MINGW*|MSYS*|CYGWIN*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 relink() {
   rm -rf "$LINK"
-  ln -s "$ROOT" "$LINK"
+  if is_windows && command -v powershell.exe >/dev/null 2>&1; then
+    local winRoot winLink
+    winRoot="$(cygpath -w "$ROOT" 2>/dev/null || echo "$ROOT")"
+    winLink="$(cygpath -w "$LINK" 2>/dev/null || echo "$LINK")"
+    powershell.exe -NoProfile -Command \
+      "New-Item -ItemType Junction -Path '$winLink' -Target '$winRoot' | Out-Null" \
+      || fail "New-Item -ItemType Junction failed -- create it by hand: mklink /J \"$winLink\" \"$winRoot\""
+  else
+    ln -s "$ROOT" "$LINK"
+  fi
 }
 
 stale_files() {
