@@ -40,6 +40,10 @@ code or save data with it, only a read-only copy of its overworld art.
   follower.
 - A Classic Enc toggle for the original step-based random encounters;
   fishing and Rock Smash are never affected by it.
+- Art covers national dex 1-1025 in both styles (not capped at Gen 3's
+  native 386), so a National Dex expansion mod can hand this mod a
+  species beyond Hoenn and it still draws correctly. Shipped as a baked
+  sprite atlas (a handful of shard PNGs), not ~3900 individual files.
 
 See `options.lua` for the exact option list and `CLAUDE.md`'s "What v1
 deliberately leaves out" section for what's not here yet.
@@ -84,7 +88,9 @@ engine's existing, public `world.follower.spawn` hook.
 
 ```sh
 # Copy Wilds of Kanto Revival's overworld art (run once, or after that
-# repo updates its art); expects a sibling ../overworld-spawn-mod checkout
+# repo updates its art); expects a sibling ../overworld-spawn-mod checkout.
+# Not committed to this repo (see .gitignore) -- a fresh clone needs this
+# before anything will actually draw a sprite.
 python3 tools/copy_wilds_assets.py
 
 # Standalone unit tests (plain Lua, no engine needed)
@@ -104,7 +110,9 @@ cd -
 python3 tools/validate_option_labels.py
 python3 tools/validate_release_version.py
 
-# Build the release ZIP -> dist/wilds-of-hoenn-v*.zip
+# Build the release ZIP -> dist/wilds-of-hoenn-v*.zip (default: bakes
+# the ~3900 sprite sheets into assets/atlas/ shards first and ships
+# those instead of the per-file sheets; --no-atlas for the old layout)
 python3 scripts/build-mod.py
 ```
 

@@ -30,7 +30,17 @@ outstanding.
   follower, not just new ones.
 - Overworld art is a read-only copy of Wilds of Kanto Revival's sprite
   sheets (`tools/copy_wilds_assets.py`), both styles, covering national
-  dex 1-386.
+  dex 1-1025 -- not capped at Gen 3's native 386, since a National Dex
+  expansion mod (`national_dex_gen3`) can put later species in a real
+  save. Shipped as a baked atlas, not 1000+ individual files (see
+  "Sprite atlas" below).
+- Sprite atlas (`lib/sprite_atlas.lua`, `tools/generate_sprite_atlases.py`,
+  default in `scripts/build-mod.py`): packs the ~3900 per-species sheets
+  into a handful of shard PNGs + JSON indexes at release time, served
+  under their original paths. A repo checkout (or `--no-atlas` build)
+  keeps the real per-file sheets and never touches the atlas; it exists
+  purely so the release ZIP and the GitHub history don't carry thousands
+  of individual PNGs.
 
 ### Known gaps (tracked for a later version, see CLAUDE.md)
 

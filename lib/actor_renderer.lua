@@ -18,6 +18,7 @@
 -- from its feet instead of being squashed into 16x16 or drawn off-center.
 local V = ...
 local SpriteSource = V.require("sprite_source")
+local SpriteAtlas = V.require("sprite_atlas")
 
 local ActorRenderer = {}
 ActorRenderer.__index = ActorRenderer
@@ -53,6 +54,13 @@ end
 local imageCache = setmetatable({}, { __mode = "v" })
 local quadCache = {} -- [path] = { [frameIndex] = quad }
 
+--- A repo checkout (or any build before the atlas is generated) keeps the
+--- real per-file sheets, so those are always tried FIRST -- this mod's
+--- behaviour is identical with or without an atlas present as long as
+--- the real files are there. A release build strips the per-file sheets
+--- (scripts/build-mod.py, atlas mode) and ships assets/atlas/ instead, so
+--- when the real-file attempts fail, SpriteAtlas.image is the fallback
+--- that makes the game unaware anything changed.
 local function loadImage(mod, path)
   local cached = imageCache[path]
   if cached then return cached end
@@ -63,6 +71,10 @@ local function loadImage(mod, path)
   end
   if not img and love and love.graphics and love.graphics.newImage then
     local ok, loaded = pcall(love.graphics.newImage, path)
+    if ok then img = loaded end
+  end
+  if not img and mod and SpriteAtlas.installed() then
+    local ok, loaded = pcall(SpriteAtlas.image, mod, path)
     if ok then img = loaded end
   end
   if img then imageCache[path] = img end

@@ -12,7 +12,11 @@ the mod: `manifest.json`, `main.lua`, `options.lua` live at the top level alongs
 Sister project to [Wilds of Kanto Revival](https://github.com/poooooby/wilds-of-kanto-gen-3)
 (`poooooby/wilds-of-kanto-gen-3`, a sibling checkout at `../overworld-spawn-mod`), built from
 scratch for Gen 3's different engine. Shares no runtime code or save data with it -- only a
-read-only copy of its overworld art (`tools/copy_wilds_assets.py`).
+read-only copy of its overworld art (`tools/copy_wilds_assets.py`), covering national dex
+1-1025 in both Sprite Styles (not capped at Gen 3's native 386 -- see lib/sprite_source.lua).
+That art is NOT committed to this repo (`.gitignore`); a fresh clone needs
+`tools/copy_wilds_assets.py` before anything draws a sprite, and the release ZIP ships a baked
+atlas instead of the ~3900 individual files (`lib/sprite_atlas.lua`).
 
 ## Commands
 
@@ -64,9 +68,15 @@ python3 tools/validate_option_labels.py     # option labels <= 14 chars
 python3 tools/validate_release_version.py   # manifest/main.lua (/tag) version agreement
 ```
 
-Build the release ZIP:
+Build the release ZIP (bakes the sprite atlas by default; `--no-atlas` = old per-file layout):
 ```sh
 python3 scripts/build-mod.py   # -> dist/wilds-of-hoenn-v*.zip
+```
+
+Rebuild just the sprite atlas (also run automatically by `scripts/build-mod.py`):
+```sh
+python3 tools/generate_sprite_atlases.py
+python3 tools/validate_sprite_atlases.py   # proves the bake is lossless and complete
 ```
 
 ## Architecture
@@ -134,6 +144,22 @@ python3 scripts/build-mod.py   # -> dist/wilds-of-hoenn-v*.zip
   re-applied live on an options change via `SpawnManager:refreshSpriteStyle()` and
   `FollowerAdapter`'s own lead/style tracking -- cheap, since a renderer's resolved path (and so
   its image/quad cache key) already depends on `style`.
+
+- **Sprite atlas** (`lib/sprite_atlas.lua`, `tools/generate_sprite_atlases.py`,
+  `tools/validate_sprite_atlases.py`, default in `scripts/build-mod.py`; `--no-atlas` builds
+  per-file): bakes the ~3900 per-species sheets (both Sprite Styles, dex 1-1025) into a few
+  single-column shard PNGs + JSON indexes (`assets/atlas/`, gitignored build output) so the
+  release ZIP and git history never carry one file per sprite. Unlike Wilds of Kanto Revival's
+  own `lib/sprite_atlas.lua`, this one does NOT wrap the shared engine `src.render.Assets`
+  module -- this mod is the only consumer of these sprite paths (`ActorRenderer` draws its own
+  quads, never through `SpriteRenderer`/`OwSprites`), so there is no shared choke point worth
+  patching, and no `engine_internals` reach needed for this piece at all. `lib/actor_renderer.lua`'s
+  `loadImage` tries the real per-file path first (a repo checkout always has it) and only falls
+  back to `SpriteAtlas.image` when that fails -- the exact same "source mode wins" behaviour
+  Wilds' atlas has, just without needing to precompute it, since there is only one caller to
+  order. `lib/json_decode.lua` (copied from Wilds verbatim, no engine dependency) parses the
+  index; one column per shard matters for the same deflate-window reason documented in Wilds'
+  own generator (a wide shelf-packed atlas measured 33-67% larger there).
 
 - **Shiny** (`lib/shiny.lua`): the real check is the engine's own `Pokemon.isShiny`
   (`pokemon.lua:1397`), exposed via `EnginePatch.isShiny`, against the live save's trainer id.

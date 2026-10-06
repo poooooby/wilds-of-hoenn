@@ -51,11 +51,19 @@ return function(mod)
 
   local Config = V.require("config")
   local EnginePatch = V.require("engine_patch")
+  local SpriteAtlas = V.require("sprite_atlas")
   local SpawnManager = V.require("spawn_manager")
   local BattleTrigger = V.require("battle_trigger")
   local FollowerAdapter = V.require("follower_adapter")
 
   Config.defineOptions(mod)
+
+  -- Pure asset I/O, no engine dependency: safe to try regardless of game
+  -- version. A repo checkout or --no-atlas build has no assets/atlas/
+  -- index, so this is a normal, silent false everywhere except a release
+  -- ZIP built with the atlas (scripts/build-mod.py's default mode).
+  local atlasOk, atlasReason = SpriteAtlas.install(mod)
+  mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
   mod.exports.version = "0.1.0"

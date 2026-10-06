@@ -63,6 +63,14 @@ rest on each of the three games before calling v1 verified.
       aligned to the same tile line -- not squashed to 16x16 and not
       floating above or sunk below the ground.
 
+## Release build (sprite atlas)
+
+- [ ] Build with `python3 scripts/build-mod.py` (default atlas mode), install THAT ZIP (not a
+      dev checkout with the real per-file sheets present), and confirm wild Pokemon and the
+      follower still draw correctly in both Sprite Styles -- this is the only way to actually
+      exercise `SpriteAtlas.image()`'s shard decode/slice path; the standalone tests can't (no
+      love context) and a dev checkout never needs it (the real files always win first).
+
 ## Stress / edge cases
 
 - [ ] Holding a movement key into a wild Pokemon doesn't start the battle

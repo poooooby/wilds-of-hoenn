@@ -5,16 +5,28 @@ Source of truth stays the sibling `overworld-spawn-mod` checkout. This mod
 never edits that art; it only takes a read-only copy at build/dev time so
 the two repos can diverge (Wilds keeps updating its art independently).
 
-Poke Followers / GSC (16x16 Classic), dex 1-386:
-    dex 1-251   -> assets/enhanced_overworld/poke_followers/   (primary)
-    dex 252-386 -> assets/enhanced_overworld/Pokewilds/        (extension,
-                   falls through for any dex missing in the primary set)
+Full coverage is copied (not capped at Gen 3's native 386 species): a
+National Dex expansion mod for Gen 3 (gen1recomp's `national_dex_gen3`,
+the Gen 3 counterpart to the Gen 1/2 dex-expansion mods Wilds of Kanto
+Revival supports) can make species beyond dex 386 appear in a real RSE
+save, and this mod's species-id -> national-dex conversion
+(EnginePatch.nationalFor) makes no assumption about the cap either -- so
+there is no reason to throw away art for a dex this mod might legitimately
+be asked to draw later. Everything ships inside assets/atlas/ shards at
+release time (see tools/generate_sprite_atlases.py), so having more of it
+on disk does not mean a bigger release ZIP.
 
-HGSS / PokeMMO (variable per-species native size -- "True Size"), dex 1-386:
+Poke Followers / GSC (16x16 Classic):
+    dex 1-251    -> assets/enhanced_overworld/poke_followers/  (primary)
+    dex 252-1025 -> assets/enhanced_overworld/Pokewilds/       (extension,
+                    falls through for any dex missing in the primary set;
+                    Wilds' own Pokewilds folder tops out around dex 901)
+
+HGSS / PokeMMO (variable per-species native size -- "True Size"), dex 1-1025:
     assets/wilds_generated/true_size/hgss/%03d-normal.png / -shiny.png
 
 Usage:
-    python3 tools/copy_wilds_assets.py [--source ../overworld-spawn-mod] [--max-dex 386]
+    python3 tools/copy_wilds_assets.py [--source ../overworld-spawn-mod] [--max-dex 1025]
 """
 import argparse
 import pathlib
@@ -42,8 +54,8 @@ def copy_followers(source_root, dest_root, max_dex):
                 continue
             dex_str = parts[1]
             if not dex_str.isdigit():
-                # Form variants like follower_351-01_normal are post-386
-                # Gen3 species forms; skip for this mod's v1 (base species only).
+                # Form variants like follower_351-01_normal; skip for this
+                # mod's v1 (base species only, no regional/alt forms).
                 continue
             dex = int(dex_str)
             if dex > max_dex:
@@ -80,8 +92,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", default=str(REPO_ROOT.parent / "overworld-spawn-mod"),
                      help="path to the overworld-spawn-mod (Wilds of Kanto Revival) checkout")
-    ap.add_argument("--max-dex", type=int, default=386,
-                     help="highest national dex number to copy (Gen 3 cap)")
+    ap.add_argument("--max-dex", type=int, default=1025,
+                     help="highest national dex number to copy (1025 = Wilds's own full coverage)")
     args = ap.parse_args()
 
     source_root = pathlib.Path(args.source)

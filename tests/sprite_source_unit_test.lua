@@ -38,9 +38,19 @@ local p252 = SpriteSource.normalPath(mod, 252)
 check(p252 ~= nil and p252:find("Pokewilds", 1, true) ~= nil,
   "dex 252 normal resolves to Pokewilds (extension range)")
 
+-- Dex 700 (Sylveon): beyond Gen 3's native 386, but well within Wilds'
+-- own art coverage -- a National Dex expansion mod could legitimately
+-- hand this mod that species, so the cap must not have stopped at 386.
+local p700Followers = SpriteSource.normalPath(mod, 700)
+check(p700Followers ~= nil and p700Followers:find("Pokewilds", 1, true) ~= nil,
+  "dex 700 (beyond Gen 3's native 386) still resolves under followers")
+local p700Hgss = SpriteSource.normalPath(mod, 700, SpriteSource.STYLE_POKEMMO)
+check(p700Hgss ~= nil and p700Hgss:find("true_size/hgss", 1, true) ~= nil,
+  "dex 700 also resolves under pokemmo")
+
 -- Out-of-range dex numbers resolve to nothing, not a garbage path.
 eq(SpriteSource.normalPath(mod, 0), nil, "dex 0 resolves to nothing")
-eq(SpriteSource.normalPath(mod, 387), nil, "dex 387 (post-Gen3) resolves to nothing")
+eq(SpriteSource.normalPath(mod, 1026), nil, "dex 1026 (beyond Wilds' own coverage) resolves to nothing")
 eq(SpriteSource.normalPath(mod, 999999), nil, "absurd dex resolves to nothing")
 
 -- pathFor: shiny requested and present -> shiny path.

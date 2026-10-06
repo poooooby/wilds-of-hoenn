@@ -7,7 +7,7 @@
 --   "followers" (Poke Followers / GSC, Classic 16x16 frames):
 --     assets/enhanced_overworld/poke_followers/follower_%03d_normal.png  (dex 1-251, primary)
 --     assets/enhanced_overworld/poke_followers/follower_%03d_shiny.png
---     assets/enhanced_overworld/Pokewilds/follower_%03d_normal.png       (dex 252-386, extension)
+--     assets/enhanced_overworld/Pokewilds/follower_%03d_normal.png       (dex 252+, extension)
 --     assets/enhanced_overworld/Pokewilds/follower_%03d_shiny.png
 --     poke_followers is tried first; Pokewilds only fills a dex missing
 --     there, so dex 1-251 is untouched by the extension pack.
@@ -20,9 +20,22 @@
 -- Either way, a species with no genuine shiny source art falls back to
 -- its own normal sheet -- never a guessed palette recolor.
 --
+-- MAX_DEX is 1025 (Wilds' own full National Dex coverage), not Gen 3's
+-- native 386 -- a dex-expansion mod for Gen 3 (gen1recomp's
+-- `national_dex_gen3`) can put species beyond 386 in a real RSE save, and
+-- nationalFor()/speciesForNational() make no 386 assumption either, so
+-- there is no reason to cap art lookup lower than the species the engine
+-- could actually hand us. See tools/copy_wilds_assets.py.
+--
 -- Sprite identity is always the national dex number, never engine-internal
 -- species id or display name -- see lib/engine_patch.lua's
 -- nationalFor/speciesForNational.
+--
+-- Both styles ship in the release ZIP as a baked atlas
+-- (tools/generate_sprite_atlases.py, lib/sprite_atlas.lua), not as 2000+
+-- individual files -- SpriteSource only ever resolves a RELATIVE path;
+-- lib/actor_renderer.lua decides whether that path comes from a real file
+-- or an atlas shard.
 
 local V = ...
 
@@ -31,7 +44,7 @@ local SpriteSource = {}
 local PRIMARY_REL = "assets/enhanced_overworld/poke_followers"
 local EXTENSION_REL = "assets/enhanced_overworld/Pokewilds"
 local HGSS_REL = "assets/wilds_generated/true_size/hgss"
-local MAX_DEX = 386
+local MAX_DEX = 1025
 
 SpriteSource.STYLE_FOLLOWERS = "followers"
 SpriteSource.STYLE_POKEMMO = "pokemmo"
@@ -107,7 +120,7 @@ end
 
 --- The path this mod actually draws for (dex, shiny, style): shiny art
 --- when it exists and shiny was asked for, the normal sheet otherwise.
---- Never nil for a dex 1..386 with the asset copy present.
+--- Never nil for a dex 1..1025 with the asset copy present.
 function SpriteSource.pathFor(mod, dex, shiny, style)
   if shiny then
     local p = SpriteSource.shinyPath(mod, dex, style)
