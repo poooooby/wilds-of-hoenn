@@ -21,6 +21,16 @@ Copy Wilds of Kanto Revival's art (needs a sibling `../overworld-spawn-mod` chec
 python3 tools/copy_wilds_assets.py
 ```
 
+Link this repo into a sibling `../gen1recomp` checkout's `mods/` (needed for the two
+engine-dependent tests below; set `GEN1RECOMP_ROOT` if it isn't a sibling directory):
+```sh
+./scripts/bootstrap.sh
+```
+> **Windows checkout quirk** (same one Wilds of Kanto Revival's CLAUDE.md notes): the `ln -sfn`
+> link can land stale if files were added to this repo after an earlier link was created.
+> `scripts/bootstrap.sh` checks for this and tells you to rerun it; GitHub Actions (Linux) is
+> unaffected.
+
 Run a single standalone unit test (plain Lua, no engine needed):
 ```sh
 lua tests/<name>_unit_test.lua
@@ -31,11 +41,22 @@ Run the full standalone suite:
 for f in tests/*_unit_test.lua; do lua "$f" || echo "FAIL: $f"; done
 ```
 
-Run the engine probe test (needs a gen1recomp checkout; run with luajit from inside it, or
-point `loadfile` at this repo -- see the test's own header for both paths):
+Run the two engine-dependent tests (need `scripts/bootstrap.sh` first; run from inside the
+gen1recomp checkout, with luajit):
 ```sh
-luajit tests/engine_patch_probe_test.lua
+cd ../gen1recomp
+luajit mods/wilds_of_hoenn/tests/engine_patch_probe_test.lua
+luajit mods/wilds_of_hoenn/tests/modkit_boot_test.lua
 ```
+Both are ROM-free. `modkit_boot_test.lua` boots this mod through gen1recomp's real
+`src.mods.Loader` (the same `tests/modkit` SDK harness Wilds-style Gen1Recomp mods use for
+ROM-free testing) by forcing `generation = 3` and `GameVersion.set("emerald"/"firered")`
+directly, since `tests/modkit/fixtures.lua` itself only has Gen 1 fixture data. That proves
+`main.lua` boots, `EnginePatch.install()` patches the REAL engine functions, and the real
+`Runtime` event bus reaches `SpawnManager` -- but with no real ROM-extracted encounter cache
+mounted, it correctly places zero spawns (see the test's own header). Real spawn placement is
+covered by `tests/spawn_manager_unit_test.lua` (fully faked engine) and ultimately by
+`docs/MANUAL_TEST.md` (a real ROM session).
 
 Pre-release validation:
 ```sh

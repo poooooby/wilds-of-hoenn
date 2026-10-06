@@ -85,9 +85,15 @@ python3 tools/copy_wilds_assets.py
 # Standalone unit tests (plain Lua, no engine needed)
 for f in tests/*_unit_test.lua; do lua "$f" || echo "FAIL: $f"; done
 
-# Engine probe test -- run from inside a gen1recomp checkout with this
-# mod linked in (or just pointed at by a relative path), with luajit
-luajit tests/engine_patch_probe_test.lua
+# Link this repo into a sibling ../gen1recomp checkout's mods/
+./scripts/bootstrap.sh
+
+# Engine probe test + a ROM-free real-Loader boot test (both luajit, run
+# from inside the gen1recomp checkout)
+cd ../gen1recomp
+luajit mods/wilds_of_hoenn/tests/engine_patch_probe_test.lua
+luajit mods/wilds_of_hoenn/tests/modkit_boot_test.lua
+cd -
 
 # Pre-release validation
 python3 tools/validate_option_labels.py
