@@ -26,10 +26,13 @@ local function canStep(entity, game, tx, ty)
     surfing = onWater, elevation = entity.elevation,
   })
   if not allowed then return false end
-  -- Water spawns stay on water, land spawns stay on land -- checked
-  -- against the ROM's own terrain classification (EnginePatch.isWater),
-  -- not a re-derived rule.
-  return EnginePatch.isWater(tx, ty) == onWater
+  -- A roaming wild Pokemon must stay on its OWN encounter terrain -- not
+  -- just "not water" (that alone lets a land spawn wander onto any
+  -- walkable non-water tile: paths, doodads, anywhere). terrainAt is the
+  -- same ROM-derived classification the eligible-cell scan and the
+  -- engine's own vanilla step roll both use (encounters.lua:170), so a
+  -- Pokemon can never roam somewhere it couldn't have spawned.
+  return EnginePatch.terrainAt(tx, ty) == entity.terrain
 end
 Behavior._canStep = canStep
 

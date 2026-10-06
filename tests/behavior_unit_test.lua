@@ -29,11 +29,11 @@ function V.require(name)
   return value
 end
 
--- An open 5x5 field, all land, nothing blocking.
+-- An open 5x5 field, all land encounter tiles, nothing blocking.
 fakeEngine.canEnter = function(_game, tx, ty, _opts)
   return tx >= 0 and tx < 5 and ty >= 0 and ty < 5
 end
-fakeEngine.isWater = function(_tx, _ty) return false end
+fakeEngine.terrainAt = function(_tx, _ty) return "land" end
 
 local Behavior = V.require("behavior")
 
@@ -85,8 +85,9 @@ eq(roam.cellX, 2, "roam lands on the target cell (x)")
 eq(roam.cellY, 3, "roam lands on the target cell (y)")
 eq(roam.moving, false, "roam clears moving once it lands")
 
--- ------- roam never leaves its map edge or its terrain
+-- ------- roam never leaves its map edge
 fakeEngine.canEnter = function(_game, tx, ty, _opts) return tx >= 0 and tx < 5 and ty >= 0 and ty < 5 end
+fakeEngine.terrainAt = function(_tx, _ty) return "land" end
 local edge = {
   cellX = 0, cellY = 0, facing = "down", behavior = Behavior.ROAM, terrain = "land",
   elevation = 3, moving = false, ticksUntilAction = 0, px = 0, py = 0,
@@ -97,9 +98,9 @@ check(edge.moving == false, "roam refuses a step that would leave the map")
 eq(edge.cellX, 0, "blocked roam never changes cell (x)")
 eq(edge.cellY, 0, "blocked roam never changes cell (y)")
 
--- A water spawn refuses to step onto land, even when canEnter allows it.
+-- ------- a water spawn refuses to step onto land, even when canEnter allows it
 fakeEngine.canEnter = function(_game, _tx, _ty, _opts) return true end
-fakeEngine.isWater = function(tx, ty) return tx < 3 end -- land at x>=3
+fakeEngine.terrainAt = function(tx, _ty) return tx < 3 and "water" or "land" end -- land at x>=3
 local waterMon = {
   cellX = 2, cellY = 2, facing = "down", behavior = Behavior.ROAM, terrain = "water",
   elevation = 3, moving = false, ticksUntilAction = 0, px = 32, py = 32,
@@ -107,6 +108,30 @@ local waterMon = {
 -- dir pick index 4 = "right" (delta 1,0) steps from x=2 (water) to x=3 (land)
 Behavior.tick(waterMon, {}, seq({ 0.1, 0.99 }))
 check(waterMon.moving == false, "a water spawn refuses a step onto land")
+
+-- ------- regression: a roaming land spawn refuses a walkable tile that is
+-- NOT an encounter tile at all (a path, a doodad, anywhere outside its own
+-- grass patch) -- the actual bug report this guards against: canEnter and
+-- "not water" both say yes, but terrainAt says the tile has no encounters,
+-- so the step must still be refused.
+fakeEngine.canEnter = function(_game, _tx, _ty, _opts) return true end -- fully walkable
+fakeEngine.terrainAt = function(tx, _ty) return tx < 3 and "land" or nil end -- a path at x>=3
+local pathMon = {
+  cellX = 2, cellY = 2, facing = "down", behavior = Behavior.ROAM, terrain = "land",
+  elevation = 3, moving = false, ticksUntilAction = 0, px = 32, py = 32,
+}
+-- dir pick index 4 = "right": steps from x=2 (land) onto x=3 (a walkable
+-- non-water path with no encounters) -- must be refused even though it's
+-- neither blocked nor water.
+Behavior.tick(pathMon, {}, seq({ 0.1, 0.99 }))
+check(pathMon.moving == false, "a land spawn refuses a walkable tile with no encounters (a path)")
+eq(pathMon.cellX, 2, "it never leaves its own grass cell (x)")
+
+-- A step that stays within the SAME terrain kind is still allowed.
+pathMon.ticksUntilAction = 0
+-- dir pick index 1 = "up" (delta 0,-1): y decreases, x stays 2 (still "land")
+Behavior.tick(pathMon, {}, seq({ 0.1, 0.0 }))
+check(pathMon.moving == true, "a step that stays on the same encounter terrain is still allowed")
 
 print("")
 if failures > 0 then

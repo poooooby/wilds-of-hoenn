@@ -16,6 +16,14 @@ rest on each of the three games before calling v1 verified.
       appears elsewhere within a few seconds. (confirmed basic spawning;
       the "same species/level/exact mon" and "replaced within a few
       seconds" details haven't been specifically checked yet)
+- [ ] Wild Pokemon never wander off their patch onto a path, doodad, or
+      any other non-encounter tile (fixed in lib/behavior.lua: roaming
+      used to only check "not water", not "still a real encounter tile",
+      so a land spawn could drift anywhere walkable -- confirmed by
+      screenshot, a Pokemon standing on a dirt path outside the grass).
+      Re-check this specifically; also confirm a battle never starts
+      while standing outside the encounter area (that was very likely
+      this same bug: bumping a Pokemon that had wandered onto the path).
 - [ ] Route 104/106 water: visible water wild Pokemon stay on water, never
       wander onto the beach.
 - [ ] Petalburg Woods / Granite Cave: indoor-style grass/cave spawns work
