@@ -19,18 +19,33 @@ fail() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 [ -d "$ENGINE" ] || fail "no gen1recomp checkout at $ENGINE (set GEN1RECOMP_ROOT)"
 [ -f "$ENGINE/src/core/GameVersion.lua" ] || fail "$ENGINE doesn't look like a gen1recomp checkout"
 
-say "linking this repo into $ENGINE/mods/wilds_of_hoenn"
+LINK="$ENGINE/mods/wilds_of_hoenn"
 mkdir -p "$ENGINE/mods"
-ln -sfn "$ROOT" "$ENGINE/mods/wilds_of_hoenn"
 
 # Windows checkout quirk (same one Wilds of Kanto Revival's CLAUDE.md
-# notes): `ln -sfn` can land a junction that doesn't reflect files added
-# to the target AFTER the link was created, until it's recreated. If a
-# test can't find a file that genuinely exists in this repo, re-run this
-# script.
-if [ ! -f "$ENGINE/mods/wilds_of_hoenn/tests/engine_patch_probe_test.lua" ]; then
-  fail "link created but the mod's own tests/ isn't visible through it -- rerun this script"
+# notes, but worse than documented there): `ln -sfn` over an EXISTING
+# link can land a junction that serves STALE CONTENT for a file that
+# exists on both sides (not just omit a file added after the link was
+# made) -- bit us for real with options.lua after an edit. Removing the
+# old link first, rather than trusting -f to replace it cleanly, is what
+# actually fixes it; verify by diffing a real file's content through the
+# link, not just checking it exists, and retry once before giving up.
+relink() {
+  rm -rf "$LINK"
+  ln -s "$ROOT" "$LINK"
+}
+
+say "linking this repo into $LINK"
+relink
+
+if ! diff -q "$ROOT/options.lua" "$LINK/options.lua" >/dev/null 2>&1; then
+  say "link looks stale (options.lua differs through it) -- recreating"
+  relink
 fi
+if ! diff -q "$ROOT/options.lua" "$LINK/options.lua" >/dev/null 2>&1; then
+  fail "link still serves a stale options.lua after recreating -- remove $LINK by hand and re-run this script"
+fi
+[ -f "$LINK/tests/engine_patch_probe_test.lua" ] || fail "link created but the mod's own tests/ isn't visible through it -- rerun this script"
 
 cat <<EOF
 
