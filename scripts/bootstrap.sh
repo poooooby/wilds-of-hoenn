@@ -26,24 +26,38 @@ mkdir -p "$ENGINE/mods"
 # notes, but worse than documented there): `ln -sfn` over an EXISTING
 # link can land a junction that serves STALE CONTENT for a file that
 # exists on both sides (not just omit a file added after the link was
-# made) -- bit us for real with options.lua after an edit. Removing the
-# old link first, rather than trusting -f to replace it cleanly, is what
-# actually fixes it; verify by diffing a real file's content through the
-# link, not just checking it exists, and retry once before giving up.
+# made) -- bit us for real, twice, on DIFFERENT files each time
+# (options.lua once, lib/actor_renderer.lua another time) while OTHER
+# files through the same link stayed fresh. Staleness is apparently
+# per-file, not per-link, so checking only one file (the original
+# options.lua-only check) can pass clean while another file is still
+# stale -- this now diffs every git-tracked source file, not just one.
 relink() {
   rm -rf "$LINK"
   ln -s "$ROOT" "$LINK"
 }
 
+stale_files() {
+  local f
+  while IFS= read -r f; do
+    case "$f" in assets/*) continue ;; esac  # not committed, irrelevant here
+    if ! diff -q "$ROOT/$f" "$LINK/$f" >/dev/null 2>&1; then
+      echo "$f"
+    fi
+  done < <(cd "$ROOT" && git ls-files -- '*.lua' '*.json' manifest.json)
+}
+
 say "linking this repo into $LINK"
 relink
 
-if ! diff -q "$ROOT/options.lua" "$LINK/options.lua" >/dev/null 2>&1; then
-  say "link looks stale (options.lua differs through it) -- recreating"
+STALE="$(stale_files || true)"
+if [ -n "$STALE" ]; then
+  say "link looks stale -- recreating ($(echo "$STALE" | wc -l) file(s) differed)"
   relink
+  STALE="$(stale_files || true)"
 fi
-if ! diff -q "$ROOT/options.lua" "$LINK/options.lua" >/dev/null 2>&1; then
-  fail "link still serves a stale options.lua after recreating -- remove $LINK by hand and re-run this script"
+if [ -n "$STALE" ]; then
+  fail "link still serves stale content after recreating -- remove $LINK by hand and re-run this script. Stale: $(echo "$STALE" | tr '\n' ' ')"
 fi
 [ -f "$LINK/tests/engine_patch_probe_test.lua" ] || fail "link created but the mod's own tests/ isn't visible through it -- rerun this script"
 
