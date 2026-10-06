@@ -56,12 +56,17 @@ rest on each of the three games before calling v1 verified.
       party-lead swap changes the follower's sprite within a tick or two.
       (confirmed the follower appears and follows; haven't specifically
       checked a party-lead swap)
-- [ ] Sprite Style Poke Followers/GSC vs HGSS/PokeMMO: switching changes
+- [x] Sprite Style Poke Followers/GSC vs HGSS/PokeMMO: switching changes
       both already-spawned wild Pokemon AND the follower immediately, no
       map transition needed. In HGSS/PokeMMO, bigger species (e.g.
       Snorlax) visibly stand taller than small ones (e.g. Rattata), feet
       aligned to the same tile line -- not squashed to 16x16 and not
-      floating above or sunk below the ground.
+      floating above or sunk below the ground. (confirmed working; this
+      is how a real left/right mirroring bug was caught -- a sprite
+      visibly snapped sideways on every left<->right turn and every
+      stand<->walk swap while walking left/right, HGSS/PokeMMO only. Fixed
+      in lib/actor_renderer.lua's drawOffset -- re-check this after any
+      future change to that function.)
 
 ## Release build (sprite atlas)
 

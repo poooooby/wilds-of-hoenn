@@ -51,6 +51,29 @@ function ActorRenderer.anchorOffset(frameW, frameH)
   return (CELL - frameW) / 2, CELL - frameH
 end
 
+--- Pure draw-position math for love.graphics.draw(image, quad, drawX, drawY,
+--- 0, flipX, 1): the (drawX, drawY, flipX) to pass so a `frameW x frameH`
+--- frame lands centered-and-feet-anchored (anchorOffset above) REGARDLESS
+--- of facing, including when mirrored. Split out from draw() so the
+--- left/right mirror math is directly testable without love.graphics --
+--- this is exactly the formula that was wrong (frameW - anchorX instead
+--- of anchorX + frameW) until a reported snap on every left<->right turn
+--- caught it; see the comment on the return line for why.
+function ActorRenderer.drawOffset(facing, frameW, frameH)
+  local anchorX, anchorY = ActorRenderer.anchorOffset(frameW, frameH)
+  if facing ~= "right" then
+    return anchorX, anchorY, 1
+  end
+  -- love.graphics.draw with sx=-1 paints quad-local x in [0,frameW] onto
+  -- screen x in [drawX-frameW, drawX] -- it runs BACKWARDS from drawX, the
+  -- mirror of the unflipped [drawX, drawX+frameW] span -- so matching the
+  -- unflipped span's horizontal center needs drawX = anchorX + frameW,
+  -- not frameW - anchorX (those only happen to agree when frameW == CELL,
+  -- i.e. for every Poke Followers/GSC frame, which is why this stayed
+  -- invisible until HGSS/PokeMMO's non-16-wide frames exposed it).
+  return anchorX + frameW, anchorY, -1
+end
+
 local imageCache = setmetatable({}, { __mode = "v" })
 local quadCache = {} -- [path] = { [frameIndex] = quad }
 
@@ -123,20 +146,14 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   if not quad then return end
 
   local _qx, _qy, frameW, frameH = quad:getViewport()
-  local anchorX, anchorY = ActorRenderer.anchorOffset(frameW, frameH)
-
-  local flipX = (facing == "right") and -1 or 1
-  -- Mirroring draws the image reversed around its own left edge, so the
-  -- anchor's horizontal offset has to be mirrored too (frameW - anchorX
-  -- instead of anchorX), same as flipping any left-anchored sprite.
-  local drawX = (facing == "right") and (frameW - anchorX) or anchorX
+  local drawX, drawY, flipX = ActorRenderer.drawOffset(facing, frameW, frameH)
 
   if self.silhouette then
     -- Multiply-tint to black, keeping the sheet's own alpha -- no pixel
     -- remap needed: Gen 3's world already draws true-color, unshaded.
     love.graphics.setColor(0, 0, 0, 1)
   end
-  love.graphics.draw(image, quad, (x - camX) + drawX, (y - camY) + anchorY, 0, flipX, 1)
+  love.graphics.draw(image, quad, (x - camX) + drawX, (y - camY) + drawY, 0, flipX, 1)
   if self.silhouette then
     love.graphics.setColor(1, 1, 1, 1)
   end

@@ -97,6 +97,44 @@ local axRect, ayRect = ActorRenderer.anchorOffset(24, 18)
 eq(axRect, -4, "non-square frame: horizontal anchor still centers")
 eq(ayRect, -2, "non-square frame: vertical anchor still flushes feet to the bottom")
 
+-- ------- drawOffset: the exact love.graphics.draw(image, quad, drawX,
+-- drawY, 0, flipX, 1) arguments. A regression test for a real bug: the
+-- mirrored (facing="right") drawX used to be `frameW - anchorX`, which
+-- only matches the correct `anchorX + frameW` when frameW == CELL (16) --
+-- true for every Poke Followers/GSC frame, so it went unnoticed until a
+-- non-16-wide HGSS/PokeMMO frame made it snap on every left<->right turn.
+--
+-- A 16x16 (GSC) frame: mirroring changes nothing visible, by construction.
+local dxL16, dyL16, flipL16 = ActorRenderer.drawOffset("left", 16, 16)
+local dxR16, dyR16, flipR16 = ActorRenderer.drawOffset("right", 16, 16)
+eq(dxL16, 0, "16x16 left drawX")
+eq(dxR16, 16, "16x16 right drawX (still correct even though the old buggy formula agreed here)")
+eq(dyL16, dyR16, "16x16: drawY identical regardless of facing")
+eq(flipL16, 1, "left is never mirrored")
+eq(flipR16, -1, "right is always mirrored")
+
+-- A non-square, non-16-wide HGSS-style frame (dex 252 is 25x28): this is
+-- exactly the shape that exposed the bug. The footprint center -- drawX
+-- (or drawX - frameW for the mirrored span) -- must land on the SAME
+-- point for both facings, or turning around in place visibly shifts the
+-- sprite sideways (the reported "snapping").
+local frameW, frameH = 25, 28
+local dxL, dyL, flipL = ActorRenderer.drawOffset("left", frameW, frameH)
+local dxR, dyR, flipR = ActorRenderer.drawOffset("right", frameW, frameH)
+eq(flipL, 1, "non-square left is never mirrored")
+eq(flipR, -1, "non-square right is always mirrored")
+eq(dyL, dyR, "non-square: drawY identical regardless of facing (mirroring is horizontal only)")
+local leftCenter = dxL + frameW / 2
+local rightCenter = dxR - frameW / 2 -- mirrored span runs [drawX-frameW, drawX]
+eq(leftCenter, rightCenter,
+  "non-square: left and right footprints share the same horizontal center (no sideways snap)")
+eq(leftCenter, 16 / 2, "that shared center is the tile's own center (CELL / 2)")
+
+-- down/up are never mirrored and never go through the facing=="right" branch.
+local dxDown, _, flipDown = ActorRenderer.drawOffset("down", frameW, frameH)
+eq(flipDown, 1, "down is never mirrored")
+eq(dxDown, ActorRenderer.anchorOffset(frameW, frameH), "down drawX is the plain anchor offset")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
