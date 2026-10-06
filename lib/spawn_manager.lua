@@ -90,7 +90,7 @@ function SpawnManager:_spawnOne(terrain, cell)
   local id = self.nextId
   self.nextId = id + 1
 
-  local renderer = ActorRenderer.new(self.mod, dex, enc.shiny)
+  local renderer = ActorRenderer.new(self.mod, dex, enc.shiny, Config.spriteStyle(self.mod))
   renderer.silhouette = self:_silhouetteFor(enc.species)
 
   local facings = { "up", "down", "left", "right" }
@@ -188,6 +188,18 @@ function SpawnManager:despawn(id)
       table.remove(self.order, i)
       break
     end
+  end
+end
+
+--- Re-points every live entity's renderer at the current Sprite Style
+--- option without respawning anything -- a mid-game style switch takes
+--- effect on the very next frame. Cheap: the renderer's path (and so its
+--- image/quad cache key) already depends on `style`
+--- (SpriteSource.pathFor), so this is just flipping that one field.
+function SpawnManager:refreshSpriteStyle()
+  local style = Config.spriteStyle(self.mod)
+  for _, e in pairs(self.entities) do
+    if e.renderer then e.renderer.style = style end
   end
 end
 

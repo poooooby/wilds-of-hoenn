@@ -28,6 +28,11 @@ code or save data with it, only a read-only copy of its overworld art.
   block all come from the engine's own rules -- nothing about wild
   generation itself is reimplemented.
 - Idle and Roam behaviours (no Chase or Hidden in v1).
+- Two Sprite Styles, same as Wilds of Kanto Revival: **Poke Followers /
+  GSC** (plain 16x16) or **HGSS / PokeMMO** ("True Size" -- each species
+  drawn at its own native size, anchored at its feet, so a Snorlax is
+  genuinely bigger on screen than a Rattata). Switching takes effect
+  immediately, including on already-spawned wild Pokemon.
 - A real Gen 3 shiny check against your own trainer ID, with an optional
   Boosted rate that re-rolls a non-shiny encounter until it's shiny while
   keeping its nature and gender.

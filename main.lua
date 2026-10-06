@@ -139,13 +139,19 @@ return function(mod)
   end)
 
   mod.events:on("mod.options_changed", function(ev)
-    if not (ev and ev.mod == mod.id and ev.key == "enabled") then return end
-    local current = mod.world and mod.world:current()
-    local mapId = current and current.mapId
-    if ev.value == true and mapId then
-      spawnManager:onMapEntered(mapId, mod.world and mod.world.game)
-    elseif ev.value ~= true then
-      spawnManager:onMapExited()
+    if not (ev and ev.mod == mod.id) then return end
+    if ev.key == "enabled" then
+      local current = mod.world and mod.world:current()
+      local mapId = current and current.mapId
+      if ev.value == true and mapId then
+        spawnManager:onMapEntered(mapId, mod.world and mod.world.game)
+      elseif ev.value ~= true then
+        spawnManager:onMapExited()
+      end
+    elseif ev.key == "sprite_style" then
+      -- Re-point every already-spawned entity's renderer immediately,
+      -- rather than waiting for the next map transition.
+      spawnManager:refreshSpriteStyle()
     end
   end)
 

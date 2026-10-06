@@ -1,19 +1,21 @@
 # Manual test checklist (v1)
 
-Nothing below has been run yet -- this mod has not booted against a real
-Ruby/Sapphire/Emerald session. Run through this on each of the three
-games before calling v1 verified; the engine probe test and standalone
-suite only prove the code is internally consistent, not that it looks and
-feels right in game.
+Confirmed in a real session so far: basic visible spawns and the party
+follower both work. Everything else below is still unconfirmed -- the
+engine probe test and standalone suite only prove the code is internally
+consistent, not that it looks and feels right in game. Run through the
+rest on each of the three games before calling v1 verified.
 
 ## Per-game basics
 
 - [ ] Mod installs and enables cleanly; FireRed/LeafGreen boots are
       untouched (check the log for "not a Ruby/Sapphire/Emerald boot").
-- [ ] Route 101/102 (Ruby/Sapphire/Emerald): visible land wild Pokemon
+- [x] Route 101/102 (Ruby/Sapphire/Emerald): visible land wild Pokemon
       stand/wander in grass; walking into one starts a battle with that
       exact species/level; a caught/beaten one is gone and a new one
-      appears elsewhere within a few seconds.
+      appears elsewhere within a few seconds. (confirmed basic spawning;
+      the "same species/level/exact mon" and "replaced within a few
+      seconds" details haven't been specifically checked yet)
 - [ ] Route 104/106 water: visible water wild Pokemon stay on water, never
       wander onto the beach.
 - [ ] Petalburg Woods / Granite Cave: indoor-style grass/cave spawns work
@@ -50,8 +52,16 @@ feels right in game.
 - [ ] Shiny Rate Vanilla/Boosted/Off: Boosted should produce a visibly
       shiny wild Pokemon noticeably more often than Vanilla; a shiny wild
       Pokemon shows its shiny sheet and is the same shiny in battle.
-- [ ] Follower on/off: the party lead follows in the overworld when on; a
+- [x] Follower on/off: the party lead follows in the overworld when on; a
       party-lead swap changes the follower's sprite within a tick or two.
+      (confirmed the follower appears and follows; haven't specifically
+      checked a party-lead swap)
+- [ ] Sprite Style Poke Followers/GSC vs HGSS/PokeMMO: switching changes
+      both already-spawned wild Pokemon AND the follower immediately, no
+      map transition needed. In HGSS/PokeMMO, bigger species (e.g.
+      Snorlax) visibly stand taller than small ones (e.g. Rattata), feet
+      aligned to the same tile line -- not squashed to 16x16 and not
+      floating above or sunk below the ground.
 
 ## Stress / edge cases
 

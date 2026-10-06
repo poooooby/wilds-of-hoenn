@@ -2,7 +2,9 @@
 
 ## Unreleased (v1)
 
-Initial build. Not yet verified in game -- see `docs/MANUAL_TEST.md`.
+Visible wild Pokemon and the party follower have been confirmed working
+in a real game session. The rest of `docs/MANUAL_TEST.md` is still
+outstanding.
 
 ### Features
 
@@ -20,8 +22,15 @@ Initial build. Not yet verified in game -- see `docs/MANUAL_TEST.md`.
   hook.
 - Classic Enc toggle for the original step-based random encounters
   (fishing and Rock Smash are unaffected either way).
-- Overworld art is a read-only copy of Wilds of Kanto Revival's walker
-  sheets (`tools/copy_wilds_assets.py`), covering national dex 1-386.
+- Sprite Style option: Poke Followers / GSC (plain 16x16) or HGSS /
+  PokeMMO ("True Size" -- each species drawn at its own native frame
+  size, anchored at its feet, the same way Gen 3's own native overworld
+  sprites anchor a variable-size OAM shape to a 16px cell). Switching
+  takes effect immediately on already-spawned wild Pokemon and the
+  follower, not just new ones.
+- Overworld art is a read-only copy of Wilds of Kanto Revival's sprite
+  sheets (`tools/copy_wilds_assets.py`), both styles, covering national
+  dex 1-386.
 
 ### Known gaps (tracked for a later version, see CLAUDE.md)
 

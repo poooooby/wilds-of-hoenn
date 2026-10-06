@@ -12,7 +12,7 @@ local FollowerAdapter = {}
 FollowerAdapter.__index = FollowerAdapter
 
 function FollowerAdapter.new(mod)
-  return setmetatable({ mod = mod, leadSpecies = nil, renderer = nil }, FollowerAdapter)
+  return setmetatable({ mod = mod, leadSpecies = nil, style = nil, renderer = nil }, FollowerAdapter)
 end
 
 --- The callback passed to mod.hooks:wrap("world.follower.spawn", ...).
@@ -22,24 +22,28 @@ end
 
 --- Called every field tick, after the engine's own Follower.update has run
 --- (engine_patch's `followerTick` hook) -- keeps npc.sprite pointed at a
---- renderer for the CURRENT party lead, rebuilding it only when the lead
---- species actually changes (a swap in the party menu, not every tick).
+--- renderer for the CURRENT party lead in the CURRENT Sprite Style,
+--- rebuilding it only when either actually changes (a party-menu swap or
+--- an options-menu style switch, not every tick).
 function FollowerAdapter:tick()
   local npc = EnginePatch.followerCurrent()
   if not npc then
-    self.leadSpecies = nil
+    self.leadSpecies, self.style = nil, nil
     return
   end
   local species = EnginePatch.leadPartySpecies()
-  if species == self.leadSpecies and npc.sprite == self.renderer then return end
-  self.leadSpecies = species
+  local style = Config.spriteStyle(self.mod)
+  if species == self.leadSpecies and style == self.style and npc.sprite == self.renderer then
+    return
+  end
+  self.leadSpecies, self.style = species, style
   local dex = species and EnginePatch.nationalFor(species) or nil
   if not dex then
     self.renderer = nil
     npc.sprite = nil
     return
   end
-  self.renderer = ActorRenderer.new(self.mod, dex, false)
+  self.renderer = ActorRenderer.new(self.mod, dex, false, style)
   npc.sprite = self.renderer
 end
 

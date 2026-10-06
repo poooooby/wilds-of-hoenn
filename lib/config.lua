@@ -5,6 +5,7 @@ local Config = {}
 
 Config.DEFAULTS = {
   enabled = true,
+  sprite_style = "followers",
   classic_enc = true,
   wild_silhouettes = "off",
   shiny_rate = "vanilla",
@@ -56,6 +57,13 @@ end
 
 function Config.enabled(mod)
   return optGet(mod, "enabled") == true
+end
+
+local VALID_SPRITE_STYLE = { followers = true, pokemmo = true }
+function Config.spriteStyle(mod)
+  local v = optGet(mod, "sprite_style")
+  if VALID_SPRITE_STYLE[v] then return v end
+  return Config.DEFAULTS.sprite_style
 end
 
 function Config.classicEncEnabled(mod)

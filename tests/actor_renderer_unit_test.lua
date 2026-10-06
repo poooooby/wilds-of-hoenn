@@ -65,6 +65,38 @@ local pathShiny = rShiny:imagePath()
 check(pathShiny ~= nil and pathShiny:find("follower_001_shiny", 1, true) ~= nil,
   "imagePath resolves the real dex 1 shiny sheet")
 
+-- ------- HGSS / PokeMMO ("pokemmo") style resolves a completely
+-- different, real, on-disk sheet when passed through
+local SpriteSource = V.require("sprite_source")
+local rPokemmo = ActorRenderer.new(mod, 1, false, SpriteSource.STYLE_POKEMMO)
+eq(rPokemmo.style, SpriteSource.STYLE_POKEMMO, "stores the requested style")
+local pokemmoPath = rPokemmo:imagePath()
+check(pokemmoPath ~= nil and pokemmoPath:find("true_size/hgss", 1, true) ~= nil,
+  "imagePath honours the pokemmo style")
+
+local rDefaultStyle = ActorRenderer.new(mod, 1, false)
+eq(rDefaultStyle.style, SpriteSource.STYLE_FOLLOWERS, "style defaults to followers when omitted")
+
+-- ------- anchorOffset: Gen 3's own native OW sprite anchor -- centered
+-- horizontally in a 16px cell, feet flush with the cell's bottom edge.
+-- A plain 16x16 Followers/GSC frame is a no-op (fills the cell exactly).
+local ax16, ay16 = ActorRenderer.anchorOffset(16, 16)
+eq(ax16, 0, "a 16x16 frame has no horizontal anchor offset")
+eq(ay16, 0, "a 16x16 frame has no vertical anchor offset")
+
+-- A bigger HGSS-style frame (e.g. Snorlax-ish) is centered horizontally
+-- and extends UPWARD from the cell's bottom (negative y offset), never
+-- squashed or drawn hanging below its feet.
+local ax32, ay32 = ActorRenderer.anchorOffset(32, 32)
+eq(ax32, -8, "a 32-wide frame is centered 8px left of the cell")
+eq(ay32, -16, "a 32-tall frame extends 16px above the cell, feet at the bottom")
+
+-- A non-square frame (real HGSS sheets aren't always square, e.g. dex 252
+-- is 25 wide x 28 tall per frame) anchors each axis independently.
+local axRect, ayRect = ActorRenderer.anchorOffset(24, 18)
+eq(axRect, -4, "non-square frame: horizontal anchor still centers")
+eq(ayRect, -2, "non-square frame: vertical anchor still flushes feet to the bottom")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

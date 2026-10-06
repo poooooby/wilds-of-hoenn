@@ -1,22 +1,26 @@
 # Third-party notices
 
-## Overworld walker sprites
+## Overworld sprites
 
-The overworld walker sheets under `assets/enhanced_overworld/` are a
-read-only copy of **Wilds of Kanto Revival**'s art
+The art under `assets/enhanced_overworld/` and `assets/wilds_generated/true_size/hgss/`
+is a read-only copy of **Wilds of Kanto Revival**'s two Sprite Style packs
 (`tools/copy_wilds_assets.py`, run against a sibling
 `poooooby/wilds-of-kanto-gen-3` checkout). This mod does not modify that
 art and does not share a runtime dependency with Wilds of Kanto Revival --
 the two repos may diverge over time.
 
-- **Poke Followers / GSC** (dex 1-251): Pokemon Crystal Clear / PokéPC
-  overworld-art lineage; see Wilds of Kanto Revival's own
-  `THIRD_PARTY_NOTICES.md` for its full credit chain (ShockSlayer, TRW,
-  DAX, Antigravity and other original authors).
-- **Pokewilds extension** (dex 252-386): converted from
-  [SheerSt/pokewilds](https://github.com/SheerSt/pokewilds) by Wilds of
-  Kanto Revival's `tools/generate_pokewilds_overworld.py`, credited there
-  to SheerSt.
+- **Poke Followers / GSC** (`assets/enhanced_overworld/`, dex 1-251 under
+  `poke_followers/`, dex 252-386 under `Pokewilds/`): Pokemon Crystal
+  Clear / PokéPC overworld-art lineage for dex 1-251 (ShockSlayer, TRW,
+  DAX, Antigravity and other original authors), extended by
+  [SheerSt/pokewilds](https://github.com/SheerSt/pokewilds) for dex
+  252-386.
+- **HGSS / PokeMMO** (`assets/wilds_generated/true_size/hgss/`, dex
+  1-386): a large multi-author gap-filling set credited to numerous
+  individual artists in Wilds of Kanto Revival's own
+  `THIRD_PARTY_NOTICES.md` (MissingLukey, Kymoyonian, Getsuei-H, and many
+  others listed there), plus the Pokemon Tower ghost sprite by
+  Nuclear-Blizzard.
 
 See Wilds of Kanto Revival's `THIRD_PARTY_NOTICES.md` and `README.md` for
 the complete, authoritative credit list for this art.

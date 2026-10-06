@@ -16,6 +16,17 @@ return {
     description = "Spawn visible wild Pokemon in eligible grass/water encounter areas.",
   },
   {
+    key = "sprite_style",
+    label = "Sprite Style",
+    type = "choice",
+    default = "followers",
+    choices = {
+      { "Poke Followers / GSC", "followers" },
+      { "HGSS / PokeMMO", "pokemmo" },
+    },
+    description = "Overworld sprite style for wild Pokemon and your follower. Poke Followers / GSC draws every species at a plain 16x16. HGSS / PokeMMO draws each species at its own native size (\"True Size\"), anchored at its feet -- a Snorlax is drawn much bigger than a Rattata.",
+  },
+  {
     key = "classic_enc",
     label = "Classic Enc",
     type = "toggle",

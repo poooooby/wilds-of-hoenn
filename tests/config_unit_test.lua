@@ -46,6 +46,7 @@ local mod = {
 
 -- ------- defaults with nothing saved
 eq(Config.enabled(mod), true, "enabled defaults true")
+eq(Config.spriteStyle(mod), "followers", "sprite_style defaults followers")
 eq(Config.classicEncEnabled(mod), true, "classic_enc defaults true")
 eq(Config.silhouetteMode(mod), "off", "silhouette defaults off")
 eq(Config.shinyRate(mod), "vanilla", "shiny_rate defaults vanilla")
@@ -54,6 +55,8 @@ eq(Config.followerEnabled(mod), true, "follower defaults true")
 -- ------- saved values override defaults
 optionStore.enabled = false
 eq(Config.enabled(mod), false, "enabled reads saved false")
+optionStore.sprite_style = "pokemmo"
+eq(Config.spriteStyle(mod), "pokemmo", "sprite_style reads saved pokemmo")
 optionStore.classic_enc = false
 eq(Config.classicEncEnabled(mod), false, "classic_enc reads saved false")
 optionStore.wild_silhouettes = "all"
@@ -69,6 +72,8 @@ optionStore.wild_silhouettes = "bogus"
 eq(Config.silhouetteMode(mod), "off", "silhouette rejects invalid value")
 optionStore.shiny_rate = "bogus"
 eq(Config.shinyRate(mod), "vanilla", "shiny_rate rejects invalid value")
+optionStore.sprite_style = "bogus"
+eq(Config.spriteStyle(mod), "followers", "sprite_style rejects invalid value")
 
 -- ------- options.lua loads and defines cleanly
 optionStore = {}
@@ -79,7 +84,7 @@ for _, row in ipairs(definedSchema or {}) do
   byKey[row.key] = row
   check(#row.label <= 14, "label <=14: " .. tostring(row.label))
 end
-for _, key in ipairs({ "enabled", "classic_enc", "wild_silhouettes", "shiny_rate", "follower" }) do
+for _, key in ipairs({ "enabled", "sprite_style", "classic_enc", "wild_silhouettes", "shiny_rate", "follower" }) do
   check(byKey[key] ~= nil, "schema has " .. key)
   eq(byKey[key].default, Config.DEFAULTS[key], "schema default matches Config.DEFAULTS for " .. key)
 end

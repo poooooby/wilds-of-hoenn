@@ -154,6 +154,23 @@ smTiny:refill("land") -- should not error or duplicate on the same cell
 eq(smTiny:count(), 1, "refill never double-occupies the only cell")
 fakeEngine.mapBounds = function() return 6, 1 end -- restore for safety
 
+-- ------- Sprite Style: threaded into each entity's renderer at spawn
+-- time, and a live option change re-points every live entity without
+-- despawning anything
+optionStore.sprite_style = "pokemmo"
+local smStyle = SpawnManager.new(mod)
+smStyle:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+local anyStyleEntity
+for _, e in pairs(smStyle.entities) do anyStyleEntity = e break end
+eq(anyStyleEntity.renderer.style, "pokemmo", "a new spawn uses the current Sprite Style")
+
+optionStore.sprite_style = "followers"
+smStyle:refreshSpriteStyle()
+eq(anyStyleEntity.renderer.style, "followers",
+  "refreshSpriteStyle re-points an already-spawned entity's renderer")
+eq(smStyle:count(), 1, "refreshSpriteStyle never despawns anything")
+optionStore.sprite_style = "pokemmo" -- restore for safety
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

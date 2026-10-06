@@ -119,9 +119,21 @@ python3 scripts/build-mod.py   # -> dist/wilds-of-hoenn-v*.zip
   internal id or by display name.
 
 - **Rendering** (`lib/actor_renderer.lua`, `lib/sprite_source.lua`): Gen 3's field already draws
-  true-color, so this mod draws plain `love.graphics` quads against the Wilds-style 16x96 walker
-  sheet (6 frames: stand down/up/left, walk down/up/left; right mirrors left) -- no DMG-palette
-  machinery to thread through, unlike Gen 1Recomp's `src/render/SpriteRenderer.lua`.
+  true-color, so this mod draws plain `love.graphics` quads -- no DMG-palette machinery to thread
+  through, unlike Gen 1Recomp's `src/render/SpriteRenderer.lua`. Both Sprite Style choices use the
+  same 6-frame sheet layout (stand down/up/left, walk down/up/left; right mirrors left); frame
+  WIDTH is the whole sheet's width and frame HEIGHT is the sheet's height / 6, read from the
+  actual loaded image rather than assumed, since the two styles differ in exactly this: Poke
+  Followers / GSC is always a plain 16x16 frame, while HGSS / PokeMMO ("True Size") is a different
+  native size per species (Bulbasaur 24x24, Pikachu 18x18, not always square -- e.g. dex 252 is
+  25x28). `ActorRenderer.anchorOffset(frameW, frameH)` centers a frame horizontally in the 16px
+  tile and flushes its bottom edge (feet) to the tile's bottom, the same way Gen 3's own native OW
+  sprites anchor a variable-size OAM shape (`ow_sprites.lua`'s `(16 - spr.width) / 2`, `16 -
+  spr.height`) -- a bigger HGSS sprite extends upward from its feet rather than being squashed or
+  mis-centered. Style is resolved once at spawn/follower-tick time (`Config.spriteStyle`) and
+  re-applied live on an options change via `SpawnManager:refreshSpriteStyle()` and
+  `FollowerAdapter`'s own lead/style tracking -- cheap, since a renderer's resolved path (and so
+  its image/quad cache key) already depends on `style`.
 
 - **Shiny** (`lib/shiny.lua`): the real check is the engine's own `Pokemon.isShiny`
   (`pokemon.lua:1397`), exposed via `EnginePatch.isShiny`, against the live save's trainer id.

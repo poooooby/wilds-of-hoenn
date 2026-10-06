@@ -78,6 +78,22 @@ fa:tick()
 check(npc.sprite ~= same, "a new lead species rebuilds the renderer")
 eq(fa.renderer.dex, 1, "renderer now uses the new lead's national dex")
 
+-- ------- a Sprite Style change rebuilds the renderer even with the same
+-- lead species, and takes effect without waiting for a species change
+npc = { sprite = nil }
+fakeEngine.leadPartySpecies = function() return 999 end
+fakeEngine.nationalFor = function(id) if id == 999 then return 252 end return nil end
+optionStore.sprite_style = "followers"
+fa = FollowerAdapter.new(mod)
+fa:tick()
+eq(fa.renderer.style, "followers", "renderer starts in the followers style")
+local beforeStyleSwitch = npc.sprite
+optionStore.sprite_style = "pokemmo"
+fa:tick()
+check(npc.sprite ~= beforeStyleSwitch, "a style change rebuilds the renderer, same lead species")
+eq(fa.renderer.style, "pokemmo", "renderer now uses the new style")
+eq(fa.renderer.dex, 252, "dex is unchanged by a pure style switch")
+
 -- ------- the follower vanishing (map transition) clears the tracked state
 npc = nil
 fa:tick()

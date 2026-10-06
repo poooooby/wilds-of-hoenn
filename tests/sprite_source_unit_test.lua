@@ -64,6 +64,24 @@ check(pFallback ~= nil and pFallback:find("normal", 1, true) ~= nil,
 local pNormal = SpriteSource.pathFor(mod, 1, false)
 check(pNormal ~= nil and pNormal:find("normal", 1, true) ~= nil, "pathFor(shiny=false) serves normal")
 
+-- ------- HGSS / PokeMMO style ("pokemmo"): a completely different tree,
+-- selected explicitly -- never mixed with the Followers/GSC paths above.
+local pHgssNormal = SpriteSource.normalPath(mod, 1, SpriteSource.STYLE_POKEMMO)
+check(pHgssNormal ~= nil and pHgssNormal:find("true_size/hgss", 1, true) ~= nil,
+  "pokemmo style resolves under true_size/hgss")
+check(pHgssNormal ~= nil and pHgssNormal:find("poke_followers", 1, true) == nil,
+  "pokemmo style never falls through to the followers tree")
+
+local pHgssShiny = SpriteSource.pathFor(mod, 1, true, SpriteSource.STYLE_POKEMMO)
+check(pHgssShiny ~= nil and pHgssShiny:find("true_size/hgss", 1, true) ~= nil
+  and pHgssShiny:find("shiny", 1, true) ~= nil,
+  "pokemmo style serves its own shiny file")
+
+-- A nil/unrecognized style defaults to followers, matching
+-- SpriteSource.DEFAULT_STYLE -- never a silent empty path.
+local pDefaultStyle = SpriteSource.normalPath(mod, 1, nil)
+eq(pDefaultStyle, p1, "no style argument behaves exactly like STYLE_FOLLOWERS")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
