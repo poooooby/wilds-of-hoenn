@@ -1,0 +1,5 @@
+dist/
+*.zip
+wilds_dev.flag
+.DS_Store
+Thumbs.db
