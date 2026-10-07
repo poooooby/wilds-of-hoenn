@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 (2026-10-07)
+
+### Fixes
+
+- HGSS / PokeMMO sprites now draw in a release ZIP. Their sheets ship only
+  inside the sprite atlas there, and the art lookup only looked for loose
+  files, so switching to the HGSS style (and the whole HGSS Only build, and
+  PMD builds' ~48 species without PMD art) drew nothing.
+
 ## 1.1.0 (2026-10-06)
 
 ### Features

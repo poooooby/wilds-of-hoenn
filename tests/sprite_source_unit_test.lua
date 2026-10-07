@@ -33,6 +33,40 @@ local p1 = SpriteSource.normalPath(mod, 1)
 check(p1 ~= nil and p1:find("true_size18/hgss", 1, true) ~= nil,
   "dex 1 normal resolves to the HGSS / PokeMMO sheet")
 
+-- ------- a release ZIP ships the sheets only as atlas shards (no loose files):
+-- they must still resolve, or the HGSS / PokeMMO style draws nothing at all
+do
+  local modules = {}
+  local V2 = { path = "." }
+  function V2.require(name)
+    if modules[name] ~= nil then return modules[name] end
+    local value = assert(loadfile("lib/" .. name .. ".lua"))(V2)
+    modules[name] = value
+    return value
+  end
+  local Atlas = V2.require("sprite_atlas")
+  local SS = V2.require("sprite_source")
+  local dir = "assets/wilds_generated/true_size18/hgss"
+  local swim = "assets/wilds_generated/true_size18/swimming"
+  local files = {
+    ["assets/atlas/index.json"] = '{"version":1,"families":{'
+      .. '"hgss18":{"index":"assets/atlas/hgss18.json","dirs":["' .. dir .. '"]},'
+      .. '"swimming18":{"index":"assets/atlas/swimming18.json","dirs":["' .. swim .. '"]}}}',
+    ["assets/atlas/hgss18.json"] = '{"shards":["hgss18_0.png"],"dirs":{"' .. dir
+      .. '":{"252-normal.png":{"shard":0,"x":0,"y":0,"w":24,"h":432}}}}',
+    ["assets/atlas/swimming18.json"] = '{"shards":["swimming18_0.png"],"dirs":{"' .. swim
+      .. '":{"121-normal.png":{"shard":0,"x":0,"y":0,"w":32,"h":576}}}}',
+  }
+  local zipMod = { read = function(_, rel) return files[rel] end } -- no loose sheet anywhere
+  check(SS.normalPath(zipMod, 252) == nil, "before the atlas is installed, a shard-only sheet does not resolve")
+  check(Atlas.install(zipMod), "the atlas installs from its index")
+  eq(SS.normalPath(zipMod, 252), dir .. "/252-normal.png", "an atlas-only land sheet resolves")
+  eq(SS.pathFor(zipMod, 252, false, "pokemmo", "land"), dir .. "/252-normal.png", "pathFor too")
+  eq(SS.normalPath(zipMod, 121, "pokemmo", "swimming"), swim .. "/121-normal.png", "an atlas-only swimming sheet resolves")
+  check(SS.normalPath(zipMod, 253) == nil, "a dex the atlas does not cover still resolves to nothing")
+  Atlas._reset()
+end
+
 -- Kanto's Poke Followers / GSC style and its Pokewilds extension are not part
 -- of this mod: nothing resolves into them and the style constant is gone.
 eq(SpriteSource.STYLE_FOLLOWERS, nil, "there is no Poke Followers / GSC style any more")

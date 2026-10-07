@@ -48,6 +48,11 @@
 
 local V = ...
 
+-- Which relative paths exist also depends on the sprite atlas: a release ZIP
+-- ships the HGSS sheets only as atlas shards, never as loose files.
+-- (V is nil in the standalone tests that load this file bare.)
+local SpriteAtlas = V and V.require("sprite_atlas") or nil
+
 local SpriteSource = {}
 
 local TRUE_SIZE18_REL = "assets/wilds_generated/true_size18"
@@ -70,6 +75,8 @@ SpriteSource.DEFAULT_PRESENTATION = SpriteSource.PRESENTATION_LAND
 SpriteSource.DEFAULT_WATER_PRESENTATION = SpriteSource.PRESENTATION_SWIMMING
 
 local function fileExists(mod, rel)
+  -- baked into the atlas (a release ZIP has no loose per-species sheets)
+  if SpriteAtlas and SpriteAtlas.installed() and SpriteAtlas.has(rel) then return true end
   if mod and mod.assets and type(mod.assets.exists) == "function" then
     local ok, exists = pcall(mod.assets.exists, mod, rel)
     if ok then return exists == true end
