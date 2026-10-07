@@ -2,6 +2,7 @@
 -- the engine (EnginePatch): no reimplemented terrain/encounter rules.
 local V = ...
 local EnginePatch = V.require("engine_patch")
+local Reachability = V.require("reachability")
 
 local EncounterSource = {}
 EncounterSource.__index = EncounterSource
@@ -22,6 +23,7 @@ end
 --- land/water area at all. Called on map.entered.
 function EncounterSource:loadMap(mapId)
   self.mapId = mapId
+  self.reachable = nil
   self.cells = { land = {}, water = {} }
   self.hasLand, self.hasWater = false, false
 
@@ -61,9 +63,22 @@ end
 function EncounterSource:eligibleCells(terrain)
   local list = self.cells[terrain]
   if not list then return {} end
+  local reachable = self.reachable
   local out = {}
-  for i = 1, #list do out[i] = { x = list[i].x, y = list[i].y } end
+  for i = 1, #list do
+    local c = list[i]
+    if not reachable or Reachability.has(reachable, c.x, c.y) then
+      out[#out + 1] = { x = c.x, y = c.y }
+    end
+  end
   return out
+end
+
+--- Restricts eligibleCells to a reachable set (lib/reachability.lua build()),
+--- or lifts the restriction with nil. Reachability is a view over the cells
+--- loadMap found, so it can be swapped without rescanning the map.
+function EncounterSource:setReachable(set)
+  self.reachable = set
 end
 
 function EncounterSource:isEligible()

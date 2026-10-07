@@ -11,10 +11,10 @@ sheets) into a few shard PNGs and writes an index mapping every original
 relative path to its rectangle. lib/sprite_atlas.lua serves those paths
 from the shards at runtime as a fallback, after the real per-file path --
 nothing that asks for e.g.
-`assets/wilds_generated/true_size/hgss/025-normal.png` has to change.
+`assets/wilds_generated/true_size18/hgss/025-normal.png` has to change.
 
-    python3 tools/generate_sprite_atlases.py                     # both families
-    python3 tools/generate_sprite_atlases.py --families hgss     # just one
+    python3 tools/generate_sprite_atlases.py                     # every family
+    python3 tools/generate_sprite_atlases.py --families hgss18   # just one
 
 Output (default `assets/atlas/`, gitignored, rebuilt by scripts/build-mod.py):
     index.json               { version, families: { <name>: { index, dirs: [...] } } }
@@ -52,9 +52,16 @@ GEN = "assets/wilds_generated"
 
 # family -> list of directory globs (repo-relative). Only top-level PNGs
 # of each directory are packed.
+#
 FAMILIES: dict[str, list[str]] = {
-    "poke_followers": ["assets/enhanced_overworld/poke_followers", "assets/enhanced_overworld/Pokewilds"],
-    "hgss": [f"{GEN}/true_size/hgss"],
+    "hgss18": [f"{GEN}/true_size18/hgss"],
+    "swimming18": [f"{GEN}/true_size18/swimming"],
+    "levitates18": [f"{GEN}/true_size18/levitates"],
+    # PMDCollab Walk/Idle sheets (tools/generate_pmd_sprites.py); optional --
+    # a checkout without SpriteCollab has neither directory and bakes nothing.
+    "pmd_walk": ["assets/pmd/walk"],
+    "pmd_idle": ["assets/pmd/idle"],
+    "pmd_portraits": ["assets/pmd/portraits"],
 }
 INDEX_VERSION = 1
 MAX_SHARD_H = 32768  # tallest shard (also the GPU texture limit that is safe everywhere)

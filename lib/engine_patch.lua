@@ -49,6 +49,19 @@ EnginePatch.TARGETS = {
   -- so we don't need a second hook into the tick loop.
   followerUpdate = { mod = "src.world.game3.Follower", field = "update" },
 
+  -- src/ui/game3/message.lua:414 Message.draw() paints the dialogue frame +
+  -- text into the 240x160 canvas (ui_pass.lua:132, only while a message is
+  -- open); the game has no portrait slot, so lib/portrait_ui.lua draws its
+  -- picture right after this returns, in the same canvas pixels.
+  messageDraw = { mod = "src.ui.game3.message", field = "draw" },
+
+  -- field.lua:865 Field.interact(game) is the A-button handler (talk to an
+  -- NPC / read a sign ...). It never looks at the follower, which is not an
+  -- Objects entity, so the follower interaction menu (lib/follower_
+  -- interaction.lua) runs BEFORE it: when the follower stands in the cell the
+  -- player is facing the hook takes the press, otherwise the original runs.
+  interact = { mod = "src.core.game3.field", field = "interact" },
+
   -- battle_bridge.lua:740 BattleBridge.startWild(mod, game, encounter, opts)
   -- keeps personality/ivs/roamer, unlike mod.world:startWildBattle which
   -- only takes species+level. We call it directly so the battle is the
@@ -76,6 +89,65 @@ EnginePatch.READONLY = {
   isCaught = { mod = "src.core.game3.dex", field = "isCaught" },
   layout = { mod = "src.core.GameVersion", field = "layout" },
   gameVersionGet = { mod = "src.core.GameVersion", field = "get" },
+
+  -- message.lua:261 Message.isOpen() -- is a dialogue box up right now.
+  isMessageOpen = { mod = "src.ui.game3.message", field = "isOpen" },
+  -- message.lua:151 Message.show(text, opts) -- opts.done / opts.stay.
+  showMessage = { mod = "src.ui.game3.message", field = "show" },
+  -- chrome.lua:135 Chrome.dialogueWindow() -> left, top, width, height in
+  -- 8px tiles: where the dialogue text window sits, so a portrait can be
+  -- placed above it whatever frame style the game uses.
+  dialogueWindow = { mod = "src.ui.game3.chrome", field = "dialogueWindow" },
+
+  -- Reachability flood fill (lib/reachability.lua): the engine's own movement
+  -- rules, called per step exactly as player.lua's beginStep does.
+  -- collision.lua:~990 Collision.ledgeLanding(game, x, y, dir) -> landing cell
+  -- of a ledge hop; :955 nextElevation(mapDef, cur, curX, curY, prevX, prevY);
+  -- :914 isWalkable(x, y).
+  ledgeLanding = { mod = "src.core.game3.collision", field = "ledgeLanding" },
+  nextElevation = { mod = "src.core.game3.collision", field = "nextElevation" },
+  isWalkable = { mod = "src.core.game3.collision", field = "isWalkable" },
+  -- objects.lua:965 Objects.at(tx, ty) -> the visible event object on a cell
+  -- (to tell a Cut tree / smashable rock / boulder from a plain NPC).
+  objectAt = { mod = "src.core.game3.objects", field = "at" },
+  -- field_moves.lua:313 partyMoveUser(party, move) / :333 hasBadge(ctx, key)
+  -- -- can the player use Surf / Cut / Rock Smash / Strength right now.
+  partyMoveUser = { mod = "src.core.game3.field_moves", field = "partyMoveUser" },
+  hasBadge = { mod = "src.core.game3.field_moves", field = "hasBadge" },
+
+  -- choice.lua:62 Choice.multi(options, defaultIdx, cb, layout) -- the
+  -- engine's own menu; cb(index0) on A, cb(127) on B.
+  choiceMulti = { mod = "src.ui.game3.choice", field = "multi" },
+  -- message.lua:265 Message.isWaiting() / :345 Message.closeStay() -- is the
+  -- current page fully typed, and close a "stay" message.
+  messageIsWaiting = { mod = "src.ui.game3.message", field = "isWaiting" },
+  closeStayMessage = { mod = "src.ui.game3.message", field = "closeStay" },
+  -- hud.lua:51 Hud.busy() -- a message, menu, fade, battle ... owns the screen.
+  hudBusy = { mod = "src.ui.game3.hud", field = "busy" },
+  -- Follower.lua:27 Follower.at(_, x, y) -> the follower npc standing still
+  -- on that cell, or nil.
+  followerAt = { mod = "src.world.game3.Follower", field = "at" },
+  -- pokemon.lua: friendship accessors / the engine's own AdjustFriendship.
+  adjustFriendship = { mod = "src.core.game3.pokemon", field = "adjustFriendship" },
+  setFriendship = { mod = "src.core.game3.pokemon", field = "setFriendship" },
+  friendshipOf = { mod = "src.core.game3.pokemon", field = "friendshipOf" },
+  displayName = { mod = "src.core.game3.pokemon", field = "displayName" },
+
+  -- field_effects.lua:379 FieldEffects.loadSheet(name, fw, fh, frames) --
+  -- the same cache-backed sprite-sheet loader the engine uses for its own
+  -- field effects (grass, splashes, etc.), publicly exposed. We use it to
+  -- draw the "grass overlapping feet" static tuft for our own wild
+  -- Pokemon and the follower, the same art the engine already uses for
+  -- the player and registered NPCs (see lib/grass_cover.lua) -- not a
+  -- reimplementation of the sprite data, just a second caller of the same
+  -- loader/cache.
+  loadFieldEffectSheet = { mod = "src.core.game3.field_effects", field = "loadSheet" },
+
+  -- player.lua:62 -- a live boolean DATA FIELD, not a function (toggled at
+  -- multiple call sites in that file as the player starts/stops running).
+  -- The one exception to "every probed entry is a callable" -- see
+  -- EnginePatch.probe()'s `kind` handling right below.
+  playerRunning = { mod = "src.core.game3.player", field = "running", kind = "data" },
 }
 
 local function loadModule(path)
@@ -108,6 +180,13 @@ function EnginePatch.probe()
       local mod, err = loadModule(spec.mod)
       if not mod then
         missing[#missing + 1] = name .. " (" .. spec.mod .. " did not load: " .. tostring(err) .. ")"
+      elseif spec.kind == "data" then
+        -- The one exception to "every probed entry is a callable" (see
+        -- TARGETS/READONLY comments on the entries that opt into this) --
+        -- a data field just needs to exist, not be a function.
+        if mod[spec.field] == nil then
+          missing[#missing + 1] = name .. " (" .. spec.mod .. "." .. spec.field .. " is nil, expected a data field)"
+        end
       elseif type(mod[spec.field]) ~= "function" then
         missing[#missing + 1] = name .. " (" .. spec.mod .. "." .. spec.field .. " is "
           .. type(mod[spec.field]) .. ", expected function)"
@@ -133,6 +212,8 @@ end
 ---   hooks.collectActors(actors)       -- append our wild-mon actors
 ---   hooks.blocks(tx, ty, exceptId, elevation) -> true/false
 ---   hooks.followerTick(game)          -- run after the real Follower.update
+---   hooks.messageDraw()               -- run after Message.draw (portraits)
+---   hooks.interact(game) -> true       -- run BEFORE Field.interact; true = handled
 --- install() does nothing destructive until probe() has already passed;
 --- main.lua is expected to call probe() first and only call install() when
 --- it returns true.
@@ -174,6 +255,24 @@ function EnginePatch.install(hooks, log)
     end
   end
 
+  local Message = loadModule(EnginePatch.TARGETS.messageDraw.mod)
+  originals.messageDraw = Message.draw
+  Message.draw = function(...)
+    local a, b, c = originals.messageDraw(...)
+    if hooks.messageDraw then safeCall(log, "messageDraw", hooks.messageDraw) end
+    return a, b, c
+  end
+
+  local Field = loadModule(EnginePatch.TARGETS.interact.mod)
+  originals.interact = Field.interact
+  Field.interact = function(game, ...)
+    if hooks.interact then
+      local handled = safeCall(log, "interact", hooks.interact, game)
+      if handled then return true end
+    end
+    return originals.interact(game, ...)
+  end
+
   EnginePatch._originals = originals
   EnginePatch._installed = true
   return true
@@ -200,8 +299,297 @@ function EnginePatch.uninstall()
     Follower.update = originals.followerUpdate
   end
 
+  local Message = loadModule(EnginePatch.TARGETS.messageDraw.mod)
+  if Message and originals.messageDraw then
+    Message.draw = originals.messageDraw
+  end
+
+  local Field = loadModule(EnginePatch.TARGETS.interact.mod)
+  if Field and originals.interact then
+    Field.interact = originals.interact
+  end
+
   EnginePatch._originals = {}
   EnginePatch._installed = false
+end
+
+--- Message.isOpen(): true while any dialogue box is up. Never throws.
+function EnginePatch.isMessageOpen()
+  local Message = loadModule(EnginePatch.TARGETS.messageDraw.mod)
+  if not Message then return false end
+  local ok, open = pcall(Message.isOpen)
+  return ok and open == true
+end
+
+--- Message.show(text, opts): the engine's own dialogue box (typewriter text,
+--- A/B handling and input capture come with it). Returns true on success.
+function EnginePatch.showMessage(text, opts)
+  local Message = loadModule(EnginePatch.TARGETS.messageDraw.mod)
+  if not Message then return false end
+  return (pcall(Message.show, text, opts))
+end
+
+--- Chrome.dialogueWindow() as { left, top, width, height } in 8px tiles, or
+--- nil when unavailable.
+function EnginePatch.dialogueWindow()
+  local Chrome = loadModule(EnginePatch.READONLY.dialogueWindow.mod)
+  if not Chrome then return nil end
+  local ok, left, top, width, height = pcall(Chrome.dialogueWindow)
+  if not ok or type(left) ~= "number" or type(top) ~= "number" then return nil end
+  return { left = left, top = top, width = width, height = height }
+end
+
+--- Collision.canEnter through the same "this is only a probe" flag
+--- EnginePatch.canEnter sets, but keeping its REASON ("bounds" | "tile" |
+--- "elevation" | "entity" | "water"). The flag matters: our own `blocks`
+--- hook must not mistake a probe for the player bumping into a wild Pokemon.
+function EnginePatch.canEnterWhy(game, tx, ty, opts)
+  local Collision = EnginePatch.collision()
+  if not Collision then return false, "unavailable" end
+  EnginePatch._probingCanEnter = true
+  local ok, enter, why = pcall(Collision.canEnter, game, tx, ty, opts)
+  EnginePatch._probingCanEnter = false
+  if not ok then return false, "error" end
+  return enter == true, why
+end
+
+--- Can the player use this field move (a badge key: "SURF", "CUT",
+--- "ROCK_SMASH", "STRENGTH") right now: badge owned AND a party Pokemon that
+--- knows the move. Fails OPEN -- anything unreadable counts as usable -- so a
+--- changed engine can only make reachability more generous, never hide
+--- every waterway.
+function EnginePatch.hmUsable(key)
+  local FieldMoves = loadModule(EnginePatch.READONLY.partyMoveUser.mod)
+  if not FieldMoves then return true end
+  local Space = package.loaded["src.core.game3.scripting.space"]
+  if not (Space and Space.store) then return true end
+  local okB, badge = pcall(FieldMoves.hasBadge, { store = Space.store }, key)
+  if not okB then return true end
+  if not badge then return false end
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  if not (okS and type(session) == "table" and type(session.party) == "table") then return true end
+  local okM, mon = pcall(FieldMoves.partyMoveUser, session.party, key)
+  if not okM then return true end
+  return mon ~= nil
+end
+
+--- Where a reachability flood fill starts: the player's cell and the state
+--- they are in ({ surfing, elev }), or nil without a loaded field.
+function EnginePatch.reachStart()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if not Player or type(Player.cellX) ~= "number" or type(Player.cellY) ~= "number" then
+    return nil
+  end
+  return {
+    x = Player.cellX, y = Player.cellY,
+    state = { surfing = Player.surfing == true or Player.underwater == true,
+              elev = Player.currentElevation },
+  }
+end
+
+local REACH_DELTA = { up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 } }
+-- event-object graphics that are obstacles until the matching field move can
+-- be used (field_moves.lua GFX_IDS name -> badge key)
+local OBSTACLE_MOVE = { CUT_TREE = "CUT", ROCK_SMASH_ROCK = "ROCK_SMASH", PUSHABLE_BOULDER = "STRENGTH" }
+
+--- The `move` function for lib/reachability.lua: where does one step from
+--- (x, y) in `state` ({ surfing, elev }) take the player, per the engine's
+--- own rules. Walking uses Collision.canEnter with the player's elevation,
+--- a ledge becomes the hop to its landing cell (one-way), water is entered
+--- as surfing when Surf is usable, and an object in the way (NPC, item ball)
+--- does not count as a wall -- except a Cut tree / smashable rock / boulder
+--- whose move the player cannot use yet. Returns nil when the engine's
+--- collision module is unavailable.
+function EnginePatch.reachMover(game)
+  local Collision = EnginePatch.collision()
+  if not Collision then return nil end
+  local surfUsable = EnginePatch.hmUsable("SURF")
+  local obstacleGfx = {}
+  local FieldMoves = loadModule(EnginePatch.READONLY.partyMoveUser.mod)
+  if FieldMoves and FieldMoves.GFX_IDS then
+    for name, move in pairs(OBSTACLE_MOVE) do
+      local okG, id = pcall(function() return FieldMoves.GFX_IDS[name] end)
+      if okG and id and not EnginePatch.hmUsable(move) then obstacleGfx[id] = true end
+    end
+  end
+  local Objects = loadModule(EnginePatch.READONLY.objectAt.mod)
+
+  local function obstacleAt(tx, ty)
+    if not (Objects and Objects.at) then return false end
+    local okO, obj = pcall(Objects.at, tx, ty)
+    if not (okO and type(obj) == "table") then return false end
+    local def = type(obj.def) == "table" and obj.def or {}
+    local gfx = obj.graphicsId or obj.gfx or def.graphicsId or def.gfx
+    return gfx ~= nil and obstacleGfx[gfx] == true
+  end
+
+  local function terrainOpen(tx, ty, surfing)
+    local okW, water = pcall(Collision.isWater, tx, ty)
+    local okK, walkable = pcall(Collision.isWalkable, tx, ty)
+    if not (okW and okK) then return false end
+    if surfing then return water or walkable end
+    return (not water) and walkable
+  end
+
+  local function nextElevation(state, tx, ty, fromX, fromY)
+    local cur = state and state.elev
+    if Collision.nextElevation then
+      local okE, elev = pcall(Collision.nextElevation, Collision._mapDef, cur or 0, tx, ty, fromX, fromY)
+      if okE and elev ~= nil then return elev end
+    end
+    return cur
+  end
+
+  return function(x, y, dir, state)
+    local delta = REACH_DELTA[dir]
+    if not delta then return nil end
+    local surfing = state and state.surfing == true
+    local elev = state and state.elev
+
+    if not surfing and Collision.ledgeLanding then
+      local okL, lx, ly = pcall(Collision.ledgeLanding, game, x, y, dir)
+      if okL and lx then
+        return lx, ly, { surfing = false, elev = nextElevation(state, lx, ly, x, y) }
+      end
+    end
+
+    local tx, ty = x + delta[1], y + delta[2]
+    local opts = { fromX = x, fromY = y, dir = dir, surfing = surfing, elevation = elev }
+    local ok, why = EnginePatch.canEnterWhy(game, tx, ty, opts)
+    if not ok and why == "water" and not surfing and surfUsable then
+      opts.surfing = true -- the shore: hop on and surf
+      ok, why = EnginePatch.canEnterWhy(game, tx, ty, opts)
+    end
+    if not ok and why == "entity" and not obstacleAt(tx, ty) and terrainOpen(tx, ty, opts.surfing) then
+      ok = true
+    end
+    if not ok then return nil end
+
+    local okW, water = pcall(Collision.isWater, tx, ty)
+    return tx, ty, { surfing = okW and water == true, elev = nextElevation(state, tx, ty, x, y) }
+  end
+end
+
+--- Whether nothing else owns the player right now, mirroring the checks at
+--- the top of Field.interact (field running and unlocked, no script, message,
+--- menu, fade or battle up, the player standing still). Any engine piece that
+--- is missing counts as "not blocking", except a field that is not running.
+function EnginePatch.canStartInteraction()
+  local Field = loadModule(EnginePatch.TARGETS.interact.mod)
+  if not Field or not Field.running or Field.locked then return false end
+  local Hud = loadModule(EnginePatch.READONLY.hudBusy.mod)
+  if Hud then
+    local ok, busy = pcall(Hud.busy)
+    if not ok or busy then return false end
+  end
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  if Runtime and Runtime.uiBusy then
+    local ok, busy = pcall(Runtime.uiBusy)
+    if not ok or busy then return false end
+  end
+  local Space = package.loaded["src.core.game3.scripting.space"]
+  if Space and Space.vm and Space.vm.isRunning then
+    local ok, running = pcall(Space.vm.isRunning, Space.vm)
+    if not ok or running then return false end
+  end
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if not Player or Player.moving or Player.boulderPush then return false end
+  return true
+end
+
+local FACING_DELTA = { up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 } }
+
+--- The follower npc when it stands still on the cell the player is facing,
+--- else nil.
+function EnginePatch.followerInFacingCell()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  local Follower = loadModule(EnginePatch.READONLY.followerAt.mod)
+  if not (Player and Follower and Follower.at) then return nil end
+  local d = FACING_DELTA[Player.facing]
+  if not d or type(Player.cellX) ~= "number" or type(Player.cellY) ~= "number" then return nil end
+  local ok, npc = pcall(Follower.at, nil, Player.cellX + d[1], Player.cellY + d[2])
+  if ok and type(npc) == "table" and not npc.hidden then return npc end
+  return nil
+end
+
+--- Choice.multi(options, defaultIdx, cb, layout). Returns true on success.
+function EnginePatch.showChoice(options, defaultIdx, cb, layout)
+  local Choice = loadModule(EnginePatch.READONLY.choiceMulti.mod)
+  if not Choice then return false end
+  return (pcall(Choice.multi, options, defaultIdx, cb, layout))
+end
+
+--- Is the engine's choice menu up (Choice.active is a live data field).
+function EnginePatch.choiceActive()
+  local Choice = loadModule(EnginePatch.READONLY.choiceMulti.mod)
+  return Choice ~= nil and Choice.active == true
+end
+
+--- True once the open message has typed out its LAST page and is waiting for
+--- the player (a menu can open under it now). The page fields are private to
+--- message.lua; when they cannot be read, a waiting message counts as done.
+function EnginePatch.messageOnLastPage()
+  local Message = loadModule(EnginePatch.TARGETS.messageDraw.mod)
+  if not Message then return false end
+  local ok, waiting = pcall(Message.isWaiting)
+  if not (ok and waiting) then return false end
+  local pages, page = Message._pages, Message._page
+  if type(pages) == "table" and type(page) == "number" then return page >= #pages end
+  return true
+end
+
+--- Closes a "stay" message (one opened with opts.stay), if one is up.
+function EnginePatch.closeStayMessage()
+  local Message = loadModule(EnginePatch.TARGETS.messageDraw.mod)
+  if not Message then return false end
+  local ok, closed = pcall(Message.closeStay)
+  return ok and closed == true
+end
+
+local function pokemonFn(name)
+  local Pokemon = EnginePatch.pokemon()
+  return Pokemon and Pokemon[name], Pokemon
+end
+
+--- The mon's display name (nickname, else species name). Never nil.
+function EnginePatch.displayName(mon)
+  local fn = pokemonFn("displayName")
+  if fn then
+    local ok, name = pcall(fn, mon)
+    if ok and type(name) == "string" and name ~= "" then return name end
+  end
+  return "POKeMON"
+end
+
+function EnginePatch.friendshipOf(mon)
+  local fn = pokemonFn("friendshipOf")
+  if fn then
+    local ok, v = pcall(fn, mon)
+    if ok and tonumber(v) then return tonumber(v) end
+  end
+  return tonumber(mon and (mon.friendship or mon.happiness)) or 0
+end
+
+--- Sets the mon's friendship (clamped to 0..255 by the engine). Returns the
+--- new value.
+function EnginePatch.setFriendship(mon, value)
+  local fn = pokemonFn("setFriendship")
+  if not fn then return EnginePatch.friendshipOf(mon) end
+  local ok, v = pcall(fn, mon, value)
+  return ok and tonumber(v) or EnginePatch.friendshipOf(mon)
+end
+
+--- The engine's own massage friendship event (the tier-aware gain a Pet
+--- gives: Soothe Bell, Luxury Ball and same-location bonuses apply). Returns
+--- the points gained (0 when nothing changed).
+function EnginePatch.petFriendship(mon)
+  local fn, Pokemon = pokemonFn("adjustFriendship")
+  if not fn then return 0 end
+  local before = EnginePatch.friendshipOf(mon)
+  local event = (Pokemon and Pokemon.FRIENDSHIP_EVENT_MASSAGE) or 6
+  pcall(fn, mon, event, {})
+  return EnginePatch.friendshipOf(mon) - before
 end
 
 --- BattleBridge.startWild is called directly, not wrapped -- we never need
@@ -320,14 +708,50 @@ function EnginePatch.isGrass(cx, cy)
   return ok and g == true
 end
 
+--- field_effects.lua:379 FieldEffects.loadSheet("tall_grass", 16, 16, 5) --
+--- the static feet-tuft sheet (frame 4 of 5 is the non-animated "sitting
+--- in grass" pose; frames 0-3 are the player-only rustle sequence, see
+--- lib/grass_cover.lua). Memoized by the engine itself, so calling this
+--- every frame is cheap. Returns nil before the field-effects cache is
+--- installed (no map loaded yet) or if the ROM extract is missing it.
+function EnginePatch.grassSheet()
+  local FieldEffects = loadModule(EnginePatch.READONLY.loadFieldEffectSheet.mod)
+  if not FieldEffects then return nil end
+  local ok, sheet = pcall(FieldEffects.loadSheet, "tall_grass", 16, 16, 5)
+  if ok then return sheet end
+  return nil
+end
+
 --- collision.lua:1035 canEnter(game, tx, ty, opts). Read-only here: our
 --- wild Pokemon use this to decide their OWN steps, the same rules the
---- player follows (ledges, elevation, water/land dismount). The `blocks`
---- wrap above is the only place this mod affects the player's canEnter.
+--- player follows (ledges, elevation, water/land dismount).
+---
+--- collision.lua's canEnter ALWAYS resolves occupancy through its own
+--- internal entityBlocks(), which ALWAYS calls Objects.blocks(tx, ty, nil,
+--- elevation) -- passing nil for exceptLocalId no matter who the caller
+--- is (confirmed directly in the engine source; there is no "the player's
+--- own movement passes nil, everyone else passes their id" distinction
+--- for THIS path, only for direct callers of Objects.blocks itself). The
+--- `blocks` wrap (main.lua) uses `exceptLocalId == nil` as its "this is a
+--- real player bump" signal -- so without this flag, a ROAMING wild
+--- Pokemon merely CONSIDERING a step onto the player's own tile (a normal
+--- part of Behavior.tick, requiring no player movement at all) would
+--- trigger a battle through the exact same nil-exceptLocalId path a real
+--- bump does. `EnginePatch.isProbingCanEnter()` lets that wrap tell the
+--- two apart and skip the battle side effect for our own internal probe,
+--- while still answering "occupied" correctly so the wild Pokemon
+--- doesn't actually path onto the player.
+EnginePatch._probingCanEnter = false
+function EnginePatch.isProbingCanEnter()
+  return EnginePatch._probingCanEnter == true
+end
+
 function EnginePatch.canEnter(game, tx, ty, opts)
   local Collision = EnginePatch.collision()
   if not Collision then return false end
+  EnginePatch._probingCanEnter = true
   local ok, enter = pcall(Collision.canEnter, game, tx, ty, opts)
+  EnginePatch._probingCanEnter = false
   return ok and enter == true
 end
 
@@ -394,7 +818,7 @@ end
 --- Encounters._h.wild_level_allowed_by_repel does over session.party --
 --- read-only data access, not a function call, so it is covered by the
 --- `getSession` probe above rather than its own entry.
-function EnginePatch.leadPartySpecies()
+function EnginePatch.leadPartyMon()
   local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
   local ok, session = pcall(Runtime and Runtime.getSession)
   if not (ok and type(session) == "table" and type(session.party) == "table") then
@@ -404,10 +828,15 @@ function EnginePatch.leadPartySpecies()
     local mon = session.party[i]
     if type(mon) == "table" and (tonumber(mon.hp) or tonumber(mon.currentHp) or 1) > 0
         and not mon.isEgg and not mon.egg then
-      return tonumber(mon.species)
+      return mon
     end
   end
   return nil
+end
+
+function EnginePatch.leadPartySpecies()
+  local mon = EnginePatch.leadPartyMon()
+  return mon and tonumber(mon.species) or nil
 end
 
 --- src/world/game3/Follower.lua's current npc record (nil when no
@@ -420,6 +849,52 @@ function EnginePatch.followerCurrent()
   local ok, npc = pcall(Follower.current)
   if ok then return npc end
   return nil
+end
+
+--- The player's surf state: { surfing, dismounting } -- `surfing` is true from
+--- the hop onto the water until the dismount onto land begins (player.lua
+--- Player.surfHopping / surfing / dismounting). Both false without a player.
+function EnginePatch.playerSurfState()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if not Player then return { surfing = false, dismounting = false } end
+  return {
+    surfing = Player.surfing == true or Player.surfHopping == true,
+    dismounting = Player.dismounting == true,
+  }
+end
+
+--- The player's world pixel position (tile top-left, interpolated mid-step),
+--- or nil without a player.
+function EnginePatch.playerPixel()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if not Player or type(Player.px) ~= "number" or type(Player.py) ~= "number" then return nil end
+  return Player.px, Player.py
+end
+
+--- player.lua:62 Player.running -- true while the player is actively
+--- running (held Run button / Running Shoes engaged). Read directly, not
+--- wrapped -- see the `playerRunning` READONLY entry's `kind = "data"`.
+--- Used by lib/follower_adapter.lua to pick walk vs run frames for the
+--- follower (wild Pokemon never run).
+function EnginePatch.playerIsRunning()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if not Player then return false end
+  return Player.running == true
+end
+
+--- The player's cell as { x, y, moving, targetX, targetY }, or nil when the
+--- Player module is unavailable. player.lua only updates cellX/cellY when a
+--- step FINISHES (finishStep), so `x, y` is where the player is standing
+--- right now; while `moving` the cell being stepped into is target*.
+function EnginePatch.playerCell()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if not Player or type(Player.cellX) ~= "number" or type(Player.cellY) ~= "number" then
+    return nil
+  end
+  return {
+    x = Player.cellX, y = Player.cellY, moving = Player.moving == true,
+    targetX = Player.targetX, targetY = Player.targetY,
+  }
 end
 
 --- Whether the player's Pokedex has `speciesId` (engine-internal id) seen

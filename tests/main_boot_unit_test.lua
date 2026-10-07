@@ -59,9 +59,18 @@ end
 
 local function completeFakeEngine(layout)
   local fake = {}
-  fake["src.core.game3.field_effects"] = { collectActors = function() end }
-  fake["src.core.game3.objects"] = { blocks = function() return false end }
-  fake["src.world.game3.Follower"] = { update = function() end, current = function() return nil end }
+  fake["src.core.game3.field_effects"] = {
+    collectActors = function() end,
+    loadSheet = function() return { image = "fake_image", quadsFront = { [4] = "fake_quad" } } end,
+  }
+  fake["src.core.game3.objects"] = { blocks = function() return false end, at = function() return nil end }
+  fake["src.core.game3.field_moves"] = {
+    partyMoveUser = function() return {} end, hasBadge = function() return true end, GFX_IDS = {},
+  }
+  fake["src.world.game3.Follower"] = { update = function() end, current = function() return nil end, at = function() return nil end }
+  fake["src.core.game3.field"] = { running = true, locked = false, interact = function() return false end }
+  fake["src.ui.game3.hud"] = { busy = function() return false end }
+  fake["src.ui.game3.choice"] = { active = false, multi = function() end }
   fake["src.core.game3.battle_bridge"] = { startWild = function() return true end }
   fake["src.core.game3.encounters"] = {
     rollSweetScent = function() return nil end,
@@ -74,16 +83,23 @@ local function completeFakeEngine(layout)
   fake["src.core.game3.collision"] = {
     isWater = function() return false end, isGrass = function() return false end,
     canEnter = function() return true end, inBounds = function() return true end,
+    ledgeLanding = function() return nil end, nextElevation = function() return 3 end,
+    isWalkable = function() return true end,
     _widthCells = 1, _heightCells = 1,
   }
   fake["src.core.game3.pokemon"] = {
+    displayName = function() return "TREECKO" end, friendshipOf = function() return 70 end,
+    setFriendship = function(_, v) return v end, adjustFriendship = function() return true end,
     national = function(id) return id end, speciesFromNational = function(n) return n end,
     speciesMeta = function() return {} end, isShiny = function() return false end,
     gender = function() return 0 end,
   }
   fake["src.core.game3.runtime"] = { getSession = function() return { party = {} } end }
   fake["src.core.game3.dex"] = { isCaught = function() return false end }
+  fake["src.ui.game3.message"] = { draw = function() end, isOpen = function() return false end, show = function() return true end, isWaiting = function() return false end, closeStay = function() return false end }
+  fake["src.ui.game3.chrome"] = { dialogueWindow = function() return 2, 15, 26, 4 end }
   fake["src.core.GameVersion"] = { layout = function() return layout end, get = function() return layout end }
+  fake["src.core.game3.player"] = { running = false }
   return fake
 end
 
@@ -129,6 +145,10 @@ withFakeEngine(completeFakeEngine("rse"), function()
   check(sawFollowerSpawn, "RSE boot: world.follower.spawn hook registered")
   check(mod._events["map.entered"] ~= nil, "RSE boot: map.entered subscribed")
   check(mod._events["map.exited"] ~= nil, "RSE boot: map.exited subscribed")
+  check(mod._events["world.stepped"] ~= nil, "RSE boot: world.stepped subscribed (finished steps are the battle contact signal)")
+  local okStep, errStep = pcall(mod._events["world.stepped"][1], { x = 4, y = 4 })
+  check(okStep, "world.stepped handler does not throw (" .. tostring(errStep) .. ")")
+  check(pcall(mod._events["world.stepped"][1], nil), "world.stepped handler tolerates a missing payload")
 
   -- map.entered doesn't throw and reaches the spawn manager
   local okEnter, errEnter = pcall(mod._events["map.entered"][1], { mapId = "ROUTE_1" })

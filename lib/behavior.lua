@@ -20,19 +20,26 @@ function Behavior.pick(rng)
 end
 
 local function canStep(entity, game, tx, ty)
+  -- Checked BEFORE canEnter, not after: a roaming wild Pokemon must stay
+  -- on its OWN encounter terrain -- not just "not water" (that alone lets
+  -- a land spawn wander onto any walkable non-water tile: paths, doodads,
+  -- the player's own tile, anywhere). terrainAt is the same ROM-derived
+  -- classification the eligible-cell scan and the engine's own vanilla
+  -- step roll both use (encounters.lua:170), so a Pokemon can never roam
+  -- somewhere it couldn't have spawned -- and doing this cheap, read-only
+  -- check FIRST means a terrain-invalid direction never reaches the
+  -- engine's canEnter/entityBlocks at all. canEnter is where the real
+  -- engine's Objects.blocks(tx, ty, nil, elevation) reentrancy lives (see
+  -- lib/engine_patch.lua's isProbingCanEnter) -- that's already guarded
+  -- against misfiring a battle regardless of order, but there is no
+  -- reason to even make the engine call for a direction this Pokemon
+  -- could never actually take.
+  if EnginePatch.terrainAt(tx, ty) ~= entity.terrain then return false end
   local onWater = entity.terrain == "water"
-  local allowed = EnginePatch.canEnter(game, tx, ty, {
+  return EnginePatch.canEnter(game, tx, ty, {
     fromX = entity.cellX, fromY = entity.cellY, dir = entity.facing,
     surfing = onWater, elevation = entity.elevation,
   })
-  if not allowed then return false end
-  -- A roaming wild Pokemon must stay on its OWN encounter terrain -- not
-  -- just "not water" (that alone lets a land spawn wander onto any
-  -- walkable non-water tile: paths, doodads, anywhere). terrainAt is the
-  -- same ROM-derived classification the eligible-cell scan and the
-  -- engine's own vanilla step roll both use (encounters.lua:170), so a
-  -- Pokemon can never roam somewhere it couldn't have spawned.
-  return EnginePatch.terrainAt(tx, ty) == entity.terrain
 end
 Behavior._canStep = canStep
 
@@ -80,6 +87,11 @@ function Behavior.tick(entity, game, rng)
   entity.progress = 0
   entity.stepFrames = STEP_FRAMES
   entity.moving = true
+  -- Alternates walkA/walkB once per step (not per tick) -- see
+  -- lib/spawn_manager.lua's collectActors, which reads this to pick the
+  -- pose; the engine's own stepFlip draw() parameter is hardcoded false
+  -- for non-player actors, so this is the only source of A/B alternation.
+  entity.stepParity = not entity.stepParity
 end
 
 return Behavior

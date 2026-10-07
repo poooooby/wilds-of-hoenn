@@ -92,6 +92,61 @@ check(not bt:isPending(), "a failed start never leaves pending set")
 eq(sm.entities[1].state, Config.STATE.AVAILABLE, "a failed start reverts the entity to available")
 check(sm.entities[1] ~= nil, "a failed start never despawns the entity")
 
+-- ------- onPlayerStepped: the engine's world.stepped event. Holding a
+-- direction starts the next step in the same update that finished the last, so
+-- the player is never "standing" on a tile they walk through -- arriving is
+-- what counts.
+do
+  local started2 = 0
+  fakeEngine.startWild = function() started2 = started2 + 1 return true end
+  local sm2 = fakeSpawnManager()
+  sm2.entityAt = function(self, x, y)
+    local e = self.entities[1]
+    if e and x == 5 and y == 7 then return e end
+  end
+  local bt2 = BattleTrigger.new({}, sm2, { warn = function() end })
+  bt2:onPlayerStepped(5, 6)
+  eq(started2, 0, "a step that finishes NEXT to the mon starts no battle")
+  bt2:onPlayerStepped(nil, nil)
+  bt2:onPlayerStepped("x", 7)
+  eq(started2, 0, "garbage coordinates are ignored")
+  bt2:onPlayerStepped(5, 7)
+  eq(started2, 1, "a step that finishes ON the mon's tile starts the battle (even while walking on)")
+  bt2:onPlayerStepped(5, 7)
+  eq(started2, 1, "no second battle while one is pending")
+  eq(sm2.entities[1].state, Config.STATE.ENCOUNTER_STARTING, "the entity is marked as starting")
+end
+
+-- ------- checkContact: only while the player STANDS on the mon's tile
+local started = 0
+fakeEngine.startWild = function() started = started + 1 return true end
+sm = fakeSpawnManager()
+sm.entityAt = function(self, x, y)
+  local e = self.entities[1]
+  if e and x == 5 and y == 7 then return e end
+end
+bt = BattleTrigger.new({}, sm, { warn = function() end })
+local pc
+fakeEngine.playerCell = function() return pc end
+
+pc = nil
+bt:checkContact()
+eq(started, 0, "no player module -> no battle")
+pc = { x = 5, y = 6, moving = false }
+bt:checkContact()
+eq(started, 0, "standing ADJACENT to the mon starts no battle")
+pc = { x = 4, y = 7, moving = false }
+bt:checkContact()
+eq(started, 0, "standing beside the mon starts no battle")
+pc = { x = 5, y = 7, moving = true, targetX = 5, targetY = 7 }
+bt:checkContact()
+eq(started, 0, "a step still in progress onto the tile starts no battle")
+pc = { x = 5, y = 7, moving = false }
+bt:checkContact()
+eq(started, 1, "standing ON the mon's tile starts the battle")
+bt:checkContact()
+eq(started, 1, "no second battle while one is pending")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

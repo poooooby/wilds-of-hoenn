@@ -24,6 +24,10 @@ rest on each of the three games before calling v1 verified.
       Re-check this specifically; also confirm a battle never starts
       while standing outside the encounter area (that was very likely
       this same bug: bumping a Pokemon that had wandered onto the path).
+- [ ] Contact: walking up beside a wild Pokemon (even one facing you) starts
+      NO battle; stepping onto its tile does -- **including walking straight
+      through it with the direction held** (caves), not only stopping on it.
+      A spawn never appears under you.
 - [ ] Route 104/106 water: visible water wild Pokemon stay on water, never
       wander onto the beach.
 - [ ] Petalburg Woods / Granite Cave: indoor-style grass/cave spawns work
@@ -31,6 +35,101 @@ rest on each of the three games before calling v1 verified.
 - [ ] Route 119 (Emerald) or any Good/Super Rod water: fishing still
       works and is unaffected by Classic Enc.
 - [ ] Route 113 (Emerald ash grass): spawns and battles correctly.
+
+## PMDCollab style (needs `python3 tools/generate_pmd_sprites.py` first)
+
+- [ ] Options -> Sprite Style -> PMDCollab: wild Pokemon and the follower
+      switch live (no respawn needed).
+- [ ] Standing Pokemon play their Idle loop, walking ones the Walk loop, in
+      all four directions; the loops are smooth (no snapping at the loop
+      point, no bleed from neighbouring frames).
+- [ ] Feet sit on the tile (tune `Config.PMD_GROUND_Y`), size reads right
+      next to the player and NPCs (tune `Config.PMD_SCALE`), the walk cycle
+      matches the step speed (tune `Config.PMD_WALK_SPEED`).
+- [ ] True size: species PMD draws small next to their real size (e.g. Zubat
+      line, dex 961/804/156 at 1.5x) look larger; nothing is ever smaller than
+      its PMD art; big species still read big.
+- [ ] Follower: kept clear of the player (tune `PMD_FOLLOWER_GAP`), glides
+      (not snaps) when you turn, and waits `PMD_FOLLOWER_IDLE_DELAY` ticks
+      after stopping before its Idle loop starts.
+- [ ] Shiny spawns use the shiny sheet; silhouette options still work.
+- [ ] A species with no PMD art (e.g. Pecharunt, dex 1025) falls back to
+      HGSS / PokeMMO instead of vanishing.
+- [ ] Grass cover still overlays the lower part of a PMD sprite in grass.
+- [ ] Water spawns look acceptable (PMD has no water art; v1 reuses Walk/Idle).
+
+## Portraits (needs `python3 tools/generate_pmd_sprites.py` first)
+
+Nothing in the game opens a portrait message until the follower interaction
+menu lands (phase 3); until then it can be exercised from a Lua console /
+script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy" })`.
+
+- [ ] The portrait sits above the left of the dialogue box, fully on screen,
+      not overlapping the text (nudge with `Config.PORTRAIT_X/Y`).
+- [ ] It disappears as soon as the message closes (A/B), never lingers.
+- [ ] Emotions change the face (`setEmotion`); a species/emotion without art
+      falls back to Normal; a shiny mon uses the shiny sheet.
+- [ ] The face matches the mon's state: full HP + max friendship = Inspired,
+      low friendship = Angry/Sad, poisoned = Pain, burned = Shouting,
+      paralysed/frozen = Stunned, asleep = Dizzy, under 50% HP = Worried,
+      under 25% = Pain, under 10% = Crying (try via
+      `portraitUI:say("...", { mon = <party mon> })`).
+- [ ] Ordinary NPC/sign messages (no portrait set) look exactly as before.
+
+## Follower interaction
+
+- [ ] Tap the direction toward your follower (so you turn to face it without
+      stepping onto it) and press A: a message with its portrait describes its
+      state, then a Pet / Play / Talk / Cancel menu opens under it.
+      **Check this first:** the follower is passable, so a held direction walks
+      you onto it; if turning in place toward it is not possible in practice,
+      the interact test needs to accept an adjacent follower too.
+- [ ] Pet / Play / Talk each reply with a matching face and raise happiness
+      (check the summary screen: Pet ~+3, Play +2, Talk +1; Pet at 255 gives
+      nothing). B and Cancel close everything with no portrait left behind.
+- [ ] A poisoned / burned / low-HP lead keeps its pained face and gets the
+      gentler replies.
+- [ ] Repeating an action right away: "isn't in the mood". More than six
+      successful interactions in 10 minutes: "has had enough attention".
+- [ ] Mashing the menu (six picks inside 45 s) cuts it off: the Pokemon turns
+      its back, A on it then shows only "wants some space" with no menu, the
+      lock lasts ~5 minutes and doubles each repeat offence.
+- [ ] Reloading the save / using a save state does NOT reset the lock or
+      cooldowns; setting the system clock back does not either.
+- [ ] Walking, NPC dialogue and signs behave exactly as before.
+
+## Reachable-only spawns
+
+The log prints one line per map: `reachable area on <map>: N cells (X ms)` --
+check that the time stays small on the biggest routes (it runs on map entry and
+every 15 s).
+
+- [ ] No wild Pokemon on ground you cannot reach: behind a fence/ledge you
+      cannot climb, in a cave chamber you cannot walk into, on an island, or on
+      the far side of water before you have Surf.
+- [ ] Before the Surf badge/move: no water spawns anywhere. Once you can use
+      Surf, water Pokemon appear within ~15 s without re-entering the map; on
+      a surf-only route with no land access they appear around you.
+- [ ] A Cut tree / smashable rock / boulder walls off what is behind it until
+      you can use Cut / Rock Smash / Strength; plain NPCs and item balls never
+      make a corridor "unreachable".
+- [ ] After hopping down a ledge, spawns above it (that you can no longer get
+      back to) go away; spawns below it stay.
+- [ ] After a warp inside a map or a long carry, the spawns re-form around you.
+- [ ] Battles still never start from the flood fill (nothing happens when the
+      map is entered next to a wild Pokemon).
+
+## PMD follower recall (surfing)
+
+- [ ] Start surfing with a PMDCollab follower: it shrinks into the player (sliding in
+      and rising a little, with a red-white flush) over about 0.3 s, and is gone.
+- [ ] Surf around, change direction, enter/leave a map while surfing: it stays inside;
+      entering a map already surfing shows it inside from the start (no shrink replay).
+- [ ] Step onto land: the follower grows back out of the player once it is itself on land
+      (a step or two after you land), never standing on a water tile.
+- [ ] You cannot talk to the follower while it is inside the player.
+- [ ] HGSS / PokeMMO: unchanged -- the follower swims with its own water art.
+- [ ] Tune `Config.PMD_RECALL_TICKS` (speed) and `PMD_RECALL_LIFT` (rise toward the body).
 
 ## Special areas
 
@@ -64,7 +163,7 @@ rest on each of the three games before calling v1 verified.
       party-lead swap changes the follower's sprite within a tick or two.
       (confirmed the follower appears and follows; haven't specifically
       checked a party-lead swap)
-- [x] Sprite Style Poke Followers/GSC vs HGSS/PokeMMO: switching changes
+- [x] Sprite Style HGSS/PokeMMO vs PMDCollab: switching changes
       both already-spawned wild Pokemon AND the follower immediately, no
       map transition needed. In HGSS/PokeMMO, bigger species (e.g.
       Snorlax) visibly stand taller than small ones (e.g. Rattata), feet

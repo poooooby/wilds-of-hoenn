@@ -14,6 +14,9 @@
 --   lib/spawn_manager.lua   - entity lifecycle (the mod's core state)
 --   lib/battle_trigger.lua  - player-bump -> wild battle, same mon
 --   lib/follower_adapter.lua- party follower sprite (public hook, no patch)
+--   lib/portrait_ui.lua     - PMDCollab portrait drawn above dialogue messages
+--   lib/follower_interaction.lua - face the follower + A: Pet/Play/Talk menu
+--   lib/interaction_limiter.lua  - cooldowns, window budget, abuse lock-out for it
 --   options.lua             - Mod Manager option schema
 --
 -- Gen 1/2-only: this mod installs nothing outside Ruby/Sapphire/Emerald
@@ -55,6 +58,8 @@ return function(mod)
   local SpawnManager = V.require("spawn_manager")
   local BattleTrigger = V.require("battle_trigger")
   local FollowerAdapter = V.require("follower_adapter")
+  local PortraitUI = V.require("portrait_ui")
+  local FollowerInteraction = V.require("follower_interaction")
 
   Config.defineOptions(mod)
 
@@ -86,29 +91,58 @@ return function(mod)
   local spawnManager = SpawnManager.new(mod)
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
   local followerAdapter = FollowerAdapter.new(mod)
+  local portraitUI = PortraitUI.new(mod)
+  local followerInteraction = FollowerInteraction.new(mod, portraitUI, {
+    isAway = function() return followerAdapter:isRecalled() end, -- shrunk into the player
+  })
 
   mod.exports.spawnManager = spawnManager
   mod.exports.battleTrigger = battleTrigger
   mod.exports.followerAdapter = followerAdapter
+  mod.exports.portraitUI = portraitUI
+  mod.exports.followerInteraction = followerInteraction
 
   local installed = EnginePatch.install({
     collectActors = function(actors)
       spawnManager:collectActors(actors)
+      followerAdapter:collectActors(actors)
     end,
     -- See lib/battle_trigger.lua's header: exceptLocalId == nil is the
     -- signature of the player's OWN collision check (collision.lua:1003
     -- entityBlocks -> Objects.blocks(tx, ty, nil, elevation)); every NPC
     -- movement and trainer-sight caller passes its own localId instead.
+    -- BUT a roaming wild Pokemon's own candidate-step check also reaches
+    -- here with exceptLocalId == nil (it goes through the exact same
+    -- entityBlocks path via EnginePatch.canEnter -> real Collision.canEnter
+    -- -- see lib/engine_patch.lua's canEnter comment) -- without the
+    -- isProbingCanEnter() guard, a wild Pokemon merely considering a step
+    -- onto the player's tile (needs no player movement at all) would start
+    -- a battle on its own. Still answers "occupied" (returns true) either
+    -- way, so the wild Pokemon correctly treats the player's tile as blocked.
     blocks = function(tx, ty, exceptLocalId, _elevation)
       local entity = spawnManager:entityAt(tx, ty)
       if not entity then return false end
-      if exceptLocalId == nil and not battleTrigger:isPending() then
-        battleTrigger:onPlayerBumped(entity)
+      -- The player's OWN check: let them step onto the wild Pokemon. The
+      -- battle starts once that step lands (battleTrigger:checkContact in
+      -- followerTick), never from the adjacent tile. Our own roaming
+      -- probe also arrives with exceptLocalId == nil but is still blocked.
+      if exceptLocalId == nil and not EnginePatch.isProbingCanEnter() then
+        return false
       end
       return true
     end,
+    messageDraw = function()
+      portraitUI:draw()
+    end,
+    -- Runs BEFORE the engine's A-button handler: facing your follower and
+    -- pressing A opens its Pet / Play / Talk menu instead (true = handled).
+    interact = function(game)
+      return followerInteraction:tryStart(game)
+    end,
     followerTick = function(game)
       spawnManager:tick(game)
+      followerInteraction:tick(game)
+      battleTrigger:checkContact()
       followerAdapter:tick()
     end,
   }, mod.log)
@@ -127,6 +161,22 @@ return function(mod)
     if not ok2 then
       mod.log:warn("[wilds_of_hoenn] map.entered error: %s", tostring(err))
     end
+  end)
+
+  -- The interaction limiter's saved state is per playthrough: re-read it
+  -- whenever a different save/checkpoint becomes current.
+  for _, eventName in ipairs({ "save.loaded", "save.created", "checkpoint.restored" }) do
+    mod.events:on(eventName, function()
+      pcall(function() followerInteraction:onSaveChanged() end)
+    end)
+  end
+
+  -- A finished step is the contact signal (see lib/battle_trigger.lua): walking
+  -- through a wild Pokemon with the direction held must still battle it.
+  mod.events:on("world.stepped", function(ev)
+    pcall(function()
+      battleTrigger:onPlayerStepped(ev and ev.x, ev and ev.y)
+    end)
   end)
 
   mod.events:on("map.exited", function(_ev)

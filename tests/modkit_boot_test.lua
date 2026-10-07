@@ -66,6 +66,20 @@ eq(exports.spawnManager.mapId, "ROUTE_101", "the real event reached spawnManager
 -- No real Emerald ROM cache is mounted in this harness -- see header.
 eq(exports.spawnManager:count(), 0, "no spawns without a mounted encounter cache (expected here)")
 
+-- A finished step is the battle contact signal: the REAL world.stepped event
+-- (what Player's finishStep emits) must reach BattleTrigger:onPlayerStepped
+-- with the stepped-onto cell.
+local steppedAt
+local realOnStepped = exports.battleTrigger.onPlayerStepped
+exports.battleTrigger.onPlayerStepped = function(self, x, y)
+  steppedAt = { x = x, y = y }
+  return realOnStepped(self, x, y)
+end
+local okStep, errStep = pcall(Runtime.emit, "world.stepped", { mapId = "ROUTE_101", x = 12, y = 34, facing = "up" })
+check(okStep, "a real world.stepped through Runtime.emit does not throw (" .. tostring(errStep) .. ")")
+check(steppedAt ~= nil and steppedAt.x == 12 and steppedAt.y == 34, "the real world.stepped event reached BattleTrigger:onPlayerStepped with the cell")
+exports.battleTrigger.onPlayerStepped = realOnStepped
+
 local okExit, errExit = pcall(Runtime.emit, "map.exited", { mapId = "ROUTE_101" })
 check(okExit, "a real map.exited through Runtime.emit does not throw (" .. tostring(errExit) .. ")")
 

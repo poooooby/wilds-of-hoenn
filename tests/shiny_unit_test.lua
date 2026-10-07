@@ -94,32 +94,70 @@ if p2 then
   eq(p2 % 25, baseNoGender % 25, "no-gender result preserves nature")
 end
 
--- ------- rollForEncounter: rate "off" never marks shiny
+-- ------- rollForEncounter: native keeps whatever the engine's own check
+-- says, never rerolls
 local Config = V.require("config")
-local mod = { options = { get = function(_, k) if k == "shiny_rate" then return "off" end end } }
+local mod = { options = { get = function(_, k) if k == "shiny_rate" then return "native" end end } }
+fakeEngine.isShiny = function(_p, _otId, _otSecretId) return true end
 local enc = { species = 25, level = 10, personality = 1 }
 Shiny.rollForEncounter(mod, enc)
-eq(enc.shiny, false, "shiny_rate off never marks shiny")
+eq(enc.shiny, true, "native rate surfaces a genuinely-shiny engine roll")
+eq(enc.personality, 1, "native rate never changes personality")
 
--- ------- rollForEncounter: vanilla keeps whatever the engine's own check says
-mod = { options = { get = function(_, k) if k == "shiny_rate" then return "vanilla" end end } }
-fakeEngine.isShiny = function(_p, _otId, _otSecretId) return true end
+fakeEngine.isShiny = function(_p, _otId, _otSecretId) return false end
 enc = { species = 25, level = 10, personality = 1 }
 Shiny.rollForEncounter(mod, enc)
-eq(enc.shiny, true, "vanilla rate surfaces a genuinely-shiny roll")
-eq(enc.personality, 1, "vanilla rate never changes personality")
+eq(enc.shiny, false, "native rate never rerolls a non-shiny encounter")
+eq(enc.personality, 1, "native rate never touches personality on a miss")
 
--- ------- rollForEncounter: boosted turns a non-shiny roll into a shiny one
-mod = { options = { get = function(_, k) if k == "shiny_rate" then return "boosted" end end } }
+-- ------- rollForEncounter: a rate tier (e.g. 1/10) rerolls a non-shiny
+-- encounter into a genuine shiny when its own chance hits -- math.random
+-- is overridden here for determinism, same technique as a seeded rng
+-- elsewhere in this file, since the real call site uses the bare global.
+-- The override targets ONLY the rate-tier roll's exact call shape
+-- (math.random(1, denom)), not boostedPersonality's own internal draws
+-- (math.random(0, 65535) -- note the 0, not 1, as the first argument),
+-- which must keep behaving randomly or its search never converges.
+local realRandom = math.random
+mod = { options = { get = function(_, k) if k == "shiny_rate" then return "r10" end end } }
 fakeEngine.isShiny = function(p, otId, otSecretId) return realIsShiny(p, otId, otSecretId) end
 fakeEngine.trainerIds = function() return { otId = 7, otSecretId = 11 } end
+math.random = function(a, b)
+  if a == 1 and b ~= nil then return 1 end -- force every rate-tier roll to hit
+  return realRandom(a, b)
+end
 math.randomseed(3)
-enc = { species = 25, level = 10, personality = math.floor(math.random() * 4294967296) }
+enc = { species = 25, level = 10, personality = 12345 }
 local originalNature = enc.personality % 25
 Shiny.rollForEncounter(mod, enc)
-eq(enc.shiny, true, "boosted rate turns a non-shiny roll shiny")
-eq(enc.personality % 25, originalNature, "boosted rate preserves nature")
-check(realIsShiny(enc.personality, 7, 11), "boosted result is genuinely shiny for the trainer")
+math.random = realRandom
+eq(enc.shiny, true, "a rate tier turns a non-shiny roll shiny when its chance hits")
+eq(enc.personality % 25, originalNature, "rate-tier reroll preserves nature")
+check(realIsShiny(enc.personality, 7, 11), "rate-tier result is genuinely shiny for the trainer")
+
+-- ------- rollForEncounter: a rate tier leaves the encounter alone when
+-- its own chance misses
+fakeEngine.isShiny = function(_p, _otId, _otSecretId) return false end
+math.random = function(a, b)
+  if a == 1 and b ~= nil then return 2 end -- force every rate-tier roll to miss (denom >= 2)
+  return realRandom(a, b)
+end
+enc = { species = 25, level = 10, personality = 999 }
+Shiny.rollForEncounter(mod, enc)
+math.random = realRandom
+eq(enc.shiny, false, "a rate tier leaves the encounter alone when its chance misses")
+eq(enc.personality, 999, "a missed reroll never touches personality")
+
+-- ------- rollForEncounter: "all" always forces shiny, no roll needed
+mod = { options = { get = function(_, k) if k == "shiny_rate" then return "all" end end } }
+fakeEngine.isShiny = function(p, otId, otSecretId) return realIsShiny(p, otId, otSecretId) end
+math.randomseed(3)
+enc = { species = 25, level = 10, personality = 54321 }
+local allNature = enc.personality % 25
+Shiny.rollForEncounter(mod, enc)
+eq(enc.shiny, true, "all rate always turns a non-shiny roll shiny")
+eq(enc.personality % 25, allNature, "all rate preserves nature")
+check(realIsShiny(enc.personality, 7, 11), "all rate result is genuinely shiny for the trainer")
 
 print("")
 if failures > 0 then

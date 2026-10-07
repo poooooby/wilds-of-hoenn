@@ -28,11 +28,12 @@ code or save data with it, only a read-only copy of its overworld art.
   block all come from the engine's own rules -- nothing about wild
   generation itself is reimplemented.
 - Idle and Roam behaviours (no Chase or Hidden in v1).
-- Two Sprite Styles, same as Wilds of Kanto Revival: **Poke Followers /
-  GSC** (plain 16x16) or **HGSS / PokeMMO** ("True Size" -- each species
+- Two Sprite Styles: **HGSS / PokeMMO** ("True Size" -- each species
   drawn at its own native size, anchored at its feet, so a Snorlax is
-  genuinely bigger on screen than a Rattata). Switching takes effect
-  immediately, including on already-spawned wild Pokemon.
+  genuinely bigger on screen than a Rattata) or **PMDCollab** (fully
+  animated walking and idle loops; species without PMD art fall back to
+  HGSS / PokeMMO). Switching takes effect immediately, including on
+  already-spawned wild Pokemon.
 - A real Gen 3 shiny check against your own trainer ID, with an optional
   Boosted rate that re-rolls a non-shiny encounter until it's shiny while
   keeping its nature and gender.
@@ -62,9 +63,10 @@ exactly why each one is needed):
 
 - `FieldEffects.collectActors` -- draws our wild Pokemon alongside the
   player, NPCs and the follower.
-- `Objects.blocks` -- makes a wild Pokemon solid, and is how a player's
-  own bump is told apart from an NPC just walking past one (see
-  `lib/battle_trigger.lua`'s header for exactly how).
+- `Objects.blocks` -- makes a wild Pokemon solid to NPCs, trainer
+  sight and other wild Pokemon, while letting the player step onto one:
+  a battle starts only once the player is standing on its tile (see
+  `lib/battle_trigger.lua`'s header).
 - `Follower.update` -- piggybacks our own per-tick spawn/behaviour update
   onto the engine's existing follower tick, instead of needing a second
   hook into the field loop.
@@ -110,10 +112,19 @@ cd -
 python3 tools/validate_option_labels.py
 python3 tools/validate_release_version.py
 
-# Build the release ZIP -> dist/wilds-of-hoenn-v*.zip (default: bakes
-# the ~3900 sprite sheets into assets/atlas/ shards first and ships
-# those instead of the per-file sheets; --no-atlas for the old layout)
+# Build the release ZIPs -> dist/wilds-of-hoenn-v*-hgss.zip (HGSS / PokeMMO
+# art only) and -hgss-pmd.zip (+ PMDCollab). Default: bakes the sprite
+# sheets into assets/atlas/ shards first and ships those instead of the
+# per-file sheets; --no-atlas for the old layout, --variant hgss|pmd for one
 python3 scripts/build-mod.py
 ```
+
+## License
+
+The mod's own code and tools are released under the [MIT License](LICENSE).
+The sprite art it uses is NOT covered by it: HGSS / PokeMMO art comes from
+Wilds of Kanto Revival's sources and the optional PMDCollab art is licensed
+CC BY-NC 4.0 -- see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for each
+asset's credit and terms.
 
 See `CLAUDE.md` for the full architecture and module-by-module notes.

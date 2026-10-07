@@ -29,18 +29,35 @@ end
 
 local ActorRenderer = V.require("actor_renderer")
 
--- ------- frame index: stand frames (0/1/2), walk frames (3/4/5), right
--- mirrors left's indices exactly.
-eq(ActorRenderer.frameIndexFor("down", 0), 0, "stand down = 0")
-eq(ActorRenderer.frameIndexFor("up", 0), 1, "stand up = 1")
-eq(ActorRenderer.frameIndexFor("left", 0), 2, "stand left = 2")
-eq(ActorRenderer.frameIndexFor("right", 0), 2, "stand right mirrors left = 2")
-eq(ActorRenderer.frameIndexFor("down", 1), 3, "walk down = 3")
-eq(ActorRenderer.frameIndexFor("up", 1), 4, "walk up = 4")
-eq(ActorRenderer.frameIndexFor("left", 1), 5, "walk left = 5")
-eq(ActorRenderer.frameIndexFor("right", 1), 5, "walk right mirrors left = 5")
-eq(ActorRenderer.frameIndexFor("right", true), 5, "walkPhase accepts boolean true")
-eq(ActorRenderer.frameIndexFor(nil, 0), 0, "unknown facing falls back to down")
+local POSE_STAND, POSE_WALK_A, POSE_WALK_B = ActorRenderer.POSE_STAND, ActorRenderer.POSE_WALK_A, ActorRenderer.POSE_WALK_B
+local POSE_RUN_BASE, POSE_RUN_A, POSE_RUN_B = ActorRenderer.POSE_RUN_BASE, ActorRenderer.POSE_RUN_A, ActorRenderer.POSE_RUN_B
+-- Kanto's 6-frame Poke Followers / GSC layout is gone: any frame count other
+-- than 18 reads the 18-frame table, never a stale 6-frame one.
+eq(ActorRenderer.frameIndexFor("down", POSE_WALK_B, 6), 4, "a leftover 6-frame count reads the 18-frame table (walkB = 4, not the old collapsed 3)")
+eq(ActorRenderer.frameIndexFor("down", "not-a-real-pose", 18), 0, "an unrecognized pose falls back to stand")
+
+-- ------- frame index, 18 frames (the only layout): the full walk-A/
+-- walk-B/run-base/run-A/run-B layout from tools/generate_true_size_18frame.py.
+eq(ActorRenderer.frameIndexFor("down", POSE_STAND, 18), 0, "18-frame stand down = 0")
+eq(ActorRenderer.frameIndexFor("up", POSE_STAND, 18), 1, "18-frame stand up = 1")
+eq(ActorRenderer.frameIndexFor("left", POSE_STAND, 18), 2, "18-frame stand left = 2")
+eq(ActorRenderer.frameIndexFor("right", POSE_STAND, 18), 2, "18-frame stand right mirrors left = 2")
+eq(ActorRenderer.frameIndexFor("down", POSE_WALK_A, 18), 3, "18-frame walkA down = 3")
+eq(ActorRenderer.frameIndexFor("down", POSE_WALK_B, 18), 4, "18-frame walkB down = 4")
+eq(ActorRenderer.frameIndexFor("up", POSE_WALK_A, 18), 5, "18-frame walkA up = 5")
+eq(ActorRenderer.frameIndexFor("up", POSE_WALK_B, 18), 6, "18-frame walkB up = 6")
+eq(ActorRenderer.frameIndexFor("left", POSE_WALK_A, 18), 7, "18-frame walkA left = 7")
+eq(ActorRenderer.frameIndexFor("left", POSE_WALK_B, 18), 8, "18-frame walkB left = 8")
+eq(ActorRenderer.frameIndexFor("down", POSE_RUN_BASE, 18), 9, "18-frame runBase down = 9")
+eq(ActorRenderer.frameIndexFor("down", POSE_RUN_A, 18), 10, "18-frame runA down = 10")
+eq(ActorRenderer.frameIndexFor("down", POSE_RUN_B, 18), 11, "18-frame runB down = 11")
+eq(ActorRenderer.frameIndexFor("up", POSE_RUN_BASE, 18), 12, "18-frame runBase up = 12")
+eq(ActorRenderer.frameIndexFor("left", POSE_RUN_BASE, 18), 15, "18-frame runBase left = 15")
+eq(ActorRenderer.frameIndexFor("right", POSE_RUN_A, 18), 16, "18-frame right mirrors left for runA = 16")
+eq(ActorRenderer.frameIndexFor(nil, POSE_STAND, 18), 0, "18-frame: unknown facing falls back to down")
+
+eq(ActorRenderer.frameCountFor("followers"), 18, "a stale 'followers' style still gets the 18-frame layout")
+eq(ActorRenderer.frameCountFor("pokemmo"), 18, "frameCountFor pokemmo = 18")
 
 -- ------- construction + imagePath delegates to SpriteSource
 local mod = {
@@ -57,12 +74,12 @@ eq(r.dex, 1, "stores dex")
 eq(r.shiny, false, "stores shiny")
 eq(r.silhouette, false, "silhouette defaults off")
 local path = r:imagePath()
-check(path ~= nil and path:find("follower_001_normal", 1, true) ~= nil,
+check(path ~= nil and path:find("true_size18/hgss/001-normal", 1, true) ~= nil,
   "imagePath resolves the real dex 1 normal sheet")
 
 local rShiny = ActorRenderer.new(mod, 1, true)
 local pathShiny = rShiny:imagePath()
-check(pathShiny ~= nil and pathShiny:find("follower_001_shiny", 1, true) ~= nil,
+check(pathShiny ~= nil and pathShiny:find("true_size18/hgss/001-shiny", 1, true) ~= nil,
   "imagePath resolves the real dex 1 shiny sheet")
 
 -- ------- HGSS / PokeMMO ("pokemmo") style resolves a completely
@@ -70,16 +87,18 @@ check(pathShiny ~= nil and pathShiny:find("follower_001_shiny", 1, true) ~= nil,
 local SpriteSource = V.require("sprite_source")
 local rPokemmo = ActorRenderer.new(mod, 1, false, SpriteSource.STYLE_POKEMMO)
 eq(rPokemmo.style, SpriteSource.STYLE_POKEMMO, "stores the requested style")
+eq(rPokemmo.frameCount, 18, "pokemmo style renderer uses the 18-frame layout")
 local pokemmoPath = rPokemmo:imagePath()
-check(pokemmoPath ~= nil and pokemmoPath:find("true_size/hgss", 1, true) ~= nil,
+check(pokemmoPath ~= nil and pokemmoPath:find("true_size18/hgss", 1, true) ~= nil,
   "imagePath honours the pokemmo style")
 
 local rDefaultStyle = ActorRenderer.new(mod, 1, false)
-eq(rDefaultStyle.style, SpriteSource.STYLE_FOLLOWERS, "style defaults to followers when omitted")
+eq(rDefaultStyle.style, SpriteSource.STYLE_POKEMMO, "style defaults to HGSS / PokeMMO when omitted")
+eq(rDefaultStyle.frameCount, 18, "the default renderer uses the 18-frame layout")
 
 -- ------- anchorOffset: Gen 3's own native OW sprite anchor -- centered
 -- horizontally in a 16px cell, feet flush with the cell's bottom edge.
--- A plain 16x16 Followers/GSC frame is a no-op (fills the cell exactly).
+-- A plain 16x16 frame is a no-op (fills the cell exactly).
 local ax16, ay16 = ActorRenderer.anchorOffset(16, 16)
 eq(ax16, 0, "a 16x16 frame has no horizontal anchor offset")
 eq(ay16, 0, "a 16x16 frame has no vertical anchor offset")
@@ -134,6 +153,59 @@ eq(leftCenter, 16 / 2, "that shared center is the tile's own center (CELL / 2)")
 local dxDown, _, flipDown = ActorRenderer.drawOffset("down", frameW, frameH)
 eq(flipDown, 1, "down is never mirrored")
 eq(dxDown, ActorRenderer.anchorOffset(frameW, frameH), "down drawX is the plain anchor offset")
+
+-- ------- behindOffset: pushes a draw position AWAY from the facing
+-- direction (toward where the entity came from) -- the large-follower
+-- "spacing out" mechanism (lib/follower_adapter.lua).
+eq(select(2, ActorRenderer.behindOffset("down", 0)), 0, "zero pushback is always a no-op (dy)")
+eq(select(1, ActorRenderer.behindOffset("down", 0)), 0, "zero pushback is always a no-op (dx)")
+eq(select(1, ActorRenderer.behindOffset(nil, 10)), 0, "nil pushback amount: no-op (dx)")
+local dxD, dyD = ActorRenderer.behindOffset("down", 10)
+eq(dxD, 0, "facing down: push is purely vertical (dx)")
+eq(dyD, -10, "facing down: pushes UP the screen (away from where 'down' walks toward)")
+local dxU, dyU = ActorRenderer.behindOffset("up", 10)
+eq(dxU, 0, "facing up: push is purely vertical (dx)")
+eq(dyU, 10, "facing up: pushes DOWN the screen (away from where 'up' walks toward)")
+local dxL2, dyL2 = ActorRenderer.behindOffset("left", 10)
+eq(dxL2, 10, "facing left: pushes RIGHT (away from where 'left' walks toward)")
+eq(dyL2, 0, "facing left: push is purely horizontal (dy)")
+local dxR2, dyR2 = ActorRenderer.behindOffset("right", 10)
+eq(dxR2, -10, "facing right: pushes LEFT (away from where 'right' walks toward)")
+eq(dyR2, 0, "facing right: push is purely horizontal (dy)")
+
+-- ------- frameWidth: the whole loaded image's width (frames stack
+-- vertically), via a fake mod.assets.image so this needs no real love
+-- context -- draw()'s own image-loading fallback chain tries
+-- mod.assets.image FIRST.
+local fakeImageMod = {
+  assets = {
+    image = function(_, _path) return { getDimensions = function() return 48, 864 end } end,
+  },
+}
+local rWide = ActorRenderer.new(fakeImageMod, 1, false, SpriteSource.STYLE_POKEMMO)
+eq(rWide:frameWidth(), 48, "frameWidth reads the loaded image's own width")
+
+local rNoArt = ActorRenderer.new({}, 999999, false, SpriteSource.STYLE_POKEMMO)
+eq(rNoArt:frameWidth(), nil, "frameWidth is nil when no art resolves for this dex")
+
+-- ------- idleFlapPose: walkA, stand, walkB, stand, each held N ticks
+eq(ActorRenderer.idleFlapPose(0, 20), "walkA", "idle flap starts on walkA")
+eq(ActorRenderer.idleFlapPose(19, 20), "walkA", "idle flap holds a pose for the full tick count")
+eq(ActorRenderer.idleFlapPose(20, 20), "stand", "then stands")
+eq(ActorRenderer.idleFlapPose(40, 20), "walkB", "then walkB")
+eq(ActorRenderer.idleFlapPose(60, 20), "stand", "then stands again")
+eq(ActorRenderer.idleFlapPose(80, 20), "walkA", "and wraps")
+eq(ActorRenderer.idleFlapPose(nil, 20), "walkA", "nil clock is safe")
+
+-- ------- approach: eased, never overshoots
+eq(ActorRenderer.approach(nil, 7, 2), 7, "approach from nothing snaps to target")
+eq(ActorRenderer.approach(0, 10, 2), 2, "approach steps toward a far target")
+eq(ActorRenderer.approach(0, -10, 2), -2, "approach steps negatively")
+eq(ActorRenderer.approach(9, 10, 2), 10, "approach never overshoots")
+
+-- ------- largePushback defaults to 0 (no visual change) until a caller
+-- (lib/follower_adapter.lua) sets it.
+eq(rDefaultStyle.largePushback, 0, "largePushback defaults to 0")
 
 print("")
 if failures > 0 then

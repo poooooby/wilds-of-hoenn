@@ -17,6 +17,7 @@ end
 local fakeEngine = {}
 local modules = {}
 local optionStore = { follower = true }
+local fakeImageWidth = 48 -- wide by default; set nil to simulate no loaded art
 local mod = {
   options = { get = function(_, k) return optionStore[k] end },
   read = function(_, rel)
@@ -26,6 +27,12 @@ local mod = {
     f:close()
     return data
   end,
+  assets = {
+    image = function(_, _path)
+      if fakeImageWidth == nil then return nil end
+      return { getDimensions = function() return fakeImageWidth, 864 end }
+    end,
+  },
 }
 local V = { path = "." }
 function V.require(name)
@@ -44,6 +51,10 @@ local npc = nil
 fakeEngine.followerCurrent = function() return npc end
 fakeEngine.leadPartySpecies = function() return 999 end
 fakeEngine.nationalFor = function(id) if id == 999 then return 252 end return nil end
+fakeEngine.isWater = function() return false end
+fakeEngine.playerIsRunning = function() return false end
+fakeEngine.isGrass = function() return false end
+fakeEngine.grassSheet = function() return nil end
 
 local FollowerAdapter = V.require("follower_adapter")
 local fa = FollowerAdapter.new(mod)
@@ -83,16 +94,311 @@ eq(fa.renderer.dex, 1, "renderer now uses the new lead's national dex")
 npc = { sprite = nil }
 fakeEngine.leadPartySpecies = function() return 999 end
 fakeEngine.nationalFor = function(id) if id == 999 then return 252 end return nil end
-optionStore.sprite_style = "followers"
-fa = FollowerAdapter.new(mod)
-fa:tick()
-eq(fa.renderer.style, "followers", "renderer starts in the followers style")
-local beforeStyleSwitch = npc.sprite
+-- a view of the mod with PMD art (a fake one-species index; hermetic: a dev
+-- checkout may or may not have a real bake on disk)
+local EARLY_INDEX = [[{"version":1,"dex":{"252":{
+  "walk":{"cw":30,"ch":26,"cols":4,"durations":[6,10,6,10],"ax":15.5,"ay":19.5,"shiny":false},
+  "idle":{"cw":29,"ch":31,"cols":3,"durations":[40,4,2],"ax":15.5,"ay":25.5,"shiny":false}}}}]]
+local function withPmd(base)
+  return setmetatable({
+    read = function(self, rel)
+      if rel == "assets/pmd/index.json" then return EARLY_INDEX end
+      return base.read(self, rel)
+    end,
+  }, { __index = base })
+end
 optionStore.sprite_style = "pokemmo"
+fa = FollowerAdapter.new(withPmd(mod))
+fa:tick()
+eq(fa.renderer.style, "pokemmo", "renderer starts in the HGSS / PokeMMO style")
+local beforeStyleSwitch = npc.sprite
+optionStore.sprite_style = "pmd"
 fa:tick()
 check(npc.sprite ~= beforeStyleSwitch, "a style change rebuilds the renderer, same lead species")
-eq(fa.renderer.style, "pokemmo", "renderer now uses the new style")
+check(fa.renderer.isPmd == true, "renderer now uses the new (PMDCollab) style")
 eq(fa.renderer.dex, 252, "dex is unchanged by a pure style switch")
+optionStore.sprite_style = "pokemmo" -- back to HGSS / PokeMMO for the pose tests below
+fa:tick()
+check(not fa.renderer.isPmd, "switching back rebuilds the HGSS / PokeMMO renderer")
+
+-- ------- pose: not moving -> stand, and A/B alternates per step (edge, not
+-- per tick), walking vs running picked by EnginePatch.playerIsRunning()
+local ActorRenderer = V.require("actor_renderer")
+npc = { sprite = nil, moving = false, cellX = 0, cellY = 0 }
+fa = FollowerAdapter.new(mod)
+fa:tick()
+eq(fa.renderer.poseOverride, ActorRenderer.POSE_STAND, "not moving -> stand pose")
+
+npc.moving = true
+fa:tick()
+local firstWalkPose = fa.renderer.poseOverride
+check(firstWalkPose == ActorRenderer.POSE_WALK_A or firstWalkPose == ActorRenderer.POSE_WALK_B,
+  "moving, not running -> a walk pose")
+
+fa:tick() -- still moving, SAME step (no edge) -- parity must not flip
+eq(fa.renderer.poseOverride, firstWalkPose, "pose does not alternate mid-step, only on a new step")
+
+npc.moving = false
+fa:tick()
+npc.moving = true
+fa:tick() -- a NEW step (edge) -- parity flips
+check(fa.renderer.poseOverride ~= firstWalkPose, "a new step alternates walkA/walkB")
+
+fakeEngine.playerIsRunning = function() return true end
+npc.moving = false
+fa:tick()
+npc.moving = true
+fa:tick()
+local runPose = fa.renderer.poseOverride
+check(runPose == ActorRenderer.POSE_RUN_A or runPose == ActorRenderer.POSE_RUN_B,
+  "moving while the player is running -> a run pose")
+fakeEngine.playerIsRunning = function() return false end
+
+-- ------- presentation: follows EnginePatch.isWater(npc.cellX, npc.cellY)
+eq(fa.renderer.presentation, "land", "land presentation when not over water")
+fakeEngine.isWater = function() return true end
+fa:tick()
+eq(fa.renderer.presentation, "swimming", "water presentation defaults to swimming")
+fakeEngine.isWater = function() return false end
+
+-- ------- collectActors appends the "sinking into grass" overlay
+-- (lib/grass_cover.lua) for the follower's CURRENT cell, standing in
+-- grass, without touching the follower's own sprite (pushed separately by
+-- the engine itself, not by this module -- see FollowerAdapter:collectActors).
+npc.cellX, npc.cellY, npc.py, npc.elevation = 2, 3, 3 * 16, 3
+fakeEngine.isGrass = function() return true end
+fakeEngine.grassSheet = function() return { image = "fake_image", quadsFront = { [4] = "fake_quad" } } end
+local followerActors = {}
+fa:collectActors(followerActors)
+eq(#followerActors, 1, "collectActors appends exactly one grass overlay for the follower")
+eq(followerActors[1].kind, "field_effect_wild_grass", "the appended actor is the grass overlay")
+fakeEngine.isGrass = function() return false end
+fakeEngine.grassSheet = function() return nil end
+
+-- collectActors on a hidden follower appends nothing.
+npc.hidden = true
+local hiddenActors = {}
+fa:collectActors(hiddenActors)
+eq(#hiddenActors, 0, "a hidden follower gets no grass overlay")
+npc.hidden = nil
+
+-- collectActors with no follower spawned appends nothing, never throws.
+local savedNpc = npc
+npc = nil
+local noFollowerActors = {}
+fa:collectActors(noFollowerActors)
+eq(#noFollowerActors, 0, "no follower spawned -> no grass overlay, no error")
+npc = savedNpc
+
+-- ------- "spacing out" a large (True Size) follower: lib/actor_renderer.lua's
+-- largePushback gets sized from the renderer's own loaded art width, gated
+-- on STYLE_POKEMMO (lib/actor_renderer.lua's frameWidth/behindOffset handle
+-- the actual draw-time math; this just checks FollowerAdapter computes and
+-- assigns the right value each tick).
+fakeImageWidth = 48 -- wider than one tile (CELL=16): (48-16)/2 = 16
+optionStore.sprite_style = "pokemmo"
+fa = FollowerAdapter.new(mod)
+fa:tick()
+eq(fa.renderer.largePushback, 16, "a wide True Size sprite gets a nonzero pushback")
+
+-- A True Size sprite no wider than one tile gets no pushback.
+fakeImageWidth = 16
+optionStore.sprite_style = "pokemmo"
+fa = FollowerAdapter.new(mod)
+fa:tick()
+eq(fa.renderer.largePushback, 0, "a one-tile-wide True Size sprite gets no pushback")
+
+-- Turning glides: the applied offset eases toward the new facing's target
+-- (a full 180-degree swing = 2 * pushback = 32px over 16 ticks) instead of
+-- flipping in one tick.
+fakeImageWidth = 48
+optionStore.sprite_style = "pokemmo"
+fa = FollowerAdapter.new(mod)
+npc.facing = "down"
+fa:tick()
+eq(fa.renderer.pushY, -16, "first tick snaps to the facing's offset (no glide from nothing)")
+npc.facing = "up"
+fa:tick()
+eq(fa.renderer.pushY, -14, "a turn moves the offset by one eased step, not all 32px")
+for _ = 1, 15 do fa:tick() end
+eq(fa.renderer.pushY, 16, "the offset reaches the new target after one step's worth of ticks")
+eq(fa.renderer.pushX, 0, "the untouched axis stays put")
+fakeImageWidth = 16 -- fits in one tile: nothing to push back
+fa = FollowerAdapter.new(mod)
+fa:tick()
+check(fa.renderer.pushX == nil and fa.renderer.pushY == nil, "no pushback -> no eased offset (draw falls back)")
+
+-- No art loaded yet (frameWidth nil) -> no pushback, never throws.
+fakeImageWidth = nil
+fa = FollowerAdapter.new(mod)
+fa:tick()
+eq(fa.renderer.largePushback, 0, "no loaded art -> no pushback, no error")
+fakeImageWidth = 48 -- restore for safety
+
+-- ------- a floating/flying lead flaps slowly while standing still; a ground
+-- lead stays on the stand pose; moving keeps the walk pose either way
+local SS = V.require("sprite_source")
+local realIsFloater = SS.isFloater
+SS.isFloater = function() return true end
+npc = { sprite = nil, moving = false }
+fa = FollowerAdapter.new(mod)
+local seen = {}
+for _ = 1, 100 do fa:tick() seen[fa.renderer.poseOverride] = true end
+check(seen.walkA and seen.walkB and seen.stand, "idle floater cycles walkA/stand/walkB")
+npc.moving = true
+fa:tick()
+check(fa.renderer.poseOverride == "walkA" or fa.renderer.poseOverride == "walkB", "a moving floater uses the real walk pose")
+SS.isFloater = function() return false end
+npc = { sprite = nil, moving = false }
+fa = FollowerAdapter.new(mod)
+for _ = 1, 50 do fa:tick() end
+eq(fa.renderer.poseOverride, "stand", "a ground lead stays on stand while idle")
+SS.isFloater = realIsFloater
+
+-- ------- PMDCollab style: the follower's renderer animates itself (Walk
+-- while stepping, Idle while standing) and skips the pose/pushback logic
+local PMD_INDEX = [[{"version":1,"dex":{"252":{
+  "walk":{"cw":30,"ch":26,"cols":4,"durations":[6,10,6,10],"ax":15.5,"ay":19.5,"shiny":false},
+  "idle":{"cw":29,"ch":31,"cols":3,"durations":[40,4,2],"ax":15.5,"ay":25.5,"shiny":false}}}}]]
+local pmdMod = {
+  id = "wilds_of_hoenn", options = mod.options,
+  read = function(_, rel) if rel == "assets/pmd/index.json" then return PMD_INDEX end return mod.read(_, rel) end,
+}
+V.mod = pmdMod
+optionStore.sprite_style = "pmd"
+npc = { sprite = nil, moving = false, cellX = 0, cellY = 0, facing = "down" }
+fa = FollowerAdapter.new(pmdMod)
+fa:tick()
+check(fa.renderer and fa.renderer.isPmd, "pmd style builds a PmdRenderer for the lead")
+eq(npc.sprite, fa.renderer, "and hands it to the engine's follower npc")
+for _ = 1, 5 do fa:tick() end
+eq(fa.renderer.anim, "idle", "a standing follower plays Idle")
+-- the follower rests on Idle's first frame for the 10 s delay before the
+-- loop starts, so the clock is still held at 0 here
+eq(fa.renderer.clock, 0, "its Idle loop is held during the idle delay")
+check(fa.renderer.idleHold > 0 and fa.renderer.idleHold < V.require("config").PMD_FOLLOWER_IDLE_DELAY,
+  "and the delay counts down each tick")
+for _ = 1, V.require("config").PMD_FOLLOWER_IDLE_DELAY do fa:tick() end
+check(fa.renderer.clock > 0 and fa.renderer.clock < 5, "once it is over the Idle loop plays, slowly")
+npc.moving = true
+fa:tick()
+eq(fa.renderer.anim, "walk", "a stepping follower plays Walk")
+eq(fa.renderer.poseOverride, nil, "no ActorRenderer pose is pushed onto it")
+npc.moving = false
+fa:tick()
+eq(fa.renderer.anim, "idle", "and returns to Idle")
+-- spacing: kept behind the player, eased on a turn; idle starts after a delay
+npc = { sprite = nil, moving = false, cellX = 0, cellY = 0, facing = "down" }
+fa = FollowerAdapter.new(pmdMod)
+fa:tick()
+local Cfg = V.require("config")
+eq(fa.renderer.idleDelay, Cfg.PMD_FOLLOWER_IDLE_DELAY, "the follower's PMD renderer gets the idle delay")
+eq(Cfg.PMD_FOLLOWER_IDLE_DELAY, 300, "the idle delay is 5 seconds of ticks")
+eq(fa.renderer.idleSpeed, 0.5, "and the follower's Idle plays at 50% speed")
+-- PMD_INDEX walk cell is 30x26; content = cell - 4px of gutter. Facing
+-- up/down uses the HEIGHT (22), left/right the width (26).
+local expect = math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP
+eq(fa.renderer.pushY, -expect, "facing down: pushed back (up) by overhang + gap")
+eq(fa.renderer.pushX, 0, "and not sideways")
+npc.facing = "up"
+fa:tick()
+check(fa.renderer.pushY > -expect and fa.renderer.pushY < expect, "a turn eases the offset instead of snapping")
+for _ = 1, 40 do fa:tick() end
+eq(fa.renderer.pushY, expect, "settles on the new side (facing up -> pushed down)")
+npc.facing = "left"
+for _ = 1, 40 do fa:tick() end
+eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "left/right uses the sprite's width")
+optionStore.sprite_style = "pokemmo"
+V.mod = mod
+
+-- ------- PMDCollab recall: no swim art, so while the player surfs the follower
+-- shrinks into them and grows back out on land
+do
+  local surf = { surfing = false, dismounting = false }
+  local water = {}
+  local pixel = { 40, 48 }
+  local realIsWater, realSurf, realPixel = fakeEngine.isWater, fakeEngine.playerSurfState, fakeEngine.playerPixel
+  fakeEngine.isWater = function(x, y) return water[x .. "," .. y] == true end
+  fakeEngine.playerSurfState = function() return surf end
+  fakeEngine.playerPixel = function() return pixel[1], pixel[2] end
+  local Cfg = V.require("config")
+  local T = Cfg.PMD_RECALL_TICKS
+
+  optionStore.sprite_style = "pmd"
+  V.mod = pmdMod
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  local fr = FollowerAdapter.new(pmdMod)
+  fr:tick()
+  eq(fr.renderer.recall, 1, "on land the follower starts fully out")
+  check(not fr:isRecalled(), "...and is not recalled")
+  eq(fr.renderer.recallX, 40, "the recall knows where the player is (x)")
+  eq(fr.renderer.recallY, 48, "...(y)")
+
+  -- the player hops onto the water: it shrinks in over PMD_RECALL_TICKS
+  surf.surfing = true
+  fr:tick()
+  check(fr.renderer.recall < 1 and fr.renderer.recall > 0, "surfing starts shrinking it (not a snap)")
+  for _ = 1, T do fr:tick() end
+  eq(fr.renderer.recall, 0, "fully inside the player after the recall time")
+  check(fr:isRecalled(), "isRecalled is true once it is inside")
+
+  -- the player steps onto land (dismounting) but the follower still trails over the water
+  surf.surfing = false
+  water["3,3"] = true
+  for _ = 1, T do fr:tick() end
+  eq(fr.renderer.recall, 0, "it stays in while the follower itself is still over water")
+  water["3,3"] = false
+  water["4,3"] = true
+  npc.moving, npc.targetX, npc.targetY = true, 4, 3
+  fr:tick()
+  eq(fr.renderer.recall, 0, "...or is still stepping onto a water tile")
+  npc.moving, npc.targetX, npc.targetY = false, nil, nil
+  water["4,3"] = false
+
+  -- on land at last: it grows back out over PMD_RECALL_TICKS
+  fr:tick()
+  check(fr.renderer.recall > 0 and fr.renderer.recall < 1, "back on land it starts growing out (not a snap)")
+  for _ = 1, T do fr:tick() end
+  eq(fr.renderer.recall, 1, "fully out again after the grow time")
+  check(not fr:isRecalled(), "no longer recalled")
+  local before = fr.renderer.recall
+  fr:tick()
+  eq(fr.renderer.recall, before, "and it stays out")
+
+  -- dismounting counts as land: the grow begins once the follower is off the water
+  surf.surfing, surf.dismounting = true, true
+  fr.wasRecalled = false
+  fr:tick()
+  eq(fr.renderer.recall, 1, "a dismount in progress does not recall it")
+  surf.surfing, surf.dismounting = false, false
+
+  -- a freshly built sprite appears in the right state, no shrink animation
+  surf.surfing = true
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  local fr2 = FollowerAdapter.new(pmdMod)
+  fr2:tick()
+  eq(fr2.renderer.recall, 0, "entering a map while surfing: the follower starts inside the player")
+  surf.surfing = false
+
+  -- an engine without the helpers is simply never recalled (no error)
+  fakeEngine.playerSurfState, fakeEngine.playerPixel = nil, nil
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  local fr3 = FollowerAdapter.new(pmdMod)
+  check(pcall(function() fr3:tick() fr3:tick() end), "no surf helpers: ticking never errors")
+  eq(fr3.renderer.recall, 1, "...and the follower stays out")
+
+  -- the ActorRenderer styles are untouched by all of it
+  optionStore.sprite_style = "pokemmo"
+  fakeEngine.playerSurfState = function() return { surfing = true, dismounting = false } end
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  local fr4 = FollowerAdapter.new(pmdMod)
+  fr4:tick()
+  check(not fr4.renderer.isPmd and fr4.renderer.recall == nil and not fr4:isRecalled(), "HGSS / PokeMMO keeps its swim art: never recalled")
+
+  fakeEngine.isWater, fakeEngine.playerSurfState, fakeEngine.playerPixel = realIsWater, realSurf, realPixel
+  optionStore.sprite_style = "pokemmo"
+  V.mod = mod
+end
 
 -- ------- the follower vanishing (map transition) clears the tracked state
 npc = nil

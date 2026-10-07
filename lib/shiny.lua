@@ -3,14 +3,27 @@
 -- The real check stays the engine's own (pokemon.lua:1397, exposed via
 -- EnginePatch.isShiny): shinyValue = (otId ^ otSecretId) ^ (pHi ^ pLo) < 8,
 -- against the LIVE SAVE's trainer id -- a wild Pokemon's shininess depends
--- on who would catch it, same as real hardware. Vanilla rate is whatever
--- rollSweetScent already drew (no reroll). Boosted does a constructive
--- search for a personality that both passes that same check AND keeps the
--- original nature and gender, rather than rerolling blind (which would
--- need ~8192 average tries against a 1/8192 chance).
+-- on who would catch it, same as real hardware. "native" rate is whatever
+-- rollSweetScent already drew (no reroll). Every other tier (1/4096
+-- through 1/10, and "all") rolls its OWN chance on top of that -- a
+-- non-shiny encounter that hits the roll (or "all", unconditionally) gets
+-- a constructive search for a personality that both passes the engine's
+-- real shiny check AND keeps the original nature and gender, rather than
+-- rerolling blind (which would need ~8192 average tries against the
+-- engine's native 1/8192 odds). An encounter the engine's own roll
+-- already marked shiny is always kept, regardless of tier -- the roll
+-- below only ever ADDS shiny chances on top of the real one, never
+-- removes the one the engine already gave. Matches Wilds of Kanto
+-- Revival's SHINY RATE tiering.
 local V = ...
 
 local Shiny = {}
+
+-- rate key -> reroll denominator (1 in N). "native" and "all" are handled
+-- as special cases in rollForEncounter, not through this table.
+local RATE_DENOM = {
+  r4096 = 4096, r2048 = 2048, r1024 = 1024, r500 = 500, r100 = 100, r10 = 10,
+}
 
 -- 16-bit xor without the `bit` library (LuaJIT-only): standalone tests run
 -- under plain Lua 5.1, so this stays pure arithmetic. Inputs are masked to
@@ -68,16 +81,21 @@ function Shiny.rollForEncounter(mod, enc)
   local Config = V.require("config")
   local EnginePatch = V.require("engine_patch")
   local rate = Config.shinyRate(mod)
-  if rate == "off" then
-    enc.shiny = false
-    return enc
-  end
   local ids = EnginePatch.trainerIds() or { otId = 0, otSecretId = 0 }
+  -- The engine's own roll is never overridden to false -- every tier below
+  -- only ADDS a chance on top of it.
   if EnginePatch.isShiny(enc.personality, ids.otId, ids.otSecretId) then
     enc.shiny = true
     return enc
   end
-  if rate == "boosted" then
+  local hitRate = false
+  if rate == "all" then
+    hitRate = true
+  else
+    local denom = RATE_DENOM[rate] -- nil for "native" -> never hits, no reroll
+    hitRate = denom ~= nil and math.random(1, denom) == 1
+  end
+  if hitRate then
     local genderFn = function(p) return EnginePatch.genderOf(enc.species, p) end
     local p = Shiny.boostedPersonality(enc.personality, ids.otId, ids.otSecretId, genderFn)
     if p then

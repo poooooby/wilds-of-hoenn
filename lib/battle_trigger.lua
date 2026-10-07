@@ -2,16 +2,18 @@
 -- grass is the exact mon they battle (species, level, personality, IVs,
 -- roamer-ness all carried through from the spawn).
 --
--- Contact signal: engine_patch's `blocks` wrap fires for every caller of
--- Objects.blocks (player movement, NPC movement, trainer sight -- see
--- lib/engine_patch.lua's comment on that target), but only the PLAYER's
--- own collision check calls it with no `exceptLocalId`
--- (collision.lua:1003 entityBlocks(game, tx, ty, elevation) ->
--- Objects.blocks(tx, ty, nil, elevation); every NPC/trainer-sight caller
--- passes its own localId). main.lua's `blocks` hook callback uses exactly
--- that to call BattleTrigger:onPlayerBumped only for the player, while
--- still blocking NPCs and trainer sight from walking through a wild
--- Pokemon like any other solid object.
+-- Contact signal: a battle starts only when the player ARRIVES ON the wild
+-- Pokemon's tile -- the engine's `world.stepped` event at the end of every step
+-- (BattleTrigger:onPlayerStepped), so walking straight through one counts --
+-- or is resting on it (BattleTrigger:checkContact, every field tick). Never from
+-- an adjacent bump. engine_patch's `blocks` wrap fires for every
+-- caller of Objects.blocks (player movement, NPC movement, trainer sight --
+-- see lib/engine_patch.lua's comment on that target); only the PLAYER's own
+-- collision check calls it with no `exceptLocalId` (collision.lua:1003
+-- entityBlocks -> Objects.blocks(tx, ty, nil, elevation); every NPC/trainer-
+-- sight caller passes its own localId). main.lua's `blocks` callback answers
+-- "not blocked" for that player check so the player can step onto the mon,
+-- while still blocking NPCs, trainer sight and other wild Pokemon.
 local V = ...
 local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
@@ -30,6 +32,35 @@ end
 --- before the battle has actually opened.
 function BattleTrigger:isPending()
   return self.pendingId ~= nil
+end
+
+--- The engine's `world.stepped` event: a step just FINISHED on (x, y). This is
+--- the real contact signal. Holding a direction starts the next step in the
+--- same Player.update that finished the last one, so the player is never "at
+--- rest" on the tile they cross -- checking only for a standing player meant a
+--- mon in a cave could be walked straight through. The event fires inside
+--- Player's finishStep, the same moment the engine rolls its own wild
+--- encounters (and, like those, a battle started here stops the held
+--- direction from beginning another step).
+function BattleTrigger:onPlayerStepped(x, y)
+  if self:isPending() then return end
+  x, y = tonumber(x), tonumber(y)
+  if not x or not y then return end
+  local entity = self.spawnManager:entityAt(x, y)
+  if entity then self:onPlayerBumped(entity) end
+end
+
+--- Called every field tick: backstop for the standing-still case (nothing
+--- stepped, so no event) -- starts the battle when the player is resting on a
+--- wild Pokemon's tile, never from an adjacent bump or a step in progress.
+--- (The `blocks` hook in main.lua lets the player walk onto a wild Pokemon
+--- for exactly this reason.)
+function BattleTrigger:checkContact()
+  if self:isPending() then return end
+  local player = EnginePatch.playerCell()
+  if not player or player.moving then return end
+  local entity = self.spawnManager:entityAt(player.x, player.y)
+  if entity then self:onPlayerBumped(entity) end
 end
 
 function BattleTrigger:onPlayerBumped(entity)

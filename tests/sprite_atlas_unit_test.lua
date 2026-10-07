@@ -86,19 +86,19 @@ check(ok4 == false, "install() false on an empty families table")
 setFile(SpriteAtlas.ROOT_INDEX, encode({
   version = 1,
   families = {
-    poke_followers = {
-      index = "assets/atlas/poke_followers.json",
-      dirs = { "assets/enhanced_overworld/poke_followers" },
+    hgss18 = {
+      index = "assets/atlas/hgss18.json",
+      dirs = { "assets/wilds_generated/true_size18/hgss" },
     },
   },
 }))
-files["assets/atlas/poke_followers.json"] = encode({
-  version = 1, family = "poke_followers",
-  shards = { { file = "assets/atlas/poke_followers_0.png", w = 16, h = 32 } },
+files["assets/atlas/hgss18.json"] = encode({
+  version = 1, family = "hgss18",
+  shards = { { file = "assets/atlas/hgss18_0.png", w = 16, h = 32 } },
   dirs = {
-    ["assets/enhanced_overworld/poke_followers"] = {
-      ["follower_001_normal.png"] = { 0, 0, 0, 16, 16 },
-      ["follower_001_shiny.png"] = { 0, 0, 16, 16, 16 },
+    ["assets/wilds_generated/true_size18/hgss"] = {
+      ["001-normal.png"] = { 0, 0, 0, 16, 16 },
+      ["001-shiny.png"] = { 0, 0, 16, 16, 16 },
     },
   },
 })
@@ -107,13 +107,13 @@ local ok5, why5 = SpriteAtlas.install(mod)
 check(ok5 == true, "install() succeeds on a real-shaped index (" .. tostring(why5) .. ")")
 check(SpriteAtlas.installed(), "installed() true after a successful install")
 
-check(SpriteAtlas.has("assets/enhanced_overworld/poke_followers/follower_001_normal.png"),
+check(SpriteAtlas.has("assets/wilds_generated/true_size18/hgss/001-normal.png"),
   "has() true for an indexed sprite")
-check(SpriteAtlas.has("assets/enhanced_overworld/poke_followers/follower_001_shiny.png"),
+check(SpriteAtlas.has("assets/wilds_generated/true_size18/hgss/001-shiny.png"),
   "has() true for the shiny variant too")
-check(not SpriteAtlas.has("assets/enhanced_overworld/poke_followers/follower_999_normal.png"),
+check(not SpriteAtlas.has("assets/wilds_generated/true_size18/hgss/999-normal.png"),
   "has() false for a sprite not in the index")
-check(not SpriteAtlas.has("assets/enhanced_overworld/Pokewilds/follower_700_normal.png"),
+check(not SpriteAtlas.has("assets/wilds_generated/true_size18/swimming/700-normal.png"),
   "has() false for a directory this family doesn't claim")
 check(not SpriteAtlas.has("not/even/a/path/style/string"), "has() false for garbage input")
 
@@ -122,14 +122,14 @@ check(not SpriteAtlas.has("not/even/a/path/style/string"), "has() false for garb
 -- in lib/sprite_atlas.lua -- indexing a nil `love` global outside a pcall
 -- raises, so every love.* touch is guarded first).
 local okCall, img = pcall(SpriteAtlas.image, mod,
-  "assets/enhanced_overworld/poke_followers/follower_001_normal.png")
+  "assets/wilds_generated/true_size18/hgss/001-normal.png")
 check(okCall, "image() does not throw with no love context (" .. tostring(img) .. ")")
 eq(img, nil, "image() returns nil with no love context")
 
 -- image() for a mod that isn't the one install() was called with never
 -- leaks another mod's atlas state.
 local otherMod = { read = function() return nil end }
-eq(SpriteAtlas.image(otherMod, "assets/enhanced_overworld/poke_followers/follower_001_normal.png"),
+eq(SpriteAtlas.image(otherMod, "assets/wilds_generated/true_size18/hgss/001-normal.png"),
   nil, "image() returns nil for an unrelated mod")
 
 print("")

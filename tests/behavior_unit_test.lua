@@ -133,6 +133,26 @@ pathMon.ticksUntilAction = 0
 Behavior.tick(pathMon, {}, seq({ 0.1, 0.0 }))
 check(pathMon.moving == true, "a step that stays on the same encounter terrain is still allowed")
 
+-- ------- regression: terrainAt is checked BEFORE canEnter, not after --
+-- canEnter is the call that reaches the real engine's Collision.canEnter,
+-- which always resolves occupancy through Objects.blocks(tx, ty, nil,
+-- elevation), the exact nil-exceptLocalId shape main.lua's `blocks` hook
+-- uses to detect a real player bump (see lib/engine_patch.lua's
+-- isProbingCanEnter). That reentrancy is already guarded regardless of
+-- call order, but a terrain-invalid direction should never reach the
+-- engine's collision system at all -- there's no reason to make that call
+-- for a step this Pokemon could never actually take.
+local canEnterCalls = 0
+fakeEngine.canEnter = function(_game, _tx, _ty, _opts) canEnterCalls = canEnterCalls + 1 return true end
+fakeEngine.terrainAt = function(_tx, _ty) return nil end -- every direction is terrain-invalid
+local terrainMon = {
+  cellX = 2, cellY = 2, facing = "down", behavior = Behavior.ROAM, terrain = "land",
+  elevation = 3, moving = false, ticksUntilAction = 0, px = 32, py = 32,
+}
+Behavior.tick(terrainMon, {}, seq({ 0.1, 0.0 }))
+eq(canEnterCalls, 0, "canEnter is never called for a direction terrainAt already rejects")
+check(terrainMon.moving == false, "the step is still refused")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

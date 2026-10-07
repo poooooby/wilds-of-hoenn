@@ -30,22 +30,51 @@ local mod = {
 }
 
 local p1 = SpriteSource.normalPath(mod, 1)
-check(p1 ~= nil and p1:find("poke_followers", 1, true) ~= nil,
-  "dex 1 normal resolves to poke_followers")
+check(p1 ~= nil and p1:find("true_size18/hgss", 1, true) ~= nil,
+  "dex 1 normal resolves to the HGSS / PokeMMO sheet")
 
--- Dex 252 (Treecko): Pokewilds-only extension range.
+-- Kanto's Poke Followers / GSC style and its Pokewilds extension are not part
+-- of this mod: nothing resolves into them and the style constant is gone.
+eq(SpriteSource.STYLE_FOLLOWERS, nil, "there is no Poke Followers / GSC style any more")
+check(p1:find("poke_followers", 1, true) == nil and p1:find("Pokewilds", 1, true) == nil,
+  "default art never comes from the Poke Followers / Pokewilds trees")
+
+-- isFloater: the levitates pack is a species REFERENCE only (Zubat 41 is in
+-- it, Bulbasaur 1 is not); out-of-range dex never floats.
+SpriteSource._resetFloaterCache()
+check(SpriteSource.isFloater(mod, 41), "Zubat (41) is a floater")
+check(not SpriteSource.isFloater(mod, 6), "Charizard (6) is excluded despite being in the levitates pack")
+check(not SpriteSource.isFloater(mod, 1), "Bulbasaur (1) is not a floater")
+check(not SpriteSource.isFloater(mod, 0) and not SpriteSource.isFloater(mod, 99999) and not SpriteSource.isFloater(mod, nil),
+  "out-of-range dex is never a floater")
+local reads = 0
+local countingMod = { read = function(_, rel) reads = reads + 1 return mod.read(nil, rel) end }
+SpriteSource._resetFloaterCache()
+SpriteSource.isFloater(countingMod, 41)
+local after1 = reads
+SpriteSource.isFloater(countingMod, 41)
+eq(reads, after1, "isFloater is memoized per dex")
+SpriteSource._resetFloaterCache()
+
+-- water packs carry a baked transparent bottom margin the renderer compensates for
+eq(SpriteSource.bottomPadFor("assets/wilds_generated/true_size18/swimming/130-normal.png"), 2, "swimming sheets have a bottom pad")
+eq(SpriteSource.bottomPadFor("assets/wilds_generated/true_size18/levitates/006-normal.png"), 2, "levitates sheets have a bottom pad")
+eq(SpriteSource.bottomPadFor("assets/wilds_generated/true_size18/hgss/006-normal.png"), 0, "land sheets have none")
+eq(SpriteSource.bottomPadFor(nil), 0, "nil path is safe")
+
+-- Dex 252 (Treecko): Hoenn's own starter, HGSS / PokeMMO art.
 local p252 = SpriteSource.normalPath(mod, 252)
-check(p252 ~= nil and p252:find("Pokewilds", 1, true) ~= nil,
-  "dex 252 normal resolves to Pokewilds (extension range)")
+check(p252 ~= nil and p252:find("true_size18/hgss", 1, true) ~= nil,
+  "dex 252 normal resolves to the HGSS / PokeMMO sheet")
 
 -- Dex 700 (Sylveon): beyond Gen 3's native 386, but well within Wilds'
 -- own art coverage -- a National Dex expansion mod could legitimately
 -- hand this mod that species, so the cap must not have stopped at 386.
-local p700Followers = SpriteSource.normalPath(mod, 700)
-check(p700Followers ~= nil and p700Followers:find("Pokewilds", 1, true) ~= nil,
-  "dex 700 (beyond Gen 3's native 386) still resolves under followers")
+local p700Default = SpriteSource.normalPath(mod, 700)
+check(p700Default ~= nil and p700Default:find("true_size18/hgss", 1, true) ~= nil,
+  "dex 700 (beyond Gen 3's native 386) still resolves by default")
 local p700Hgss = SpriteSource.normalPath(mod, 700, SpriteSource.STYLE_POKEMMO)
-check(p700Hgss ~= nil and p700Hgss:find("true_size/hgss", 1, true) ~= nil,
+check(p700Hgss ~= nil and p700Hgss:find("true_size18/hgss", 1, true) ~= nil,
   "dex 700 also resolves under pokemmo")
 
 -- Out-of-range dex numbers resolve to nothing, not a garbage path.
@@ -75,22 +104,55 @@ local pNormal = SpriteSource.pathFor(mod, 1, false)
 check(pNormal ~= nil and pNormal:find("normal", 1, true) ~= nil, "pathFor(shiny=false) serves normal")
 
 -- ------- HGSS / PokeMMO style ("pokemmo"): a completely different tree,
--- selected explicitly -- never mixed with the Followers/GSC paths above.
+-- selected explicitly.
 local pHgssNormal = SpriteSource.normalPath(mod, 1, SpriteSource.STYLE_POKEMMO)
-check(pHgssNormal ~= nil and pHgssNormal:find("true_size/hgss", 1, true) ~= nil,
-  "pokemmo style resolves under true_size/hgss")
+check(pHgssNormal ~= nil and pHgssNormal:find("true_size18/hgss", 1, true) ~= nil,
+  "pokemmo style resolves under true_size18/hgss")
 check(pHgssNormal ~= nil and pHgssNormal:find("poke_followers", 1, true) == nil,
-  "pokemmo style never falls through to the followers tree")
+  "pokemmo style never falls through to the removed followers tree")
 
 local pHgssShiny = SpriteSource.pathFor(mod, 1, true, SpriteSource.STYLE_POKEMMO)
-check(pHgssShiny ~= nil and pHgssShiny:find("true_size/hgss", 1, true) ~= nil
+check(pHgssShiny ~= nil and pHgssShiny:find("true_size18/hgss", 1, true) ~= nil
   and pHgssShiny:find("shiny", 1, true) ~= nil,
   "pokemmo style serves its own shiny file")
 
--- A nil/unrecognized style defaults to followers, matching
+-- ------- presentation dimension: land is the default, and swimming /
+-- levitates select a different tree entirely. Dex 1 (Bulbasaur) has real
+-- baked art in all three true_size18 packs.
+local pLand = SpriteSource.normalPath(mod, 1, SpriteSource.STYLE_POKEMMO, SpriteSource.PRESENTATION_LAND)
+check(pLand ~= nil and pLand:find("true_size18/hgss", 1, true) ~= nil,
+  "land presentation resolves under true_size18/hgss")
+
+local pSwim = SpriteSource.normalPath(mod, 1, SpriteSource.STYLE_POKEMMO, SpriteSource.PRESENTATION_SWIMMING)
+check(pSwim ~= nil and pSwim:find("true_size18/swimming", 1, true) ~= nil,
+  "swimming presentation resolves under true_size18/swimming")
+
+-- Dex 6 (Charizard): real levitates art, unlike dex 1 which has no
+-- levitates pack entry (narrower water coverage than land, by design).
+local pLevitate = SpriteSource.normalPath(mod, 6, SpriteSource.STYLE_POKEMMO, SpriteSource.PRESENTATION_LEVITATES)
+check(pLevitate ~= nil and pLevitate:find("true_size18/levitates", 1, true) ~= nil,
+  "levitates presentation resolves under true_size18/levitates")
+
+-- A nil presentation defaults to land, matching SpriteSource.DEFAULT_PRESENTATION.
+local pNoPresentation = SpriteSource.normalPath(mod, 1, SpriteSource.STYLE_POKEMMO)
+eq(pNoPresentation, pLand, "no presentation argument behaves exactly like PRESENTATION_LAND")
+
+-- A stale style name (a saved "followers" option from before that style was
+-- removed) is not an error: it draws the same HGSS / PokeMMO art, presentation
+-- and all.
+local pStale = SpriteSource.normalPath(mod, 1, "followers", SpriteSource.PRESENTATION_SWIMMING)
+eq(pStale, pSwim, "a stale 'followers' style resolves exactly like HGSS / PokeMMO")
+
+-- A dex with no water-kind art at all falls through to land (narrower
+-- water coverage than land is expected).
+local pWaterFallback = SpriteSource.normalPath(mod, 1026, SpriteSource.STYLE_POKEMMO, SpriteSource.PRESENTATION_SWIMMING)
+eq(pWaterFallback, nil, "a dex beyond Wilds' own coverage resolves to nothing even for water presentation")
+
+-- A nil/unrecognized style defaults to HGSS / PokeMMO, matching
 -- SpriteSource.DEFAULT_STYLE -- never a silent empty path.
 local pDefaultStyle = SpriteSource.normalPath(mod, 1, nil)
-eq(pDefaultStyle, p1, "no style argument behaves exactly like STYLE_FOLLOWERS")
+eq(pDefaultStyle, p1, "no style argument behaves exactly like STYLE_POKEMMO")
+eq(SpriteSource.DEFAULT_STYLE, SpriteSource.STYLE_POKEMMO, "the renderer's default art style is HGSS / PokeMMO")
 
 print("")
 if failures > 0 then

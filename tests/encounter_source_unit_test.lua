@@ -89,6 +89,25 @@ srcFacility:loadMap("WILD_ROOM")
 check(not srcFacility:isEligible(), "a sweet-scent-facility map is never eligible")
 eq(#srcFacility:eligibleCells("land"), 0, "facility map cell scan is skipped")
 
+-- ------- setReachable restricts eligibleCells (a view; nothing is rescanned)
+do
+  local Reach = V.require("reachability")
+  local src = EncounterSource.new({})
+  src:loadMap("ROUTE_1")
+  local all = src:eligibleCells("land")
+  check(#all > 2, "sanity: the fixture has several land cells")
+  local keep = {}
+  keep[Reach.key(all[1].x, all[1].y)] = true
+  keep[Reach.key(all[2].x, all[2].y)] = true
+  src:setReachable(keep)
+  eq(#src:eligibleCells("land"), 2, "only the reachable land cells are eligible")
+  src:setReachable(nil)
+  eq(#src:eligibleCells("land"), #all, "lifting the restriction restores them all")
+  src:setReachable(keep)
+  src:loadMap("ROUTE_1")
+  eq(#src:eligibleCells("land"), #all, "a freshly loaded map starts unrestricted")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

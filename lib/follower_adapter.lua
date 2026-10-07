@@ -3,16 +3,70 @@
 -- public `world.follower.spawn` hook (mod.hooks:wrap); this module only
 -- answers "should one be visible right now" and keeps its sprite in sync
 -- with the current party lead, reusing the same walker art as wild spawns.
+--
+-- Pose and presentation (walking/running A-B alternation, land/water art)
+-- are computed HERE, every tick, and pushed onto the renderer via
+-- `renderer.poseOverride`/`renderer.presentation` -- NOT via the draw()
+-- call's own `walkPhase` argument. The engine builds that argument itself
+-- fresh every frame (src/world/game3/Follower.lua's `actor()`: `walkPhase
+-- = npc.moving and 1 or 0`), and its own stepFlip is hardcoded false for
+-- every non-player actor (src/core/game3/field_view.lua), so neither A/B
+-- alternation nor running can come from arguments the engine controls --
+-- this module owns the follower's `npc` directly (EnginePatch.followerCurrent)
+-- and tracks the real state itself. See lib/actor_renderer.lua's draw().
 local V = ...
 local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
 local ActorRenderer = V.require("actor_renderer")
+local RendererFactory = V.require("renderer_factory")
+local SpriteSource = V.require("sprite_source")
+local GrassCover = V.require("grass_cover")
 
 local FollowerAdapter = {}
 FollowerAdapter.__index = FollowerAdapter
 
+local CELL = 16
+FollowerAdapter.STEP_TICKS = 16 -- logic ticks per one-tile step
+
 function FollowerAdapter.new(mod)
-  return setmetatable({ mod = mod, leadSpecies = nil, style = nil, renderer = nil }, FollowerAdapter)
+  return setmetatable({
+    mod = mod, leadSpecies = nil, style = nil, renderer = nil,
+    stepParity = false, wasMoving = false,
+    isFloater = false, flapClock = 0, wasRecalled = false,
+  }, FollowerAdapter)
+end
+
+--- Is the follower inside its "ball" right now (shrunk into the player while
+--- they surf)? True while the recall is more than half closed.
+function FollowerAdapter:isRecalled()
+  local r = self.renderer
+  return r ~= nil and r.isPmd == true and (r.recall or 1) < 0.5
+end
+
+--- PMDCollab has no swim art, so while the player surfs the follower shrinks
+--- into them like a recall and grows back out once they walk on land. It
+--- stays in until the FOLLOWER itself is off the water too (it trails a step
+--- or two behind, so it would otherwise reappear standing on a water tile).
+function FollowerAdapter:_tickRecall(npc, r)
+  local surf = EnginePatch.playerSurfState and EnginePatch.playerSurfState()
+  local recalled = surf ~= nil and surf.surfing and not surf.dismounting
+  if not recalled and self.wasRecalled then
+    local overWater = EnginePatch.isWater(npc.cellX, npc.cellY)
+      or (npc.moving and npc.targetX ~= nil and EnginePatch.isWater(npc.targetX, npc.targetY))
+    recalled = overWater == true
+  end
+  self.wasRecalled = recalled
+
+  local want = recalled and 0 or 1
+  if r.recallPlaced then
+    local step = 1 / math.max(1, Config.PMD_RECALL_TICKS)
+    r.recall = ActorRenderer.approach(r.recall, want, step)
+  else
+    r.recall, r.recallPlaced = want, true -- a new sprite starts in its right state
+  end
+  local px, py = nil, nil
+  if EnginePatch.playerPixel then px, py = EnginePatch.playerPixel() end
+  r.recallX, r.recallY = px, py
 end
 
 --- The callback passed to mod.hooks:wrap("world.follower.spawn", ...).
@@ -24,27 +78,138 @@ end
 --- (engine_patch's `followerTick` hook) -- keeps npc.sprite pointed at a
 --- renderer for the CURRENT party lead in the CURRENT Sprite Style,
 --- rebuilding it only when either actually changes (a party-menu swap or
---- an options-menu style switch, not every tick).
+--- an options-menu style switch, not every tick), then refreshes that
+--- renderer's pose/presentation for THIS tick (cheap field writes, no
+--- rebuild -- see module header).
 function FollowerAdapter:tick()
   local npc = EnginePatch.followerCurrent()
   if not npc then
     self.leadSpecies, self.style = nil, nil
+    self.wasMoving = false
     return
   end
   local species = EnginePatch.leadPartySpecies()
   local style = Config.spriteStyle(self.mod)
-  if species == self.leadSpecies and style == self.style and npc.sprite == self.renderer then
+  if species ~= self.leadSpecies or style ~= self.style or npc.sprite ~= self.renderer then
+    self.leadSpecies, self.style = species, style
+    local dex = species and EnginePatch.nationalFor(species) or nil
+    if not dex then
+      self.renderer = nil
+      npc.sprite = nil
+    else
+      self.isFloater = SpriteSource.isFloater(self.mod, dex)
+      self.renderer = RendererFactory.new(self.mod, dex, false, style)
+      npc.sprite = self.renderer
+    end
+  end
+  if not self.renderer then return end
+
+  -- PMDCollab: the renderer animates itself from a tick clock (Walk while
+  -- the follower steps, Idle while it stands) -- none of the pose, grass
+  -- pushback or glide handling below applies to it.
+  if self.renderer.isPmd then
+    local r = self.renderer
+    if r.idleDelay ~= Config.PMD_FOLLOWER_IDLE_DELAY then
+      -- first tick of a new sprite: it waits the full delay before idling too
+      r.idleDelay = Config.PMD_FOLLOWER_IDLE_DELAY
+      if r.anim == "idle" then r.idleHold = r.idleDelay end
+    end
+    r.idleSpeed = Config.PMD_FOLLOWER_IDLE_SPEED
+    r:advance(npc.moving or false)
+    -- Space it out: kept behind the player along its facing by its own
+    -- overhang past the 16px tile plus a gap, eased so a turn glides
+    -- (same recipe as the pushback of the ActorRenderer styles below).
+    local PmdRenderer = V.require("pmd_renderer")
+    local cw, ch = PmdRenderer.contentSize(r.info)
+    local vertical = npc.facing == "up" or npc.facing == "down"
+    local overhang = math.max(0, ((vertical and ch or cw) - CELL) / 2)
+    local push = overhang + Config.PMD_FOLLOWER_GAP
+    local tx, ty = ActorRenderer.behindOffset(npc.facing, push)
+    local maxStep = (push * 2) / FollowerAdapter.STEP_TICKS
+    if r.pushPlaced then
+      r.pushX = ActorRenderer.approach(r.pushX, tx, maxStep)
+      r.pushY = ActorRenderer.approach(r.pushY, ty, maxStep)
+    else
+      r.pushX, r.pushY, r.pushPlaced = tx, ty, true -- a new sprite starts in place
+    end
+    self:_tickRecall(npc, r)
     return
   end
-  self.leadSpecies, self.style = species, style
-  local dex = species and EnginePatch.nationalFor(species) or nil
-  if not dex then
-    self.renderer = nil
-    npc.sprite = nil
-    return
+
+  -- Alternates walkA/walkB (or runA/runB) once per STEP, on the
+  -- not-moving -> moving edge -- not every tick -- mirroring
+  -- lib/behavior.lua's own entity.stepParity toggle for wild Pokemon.
+  local moving = npc.moving or false
+  if moving and not self.wasMoving then
+    self.stepParity = not self.stepParity
   end
-  self.renderer = ActorRenderer.new(self.mod, dex, false, style)
-  npc.sprite = self.renderer
+  self.wasMoving = moving
+
+  local pose = ActorRenderer.POSE_STAND
+  if moving then
+    if EnginePatch.playerIsRunning() then
+      pose = self.stepParity and ActorRenderer.POSE_RUN_A or ActorRenderer.POSE_RUN_B
+    else
+      pose = self.stepParity and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
+    end
+  end
+  -- A floating/flying lead keeps flapping slowly while standing still.
+  if not moving and self.isFloater then
+    self.flapClock = self.flapClock + 1
+    pose = ActorRenderer.idleFlapPose(self.flapClock, Config.IDLE_FLAP_TICKS)
+  end
+  self.renderer.poseOverride = pose
+
+  self.renderer.presentation = EnginePatch.isWater(npc.cellX, npc.cellY)
+    and SpriteSource.DEFAULT_WATER_PRESENTATION or SpriteSource.PRESENTATION_LAND
+
+  -- "Spacing out" a large (True Size) follower so it doesn't visually
+  -- overlap the player ahead of it -- the single-follower analog of Wilds
+  -- of Kanto Revival's multi-trailer convoy spacing. Cosmetic-only, applied
+  -- entirely inside ActorRenderer:draw() (largePushback/behindOffset) --
+  -- this mod does NOT own the follower's movement (src/world/game3/
+  -- Follower.lua does), so nudging npc.px/py/cellX/cellY here would get
+  -- baked into the engine's OWN fromX/targetX bookkeeping on the next step
+  -- and compound every subsequent step; never touch those fields for this.
+  -- Only a sprite wider than one tile needs it: a no-op for the species
+  -- whose HGSS / PokeMMO art fits in 16px.
+  local pushback = 0
+  if self.renderer.style == SpriteSource.STYLE_POKEMMO then
+    local fw = self.renderer:frameWidth()
+    if fw and fw > CELL then
+      pushback = (fw - CELL) / 2
+    end
+  end
+  self.renderer.largePushback = pushback
+
+  -- Ease the applied offset toward the facing's target instead of letting it
+  -- flip in one frame on a turn (the same glide Wilds of Kanto Revival gives
+  -- its trailers). A full 180-degree swing (2 * pushback) takes about one
+  -- step (STEP_TICKS logic ticks). Cosmetic only, same reason as above.
+  local r = self.renderer
+  local tx, ty = ActorRenderer.behindOffset(npc.facing, pushback)
+  if pushback == 0 then
+    r.pushX, r.pushY = nil, nil
+  else
+    local maxStep = (pushback * 2) / FollowerAdapter.STEP_TICKS
+    r.pushX = ActorRenderer.approach(r.pushX, tx, maxStep)
+    r.pushY = ActorRenderer.approach(r.pushY, ty, maxStep)
+  end
+end
+
+--- Called from the same `collectActors` hook as lib/spawn_manager.lua's
+--- own (engine_patch's `collectActors` hook, main.lua) -- appends the
+--- "sinking into grass" overlay (lib/grass_cover.lua) for the follower's
+--- CURRENT cell, if it's standing in one right now. The follower's own
+--- actor entry is pushed by the engine itself (src/world/game3/Follower.lua's
+--- actor(), called directly by field_view.lua BEFORE our wrapped
+--- collectActors runs) -- this only adds the extra overlay, never the
+--- follower's own sprite. `idBase = 0`, distinct from every wild-mon id
+--- (lib/spawn_manager.lua's ids start at 1).
+function FollowerAdapter:collectActors(actors)
+  local npc = EnginePatch.followerCurrent()
+  if not npc or npc.hidden then return end
+  GrassCover.append(actors, npc.cellX, npc.cellY, npc.py, npc.elevation, 0)
 end
 
 return FollowerAdapter

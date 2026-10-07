@@ -8,6 +8,11 @@ local EncounterSource = V.require("encounter_source")
 local Behavior = V.require("behavior")
 local Shiny = V.require("shiny")
 local ActorRenderer = V.require("actor_renderer")
+local RendererFactory = V.require("renderer_factory")
+local Reachability = V.require("reachability")
+local SpriteSource = V.require("sprite_source")
+local GrassCover = V.require("grass_cover")
+local ModernSpawns = V.require("modern_spawns_bridge")
 
 local SpawnManager = {}
 SpawnManager.__index = SpawnManager
@@ -29,13 +34,68 @@ function SpawnManager:clearAll()
   self.order = {}
 end
 
+--- Measures what the player can reach from where they stand (see
+--- lib/reachability.lua) and restricts spawning to it. Fails OPEN: without
+--- the engine pieces or a start cell, no restriction is applied and the map
+--- behaves exactly as before.
+function SpawnManager:_rebuildReach()
+  self.reach, self.reachCount, self.reachAge = nil, nil, 0
+  if Config.REACHABLE_SPAWNS and EnginePatch.reachStart and EnginePatch.reachMover then
+    local start = EnginePatch.reachStart()
+    local move = start and EnginePatch.reachMover(self.game)
+    if start and move then
+      local t0 = os.clock()
+      local set, count = Reachability.build({
+        startX = start.x, startY = start.y, startState = start.state, move = move,
+      })
+      self.reach, self.reachCount = set, count
+      local log = self.mod and self.mod.log
+      if log and set then
+        pcall(log.info, log, "[wilds_of_hoenn] reachable area on %s: %d cells (%.0f ms)",
+          tostring(self.mapId), count or 0, (os.clock() - t0) * 1000)
+      end
+    end
+  end
+  self.source:setReachable(self.reach)
+end
+
+--- Despawns every wild Pokemon standing outside the reachable area.
+function SpawnManager:_pruneUnreachable()
+  if not self.reach then return end
+  local doomed = {}
+  for id, e in pairs(self.entities) do
+    if e.state == Config.STATE.AVAILABLE and not Reachability.has(self.reach, e.cellX, e.cellY) then
+      doomed[#doomed + 1] = id
+    end
+  end
+  for _, id in ipairs(doomed) do self:despawn(id) end
+end
+
+--- Once per tick: keep the reachable area current. Re-measures when the
+--- player stands outside it (they warped, hopped a ledge, were carried
+--- somewhere new) and on a slow timer (Surf learned, a tree cut ...), and
+--- drops spawns that are no longer reachable.
+function SpawnManager:_checkReach()
+  if not Config.REACHABLE_SPAWNS or not self.source:isEligible() then return end
+  self.reachAge = (self.reachAge or 0) + 1
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p and p.moving then return end
+  local outside = self.reach and p and not Reachability.has(self.reach, p.x, p.y)
+  if outside or (self.reachAge >= Config.REACH_REBUILD_TICKS) or (not self.reach and self.reachAge >= 60) then
+    self:_rebuildReach()
+    self:_pruneUnreachable()
+  end
+end
+
 function SpawnManager:onMapEntered(mapId, game)
   self:clearAll()
   self.mapId = mapId
   self.game = game
+  self.reach, self.reachCount, self.reachAge = nil, nil, 0
   if not Config.enabled(self.mod) then return end
   self.source:loadMap(mapId)
   if not self.source:isEligible() then return end
+  self:_rebuildReach()
   self:refill("land")
   self:refill("water")
 end
@@ -66,6 +126,14 @@ function SpawnManager:_cellFree(x, y)
     if e.cellX == x and e.cellY == y then return false end
     if e.moving and e.targetX == x and e.targetY == y then return false end
   end
+  -- A spawn on the player's tile would start a battle at once now that
+  -- contact means "standing on it" -- keep the cell they stand on, and the
+  -- one they are stepping into, clear.
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p then
+    if p.x == x and p.y == y then return false end
+    if p.moving and p.targetX == x and p.targetY == y then return false end
+  end
   local player = self.game and self.game.world and self.game.world.player
   if player and player.cellX == x and player.cellY == y then return false end
   return true
@@ -82,6 +150,8 @@ function SpawnManager:_spawnOne(terrain, cell)
   if not self:_cellFree(cell.x, cell.y) then return false end
   local enc = EnginePatch.rollSweetScent(self.mapId, terrain)
   if not enc then return false end
+  -- Modern Spawns' species for the slot the engine rolled (no-op without it)
+  enc = ModernSpawns.apply(self.mapId, terrain, enc)
   if not EnginePatch.repelAllows(enc.level) then return false end
   local dex = EnginePatch.nationalFor(enc.species)
   if not dex then return false end
@@ -90,7 +160,14 @@ function SpawnManager:_spawnOne(terrain, cell)
   local id = self.nextId
   self.nextId = id + 1
 
-  local renderer = ActorRenderer.new(self.mod, dex, enc.shiny, Config.spriteStyle(self.mod))
+  local presentation = (terrain == "water") and SpriteSource.DEFAULT_WATER_PRESENTATION or SpriteSource.PRESENTATION_LAND
+  local renderer = RendererFactory.new(self.mod, dex, enc.shiny, Config.spriteStyle(self.mod), presentation)
+  -- PMDCollab: start each Pokemon at its own point in the Idle loop so a
+  -- group of them doesn't breathe in unison.
+  if renderer.isPmd then
+    renderer.clock = math.random(0, 239)
+    renderer.idleSpeed = Config.PMD_WILD_IDLE_SPEED
+  end
   renderer.silhouette = self:_silhouetteFor(enc.species)
 
   local facings = { "up", "down", "left", "right" }
@@ -104,7 +181,9 @@ function SpawnManager:_spawnOne(terrain, cell)
     facing = facings[math.random(1, 4)],
     behavior = Behavior.pick(),
     ticksUntilAction = math.random(0, 60),
-    moving = false,
+    moving = false, stepParity = false,
+    floater = SpriteSource.isFloater(self.mod, dex),
+    flapClock = math.random(0, 4 * Config.IDLE_FLAP_TICKS),
     renderer = renderer,
     state = Config.STATE.AVAILABLE,
   }
@@ -130,10 +209,13 @@ end
 --- piggybacked on Follower.update so this mod needs no extra tick seam).
 function SpawnManager:tick(game)
   self.game = game or self.game
+  self:_checkReach()
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     if e and e.state == Config.STATE.AVAILABLE then
+      if e.floater and not e.moving then e.flapClock = e.flapClock + 1 end
       Behavior.tick(e, self.game)
+      if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
     end
   end
   self:refill("land")
@@ -145,12 +227,22 @@ function SpawnManager:collectActors(actors)
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     if e and e.state ~= Config.STATE.DESPAWNED then
+      local pose = ActorRenderer.POSE_STAND
+      if e.moving then
+        pose = e.stepParity and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
+      elseif e.floater then
+        pose = ActorRenderer.idleFlapPose(e.flapClock, Config.IDLE_FLAP_TICKS)
+      end
       actors[#actors + 1] = {
         kind = "wild_mon", i = id,
         x = e.px, y = e.py, sortY = e.py, elevation = e.elevation,
-        facing = e.facing, walkPhase = e.moving and 1 or 0,
+        facing = e.facing, walkPhase = pose,
         renderer = e.renderer,
       }
+      -- "Sinking into grass" overlay -- see lib/grass_cover.lua. A water
+      -- spawn's cell is never grass, so this is a no-op for those without
+      -- needing its own terrain check here.
+      GrassCover.append(actors, e.cellX, e.cellY, e.py, e.elevation, id)
     end
   end
 end
@@ -193,13 +285,25 @@ end
 
 --- Re-points every live entity's renderer at the current Sprite Style
 --- option without respawning anything -- a mid-game style switch takes
---- effect on the very next frame. Cheap: the renderer's path (and so its
---- image/quad cache key) already depends on `style`
---- (SpriteSource.pathFor), so this is just flipping that one field.
+--- effect on the very next frame. Each renderer is rebuilt through
+--- RendererFactory (the PMDCollab style is a different renderer class, so a
+--- switch to or from it can't be a field flip), keeping the entity's
+--- species, shininess, terrain art and silhouette. Rebuilding is cheap: the
+--- image and quad caches are keyed by path, not by renderer.
 function SpawnManager:refreshSpriteStyle()
   local style = Config.spriteStyle(self.mod)
   for _, e in pairs(self.entities) do
-    if e.renderer then e.renderer.style = style end
+    if e.renderer then
+      local presentation = (e.terrain == "water") and SpriteSource.DEFAULT_WATER_PRESENTATION
+        or SpriteSource.PRESENTATION_LAND
+      local fresh = RendererFactory.new(self.mod, e.dex, e.shiny, style, presentation)
+      fresh.silhouette = e.renderer.silhouette
+      if fresh.isPmd then
+        fresh.clock = math.random(0, 239)
+        fresh.idleSpeed = Config.PMD_WILD_IDLE_SPEED
+      end
+      e.renderer = fresh
+    end
   end
 end
 
