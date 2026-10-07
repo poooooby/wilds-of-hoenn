@@ -10,6 +10,7 @@ This mod's own code is MIT-licensed (see `LICENSE`). The art below is not.
 released under the MIT License:
 
 > Copyright (c) 2026 YoDrehDenSwagAuf
+> Modifications Copyright (c) 2026 poooooby
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy
 > of this software and associated documentation files (the "Software"), to deal
@@ -26,10 +27,10 @@ released under the MIT License:
 The HGSS / PokeMMO art under `assets/enhanced_overworld/` and
 `assets/wilds_generated/` is a read-only copy of **Wilds of Kanto Revival**'s
 HGSS / PokeMMO Sprite Style sources (`tools/copy_wilds_assets.py`, run against
-a sibling `poooooby/wilds-of-kanto-gen-3` checkout). This mod does not modify
-that art and does not share a runtime dependency with Wilds of Kanto Revival --
-the two repos may diverge over time. (Kanto's Poke Followers / GSC and
-Pokewilds sheets are Kanto-only and are not used or shipped here.)
+a sibling `poooooby/wilds-of-kanto-gen-3` checkout). Originally sourced from
+https://www.pokecommunity.com/threads/generation-9-resource-pack-v21-1.527398/
+This mod does not modify that art and does not share a runtime dependency with 
+Wilds of Kanto Revival -- the two repos may diverge over time. 
 
 - **HGSS / PokeMMO** (raw sources in `assets/enhanced_overworld/followsprites/`
   and `water_sprites/`, baked here into `assets/wilds_generated/true_size18/`):
@@ -37,7 +38,7 @@ Pokewilds sheets are Kanto-only and are not used or shipped here.)
   individual artists in Wilds of Kanto Revival's own
   `THIRD_PARTY_NOTICES.md` (MissingLukey, Kymoyonian, Getsuei-H, and many
   others listed there), plus the Pokemon Tower ghost sprite by
-  Nuclear-Blizzard.
+  Nuclear-Blizzard. Full credits list [here](https://docs.google.com/spreadsheets/d/1T-KC-4XDOeFKq0Z6tfN6Sz4JIlpaK7B8A0lbmBg9fNY/edit?usp=sharing).
 
 See Wilds of Kanto Revival's `THIRD_PARTY_NOTICES.md` and `README.md` for
 the complete, authoritative credit list for this art.
