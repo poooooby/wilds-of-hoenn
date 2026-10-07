@@ -6,19 +6,19 @@
 
 **The tall grass is alive. Walk into the wilds, and bring a partner.**
 
-## Mod Summary
+## Quick Summary
 
 Bring Hoenn and Kanto to life in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3 games: **Ruby, Sapphire, Emerald, FireRed and LeafGreen**.
 
-- **Pokémon in the overworld.** Wild Pokémon wander in the grass, in the water and in caves. Walk into one and you start the battle.
-- **Bring a partner.** Pick any Pokémon in your party menu and have it tag along for company, **forage** for items as you walk, or actively **battle** overworld Pokémon for you, like in Scarlet and Violet.
-- **Build friendship.** Face your follower and press A to pet it, play with it, or talk to it. Its portrait shows how it really feels, based on its HP, status and friendship.
-- **Adjustable shiny rolls** for overworld encounters (gifts, eggs and starters are not affected).
-- **Works with dex expansion mods** such as [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3) and [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3), so overworld encounters can reach all the way through Generation 9. Art is included for the whole National Dex (1-1025). Optional [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns) integration too.
-- Two sprite styles: **HGSS / PokeMMO** or fully animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
+- 🦌 **Pokémon in the overworld.** Wild Pokémon wander in the grass, in the water and in caves. Walk into one and you start the battle.
+- 🤝 **Bring a partner.** Pick any Pokémon in your party menu and have it tag along for company, **forage** for items as you walk, or actively **battle** overworld Pokémon for you, like in Scarlet and Violet.
+- 🫂 **Build friendship.** Face your follower and press A to pet it, play with it, or talk to it. Its portrait shows how it really feels, based on its HP, status and friendship.
+- ✨ **Adjustable shiny rolls** for overworld encounters (gifts, eggs and starters are not affected).
+- 🔗 **Works with dex expansion mods** such as [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3) and [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3), so overworld encounters can reach all the way through Generation 9. Art is included for the whole National Dex (1-1025). Optional [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns) integration too.
+- 👾 Two sprite styles: **HGSS / PokeMMO** or fully animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
 - **+ much more on the way!**
 
-### Installation
+### 💾 Installation
 
 1. Download a release ZIP from the [Releases](https://github.com/poooooby/wilds-of-hoenn/releases) page and pick **one**:
    - **HGSS + PMDCollab** - the full experience (animated PMDCollab sprites, portraits, battle animations). About 58 MB. The PMDCollab art is licensed non-commercial (see [Third-party notices](#third-party-notices-and-credits)).
@@ -26,7 +26,7 @@ Bring Hoenn and Kanto to life in [Gen1Recomp](https://github.com/bryanthaboi/gen
 2. Import it with the Gen1Recomp Mod Manager (or drop it in your mods folder).
 3. Enable **Wilds of Hoenn**. FireRed and LeafGreen support is newer and less play-tested than Ruby, Sapphire and Emerald, so please report anything odd.
 
-## Options Summary
+## 📋 Options Summary
 
 ### Start Menu (the mod's options in the Mod Manager)
 
@@ -48,7 +48,7 @@ There is no Follower on/off option. The party leader follows until you choose so
 | **BATTLE** | When you stand still and a wild overworld Pokémon is within **3 tiles of you**, it charges in for a short fight with its **real moves, stats, damage and PP**. Health bars and hit effects appear on both, and it earns a little EXP for a win. The defeated Pokémon cries and sinks into the ground. A Battler is never knocked out: at 1 HP (or with no attack PP left) it runs back, cries and shrinks into you, and rests until it's healed. |
 | **FORAGE** | While you **walk on routes and in caves** (not in towns, buildings, the Safari Zone or on water), it roams 5-10 tiles around you and runs back. Every 10-30 seconds it cries to alert you, digs, and has a **20% chance** to find an item for your bag: healing and status items, Poké Balls, berries, evolution items (including National Dex Gen 3's extras) and cheap TMs. Never HMs, key items, Master Balls, Rare Candy or high-level TMs. |
 
-## Dev Information
+## 🤓 Dev Information
 
 ```sh
 # Copy Wilds of Kanto Revival's overworld art (run once, or after that repo
@@ -103,11 +103,11 @@ The party menu's Follow / Battle / Forage rows add two more: `PartyMenu.update` 
 
 This mod is a sister project to [Wilds of Kanto Revival](https://github.com/poooooby/wilds-of-kanto-gen-3), built from scratch for Gen 3's different engine. It shares no runtime code or save data with it, only a read-only copy of its overworld art.
 
-## AI Disclosure
+## 🤖 AI Disclosure
 
 This mod was developed with help from [Claude Code](https://claude.com/claude-code) (Anthropic), working from direction, design decisions, in-game testing and bug reports from the maintainer, who also approves every release. AI-written code can contain mistakes, which is why the project ships a large unit-test suite, a real-engine probe test and a manual in-game checklist. If you find a bug, please open an issue here or on Discord.
 
-## Third-Party Notices and Credits
+## 🪪 Third-Party Notices and Credits
 
 The mod's own code and tools are released under the [MIT License](LICENSE). The art it uses is **not** covered by that license:
 
