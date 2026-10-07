@@ -119,10 +119,11 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
 - [ ] In a town, a city, a building (Pokemon Center, house ...), the Safari
       Zone, or while surfing / on water, it just trots beside you and never
       goes out. Walking back onto a route resumes it.
-- [ ] Every 10-30 seconds of walking it goes foraging: at the spot it CRIES (to
-      tell you), digs, and about 1 time in 5 a "Found <item>!" label shows and
-      the item is in the bag; otherwise nothing shows. Then it runs back
-      quickly. Stopping mid-trip still lets it finish.
+- [ ] Every 10-30 seconds of walking it goes foraging: at the spot it digs, and
+      about 1 time in 5 it finds something: a "Found <item>!" label shows, the
+      item is in the bag, and ONLY THEN does it cry (to tell you). A dig that
+      finds nothing is silent. Then it runs back quickly. Stopping mid-trip
+      still lets it finish.
 - [ ] The forage timer carries over map changes (walking through several maps
       still gets foraging), but a trip in progress is cancelled by the change.
 - [ ] Finds include healing / status items, Poke Balls, berries, evolution

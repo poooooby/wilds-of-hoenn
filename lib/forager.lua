@@ -9,9 +9,10 @@
 --   linger   sniffs about there a moment -> back
 --   back     runs back to within a tile of the player -> near ...
 -- Every 10-30 seconds of that walking the trip is a FORAGE instead of a wander:
--- at the spot the Pokemon CRIES to tell the player, digs (its animation), has a
--- 20% chance to turn up an item (into the bag, with a "Found X!" label), and runs
--- back to the player quickly.
+-- at the spot the Pokemon digs (its animation) and has a 20% chance to turn up an
+-- item: only THEN does it cry, to tell the player (the item goes into the bag with
+-- a "Found X!" label). A dig that finds nothing is silent. Then it runs back to the
+-- player quickly.
 -- A standing player keeps it close: wanderers hurry back and nothing new starts
 -- (a forage already under way is finished first -- it is only a few seconds). The
 -- forage timer survives map changes; only the trip in progress is cancelled.
@@ -37,7 +38,7 @@ local CELL = 16
 ---   occupied(x, y) -> bool       optional: something of ours is there (a wild Pokemon)
 ---   rng() -> [0,1)               optional
 ---   pickItem() -> name | nil     roll, bag it, and return the name to announce
----   playCry(species)             optional: the alert cry
+---   playCry(species)             optional: the cry when it finds something
 ---   playFound()                  optional sound
 ---   cfg                          optional (Config.FORAGE)
 --- }
@@ -222,7 +223,7 @@ function Forager:_mode_out(env, active)
   if self:_moveTo(c[1] * CELL, c[2] * CELL, forage and cfg.forageSpeed or cfg.walkSpeed) then
     if self.idx >= #self.path then
       if forage then
-        self.mode, self.t, self.cried = "cry", 0, false
+        self.mode, self.t = "dig", 0
       else
         self.mode, self.t = "linger", 0
         self.lingerFor = self:_randInt(cfg.lingerMin, cfg.lingerMax)
@@ -242,15 +243,12 @@ function Forager:_mode_linger(env, active)
   return state(self, env, { moving = false })
 end
 
--- the alert: the cry, then a moment before the dig
+-- it found something: the cry (to tell the player), a moment, then back
 function Forager:_mode_cry(env)
   local cfg = self.cfg
-  if not self.cried then
-    self.cried = true
-    if self.deps.playCry and env.mon then self.deps.playCry(env.mon.species) end
-  end
   if self.t >= cfg.cryPause then
-    self.mode, self.t = "dig", 0
+    self:_goBack(env)
+    return self:_mode_back(env, true)
   end
   return state(self, env, { moving = false })
 end
@@ -263,8 +261,11 @@ function Forager:_mode_dig(env)
     if name then
       self.popup, self.popupAge = "Found " .. tostring(name) .. "!", 0
       if self.deps.playFound then self.deps.playFound() end
+      if self.deps.playCry and env.mon then self.deps.playCry(env.mon.species) end
+      self.mode, self.t = "cry", 0
+      return state(self, env, { moving = false })
     end
-    self:_goBack(env)
+    self:_goBack(env) -- nothing here: no cry, just back
     return self:_mode_back(env, true)
   end
   return state(self, env, { moving = false, bounce = true, idleSpeed = 1.5 })

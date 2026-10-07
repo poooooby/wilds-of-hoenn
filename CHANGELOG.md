@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changes
+
+- The Forager now heads out every 5-15 seconds of walking (was every 1-2.5 s).
+- The Forager only cries when it actually finds something; a dig that turns
+  up nothing is silent.
+
 ### Features
 
 - Follower interactions fleshed out: **Play** +3, **Pet** +2, **Talk** +1

@@ -79,14 +79,14 @@ Config.FORAGE = {
   -- map types it may forage on: 3 = route (outside), 4 = underground (caves). Towns,
   -- cities, buildings, water and secret bases are off limits.
   allowedMapTypes = { [3] = true, [4] = true },
-  wanderWaitMin = 40,    -- ticks it trots beside the player between wanders ...
-  wanderWaitMax = 150,   -- ... to this many (only counted while the player moves)
+  wanderWaitMin = 300,   -- ticks it trots beside the player between trips (5 s) ...
+  wanderWaitMax = 900,   -- ... to 15 s (only counted while the player moves)
   lingerMin = 25,        -- ticks it sniffs about at a wander spot ...
   lingerMax = 70,        -- ... to this many
   walkSpeed = 1.5,       -- px per tick going out on a wander
   forageSpeed = 2.2,     -- px per tick going out to forage
   runSpeed = 2.8,        -- px per tick running back to the player
-  cryPause = 30,         -- ticks after the alert cry before it digs
+  cryPause = 30,         -- ticks it stays put after crying out about a find
   digTicks = 90,         -- digging at the spot
   popupTicks = 150,      -- the "found X" label stays up
   maxTmPrice = 3000,     -- TMs dearer than this are "high level" and never found

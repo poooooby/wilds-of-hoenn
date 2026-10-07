@@ -139,14 +139,14 @@ do
     if s and s.bounce then sawDig = true end
     if s and s.popup then sawPopup, popupText = true, s.popup.text end
   end)
-  check(cries >= 1, "it cried to alert the player (" .. cries .. " cries)")
-  eq(log[1], "cry", "the cry came first")
-  eq(log[2], "pick", "...then the find")
-  eq(log[3], "found", "...with the sound")
+  check(cries >= 1, "it cried to tell the player it found something (" .. cries .. " cries)")
+  eq(log[1], "pick", "the find came first")
+  eq(log[2], "found", "...with the sound")
+  eq(log[3], "cry", "...and then the cry")
   check(sawDig, "it dug (bounce animation)")
   check(sawPopup and popupText == "Found Potion!", "a 'Found Potion!' label showed")
   local joined = table.concat(order, ">")
-  check(joined:find("out>cry>dig>back", 1, true) ~= nil, "the forage trip is out > cry > dig > back (" .. joined .. ")")
+  check(joined:find("out>dig>cry>back", 1, true) ~= nil, "a forage that finds something is out > dig > cry > back (" .. joined .. ")")
 end
 
 -- ------- the real defaults: 10-30 seconds between forages, a 20% find chance
@@ -174,6 +174,25 @@ do
   f2.forageGoal = 20
   walk(f2, 20, 700)
   check(picks >= 1, "a roll under 20% finds an item")
+end
+
+-- ------- a forage that finds nothing is silent: no cry, no label
+do
+  local cries, picks, sawDig, sawPopup = 0, 0, false, false
+  local f = newForager({ rng = function() return 0.9 end, -- over the 20% find chance
+    playCry = function() cries = cries + 1 end, pickItem = function() picks = picks + 1 return "Potion" end })
+  f.forageGoal = 20
+  local order, lastMode = {}, nil
+  walk(f, 20, 1500, function(s)
+    if f.mode ~= lastMode then order[#order + 1] = f.mode lastMode = f.mode end
+    if s and s.bounce then sawDig = true end
+    if s and s.popup then sawPopup = true end
+  end)
+  check(sawDig, "it still digs")
+  eq(cries, 0, "...but a dig that finds nothing never cries")
+  eq(picks, 0, "...and picks nothing")
+  check(not sawPopup, "...and shows no label")
+  check(table.concat(order, ">"):find("out>dig>back", 1, true) ~= nil, "it goes straight back (out > dig > back)")
 end
 
 -- ------- no forage before the timer runs out
