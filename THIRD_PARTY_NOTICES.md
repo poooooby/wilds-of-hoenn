@@ -6,10 +6,11 @@ This mod's own code is MIT-licensed (see `LICENSE`). The art below is not.
 
 `lib/json_decode.lua`, `tools/generate_sprite_atlases.py` and
 `tools/validate_sprite_atlases.py` are copied or adapted from
-**Wilds of Kanto Revival** (`YoDrehDenSwagAuf/overworld-spawn-mod`), which is
+**Wilds of Kanto Revival** (`poooooby/wilds-of-kanto-gen-3`), which is
 released under the MIT License:
 
 > Copyright (c) 2026 YoDrehDenSwagAuf
+>
 > Modifications Copyright (c) 2026 poooooby
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy
