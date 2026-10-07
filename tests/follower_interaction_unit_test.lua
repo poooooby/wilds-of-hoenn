@@ -35,10 +35,10 @@ end
 E.choiceActive = function() return E.choiceUp end
 E.friendshipOf = function(mon) return mon.friendship or 0 end
 E.setFriendship = function(mon, v) v = math.max(0, math.min(255, v)) mon.friendship = v return v end
-E.petFriendship = function(mon)
-  local before = mon.friendship or 0
-  mon.friendship = math.min(255, before + 3)
-  return mon.friendship - before
+E.clearStatus = function(mon)
+  local had = mon.status ~= nil
+  mon.status, mon.sleep = nil, 0
+  return had
 end
 
 -- ------- fake portrait UI: records what is said, mimics the real contract
@@ -147,7 +147,7 @@ eq(E.choice.layout.top, 3, "the menu sits clear of the dialogue box")
 -- ------- Pet: friendship up, happy reply with a happy face, then it ends
 E.lead.friendship = 100
 pick(0)
-eq(E.lead.friendship, 103, "Pet raises friendship through the engine's massage event (+3)")
+eq(E.lead.friendship, 102, "Pet gives +2")
 say = lastSay()
 check(say.opts.stay == nil and say.opts.mon == E.lead, "the result is a normal message the player closes")
 eq(say.opts.emotion, "Joyous", "a healthy Pokemon looks joyous after a Pet")
@@ -159,24 +159,142 @@ check(not fi:isActive(), "closing the reply ends the interaction")
 fi = newInteraction()
 E.lead = mon({ friendship = 100 })
 fi:tryStart({}) openMenu(fi) pick(1)
-eq(E.lead.friendship, 102, "Play gives +2")
+eq(E.lead.friendship, 103, "Play gives +3")
 eq(lastSay().opts.emotion, "Inspired", "Play: Inspired face")
 closeMessage()
 clock = clock + 100
 fi:tryStart({}) openMenu(fi) pick(2)
-eq(E.lead.friendship, 103, "Talk gives +1")
-eq(lastSay().opts.emotion, "Happy", "Talk: Happy face")
+eq(E.lead.friendship, 104, "Talk gives +1")
+eq(lastSay().opts.emotion, "Happy", "Talk: the face matches how fond it is (40-59% = Happy)")
+check(lastSay().text:find("starting", 1, true), "Talk: it reports 'starting to like you'")
 closeMessage()
 
--- ------- a hurting Pokemon keeps its own face and gets softer text
-fi = newInteraction()
-clock = clock + 5000
-E.lead = mon({ status = "PSN", friendship = 100 })
-fi:tryStart({}) openMenu(fi) pick(0)
-eq(lastSay().opts.emotion, "Pain", "a poisoned Pokemon still looks pained after a Pet")
-check(lastSay().text:find("gently", 1, true), "and gets the gentle reply")
-eq(E.lead.friendship, 103, "but the Pet still counts")
-closeMessage()
+-- ------- a hurting Pokemon keeps its own face and gets softer text (no cure this time)
+do
+  local savedRng = rng
+  rng = function() return 0.9 end -- over the 25% cure chance
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ status = "PSN", friendship = 100 })
+  fi:tryStart({}) openMenu(fi) pick(0)
+  eq(lastSay().opts.emotion, "Pain", "a poisoned Pokemon still looks pained after a Pet")
+  check(lastSay().text:find("gently", 1, true), "and gets the gentle reply")
+  eq(E.lead.friendship, 102, "but the Pet still counts (+2)")
+  eq(E.lead.status, "PSN", "...and a roll over 25% leaves the poison alone")
+  closeMessage()
+  rng = savedRng
+end
+
+-- ------- Pet: a 25% chance to cure a status condition
+do
+  local savedRng = rng
+  rng = function() return 0.1 end -- under 25%
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ status = "PSN", friendship = 100 })
+  fi:tryStart({}) openMenu(fi) pick(0)
+  check(E.lead.status == nil, "a roll under 25% cures the status")
+  check(lastSay().text:find("feels better now", 1, true), "...and says '<name> feels better now!' instead of the usual reply")
+  check(not lastSay().text:find("pet", 1, true), "...not the pet line")
+  eq(E.lead.friendship, 102, "...and the Pet's +2 still counts")
+  eq(lastSay().opts.emotion, "Joyous", "a healed, healthy Pokemon looks joyous")
+  closeMessage()
+  -- a healed Pokemon that is still badly hurt keeps its own face
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ status = "BRN", hp = 20, maxHp = 100, friendship = 100 })
+  fi:tryStart({}) openMenu(fi) pick(0)
+  check(E.lead.status == nil and lastSay().text:find("feels better now", 1, true), "a burn is cured too")
+  eq(lastSay().opts.emotion, "Pain", "...but low HP still shows in its face")
+  closeMessage()
+  -- no status, nothing to cure: the normal reply
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ friendship = 100 })
+  fi:tryStart({}) openMenu(fi) pick(0)
+  check(lastSay().text:find("pet", 1, true) or lastSay().text:find("stroke", 1, true), "a healthy Pokemon gets the normal pet reply")
+  closeMessage()
+  rng = savedRng
+end
+
+-- ------- Play: a hurt or sick Pokemon refuses and says why (nothing is spent)
+do
+  local cases = {
+    { { hp = 20, maxHp = 100 }, "is hurt", "low HP" },
+    { { status = "PSN" }, "is sick", "poison" },
+    { { status = "TOX" }, "is sick", "bad poison" },
+    { { status = "PAR" }, "is paralyzed", "paralysis" },
+    { { status = "FRZ" }, "is too cold", "freeze" },
+    { { status = "BRN" }, "is burning", "burn" },
+    { { status = "SLP" }, "is asleep", "sleep" },
+  }
+  for _, c in ipairs(cases) do
+    fi = newInteraction()
+    clock = clock + 5000
+    E.lead = mon(c[1])
+    E.lead.friendship = 100
+    fi:tryStart({}) openMenu(fi) pick(1)
+    check(lastSay().text:find(c[2], 1, true) and lastSay().text:find("can't play", 1, true),
+      "Play refused: '" .. c[2] .. " ... can't play' (" .. c[3] .. ")")
+    eq(E.lead.friendship, 100, "...no friendship gained (" .. c[3] .. ")")
+    check(not fi.limiter:status().locked and fi.state == "result", "...and no scene, straight to the reply (" .. c[3] .. ")")
+    closeMessage()
+  end
+  -- 25% HP exactly is fine; just under is not
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ hp = 25, maxHp = 100, friendship = 100 })
+  fi:tryStart({}) openMenu(fi) pick(1)
+  eq(E.lead.friendship, 103, "a Pokemon at exactly 25% HP will play")
+  closeMessage()
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ hp = 24, maxHp = 100, friendship = 100 })
+  fi:tryStart({}) openMenu(fi) pick(1)
+  eq(E.lead.friendship, 100, "...but one just under 25% will not")
+  closeMessage()
+  -- Pet and Talk are still fine for a sick Pokemon
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ status = "PAR", friendship = 100 })
+  fi:tryStart({}) openMenu(fi) pick(2)
+  eq(E.lead.friendship, 101, "a sick Pokemon can still be talked to (+1)")
+  closeMessage()
+end
+
+-- ------- Talk: how fond it is, as a share of the maximum, with a matching face
+do
+  local bands = {
+    { 10, "wary", "Worried" }, { 60, "curious", "Surprised" }, { 110, "starting", "Happy" },
+    { 160, "trusts", "Determined" }, { 210, "really likes", "Joyous" }, { 250, "loves", "Inspired" },
+  }
+  for _, b in ipairs(bands) do
+    fi = newInteraction()
+    clock = clock + 5000
+    E.lead = mon({ friendship = b[1] })
+    fi:tryStart({}) openMenu(fi) pick(2)
+    check(lastSay().text:find(b[2], 1, true), "Talk at friendship " .. b[1] .. " says '" .. b[2] .. "'")
+    eq(lastSay().opts.emotion, b[3], "...with the " .. b[3] .. " portrait")
+    closeMessage()
+  end
+  -- a Pokemon at the maximum loves you (instead of the 'as happy as can be' line)
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ friendship = 255 })
+  fi:tryStart({}) openMenu(fi) pick(2)
+  check(lastSay().text:find("loves you", 1, true), "Talk at the maximum: it loves you")
+  eq(lastSay().opts.emotion, "Inspired", "...Inspired")
+  eq(E.lead.friendship, 255, "...with nothing more to gain")
+  closeMessage()
+  -- hurting does not change what it says about you
+  fi = newInteraction()
+  clock = clock + 5000
+  E.lead = mon({ status = "PSN", friendship = 160 })
+  fi:tryStart({}) openMenu(fi) pick(2)
+  check(lastSay().text:find("trusts", 1, true), "a poisoned Pokemon still tells you how it feels")
+  eq(lastSay().opts.emotion, "Determined", "...with that feeling's face")
+  closeMessage()
+end
 
 -- ------- Cancel and B
 fi = newInteraction()

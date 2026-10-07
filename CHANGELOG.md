@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Follower interactions fleshed out: **Play** +3, **Pet** +2, **Talk** +1
+  friendship. A Pokemon that is hurt (under 25% HP) or has a status
+  condition **refuses to play** and says why ("is sick and can't play").
+  **Pet** has a 25% chance to cure a status condition ("feels better
+  now!"). **Talk** reports how fond of you it is as a share of maximum
+  friendship (wary, curious, starting to like you, trusts you, really likes
+  you, loves you) with a matching portrait.
+
 ## 1.2.0 (2026-10-07)
 
 ### Features

@@ -147,7 +147,6 @@ EnginePatch.READONLY = {
   -- on that cell, or nil.
   followerAt = { mod = "src.world.game3.Follower", field = "at" },
   -- pokemon.lua: friendship accessors / the engine's own AdjustFriendship.
-  adjustFriendship = { mod = "src.core.game3.pokemon", field = "adjustFriendship" },
   setFriendship = { mod = "src.core.game3.pokemon", field = "setFriendship" },
   friendshipOf = { mod = "src.core.game3.pokemon", field = "friendshipOf" },
   displayName = { mod = "src.core.game3.pokemon", field = "displayName" },
@@ -699,16 +698,16 @@ function EnginePatch.setFriendship(mon, value)
   return ok and tonumber(v) or EnginePatch.friendshipOf(mon)
 end
 
---- The engine's own massage friendship event (the tier-aware gain a Pet
---- gives: Soothe Bell, Luxury Ball and same-location bonuses apply). Returns
---- the points gained (0 when nothing changed).
-function EnginePatch.petFriendship(mon)
-  local fn, Pokemon = pokemonFn("adjustFriendship")
-  if not fn then return 0 end
-  local before = EnginePatch.friendshipOf(mon)
-  local event = (Pokemon and Pokemon.FRIENDSHIP_EVENT_MASSAGE) or 6
-  pcall(fn, mon, event, {})
-  return EnginePatch.friendshipOf(mon) - before
+
+--- Cures the Pokemon's status condition the way the engine's own medicine does
+--- (item_use.lua clearStatus: status and the sleep counter back to nothing).
+--- Returns true when there was something to cure.
+function EnginePatch.clearStatus(mon)
+  if type(mon) ~= "table" then return false end
+  local had = mon.status ~= nil and mon.status ~= 0 and mon.status ~= "" or (tonumber(mon.sleep) or 0) > 0
+  mon.status = nil
+  mon.sleep = 0
+  return had
 end
 
 --- BattleBridge.startWild is called directly, not wrapped -- we never need

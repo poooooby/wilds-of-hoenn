@@ -141,7 +141,8 @@ Config.INTERACT = {
   window = 600, maxGains = 6,
   abuseWindow = 45, abuseAttempts = 6,
   lockBase = 300, lockMax = 3600, strikeReset = 7200,
-  gain = { play = 2, talk = 1 },
+  gain = { play = 3, pet = 2, talk = 1 },
+  petHealChance = 0.25, -- petting a Pokemon with a status condition: chance to cure it
 }
 
 -- Reachable-only spawns (lib/reachability.lua): visible wild Pokemon appear

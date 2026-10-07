@@ -9,8 +9,10 @@
 --                 thrown ball it fetches and spins at, Pet = an idle and a cry,
 --                 Talk = two cries) while the field is locked.
 --   4. RESULT  -- the action's reply, with a face to match, and the friendship
---                 gain applied to the real party mon (Pet uses the engine's own
---                 massage friendship event, Play/Talk a small flat gain).
+--                 gain applied to the real party mon: Play +3, Pet +2, Talk +1.
+--                 Play is refused (with the reason) by a hurt or sick Pokemon;
+--                 Pet has a chance to cure a status condition; Talk reports how
+--                 fond of you it is.
 --
 -- Everything a player can spam goes through lib/interaction_limiter.lua:
 -- per-action cooldowns, a budget per time window, and an escalating lock-out
@@ -183,11 +185,9 @@ function FollowerInteraction:tryStart(game)
   return true
 end
 
---- Applies the friendship gain of a granted action; returns points gained.
+--- Applies the friendship gain of a granted action (Play +3, Pet +2, Talk +1,
+--- Config.INTERACT.gain); returns points gained.
 function FollowerInteraction:grant(action, mon)
-  if action == "pet" then
-    return EnginePatch.petFriendship(mon)
-  end
   local before = EnginePatch.friendshipOf(mon)
   local gain = (Config.INTERACT.gain or {})[action] or 0
   return EnginePatch.setFriendship(mon, before + gain) - before
@@ -207,18 +207,49 @@ function FollowerInteraction:onChoice(index)
   end
   local name = EnginePatch.displayName(mon)
 
+  -- a hurt or sick Pokemon will not play: it says why, and nothing is spent
+  if action == "play" then
+    local blocker = MonMood.playBlocker(mon)
+    if blocker then
+      self:finish(Dialogue.cantPlay(blocker, name, self.rng), (MonMood.read(mon)))
+      return
+    end
+  end
+
   if MonMood.friendshipOf(mon) >= 255 then
-    self:animate(action, Dialogue.maxed(name, self.rng), "Inspired") -- nothing to gain, nothing spent
+    if action == "talk" then
+      local text, emotion = Dialogue.talk(255, name, self.rng) -- it loves you
+      self:animate(action, text, emotion)
+    else
+      self:animate(action, Dialogue.maxed(name, self.rng), "Inspired") -- nothing to gain, nothing spent
+    end
     return
   end
 
   local result = self.limiter:attempt(action)
   if result.ok then
+    -- petting a Pokemon with a status condition may cure it
+    local healed = false
+    if action == "pet" and MonMood.statusOf(mon) then
+      local roll = self.rng and self.rng() or math.random()
+      if roll < (Config.INTERACT.petHealChance or 0) then
+        healed = EnginePatch.clearStatus(mon)
+      end
+    end
     self:grant(action, mon)
-    local derived, reason = MonMood.read(mon) -- after the gain
+    local derived, reason = MonMood.read(mon) -- after the gain (and the cure)
     local hurting = HURTING[reason] == true
-    self:animate(action, Dialogue.action(action, name, hurting, self.rng),
-      hurting and derived or ACTION_EMOTION[action])
+    local text, emotion
+    if action == "talk" then
+      -- it tells you how fond of you it is, with a face to match
+      text, emotion = Dialogue.talk(EnginePatch.friendshipOf(mon), name, self.rng)
+    elseif healed then
+      text, emotion = Dialogue.healed(name, self.rng), hurting and derived or ACTION_EMOTION.pet
+    else
+      text = Dialogue.action(action, name, hurting, self.rng)
+      emotion = hurting and derived or ACTION_EMOTION[action]
+    end
+    self:animate(action, text, emotion)
   elseif result.reason == "locked" then
     self:finish(Dialogue.refusal(result.newlyLocked and "locked_now" or "locked", name, self.rng),
       result.newlyLocked and "Shouting" or "Angry")

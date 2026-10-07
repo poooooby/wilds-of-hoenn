@@ -143,8 +143,20 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
       you onto it; if turning in place toward it is not possible in practice,
       the interact test needs to accept an adjacent follower too.
 - [ ] Pet / Play / Talk each reply with a matching face and raise happiness
-      (check the summary screen: Pet ~+3, Play +2, Talk +1; Pet at 255 gives
+      (check the summary screen: Play +3, Pet +2, Talk +1; at 255 they give
       nothing). B and Cancel close everything with no portrait left behind.
+- [ ] PLAY refuses when the Pokemon is hurt (under 25% HP) or has a status
+      condition, and says why with its pained face: "is hurt / sick /
+      paralyzed / too cold / burning / asleep and can't play." No scene, no
+      friendship, and it doesn't use up the interaction budget.
+- [ ] PET on a Pokemon with a status condition has a 25% chance to cure it:
+      "<name> feels better now!" (check its status in the party menu); the
+      other 75% it gets the usual reply and stays sick. Pet still gives +2.
+- [ ] TALK reports how fond it is as a share of maximum friendship, with a
+      matching portrait: wary (Worried) / curious about you (Surprised) /
+      starting to like you (Happy) / trusts you (Determined) / really likes
+      you (Joyous) / loves you (Inspired) at 0 / 20 / 40 / 60 / 80 / 95%
+      (a poisoned Pokemon still answers; a maxed one says it loves you).
 - [ ] Each choice plays a short scene BEFORE the reply and portrait (both
       Sprite Styles; try a small follower and a big one such as Rayquaza):
       - Play: you strike the arms-up pose and a small Poke Ball arcs out in

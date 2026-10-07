@@ -459,7 +459,13 @@ eq(EnginePatch.displayName(mon), "BLAZE", "displayName delegates to Pokemon.disp
 eq(EnginePatch.friendshipOf(mon), 100, "friendshipOf delegates")
 eq(EnginePatch.setFriendship(mon, 300), 255, "setFriendship clamps through the engine")
 mon.friendship = 100
-eq(EnginePatch.petFriendship(mon), 3, "petFriendship runs the engine's massage event and reports the gain")
+local sick = { status = "PSN", sleep = 0 }
+check(EnginePatch.clearStatus(sick), "clearStatus reports it cured something")
+check(sick.status == nil and sick.sleep == 0, "...clearing the status and the sleep counter like the engine's medicine")
+local asleep = { status = nil, sleep = 3 }
+check(EnginePatch.clearStatus(asleep) and asleep.sleep == 0, "a sleeping Pokemon is woken")
+check(not EnginePatch.clearStatus({ hp = 5 }), "nothing to cure: false")
+check(not EnginePatch.clearStatus(nil), "no Pokemon: false")
 
 -- A second install() call while already installed is a no-op, not a
 -- double-wrap (idempotent on hot reload).

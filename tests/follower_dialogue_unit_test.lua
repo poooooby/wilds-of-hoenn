@@ -72,6 +72,45 @@ check(Dialogue.maxed("BLAZE", first):find("BLAZE", 1, true), "maxed text names t
 local last = function() return 0.999 end
 check(Dialogue.report("joyous", "B", first) ~= Dialogue.report("joyous", "B", last), "different rng values pick different variants")
 
+-- ------- Play turned down: why, one line per blocker, always "can't play"
+for reason, word in pairs({ low = "hurt", poison = "sick", paralysis = "paralyzed", freeze = "too cold",
+    burn = "burning", sleep = "asleep" }) do
+  local text = Dialogue.cantPlay(reason, "BLAZE", first)
+  check(text:find("BLAZE", 1, true) and text:find(word, 1, true) and text:find("can't play", 1, true),
+    "cantPlay(" .. reason .. "): '" .. word .. " ... can't play'")
+  check(select(2, text:gsub(string.char(10), "")) <= 1, "cantPlay(" .. reason .. ") fits the two-line box")
+end
+check(Dialogue.cantPlay("???", "B", first):find("can't play", 1, true), "an unknown reason still refuses politely")
+
+-- ------- Petting cured it
+eq(Dialogue.healed("BLAZE", first), "BLAZE feels better now!", "the cure line")
+
+-- ------- Talk: friendship as a share of the maximum (255), with the portrait to match
+local function talk(f) local text, emotion, key = Dialogue.talk(f, "BLAZE", first) return text, emotion, key end
+local cases = {
+  { 0, "wary", "Worried", "wary of" }, { 50, "wary", "Worried", "wary of" },        -- 19.6%
+  { 51, "curious", "Surprised", "curious about you" },                                  -- 20%
+  { 101, "curious", "Surprised", "curious about you" },                                 -- 39.6%
+  { 102, "starting", "Happy", "starting to like you" },                                 -- 40%
+  { 152, "starting", "Happy", "starting to like you" },                                 -- 59.6%
+  { 153, "trusts", "Determined", "trusts you" },                                        -- 60%
+  { 203, "trusts", "Determined", "trusts you" },                                        -- 79.6%
+  { 204, "likes", "Joyous", "really likes you" },                                       -- 80%
+  { 241, "likes", "Joyous", "really likes you" },                                       -- 94.5%
+  { 243, "loves", "Inspired", "loves you" },                                            -- 95.3%
+  { 255, "loves", "Inspired", "loves you" },
+}
+for _, c in ipairs(cases) do
+  local text, emotion, key = talk(c[1])
+  eq(key, c[2], "friendship " .. c[1] .. " is the '" .. c[2] .. "' tier")
+  eq(emotion, c[3], "...with the " .. c[3] .. " portrait")
+  check((text:gsub(string.char(10), " ")):find(c[4], 1, true), "...saying '" .. c[4] .. "'")
+end
+check(talk(0):find("BLAZE", 1, true), "talk names the Pokemon")
+eq(select(3, talk(-5)), "wary", "a nonsense low friendship is the lowest tier")
+eq(select(3, talk(9999)), "loves", "...and a huge one the highest")
+eq(select(3, talk(nil)), "wary", "...and none at all the lowest")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

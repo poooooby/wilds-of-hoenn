@@ -256,6 +256,14 @@ def main() -> int:
                     help="rewrite every PMDCollab sheet, not just the missing ones (after updating SpriteCollab)")
     args = ap.parse_args()
 
+    # .modkitignore must list every test / tool / script / doc (modkit matches exact
+    # paths): refuse to build a release while it is out of date
+    check = subprocess.run([sys.executable, str(ROOT / "tools" / "check_modkitignore.py")])
+    if check.returncode != 0:
+        print("ERROR: .modkitignore is out of date -- run: python3 tools/check_modkitignore.py --write",
+              file=sys.stderr)
+        return 1
+
     manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
     version = manifest["version"]
     mod_id = manifest["id"]

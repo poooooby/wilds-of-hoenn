@@ -44,7 +44,7 @@ There is no Follower on/off option. The party leader follows until you choose so
 
 | Menu row | What your Pokémon does |
 |---|---|
-| **FOLLOW** | Follows you. Face it and press A for **Pet** (a quick idle and its cry), **Play** (you throw a ball, it fetches it and spins) or **Talk** (it cries twice). Each one raises its friendship, with limits so it can't be spammed. |
+| **FOLLOW** | Follows you. Face it and press A for **Pet** (a quick idle and its cry), **Play** (you throw a ball, it fetches it and spins) or **Talk** (it cries twice). Each one raises its friendship (Play +3, Pet +2, Talk +1), with limits so it can't be spammed. A hurt or sick Pokémon won't play and tells you why; petting a sick Pokémon has a 25% chance to cure it; talking shows how much it likes you. |
 | **BATTLE** | When you stand still and a wild overworld Pokémon is within **3 tiles of you**, it charges in for a short fight with its **real moves, stats, damage and PP**. Health bars and hit effects appear on both, and it earns a little EXP for a win. The defeated Pokémon cries and sinks into the ground. A Battler is never knocked out: at 1 HP (or with no attack PP left) it runs back, cries and shrinks into you, and rests until it's healed. |
 | **FORAGE** | While you **walk on routes and in caves** (not in towns, buildings, the Safari Zone or on water), it roams 5-10 tiles around you and runs back. Every 10-30 seconds it cries to alert you, digs, and has a **20% chance** to find an item for your bag: healing and status items, Poké Balls, berries, evolution items (including National Dex Gen 3's extras) and cheap TMs. Never HMs, key items, Master Balls, Rare Candy or high-level TMs. |
 
@@ -76,6 +76,11 @@ cd -
 # Pre-release validation
 python3 tools/validate_option_labels.py
 python3 tools/validate_release_version.py
+
+# .modkitignore lists every test / tool / script / doc by exact path (modkit has no
+# wildcards) so none of them ships. After adding a file under tests/, tools/,
+# scripts/ or docs/, regenerate it; the release build refuses to run while it's stale.
+python3 tools/check_modkitignore.py --write
 
 # Build the release ZIPs into release/: -hgss (HGSS / PokeMMO art only) and
 # -hgss-pmd (+ PMDCollab). Sprites are baked into atlas shards first;

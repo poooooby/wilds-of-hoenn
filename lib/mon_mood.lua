@@ -130,6 +130,17 @@ function MonMood.read(mon)
   return emotion, FRIENDSHIP_REASON[emotion]
 end
 
+--- Why this Pokemon will not play, or nil when it will: its status condition
+--- ("poison" | "burn" | "paralysis" | "freeze" | "sleep"), else "low" when it is
+--- under a quarter of its HP.
+function MonMood.playBlocker(mon)
+  local status = MonMood.statusOf(mon)
+  if status then return status end
+  local frac = MonMood.hpFraction(mon)
+  if frac and frac < MonMood.LOW_HP then return "low" end
+  return nil
+end
+
 --- The portrait emotion for a party mon's current state.
 function MonMood.emotionFor(mon)
   return (MonMood.read(mon))

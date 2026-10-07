@@ -40,6 +40,32 @@ Dialogue.ACTION_HURTING = {
   talk = { "You talk softly to\n{name}. It listens." },
 }
 
+-- Play turned down because the Pokemon is not up to it, keyed by
+-- MonMood.playBlocker's reason.
+Dialogue.CANT_PLAY = {
+  low = { "{name} is hurt and\ncan't play." },
+  poison = { "{name} is sick and\ncan't play." },
+  paralysis = { "{name} is paralyzed and\ncan't play." },
+  freeze = { "{name} is too cold and\ncan't play." },
+  burn = { "{name} is burning and\ncan't play." },
+  sleep = { "{name} is asleep and\ncan't play." },
+}
+
+-- Petting cured its status condition.
+Dialogue.HEALED = { "{name} feels better now!" }
+
+-- Talking: how it feels about you, by friendship as a share of the maximum
+-- (255). Ascending: { minimum percent, key, portrait emotion, lines }.
+Dialogue.FRIENDSHIP_MAX = 255
+Dialogue.TALK_TIERS = {
+  { 0, "wary", "Worried", { "{name} is wary of\nyou..." } },
+  { 20, "curious", "Surprised", { "{name} is curious\nabout you!" } },
+  { 40, "starting", "Happy", { "{name} is starting\nto like you!" } },
+  { 60, "trusts", "Determined", { "{name} trusts you!" } },
+  { 80, "likes", "Joyous", { "{name} really likes\nyou!" } },
+  { 95, "loves", "Inspired", { "{name} loves you!" } },
+}
+
 Dialogue.MAXED = { "{name} is already as\nhappy as can be!", "{name} couldn't possibly\nbe any fonder of you!" }
 
 -- Turned down by the limiter.
@@ -73,6 +99,27 @@ end
 function Dialogue.action(action, name, hurting, rng)
   local list = (hurting and Dialogue.ACTION_HURTING[action]) or Dialogue.ACTION[action] or Dialogue.ACTION.pet
   return fill(pick(list, rng), name)
+end
+
+--- Why it will not play (reason from MonMood.playBlocker).
+function Dialogue.cantPlay(reason, name, rng)
+  local list = Dialogue.CANT_PLAY[reason] or Dialogue.CANT_PLAY.low
+  return fill(pick(list, rng), name)
+end
+
+function Dialogue.healed(name, rng)
+  return fill(pick(Dialogue.HEALED, rng), name)
+end
+
+--- How it feels about you: the line and the portrait emotion matching
+--- `friendship` (0..255) as a percentage of the maximum.
+function Dialogue.talk(friendship, name, rng)
+  local percent = math.max(0, math.min(100, (tonumber(friendship) or 0) * 100 / Dialogue.FRIENDSHIP_MAX))
+  local tier = Dialogue.TALK_TIERS[1]
+  for _, t in ipairs(Dialogue.TALK_TIERS) do
+    if percent >= t[1] then tier = t end
+  end
+  return fill(pick(tier[4], rng), name), tier[3], tier[2]
 end
 
 function Dialogue.maxed(name, rng)
