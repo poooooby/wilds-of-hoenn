@@ -85,16 +85,22 @@ check(okExit, "a real map.exited through Runtime.emit does not throw (" .. tostr
 
 r.release()
 
--- ------- FireRed: this mod targets RSE only, so it must install nothing
--- even though generation is forced to 3 the same way
-local rFr = loadWildsOfHoenn("firered")
-eq(#rFr.errors, 0, "wilds_of_hoenn loads with no Loader errors on FireRed")
-local mFr = rFr.loader.mods.wilds_of_hoenn
-eq(mFr and mFr.state, "loaded", "FireRed: mod still reaches loaded (it's a valid Gen 3 target)")
-local exportsFr = rFr.loader.exports and rFr.loader.exports.wilds_of_hoenn
-eq(exportsFr and exportsFr.engineReady, false, "FireRed: engineReady stays false (RSE-only mod)")
-check(exportsFr and exportsFr.spawnManager == nil, "FireRed: no spawnManager exported")
-rFr.release()
+-- ------- FireRed / LeafGreen: the same game3 modules, so the mod installs on
+-- them too -- against the REAL engine, probes and wraps included
+for _, game in ipairs({ "firered", "leafgreen" }) do
+  local rFr = loadWildsOfHoenn(game)
+  eq(#rFr.errors, 0, "wilds_of_hoenn loads with no Loader errors on " .. game)
+  local mFr = rFr.loader.mods.wilds_of_hoenn
+  eq(mFr and mFr.state, "loaded", game .. ": the mod reaches loaded")
+  local exportsFr = rFr.loader.exports and rFr.loader.exports.wilds_of_hoenn
+  eq(exportsFr and exportsFr.engineReady, true, game .. ": engineReady (the real probe passed)")
+  eq(exportsFr and exportsFr.layout, "frlg", game .. ": layout frlg")
+  check(exportsFr and exportsFr.spawnManager ~= nil, game .. ": spawnManager exported")
+  local okE = pcall(Runtime.emit, "map.entered", { mapId = "FR_ROUTE_1" })
+  check(okE, game .. ": a real map.entered does not throw")
+  eq(exportsFr and exportsFr.spawnManager.mapId, "FR_ROUTE_1", game .. ": the event reached the spawn manager")
+  rFr.release()
+end
 
 print("")
 if failures > 0 then

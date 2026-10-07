@@ -15,6 +15,6 @@
   "permissions": ["engine_internals"],
   "affects_link": false,
   "options_schema": "options.lua",
-  "description": "Visible, reactive wild Pokemon for the Hoenn overworld (Ruby, Sapphire, Emerald). Sister project to Wilds of Kanto Revival, built from scratch for Gen1Recomp's game3 engine.",
+  "description": "Visible, reactive wild Pokemon for the Hoenn overworld (Ruby, Sapphire, Emerald, FireRed, LeafGreen). Sister project to Wilds of Kanto Revival, built from scratch for Gen1Recomp's game3 engine.",
   "github": "poooooby/wilds-of-hoenn"
 }

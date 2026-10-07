@@ -35,6 +35,12 @@ function EncounterSource:loadMap(mapId)
     self.skip = true
     return
   end
+  -- Safari Zone (Ruby / Sapphire / Emerald and FireRed / LeafGreen): the
+  -- engine runs those battles itself, with balls and bait.
+  if EnginePatch.safariActive() then
+    self.skip = true
+    return
+  end
   self.skip = false
 
   EnginePatch.ensureEncountersLoaded()

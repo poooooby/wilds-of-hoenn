@@ -92,6 +92,10 @@ fake["src.core.game3.runtime"] = {
   getSession = function() return { trainerId = 1234, secretId = 5678, party = {} } end,
 }
 fake["src.core.game3.dex"] = { isCaught = function() return false end }
+local safariOn = false
+fake["src.core.game3.safari"] = { isActive = function() return safariOn end }
+local rngNext = 987654321
+fake["src.core.game3.rng"] = { Random32 = function() return rngNext end }
 local messageIsOpen = false
 fake["src.ui.game3.message"] = {
   draw = function() end,
@@ -122,8 +126,32 @@ local ok, missing = EnginePatch.probe()
 check(ok, "probe passes against a complete fake engine")
 eq(#missing, 0, "no missing targets reported")
 
--- ------- isRse reads the fake GameVersion
+-- ------- the layout: RSE and FRLG are both supported
 check(EnginePatch.isRse(), "isRse true for the fake emerald/rse version")
+eq(EnginePatch.layoutName(), "rse", "layoutName rse")
+check(EnginePatch.isSupported(), "isSupported on rse")
+do
+  local gv = fake["src.core.GameVersion"]
+  local was = gv.layout
+  gv.layout = function() return "frlg" end
+  eq(EnginePatch.layoutName(), "frlg", "layoutName frlg")
+  check(EnginePatch.isSupported() and not EnginePatch.isRse(), "FireRed / LeafGreen are supported, and are not RSE")
+  gv.layout = function() return "gen2" end
+  check(EnginePatch.layoutName() == nil and not EnginePatch.isSupported(), "a non-Gen-3 layout is not supported")
+  gv.layout = was
+end
+
+-- ------- FRLG rolls no personality: the engine's own random stream supplies it
+eq(EnginePatch.randomPersonality(), 987654321, "randomPersonality draws from the engine's Random32")
+rngNext = nil
+check(EnginePatch.randomPersonality() == nil, "...and is nil when the engine returns nothing usable")
+rngNext = 5
+
+-- ------- Safari Zone detection
+check(not EnginePatch.safariActive(), "safariActive false normally")
+safariOn = true
+check(EnginePatch.safariActive(), "safariActive true during a Safari Zone visit")
+safariOn = false
 
 -- ------- install/uninstall wraps and restores exactly the TARGETS
 local originalBlocks = fake["src.core.game3.objects"].blocks

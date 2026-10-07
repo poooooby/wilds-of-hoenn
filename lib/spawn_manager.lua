@@ -150,6 +150,9 @@ function SpawnManager:_spawnOne(terrain, cell)
   if not self:_cellFree(cell.x, cell.y) then return false end
   local enc = EnginePatch.rollSweetScent(self.mapId, terrain)
   if not enc then return false end
+  -- FireRed / LeafGreen's rules roll no personality: draw it now so the sprite
+  -- (shiny, gender) and the battle Pokemon are the same one
+  if enc.personality == nil then enc.personality = EnginePatch.randomPersonality() end
   -- Modern Spawns' species for the slot the engine rolled (no-op without it)
   enc = ModernSpawns.apply(self.mapId, terrain, enc)
   if not EnginePatch.repelAllows(enc.level) then return false end

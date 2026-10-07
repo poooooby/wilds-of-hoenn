@@ -8,8 +8,9 @@ rest on each of the three games before calling v1 verified.
 
 ## Per-game basics
 
-- [ ] Mod installs and enables cleanly; FireRed/LeafGreen boots are
-      untouched (check the log for "not a Ruby/Sapphire/Emerald boot").
+- [ ] Mod installs and enables cleanly on Ruby, Sapphire, Emerald, FireRed
+      and LeafGreen (a non-Gen-3 boot logs "not a Gen 3 boot" and installs
+      nothing).
 - [x] Route 101/102 (Ruby/Sapphire/Emerald): visible land wild Pokemon
       stand/wander in grass; walking into one starts a battle with that
       exact species/level; a caught/beaten one is gone and a new one
@@ -130,6 +131,19 @@ every 15 s).
 - [ ] You cannot talk to the follower while it is inside the player.
 - [ ] HGSS / PokeMMO: unchanged -- the follower swims with its own water art.
 - [ ] Tune `Config.PMD_RECALL_TICKS` (speed) and `PMD_RECALL_LIFT` (rise toward the body).
+
+## FireRed / LeafGreen (new)
+
+- [ ] Route 1 / Viridian Forest: visible land spawns stand and wander, walking
+      onto one starts a battle with that exact Pokemon (species, level, nature,
+      gender, shininess -- FRLG spawns get their personality from the engine's rng).
+- [ ] Surfing (Cinnabar / Seafoam), caves (Mt. Moon, Rock Tunnel), Pallet water:
+      water and cave spawns work; unreachable ground gets none.
+- [ ] Safari Zone: NO visible spawns; the engine's own Safari battles (balls, bait)
+      work as before. Same check in the Hoenn Safari Zone.
+- [ ] Map names use the `FR_` / `LG_` convention: confirm spawns still appear and
+      Modern Spawns (if installed) still redistributes species there.
+- [ ] Follower, portraits and PMDCollab behave as on Hoenn.
 
 ## Special areas
 

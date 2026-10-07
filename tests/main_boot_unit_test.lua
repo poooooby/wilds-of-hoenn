@@ -100,6 +100,8 @@ local function completeFakeEngine(layout)
   fake["src.ui.game3.chrome"] = { dialogueWindow = function() return 2, 15, 26, 4 end }
   fake["src.core.GameVersion"] = { layout = function() return layout end, get = function() return layout end }
   fake["src.core.game3.player"] = { running = false }
+  fake["src.core.game3.rng"] = { Random32 = function() return 123456789 end }
+  fake["src.core.game3.safari"] = { isActive = function() return false end }
   return fake
 end
 
@@ -117,14 +119,25 @@ end
 local entry = assert(loadfile("main.lua"))()
 check(type(entry) == "function", "main.lua returns an entry function")
 
--- ------- outcome 1: FireRed/LeafGreen boot -- installs nothing
+-- ------- outcome 1: FireRed/LeafGreen boot -- installs fully, like RSE
 withFakeEngine(completeFakeEngine("frlg"), function()
   local mod = makeMod()
+  local ok, err = pcall(entry, mod)
+  check(ok, "FRLG boot does not throw (" .. tostring(err) .. ")")
+  eq(mod.exports.engineReady, true, "FRLG boot: engineReady true")
+  eq(mod.exports.layout, "frlg", "FRLG boot: the layout is exported")
+  check(mod.exports.spawnManager ~= nil, "FRLG boot: spawnManager exported")
+  check(#mod._wraps > 0, "FRLG boot: hooks wrapped")
+end)
+
+-- ------- a layout that is not Gen 3 at all installs nothing
+withFakeEngine(completeFakeEngine("gen2-ish"), function()
+  local mod = makeMod()
   local ok = pcall(entry, mod)
-  check(ok, "FRLG boot does not throw")
-  eq(mod.exports.engineReady, false, "FRLG boot: engineReady stays false")
-  check(mod.exports.spawnManager == nil, "FRLG boot: no spawnManager exported")
-  eq(#mod._wraps, 0, "FRLG boot: no hooks wrapped")
+  check(ok, "non-Gen-3 boot does not throw")
+  eq(mod.exports.engineReady, false, "non-Gen-3 boot: engineReady stays false")
+  check(mod.exports.spawnManager == nil, "non-Gen-3 boot: no spawnManager exported")
+  eq(#mod._wraps, 0, "non-Gen-3 boot: no hooks wrapped")
 end)
 
 -- ------- outcome 2: RSE boot with a complete engine -- installs fully
@@ -133,6 +146,7 @@ withFakeEngine(completeFakeEngine("rse"), function()
   local ok, err = pcall(entry, mod)
   check(ok, "RSE boot does not throw (" .. tostring(err) .. ")")
   eq(mod.exports.engineReady, true, "RSE boot: engineReady true")
+  eq(mod.exports.layout, "rse", "RSE boot: the layout is exported")
   check(mod.exports.spawnManager ~= nil, "RSE boot: spawnManager exported")
   check(mod.exports.battleTrigger ~= nil, "RSE boot: battleTrigger exported")
   check(mod.exports.followerAdapter ~= nil, "RSE boot: followerAdapter exported")

@@ -47,6 +47,7 @@ end
 -- species id 999 to prove the national-dex conversion actually runs)
 local tables = { ROUTE_1 = { land = { rate = 10, slots = {} } } }
 fakeEngine.isSweetScentFacility = function() return false end
+fakeEngine.safariActive = function() return false end
 fakeEngine.ensureEncountersLoaded = function() return true end
 fakeEngine.tableFor = function(mapId) return tables[mapId] end
 fakeEngine.mapBounds = function() return 6, 1 end
@@ -287,6 +288,31 @@ smPmd:refreshSpriteStyle()
 check(pe.renderer.isPmd == true, "switching to pmd rebuilds a PmdRenderer")
 optionStore.sprite_style = "pokemmo"
 V.mod = mod
+
+-- ------- FireRed / LeafGreen encounters carry no personality: the spawn rolls
+-- one from the engine, so the battle Pokemon is the one on screen
+do
+  local realRoll, realRand = fakeEngine.rollSweetScent, fakeEngine.randomPersonality
+  fakeEngine.rollSweetScent = function() return { species = 999, level = 7 } end -- no personality, as FRLG
+  fakeEngine.randomPersonality = function() return 424242 end
+  local smFr = SpawnManager.new(mod)
+  smFr:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local fe
+  for _, e in pairs(smFr.entities) do fe = e break end
+  check(fe ~= nil, "an encounter without a personality still spawns")
+  eq(fe.personality, 424242, "...with a personality rolled from the engine")
+  fakeEngine.rollSweetScent = function() return { species = 999, level = 7, personality = 77 } end
+  local smRse = SpawnManager.new(mod)
+  smRse:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  for _, e in pairs(smRse.entities) do fe = e break end
+  eq(fe.personality, 77, "an encounter that already has one keeps it (RSE)")
+  fakeEngine.randomPersonality = function() return nil end -- the engine's rng is unusable
+  fakeEngine.rollSweetScent = function() return { species = 999, level = 7 } end
+  local smNone = SpawnManager.new(mod)
+  check(pcall(function() smNone:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } }) end),
+    "an engine whose rng returns nothing never errors (the battle then rolls its own)")
+  fakeEngine.rollSweetScent, fakeEngine.randomPersonality = realRoll, realRand
+end
 
 -- ------- reachable-only spawns: nothing appears where the player can't go
 do

@@ -34,6 +34,7 @@ local tables = {}
 local terrainGrid = {}
 
 fakeEngine.isSweetScentFacility = function(mapId) return sweetScentFacilityMaps[mapId] == true end
+fakeEngine.safariActive = function() return false end
 fakeEngine.ensureEncountersLoaded = function() return true end
 fakeEngine.tableFor = function(mapId) return tables[mapId] end
 fakeEngine.mapBounds = function() return 4, 4 end
@@ -88,6 +89,20 @@ local srcFacility = EncounterSource.new({})
 srcFacility:loadMap("WILD_ROOM")
 check(not srcFacility:isEligible(), "a sweet-scent-facility map is never eligible")
 eq(#srcFacility:eligibleCells("land"), 0, "facility map cell scan is skipped")
+
+-- ------- Safari Zone: the engine runs those battles; nothing visible spawns there
+do
+  local safari = true
+  fakeEngine.safariActive = function() return safari end
+  local srcS = EncounterSource.new({})
+  srcS:loadMap("ROUTE_1")
+  check(not srcS:isEligible(), "no spawns while a Safari Zone visit is active")
+  eq(#srcS:eligibleCells("land"), 0, "...and no eligible cells")
+  safari = false
+  srcS:loadMap("ROUTE_1")
+  check(srcS:isEligible(), "the same map spawns normally outside the Safari Zone")
+  fakeEngine.safariActive = function() return false end
+end
 
 -- ------- setReachable restricts eligibleCells (a view; nothing is rescanned)
 do

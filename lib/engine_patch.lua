@@ -115,6 +115,13 @@ EnginePatch.READONLY = {
   partyMoveUser = { mod = "src.core.game3.field_moves", field = "partyMoveUser" },
   hasBadge = { mod = "src.core.game3.field_moves", field = "hasBadge" },
 
+  -- rng.lua Random32() -- the engine's own 32-bit random stream (a wild mon's
+  -- personality when the encounter rules did not roll one; see randomPersonality).
+  random32 = { mod = "src.core.game3.rng", field = "Random32" },
+  -- safari.lua:118 Safari.isActive(session) -- is a Safari Zone visit running
+  -- (its battles use balls/bait, not the normal wild battle this mod starts).
+  safariIsActive = { mod = "src.core.game3.safari", field = "isActive" },
+
   -- choice.lua:62 Choice.multi(options, defaultIdx, cb, layout) -- the
   -- engine's own menu; cb(index0) on A, cb(127) on B.
   choiceMulti = { mod = "src.ui.game3.choice", field = "multi" },
@@ -156,18 +163,30 @@ local function loadModule(path)
   return mod
 end
 
---- True only on Ruby/Sapphire/Emerald (layout "rse"). FireRed/LeafGreen
---- ("frlg") have their own encounter_rules module and a different map id
---- convention (Gen3Compat.gen3MapId's "FR_" prefix); this mod targets RSE
---- only. main.lua calls this before EnginePatch.probe()/install() so an
---- FRLG boot never even attempts the patches.
-function EnginePatch.isRse()
+--- The running game's Gen 3 layout: "rse" (Ruby / Sapphire / Emerald),
+--- "frlg" (FireRed / LeafGreen), or nil when it is not a Gen 3 game.
+function EnginePatch.layoutName()
   local GameVersion = loadModule(EnginePatch.READONLY.layout.mod)
-  if not GameVersion then return false end
+  if not GameVersion then return nil end
   local ok, id = pcall(GameVersion.get)
-  if not ok then return false end
+  if not ok then return nil end
   local okL, layout = pcall(GameVersion.layout, id)
-  return okL and layout == "rse"
+  if okL and (layout == "rse" or layout == "frlg") then return layout end
+  return nil
+end
+
+--- True on Ruby / Sapphire / Emerald (layout "rse").
+function EnginePatch.isRse()
+  return EnginePatch.layoutName() == "rse"
+end
+
+--- True on any game this mod runs on: Ruby / Sapphire / Emerald and FireRed /
+--- LeafGreen. They share the game3 modules every patch here touches (the
+--- encounter rules differ per layout but expose the same Encounters API --
+--- see EnginePatch.rollSweetScent), so one install path serves all five.
+--- main.lua calls this before EnginePatch.probe()/install().
+function EnginePatch.isSupported()
+  return EnginePatch.layoutName() ~= nil
 end
 
 --- Checks every target + readonly entry resolves to a function, without
@@ -784,6 +803,33 @@ function EnginePatch.rollSweetScent(mapId, terrain)
   local ok, enc = pcall(Encounters.rollSweetScent, mapId, terrain)
   if ok then return enc end
   return nil
+end
+
+--- A random 32-bit personality from the engine's own stream, for an encounter
+--- whose rules did not roll one. FireRed / LeafGreen's rollSweetScent returns
+--- only { species, level, item }; the engine itself then draws
+--- `Rng.Random32()` when it builds the battle mon (battle/init.lua
+--- foe_mon_from), so rolling it here first -- and handing it to startWild --
+--- makes the Pokemon you saw (shiny, nature, gender) the one you fight. nil
+--- when the engine's rng is unavailable.
+function EnginePatch.randomPersonality()
+  local Rng = loadModule(EnginePatch.READONLY.random32.mod)
+  if not Rng then return nil end
+  local ok, value = pcall(Rng.Random32)
+  if ok and type(value) == "number" then return value end
+  return nil
+end
+
+--- True during a Safari Zone visit (RSE and FRLG both have one): wild battles
+--- there are special (balls, bait, no fighting) and belong to the engine, so
+--- this mod spawns nothing on those maps.
+function EnginePatch.safariActive()
+  local Safari = loadModule(EnginePatch.READONLY.safariIsActive.mod)
+  if not Safari then return false end
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  local ok, active = pcall(Safari.isActive, okS and session or nil)
+  return ok and active == true
 end
 
 --- encounter_rules/rse.lua:478 sweetScentFacility(mapId): true on Battle

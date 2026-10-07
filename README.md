@@ -1,7 +1,8 @@
 # Wilds of Hoenn
 
 Visible, reactive wild Pokemon for the Hoenn overworld -- **Ruby,
-Sapphire and Emerald** -- on
+Sapphire and Emerald** -- and, on the same engine internals, **FireRed and
+LeafGreen** -- on
 [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s `game3` engine.
 A sister project to [Wilds of Kanto
 Revival](https://github.com/poooooby/wilds-of-kanto-gen-3), built from
@@ -84,7 +85,8 @@ engine's existing, public `world.follower.spawn` hook.
 1. Build or download the release ZIP (`manifest.json` at its root).
 2. Import it via the Gen1Recomp Mod Manager, or place it in your mods
    directory.
-3. Enable **Wilds of Hoenn**. It installs nothing on FireRed/LeafGreen.
+3. Enable **Wilds of Hoenn**. It runs on Ruby, Sapphire, Emerald, FireRed and
+   LeafGreen (FireRed / LeafGreen support is newer and less play-tested).
 
 ## Development
 

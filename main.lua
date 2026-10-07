@@ -19,9 +19,9 @@
 --   lib/interaction_limiter.lua  - cooldowns, window budget, abuse lock-out for it
 --   options.lua             - Mod Manager option schema
 --
--- Gen 1/2-only: this mod installs nothing outside Ruby/Sapphire/Emerald
--- (GameVersion.layout() == "rse"). FireRed/LeafGreen keep their own
--- compat layer and are untouched.
+-- Gen 3 only: runs on Ruby / Sapphire / Emerald (layout "rse") and FireRed /
+-- LeafGreen (layout "frlg") -- they share every game3 module patched here --
+-- and installs nothing on any other game (EnginePatch.layoutName() == nil).
 --
 -- Fail-safe: if EnginePatch.probe() finds any engine touch point has moved
 -- (a gen1recomp update), this mod logs exactly what and installs nothing
@@ -74,10 +74,12 @@ return function(mod)
   mod.exports.version = "0.1.0"
   mod.exports.engineReady = false
 
-  if not EnginePatch.isRse() then
-    mod.log:info("[wilds_of_hoenn] not a Ruby/Sapphire/Emerald boot -- installing nothing")
+  local layout = EnginePatch.layoutName()
+  if not layout then
+    mod.log:info("[wilds_of_hoenn] not a Gen 3 boot (Ruby/Sapphire/Emerald/FireRed/LeafGreen) -- installing nothing")
     return
   end
+  mod.exports.layout = layout
 
   local ok, missing = EnginePatch.probe()
   if not ok then
