@@ -46,8 +46,8 @@ code or save data with it, only a read-only copy of its overworld art.
   species beyond Hoenn and it still draws correctly. Shipped as a baked
   sprite atlas (a handful of shard PNGs), not ~3900 individual files.
 
-See `options.lua` for the exact option list and `CLAUDE.md`'s "What v1
-deliberately leaves out" section for what's not here yet.
+See `options.lua` for the exact option list and the "Known gaps" list in
+`CHANGELOG.md` for what's not here yet.
 
 ## How this works
 
@@ -127,4 +127,5 @@ Wilds of Kanto Revival's sources and the optional PMDCollab art is licensed
 CC BY-NC 4.0 -- see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for each
 asset's credit and terms.
 
-See `CLAUDE.md` for the full architecture and module-by-module notes.
+For the architecture, start with the header comment of `lib/engine_patch.lua` (the only
+file that touches engine internals) and then each module's own header in `lib/`.

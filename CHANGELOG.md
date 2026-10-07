@@ -60,7 +60,7 @@ outstanding.
   purely so the release ZIP and the GitHub history don't carry thousands
   of individual PNGs.
 
-### Known gaps (tracked for a later version, see CLAUDE.md)
+### Known gaps (tracked for a later version)
 
 - No Chase or Hidden behaviours.
 - No Spawn Amount / density option (fixed curve).
