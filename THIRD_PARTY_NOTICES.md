@@ -46,7 +46,7 @@ the complete, authoritative credit list for this art.
 
 ## PMDCollab sprites
 
-The **PMDCollab** Sprite Style uses the Portraits, Walk and Idle sprites of
+The **PMDCollab** Sprite Style uses the Portraits and the Walk, Idle, Attack and Hurt sprites of
 [PMDCollab/SpriteCollab](https://github.com/PMDCollab/SpriteCollab)
 (https://sprites.pmdcollab.org/), repacked by `tools/generate_pmd_sprites.py`
 into `assets/pmd/` (cropped, padded, cardinal directions only -- no pixels
