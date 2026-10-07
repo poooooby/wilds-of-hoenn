@@ -4,7 +4,7 @@ and (when RELEASE_TAG is set, e.g. in CI) that the tag matches both.
 
 Usage:
   python3 tools/validate_release_version.py
-  RELEASE_TAG=v0.1.0 python3 tools/validate_release_version.py
+  RELEASE_TAG=v1.0.0-hgss-pmd python3 tools/validate_release_version.py
 """
 from __future__ import annotations
 
@@ -50,6 +50,8 @@ def main() -> int:
     tag = os.environ.get("RELEASE_TAG")
     if tag:
         tag_version = tag[1:] if tag.startswith("v") else tag
+        # each version ships as two releases, tagged v<ver>-hgss and v<ver>-hgss-pmd
+        tag_version = re.sub(r"-hgss(-pmd)?$", "", tag_version)
         print(f"release tag version:   {tag_version}")
         if tag_version != manifest_version:
             fail(f"tag {tag} does not match manifest.json version {manifest_version}")

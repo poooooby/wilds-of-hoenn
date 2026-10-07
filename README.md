@@ -82,7 +82,7 @@ engine's existing, public `world.follower.spawn` hook.
 
 ## Installation
 
-1. Build or download the release ZIP (`manifest.json` at its root).
+1. Build or download a release ZIP (`manifest.json` at its root): `-hgss` (HGSS Only, small) or `-hgss-pmd` (HGSS + PMDCollab). Install one, not both.
 2. Import it via the Gen1Recomp Mod Manager, or place it in your mods
    directory.
 3. Enable **Wilds of Hoenn**. It runs on Ruby, Sapphire, Emerald, FireRed and

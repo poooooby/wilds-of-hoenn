@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased (v1)
+## 1.0.0 (2026-10-06)
+
+Two builds per release: **HGSS Only** (small, for low-power devices) and
+**HGSS + PMDCollab** (animated walk/idle, portraits, follower
+interaction; its art is CC BY-NC, non-commercial only).
 
 Visible wild Pokemon and the party follower have been confirmed working
-in a real game session. The rest of `docs/MANUAL_TEST.md` is still
-outstanding.
+in a real game session. FireRed / LeafGreen support, the surf recall and
+the rest of `docs/MANUAL_TEST.md` are not yet play-tested.
 
 ### Features
 
