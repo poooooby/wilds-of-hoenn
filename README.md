@@ -39,7 +39,10 @@ code or save data with it, only a read-only copy of its overworld art.
   Boosted rate that re-rolls a non-shiny encounter until it's shiny while
   keeping its nature and gender.
 - A Silhouette option (Off / Undiscovered / All) and an optional party
-  follower.
+  follower. Face it and press A for a Pet / Play / Talk menu that raises
+  its happiness: Play throws a ball it fetches and spins around, Pet plays
+  an idle and its cry, Talk plays its cry twice, then its portrait
+  shows how it feels.
 - A Classic Enc toggle for the original step-based random encounters;
   fishing and Rock Smash are never affected by it.
 - Art covers national dex 1-1025 in both styles (not capped at Gen 3's

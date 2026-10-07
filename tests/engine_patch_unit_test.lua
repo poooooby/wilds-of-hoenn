@@ -46,7 +46,15 @@ fake["src.world.game3.Follower"] = {
 local fieldState = { running = true, locked = false }
 local originalInteract = function(_game) return "original" end
 fieldState.interact = originalInteract
+local fieldLocks = {}
+fieldState.lock = function(tag) fieldLocks[tag] = true end
+fieldState.unlock = function(tag) fieldLocks[tag] = nil end
 fake["src.core.game3.field"] = fieldState
+local cryLog, cryDone = {}, false
+fake["src.core.game3.audio"] = {
+  playCry = function(species, mode) cryLog[#cryLog + 1] = { species, mode } return true end,
+  isCryFinished = function() return cryDone end,
+}
 local hudBusy = false
 fake["src.ui.game3.hud"] = { busy = function() return hudBusy end }
 local choiceState = { active = false }
@@ -111,7 +119,9 @@ fake["src.core.GameVersion"] = {
 }
 -- player.lua:62 -- a live boolean DATA FIELD, not a function. The one
 -- `kind = "data"` probe target; see EnginePatch.probe()'s handling of it.
-fake["src.core.game3.player"] = { running = false, moving = false, cellX = 5, cellY = 5, facing = "down" }
+local poseTicks
+fake["src.core.game3.player"] = { running = false, moving = false, cellX = 5, cellY = 5, facing = "down",
+  startFieldMove = function(ticks) poseTicks = ticks end }
 
 local realRequire = require
 _G.require = function(name)
@@ -140,6 +150,35 @@ do
   check(EnginePatch.layoutName() == nil and not EnginePatch.isSupported(), "a non-Gen-3 layout is not supported")
   gv.layout = was
 end
+
+-- ------- follower scenes: cry, field lock, player pose, ball landing
+check(EnginePatch.playCry(277), "playCry returns true")
+eq(cryLog[1][1], 277, "playCry passes the internal species id")
+eq(cryLog[1][2], 0, "...in the normal cry mode")
+check(not EnginePatch.cryFinished(), "cryFinished false while the cry plays")
+cryDone = true
+check(EnginePatch.cryFinished(), "cryFinished true once it ends")
+EnginePatch.lockField("t")
+check(fieldLocks.t, "lockField takes the tagged lock")
+EnginePatch.unlockField("t")
+check(not fieldLocks.t, "unlockField releases it")
+EnginePatch.playerPose(24)
+eq(poseTicks, 24, "playerPose starts the field-move pose")
+eq(EnginePatch.playerFacing(), "down", "playerFacing reads the player")
+check(not EnginePatch.screenBusy(), "screen not busy on a running, idle field")
+hudBusy = true
+check(EnginePatch.screenBusy(), "a busy HUD counts as a busy screen")
+hudBusy = false
+fieldLocks.t = true
+check(not EnginePatch.screenBusy(), "our own field lock is NOT a busy screen")
+fieldLocks.t = nil
+
+eq(EnginePatch.freeCellsAhead(5, 5, "down", 3), 3, "open ground: the whole throw distance is free")
+eq(EnginePatch.freeCellsAhead(5, 5, "down", 2), 2, "capped at the requested maximum")
+objectAtCell["5,7"] = { id = 1 }
+eq(EnginePatch.freeCellsAhead(5, 5, "down", 3), 1, "something standing on a cell ends the free run")
+objectAtCell["5,7"] = nil
+eq(EnginePatch.freeCellsAhead(5, 5, "sideways", 3), 0, "an unknown direction has no free cells")
 
 -- ------- FRLG rolls no personality: the engine's own random stream supplies it
 eq(EnginePatch.randomPersonality(), 987654321, "randomPersonality draws from the engine's Random32")

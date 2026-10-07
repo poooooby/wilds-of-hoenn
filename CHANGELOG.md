@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0 (2026-10-06)
+
+### Features
+
+- Follower interaction scenes: **Play** has you throw a ball (the engine's
+  arms-up pose) that the follower runs to, spins around and brings back;
+  **Pet** plays a quick Idle then its cry; **Talk** plays its cry three times.
+  Each runs before the result message and portrait, with the field locked.
+  Works in both Sprite Styles; tuned through `Config.ACTIONS`.
+
 ## 1.0.1 (2026-10-06)
 
 ### Fixes

@@ -240,6 +240,10 @@ function ActorRenderer:frameWidth()
 end
 
 function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
+  -- a follower action scene (lib/follower_actions.lua) overrides the facing
+  -- and slides the sprite by a cosmetic pixel offset
+  local act = self.act
+  if act and act.facing then facing = act.facing end
   local path = self:imagePath()
   if not path then return end
   local image = loadImage(self.mod, path)
@@ -267,6 +271,8 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   if pushX == nil or pushY == nil then
     pushX, pushY = ActorRenderer.behindOffset(facing, self.largePushback)
   end
+
+  if act then pushX, pushY = pushX + (act.dx or 0), pushY + (act.dy or 0) end
 
   if self.silhouette then
     -- Multiply-tint to black, keeping the sheet's own alpha -- no pixel

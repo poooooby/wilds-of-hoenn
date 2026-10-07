@@ -21,6 +21,7 @@ local ActorRenderer = V.require("actor_renderer")
 local RendererFactory = V.require("renderer_factory")
 local SpriteSource = V.require("sprite_source")
 local GrassCover = V.require("grass_cover")
+local FollowerActions = V.require("follower_actions")
 
 local FollowerAdapter = {}
 FollowerAdapter.__index = FollowerAdapter
@@ -34,6 +35,65 @@ function FollowerAdapter.new(mod)
     stepParity = false, wasMoving = false,
     isFloater = false, flapClock = 0, wasRecalled = false,
   }, FollowerAdapter)
+end
+
+--- Start a Pet / Play / Talk scene (lib/follower_actions.lua) on the follower.
+--- Returns the scene, or nil when there is no follower to animate. The scene
+--- is stepped from tick() below; `actionActive()` says when it is over.
+function FollowerAdapter:startAction(kind)
+  local npc = EnginePatch.followerCurrent()
+  if not (npc and self.renderer) then return nil end
+  local species = self.leadSpecies
+  local facing = EnginePatch.playerFacing() or npc.facing
+  local ctx = {
+    facing = facing,
+    cellsAhead = EnginePatch.freeCellsAhead(npc.cellX, npc.cellY, facing, Config.ACTIONS.play.ballDist),
+    idleTicks = FollowerAdapter.idleLoopTicks(self.renderer),
+    playCry = function() EnginePatch.playCry(species) end,
+    cryFinished = EnginePatch.cryFinished,
+  }
+  self.action = FollowerActions.new(kind, ctx)
+  self.actState, self.actClock = nil, 0
+  return self.action
+end
+
+--- Length in ticks of the follower's Idle loop (PMD: from its art; HGSS has no
+--- Idle, so one flap cycle's worth).
+function FollowerAdapter.idleLoopTicks(renderer)
+  local idle = renderer and renderer.info and renderer.info.idle
+  if type(idle) == "table" and type(idle.durations) == "table" then
+    local sum = 0
+    for _, d in ipairs(idle.durations) do sum = sum + (tonumber(d) or 0) end
+    if sum > 0 then return sum end
+  end
+  return Config.IDLE_FLAP_TICKS * 4
+end
+
+function FollowerAdapter:actionActive()
+  return self.action ~= nil
+end
+
+--- Drop a running scene at once (the interaction was aborted).
+function FollowerAdapter:cancelAction()
+  self.action, self.actState = nil, nil
+  if self.renderer then self.renderer.act = nil end
+end
+
+-- Steps the running scene one tick and mirrors it onto the renderer
+-- (`renderer.act` = offset + facing override). Returns this tick's state, or
+-- nil when no scene is running / it just ended.
+function FollowerAdapter:_tickAction()
+  local act = self.action
+  if not act then return nil end
+  local state = act:step()
+  if not state then
+    self:cancelAction()
+    return nil
+  end
+  self.actState = state
+  self.actClock = (self.actClock or 0) + 1
+  self.renderer.act = { dx = state.dx or 0, dy = state.dy or 0, facing = state.facing }
+  return state
 end
 
 --- Is the follower inside its "ball" right now (shrunk into the player while
@@ -102,7 +162,11 @@ function FollowerAdapter:tick()
       npc.sprite = self.renderer
     end
   end
-  if not self.renderer then return end
+  if not self.renderer then
+    self.action, self.actState = nil, nil
+    return
+  end
+  local scene = self:_tickAction()
 
   -- PMDCollab: the renderer animates itself from a tick clock (Walk while
   -- the follower steps, Idle while it stands) -- none of the pose, grass
@@ -115,7 +179,15 @@ function FollowerAdapter:tick()
       if r.anim == "idle" then r.idleHold = r.idleDelay end
     end
     r.idleSpeed = Config.PMD_FOLLOWER_IDLE_SPEED
-    r:advance(npc.moving or false)
+    local moving = npc.moving or false
+    if scene then
+      -- a scene drives the animation: Walk while it runs, a quick Idle for Pet
+      moving = scene.moving == true
+      if scene.bounce then
+        r.idleHold, r.idleSpeed = 0, scene.idleSpeed or 1
+      end
+    end
+    r:advance(moving)
     -- Space it out: kept behind the player along its facing by its own
     -- overhang past the 16px tile plus a gap, eased so a turn glides
     -- (same recipe as the pushback of the ActorRenderer styles below).
@@ -146,13 +218,22 @@ function FollowerAdapter:tick()
   -- not-moving -> moving edge -- not every tick -- mirroring
   -- lib/behavior.lua's own entity.stepParity toggle for wild Pokemon.
   local moving = npc.moving or false
-  if moving and not self.wasMoving then
-    self.stepParity = not self.stepParity
+  if scene then
+    -- a scene walks in place: alternate the A/B walk pose every half step
+    moving = scene.moving == true
+    if moving then self.stepParity = math.floor(self.actClock / (FollowerAdapter.STEP_TICKS / 2)) % 2 == 0 end
+    self.wasMoving = moving
+  else
+    if moving and not self.wasMoving then
+      self.stepParity = not self.stepParity
+    end
+    self.wasMoving = moving
   end
-  self.wasMoving = moving
 
   local pose = ActorRenderer.POSE_STAND
-  if moving then
+  if scene and scene.bounce then
+    pose = ActorRenderer.idleFlapPose(self.actClock, Config.IDLE_FLAP_TICKS)
+  elseif moving then
     if EnginePatch.playerIsRunning() then
       pose = self.stepParity and ActorRenderer.POSE_RUN_A or ActorRenderer.POSE_RUN_B
     else
@@ -215,6 +296,10 @@ end
 function FollowerAdapter:collectActors(actors)
   local npc = EnginePatch.followerCurrent()
   if not npc or npc.hidden then return end
+  local ball = self.actState and self.actState.ball
+  if ball then
+    actors[#actors + 1] = FollowerActions.ballActor(ball, npc.px, npc.py, npc.elevation)
+  end
   GrassCover.append(actors, npc.cellX, npc.cellY, npc.py, npc.elevation, 0)
 end
 

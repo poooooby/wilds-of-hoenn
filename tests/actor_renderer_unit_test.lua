@@ -207,6 +207,34 @@ eq(ActorRenderer.approach(9, 10, 2), 10, "approach never overshoots")
 -- (lib/follower_adapter.lua) sets it.
 eq(rDefaultStyle.largePushback, 0, "largePushback defaults to 0")
 
+-- ------- a follower action scene: its facing and offset reach the draw call
+do
+  local drawn = {}
+  local savedLove = love
+  love = { graphics = {
+    newQuad = function(qx, qy, qw, qh) return { getViewport = function() return qx, qy, qw, qh end, qy = qy } end,
+    draw = function(_img, quad, dx, dy, _r, sx) drawn[#drawn + 1] = { quad = quad, x = dx, y = dy, sx = sx } end,
+    setColor = function() end,
+  } }
+  local fakeMod = { assets = { image = function() return { getDimensions = function() return 18, 18 * 18 end } end } }
+  local ar = ActorRenderer.new(fakeMod, 4321, false, "pokemmo", "land")
+  ar.pushX, ar.pushY = 0, 0
+  ar.imagePath = function() return "actor_renderer_test_sheet.png" end -- hermetic: no art needed
+  ar:draw(100, 50, 0, 0, "down", POSE_STAND, false)
+  local base = drawn[#drawn]
+  check(base ~= nil, "a normal draw reaches love.graphics.draw")
+  ar.act = { dx = 16, dy = -8, facing = "up" }
+  ar:draw(100, 50, 0, 0, "down", POSE_STAND, false)
+  local moved = drawn[#drawn]
+  check(moved.quad.qy ~= base.quad.qy, "an action's facing replaces the engine's (a different frame row)")
+  eq(moved.x, base.x + 16, "an action's x offset moves the sprite")
+  eq(moved.y, base.y - 8, "an action's y offset moves the sprite")
+  ar.act = nil
+  ar:draw(100, 50, 0, 0, "down", POSE_STAND, false)
+  eq(drawn[#drawn].x, base.x, "clearing the action restores the normal draw")
+  love = savedLove
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

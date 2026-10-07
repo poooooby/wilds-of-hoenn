@@ -175,6 +175,36 @@ eq(rr.recall, 1, "a new renderer is fully out")
 rr.recall = 0
 check(pcall(function() rr:draw(0, 0, 0, 0, "down", "stand", false) end), "drawing while fully recalled never throws")
 
+-- ------- a follower action scene: its facing and offset reach the draw call
+do
+  local drawn = {}
+  local savedLove = love
+  love = { graphics = {
+    newQuad = function(qx, qy) return { qx = qx, qy = qy } end,
+    draw = function(_img, quad, dx, dy) drawn[#drawn + 1] = { quad = quad, x = dx, y = dy } end,
+    setColor = function() end,
+  } }
+  local fakeMod = { assets = { image = function() return { getDimensions = function() return 120, 104 end } end } }
+  local info = { gutter = 2,
+    walk = { cols = 4, cw = 30, ch = 26, durations = W, ax = 15.5, ay = 19.5 },
+    idle = { cols = 3, cw = 29, ch = 31, durations = { 40, 4, 2 }, ax = 15.5, ay = 25.5 } }
+  local ar = PmdRenderer.new(fakeMod, 4321, false, info)
+  ar:draw(100, 50, 0, 0, "down", "stand", false)
+  local base = drawn[#drawn]
+  check(base ~= nil, "a normal draw reaches love.graphics.draw")
+  eq(base.quad.qy, 0, "facing down uses row 0")
+  ar.act = { dx = 16, dy = -8, facing = "left" }
+  ar:draw(100, 50, 0, 0, "down", "stand", false)
+  local moved = drawn[#drawn]
+  eq(moved.quad.qy, 3 * 31, "an action's facing replaces the engine's (left = row 3)")
+  eq(moved.x, base.x + 16, "an action's x offset moves the sprite")
+  eq(moved.y, base.y - 8, "an action's y offset moves the sprite")
+  ar.act = nil
+  ar:draw(100, 50, 0, 0, "down", "stand", false)
+  eq(drawn[#drawn].x, base.x, "clearing the action restores the normal draw")
+  love = savedLove
+end
+
 -- ------- draw is a no-op (never an error) without art or love
 check(pcall(function() r:draw(0, 0, 0, 0, "down", "stand", false) end), "draw without art/love never throws")
 

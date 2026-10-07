@@ -68,7 +68,8 @@ local function completeFakeEngine(layout)
     partyMoveUser = function() return {} end, hasBadge = function() return true end, GFX_IDS = {},
   }
   fake["src.world.game3.Follower"] = { update = function() end, current = function() return nil end, at = function() return nil end }
-  fake["src.core.game3.field"] = { running = true, locked = false, interact = function() return false end }
+  fake["src.core.game3.field"] = { running = true, locked = false, interact = function() return false end,
+    lock = function() end, unlock = function() end }
   fake["src.ui.game3.hud"] = { busy = function() return false end }
   fake["src.ui.game3.choice"] = { active = false, multi = function() end }
   fake["src.core.game3.battle_bridge"] = { startWild = function() return true end }
@@ -99,8 +100,9 @@ local function completeFakeEngine(layout)
   fake["src.ui.game3.message"] = { draw = function() end, isOpen = function() return false end, show = function() return true end, isWaiting = function() return false end, closeStay = function() return false end }
   fake["src.ui.game3.chrome"] = { dialogueWindow = function() return 2, 15, 26, 4 end }
   fake["src.core.GameVersion"] = { layout = function() return layout end, get = function() return layout end }
-  fake["src.core.game3.player"] = { running = false }
+  fake["src.core.game3.player"] = { running = false, startFieldMove = function() end }
   fake["src.core.game3.rng"] = { Random32 = function() return 123456789 end }
+  fake["src.core.game3.audio"] = { playCry = function() return true end, isCryFinished = function() return true end }
   fake["src.core.game3.safari"] = { isActive = function() return false end }
   return fake
 end

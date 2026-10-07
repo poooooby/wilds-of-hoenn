@@ -405,6 +405,105 @@ npc = nil
 fa:tick()
 eq(fa.leadSpecies, nil, "leadSpecies cleared once the follower is gone")
 
+-- ------- scenes (lib/follower_actions.lua): the adapter drives them onto the renderer
+do
+  local cries = {}
+  local ahead = 2
+  fakeEngine.playerFacing = function() return "down" end
+  fakeEngine.freeCellsAhead = function(_x, _y, _dir, _max) return ahead end
+  fakeEngine.playCry = function(species) cries[#cries + 1] = species return true end
+  fakeEngine.cryFinished = function() return true end
+  optionStore.sprite_style = "pmd"
+  npc = { sprite = nil, moving = false, cellX = 4, cellY = 4, px = 64, py = 64, facing = "down", elevation = 3 }
+  local fs = FollowerAdapter.new(pmdMod)
+  fs:tick()
+
+  check(fs:startAction("play") ~= nil, "startAction returns the scene")
+  check(fs:actionActive(), "...and it is active")
+  local actors = {}
+  fs:tick()
+  check(fs.renderer.act ~= nil, "a running scene hands its offset to the renderer")
+  fs:collectActors(actors)
+  local ball
+  for _, a in ipairs(actors) do if a.kind == "follower_action_ball" then ball = a end end
+  check(ball ~= nil, "the thrown ball is collected as a field actor")
+  eq(npc.moving, false, "the engine's own follower state is never touched")
+  eq(npc.px, 64, "...nor its position")
+
+  local sawWalk, sawSpin, maxDy = false, {}, 0
+  for _ = 1, 400 do
+    fs:tick()
+    if fs.renderer.anim == "walk" then sawWalk = true end
+    if fs.renderer.act then
+      maxDy = math.max(maxDy, fs.renderer.act.dy or 0)
+      if fs.renderer.act.facing then sawSpin[fs.renderer.act.facing] = true end
+    end
+    if not fs:actionActive() then break end
+  end
+  check(sawWalk, "the PMD follower plays Walk while it runs and spins")
+  eq(maxDy, 32, "it runs the free distance (2 cells) down the throw line")
+  check(sawSpin.down and sawSpin.left and sawSpin.up and sawSpin.right, "it faces all four ways while spinning")
+  check(not fs:actionActive(), "the scene ends by itself")
+  eq(fs.renderer.act, nil, "...and the renderer's offset is cleared")
+  actors = {}
+  fs:collectActors(actors)
+  check(#actors == 0 or actors[1].kind ~= "follower_action_ball", "no ball once the scene is over")
+
+  -- pet: quick idle (hold skipped, sped up), then a cry
+  fs:startAction("pet")
+  fs.renderer.idleHold = 300
+  fs:tick()
+  eq(fs.renderer.idleHold, 0, "pet skips the follower's idle-delay hold")
+  eq(fs.renderer.idleSpeed, V.require("config").ACTIONS.pet.idleSpeed, "...and plays Idle at the pet speed")
+  for _ = 1, 400 do fs:tick() if not fs:actionActive() then break end end
+  eq(#cries, 1, "pet plays the cry once")
+  eq(cries[1], 999, "...with the lead's own (internal) species id")
+  fs:tick()
+  eq(fs.renderer.idleSpeed, V.require("config").PMD_FOLLOWER_IDLE_SPEED, "idle speed returns to normal afterwards")
+
+  -- talk: two cries
+  cries = {}
+  fs:startAction("talk")
+  for _ = 1, 600 do fs:tick() if not fs:actionActive() then break end end
+  eq(#cries, 2, "talk plays the cry twice")
+
+  -- cancel clears everything at once
+  fs:startAction("play")
+  fs:tick()
+  fs:cancelAction()
+  check(not fs:actionActive() and fs.renderer.act == nil, "cancelAction stops a scene and clears the offset")
+
+  -- no follower: nothing to animate
+  local keep = npc
+  npc = nil
+  check(fs:startAction("play") == nil, "no follower -> no scene")
+  npc = keep
+
+  -- HGSS / PokeMMO: walks in place with the A/B pose; pet bounces
+  optionStore.sprite_style = "pokemmo"
+  npc = { sprite = nil, moving = false, cellX = 4, cellY = 4, px = 64, py = 64, facing = "down", elevation = 3 }
+  local fh = FollowerAdapter.new(mod)
+  fh:tick()
+  fh:startAction("play")
+  local poses = {}
+  for _ = 1, 120 do
+    fh:tick()
+    if fh.renderer.poseOverride then poses[fh.renderer.poseOverride] = true end
+  end
+  check(poses[V.require("actor_renderer").POSE_WALK_A] and poses[V.require("actor_renderer").POSE_WALK_B],
+    "HGSS walks in place alternating the A and B poses during Play")
+  fh:cancelAction()
+  fh:startAction("pet")
+  local bounced = {}
+  for _ = 1, 40 do
+    fh:tick()
+    bounced[fh.renderer.poseOverride] = true
+  end
+  check(bounced[V.require("actor_renderer").POSE_WALK_A] or bounced[V.require("actor_renderer").POSE_WALK_B],
+    "HGSS Pet bounces through the idle-flap poses")
+  optionStore.sprite_style = "pokemmo"
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

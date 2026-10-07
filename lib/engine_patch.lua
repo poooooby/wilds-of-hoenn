@@ -150,6 +150,17 @@ EnginePatch.READONLY = {
   -- loader/cache.
   loadFieldEffectSheet = { mod = "src.core.game3.field_effects", field = "loadSheet" },
 
+  -- audio.lua:1428 Audio.playCry(species, mode) / :1478 isCryFinished() -- the
+  -- engine's own cry playback (a follower's Pet / Talk scenes).
+  playCry = { mod = "src.core.game3.audio", field = "playCry" },
+  cryFinished = { mod = "src.core.game3.audio", field = "isCryFinished" },
+  -- field.lua:23/29 Field.lock(tag) / unlock(tag) -- tagged input locks.
+  fieldLock = { mod = "src.core.game3.field", field = "lock" },
+  fieldUnlock = { mod = "src.core.game3.field", field = "unlock" },
+  -- player.lua:922 Player.startFieldMove(duration) -- the arms-up field-move
+  -- pose (Gen 3 has no player throw pose; Play borrows this one).
+  startFieldMove = { mod = "src.core.game3.player", field = "startFieldMove" },
+
   -- player.lua:62 -- a live boolean DATA FIELD, not a function (toggled at
   -- multiple call sites in that file as the player starts/stops running).
   -- The one exception to "every probed entry is a callable" -- see
@@ -515,6 +526,21 @@ function EnginePatch.canStartInteraction()
   local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
   if not Player or Player.moving or Player.boulderPush then return false end
   return true
+end
+
+--- True while the field is not running normally on its own: a battle, a menu,
+--- a message or a fade owns the screen. (Our own Field.lock does NOT count --
+--- that is what a follower scene holds.) Used to drop a scene that something
+--- else interrupted.
+function EnginePatch.screenBusy()
+  local Field = loadModule(EnginePatch.TARGETS.interact.mod)
+  if not Field or not Field.running then return true end
+  local Hud = loadModule(EnginePatch.READONLY.hudBusy.mod)
+  if Hud then
+    local ok, busy = pcall(Hud.busy)
+    if not ok or busy then return true end
+  end
+  return false
 end
 
 local FACING_DELTA = { up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 } }
@@ -953,6 +979,74 @@ function EnginePatch.isCaught(speciesId)
   if not (ok and type(session) == "table" and session.dex) then return false end
   local okC, caught = pcall(Dex.isCaught, session.dex, speciesId)
   return okC and caught == true
+end
+
+--- Plays the species' cry through the engine's own audio (internal species
+--- id, as the field-move "show mon" scene passes it). False when unavailable.
+function EnginePatch.playCry(speciesId)
+  local Audio = loadModule(EnginePatch.READONLY.playCry.mod)
+  if not (Audio and Audio.playCry) then return false end
+  return (pcall(Audio.playCry, speciesId, 0))
+end
+
+--- Has the last cry finished? True when it cannot be told (no audio), so a
+--- caller never waits on a cry that will not end.
+function EnginePatch.cryFinished()
+  local Audio = loadModule(EnginePatch.READONLY.cryFinished.mod)
+  if not (Audio and Audio.isCryFinished) then return true end
+  local ok, done = pcall(Audio.isCryFinished)
+  return not ok or done == true
+end
+
+--- Tagged field input lock (Field.lock / unlock). No-ops without the field.
+function EnginePatch.lockField(tag)
+  local Field = loadModule(EnginePatch.READONLY.fieldLock.mod)
+  if not (Field and Field.lock) then return false end
+  return (pcall(Field.lock, tag))
+end
+
+function EnginePatch.unlockField(tag)
+  local Field = loadModule(EnginePatch.READONLY.fieldUnlock.mod)
+  if not (Field and Field.unlock) then return false end
+  return (pcall(Field.unlock, tag))
+end
+
+--- The arms-up field-move pose for `ticks` ticks (also holds the player still).
+function EnginePatch.playerPose(ticks)
+  local Player = loadModule(EnginePatch.READONLY.startFieldMove.mod)
+  if not (Player and Player.startFieldMove) then return false end
+  return (pcall(Player.startFieldMove, ticks))
+end
+
+--- The player's facing ("up" | "down" | "left" | "right"), or nil.
+function EnginePatch.playerFacing()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  local f = Player and Player.facing
+  if f == "up" or f == "down" or f == "left" or f == "right" then return f end
+  return nil
+end
+
+--- How many cells in a row, starting NEXT to (cx, cy) and heading `dir`, are
+--- dry walkable ground with nothing standing on them -- capped at `max`. A
+--- thrown ball lands that far out (see lib/follower_actions.lua).
+function EnginePatch.freeCellsAhead(cx, cy, dir, max)
+  local d = FACING_DELTA[dir]
+  local Collision = EnginePatch.collision()
+  if not (d and Collision and Collision.isWalkable) then return 0 end
+  local Objects = loadModule(EnginePatch.READONLY.objectAt.mod)
+  local n = 0
+  for i = 1, max or 3 do
+    local tx, ty = cx + d[1] * i, cy + d[2] * i
+    local okK, walkable = pcall(Collision.isWalkable, tx, ty)
+    local okW, water = pcall(Collision.isWater, tx, ty)
+    if not (okK and walkable) or (okW and water) then break end
+    if Objects and Objects.at then
+      local okO, obj = pcall(Objects.at, tx, ty)
+      if okO and obj then break end
+    end
+    n = n + 1
+  end
+  return n
 end
 
 return EnginePatch

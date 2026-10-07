@@ -28,6 +28,24 @@ Config.TILES_PER_ADDITIONAL = 20
 -- walkA/stand/walkB/stand cycle is held (~1.3s per full cycle at 60 ticks/s).
 Config.IDLE_FLAP_TICKS = 20
 
+-- Follower action scenes (lib/follower_actions.lua), all in 60 Hz ticks / px.
+-- Pet: its Idle loop (capped), then one cry. Talk: `cries` cries in a row.
+-- Play: a thrown ball, the follower runs to it, spins, runs back.
+Config.ACTIONS = {
+  maxTicks = 900,           -- hard cap: no scene may hold the field lock longer
+  play = {
+    ballDist = 3,           -- cells the ball may fly (stops short of obstacles)
+    throwTicks = 26,        -- ball flight; the player's arms-up pose lasts through it
+    playerPoseTicks = 24,
+    runSpeed = 1.6,         -- px per tick, out and back
+    spinTicksPerFacing = 6, -- ticks per quarter turn
+    spins = 2,              -- full circles
+    arcHeight = 18,         -- px, peak of the ball's arc
+  },
+  pet = { idleSpeed = 1.5, maxIdleTicks = 90, minIdleTicks = 36 },
+  talk = { cries = 2, gap = 8, cryTimeout = 90 },
+}
+
 -- PMDCollab style (lib/pmd_renderer.lua). The ground point of a PMD frame
 -- (the shadow marker) is placed at the tile's horizontal centre and
 -- PMD_GROUND_Y pixels below the tile's top edge (a 16px tile; 12 puts the

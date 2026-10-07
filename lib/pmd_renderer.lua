@@ -162,6 +162,10 @@ local function quadFor(path, image, entry, col, row)
 end
 
 function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
+  -- a follower action scene (lib/follower_actions.lua) overrides the facing
+  -- and slides the sprite by a cosmetic pixel offset
+  local act = self.act
+  if act and act.facing then facing = act.facing end
   local entry = self.info[self.anim]
   if type(entry) ~= "table" then return end
   local path = SpriteSource.pmdPath(self.info, self.anim, self.dex, self.shiny)
@@ -190,6 +194,7 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   end
   local dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x - camX, y - camY)
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
+  if act then dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5) end
   if self.silhouette then
     love.graphics.setColor(0, 0, 0, 1)
   elseif tint then

@@ -277,6 +277,124 @@ fi:tryStart({})
 fi:onSaveChanged()
 check(not fi:isActive(), "loading a save aborts an interaction in progress")
 
+-- ------- scenes: the follower acts the choice out before the result shows
+do
+  local locks, unlocks, poses = {}, {}, {}
+  E.lockField = function(tag) locks[#locks + 1] = tag return true end
+  E.unlockField = function(tag) unlocks[#unlocks + 1] = tag return true end
+  E.playerPose = function(n) poses[#poses + 1] = n return true end
+  -- like the real Hud.busy(): an open message owns the screen
+  E.screenBusy = function() return E.messageOpen end
+  local adapter = { started = {}, active = false, cancelled = 0 }
+  function adapter:startAction(kind)
+    self.started[#self.started + 1] = kind
+    self.active = true
+    return { kind = kind }
+  end
+  function adapter:actionActive() return self.active end
+  function adapter:cancelAction() self.active = false self.cancelled = self.cancelled + 1 end
+
+  local function sceneInteraction()
+    P.says, P.cleared = {}, 0
+    E.messageOpen, E.lastPage, E.choiceUp, E.choice = false, false, false, nil
+    clock = clock + 100000
+    locks, unlocks, poses = {}, {}, {}
+    adapter.started, adapter.active, adapter.cancelled = {}, false, 0
+    return FollowerInteraction.new(mod, P, { clock = function() return clock end, rng = rng, adapter = adapter })
+  end
+
+  for row, action in ipairs({ "pet", "play", "talk" }) do
+    local fiS = sceneInteraction()
+    E.lead = mon({ friendship = 50 })
+    fiS:tryStart({}) openMenu(fiS)
+    local before = #P.says
+    pick(row - 1)
+    eq(adapter.started[1], action, action .. ": the follower starts its scene")
+    eq(fiS.state, "anim", action .. ": the interaction waits in the scene state")
+    eq(#P.says, before, action .. ": no result message yet")
+    eq(#locks, 1, action .. ": the field is locked for the scene")
+    eq(#poses, action == "play" and 1 or 0, action .. ": only Play strikes the throwing pose")
+    check(not E.messageOpen, action .. ": the report message is taken down so the screen is free")
+    fiS:tick({})
+    eq(fiS.state, "anim", action .. ": still waiting while the scene runs (not cancelled by the old message)")
+    check(#unlocks == 0, action .. ": ...and the lock is held")
+    adapter.active = false -- the scene ends
+    fiS:tick({})
+    eq(fiS.state, "result", action .. ": the result shows after the scene")
+    eq(#unlocks, 1, action .. ": the field lock is released")
+    check(#P.says == before + 1 and lastSay().opts.emotion ~= nil, action .. ": with its portrait face")
+    closeMessage()
+    check(not fiS:isActive(), action .. ": and the interaction ends")
+  end
+
+  -- a refusal (cooldown) gets no scene
+  do
+    local fiS = sceneInteraction()
+    E.lead = mon({ friendship = 50 })
+    fiS:tryStart({}) openMenu(fiS) pick(0)
+    adapter.active = false fiS:tick({}) closeMessage()
+    adapter.started = {}
+    clock = clock + 1
+    fiS:tryStart({}) openMenu(fiS) pick(0)
+    eq(#adapter.started, 0, "a refused action plays no scene")
+    eq(fiS.state, "result", "...it goes straight to its reply")
+    closeMessage()
+  end
+
+  -- a maxed-out Pokemon still plays the scene (and still spends nothing)
+  do
+    local fiS = sceneInteraction()
+    E.lead = mon({ friendship = 255 })
+    fiS:tryStart({}) openMenu(fiS) pick(1)
+    eq(adapter.started[1], "play", "a maxed Pokemon still plays")
+    eq(fiS.state, "anim", "...in the scene state")
+    fiS:abort()
+  end
+
+  -- aborting mid-scene releases the lock and cancels the scene
+  do
+    local fiS = sceneInteraction()
+    E.lead = mon({ friendship = 50 })
+    fiS:tryStart({}) openMenu(fiS) pick(2)
+    fiS:abort()
+    eq(#unlocks, 1, "abort releases the field lock")
+    check(adapter.cancelled >= 1, "...and cancels the scene")
+    check(not fiS:isActive(), "...and ends the interaction")
+  end
+
+  -- something taking the screen mid-scene drops it cleanly
+  do
+    local fiS = sceneInteraction()
+    E.lead = mon({ friendship = 50 })
+    fiS:tryStart({}) openMenu(fiS) pick(0)
+    E.screenBusy = function() return true end
+    fiS:tick({})
+    check(not fiS:isActive(), "a battle or menu mid-scene aborts it")
+    eq(#unlocks, 1, "...releasing the lock")
+    E.screenBusy = function() return false end
+  end
+
+  -- loading a save mid-scene
+  do
+    local fiS = sceneInteraction()
+    E.lead = mon({ friendship = 50 })
+    fiS:tryStart({}) openMenu(fiS) pick(0)
+    fiS:onSaveChanged()
+    eq(#unlocks, 1, "loading a save mid-scene releases the lock")
+  end
+
+  -- no follower to animate: straight to the result, never locked
+  do
+    local fiS = sceneInteraction()
+    function adapter:startAction() return nil end
+    E.lead = mon({ friendship = 50 })
+    fiS:tryStart({}) openMenu(fiS) pick(0)
+    eq(fiS.state, "result", "no scene possible: the result shows at once")
+    eq(#locks, 0, "...and nothing was locked")
+    closeMessage()
+  end
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

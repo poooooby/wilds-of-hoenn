@@ -5,7 +5,10 @@
 --                 lib/mon_mood.lua + lib/follower_dialogue.lua).
 --   2. MENU    -- once that text is fully typed, the engine's own choice menu
 --                 opens under it: Pet / Play / Talk / Cancel.
---   3. RESULT  -- the action's reply, with a face to match, and the friendship
+--   3. SCENE   -- the follower acts it out (lib/follower_actions.lua: Play = a
+--                 thrown ball it fetches and spins at, Pet = an idle and a cry,
+--                 Talk = two cries) while the field is locked.
+--   4. RESULT  -- the action's reply, with a face to match, and the friendship
 --                 gain applied to the real party mon (Pet uses the engine's own
 --                 massage friendship event, Play/Talk a small flat gain).
 --
@@ -16,7 +19,7 @@
 -- A plain state machine, ticked from the follower tick (a stay-message cannot
 -- tell us when its text finished, and the choice callback fires in the middle
 -- of the HUD's input handling, so nothing else is done there):
---   nil -> "report" -> "menu" -> "result" -> nil, with abort() as the escape
+--   nil -> "report" -> "menu" -> "anim" -> "result" -> nil, with abort() as the escape
 --   hatch whenever the screen state is not what the current step expects (a
 --   battle began, the message got closed by something else, ...).
 local V = ...
@@ -33,6 +36,7 @@ local ACTIONS = { "pet", "play", "talk" } -- menu rows 0..2; row 3 is Cancel
 local MENU = { "Pet", "Play", "Talk", "Cancel" }
 local MENU_LAYOUT = { top = 3 } -- keeps the 4-row menu clear of the dialogue box
 local STORE_KEY = "follower_interaction/limiter"
+local LOCK_TAG = "wilds_of_hoenn_follower_action"
 
 -- the happy face each successful action shows (a hurting mon keeps its own)
 local ACTION_EMOTION = { pet = "Joyous", play = "Inspired", talk = "Happy" }
@@ -75,7 +79,7 @@ function FollowerInteraction.new(mod, portraitUI, opts)
   opts = opts or {}
   local self = setmetatable({
     mod = mod, portraitUI = portraitUI, state = nil, mon = nil, game = nil,
-    rng = opts.rng, isAway = opts.isAway,
+    rng = opts.rng, isAway = opts.isAway, adapter = opts.adapter,
   }, FollowerInteraction)
   self.limiter = opts.limiter or Limiter.new({
     cfg = Config.INTERACT, clock = opts.clock, store = makeStore(self),
@@ -88,7 +92,12 @@ function FollowerInteraction:isActive()
 end
 
 function FollowerInteraction:reset()
-  self.state, self.mon = nil, nil
+  if self.locked then
+    EnginePatch.unlockField(LOCK_TAG)
+    self.locked = false
+    if self.adapter then self.adapter:cancelAction() end
+  end
+  self.state, self.mon, self.pending = nil, nil, nil
 end
 
 --- Drop everything half-done: close our message, clear the portrait.
@@ -111,6 +120,26 @@ function FollowerInteraction:finish(text, emotion)
   else
     self:abort()
   end
+end
+
+-- Acts the action out on the follower, then shows the result. Without a
+-- follower to animate (or an adapter, in tests) it goes straight to the result.
+function FollowerInteraction:animate(action, text, emotion)
+  local scene = self.adapter and self.adapter:startAction(action)
+  if not scene then
+    self:finish(text, emotion)
+    return
+  end
+  -- the report message is still up under the menu (a "stay" message): take it
+  -- and its portrait down so the field is free for the scene -- an open
+  -- message counts as a busy screen, which would cancel the scene at once
+  EnginePatch.closeStayMessage()
+  self.portraitUI:clear()
+  EnginePatch.lockField(LOCK_TAG)
+  self.locked = true
+  if action == "play" then EnginePatch.playerPose(Config.ACTIONS.play.playerPoseTicks) end
+  self.pending = { text = text, emotion = emotion }
+  self.state = "anim"
 end
 
 --- Called from the interact hook (before the engine's A-button handler).
@@ -170,7 +199,7 @@ function FollowerInteraction:onChoice(index)
   local name = EnginePatch.displayName(mon)
 
   if MonMood.friendshipOf(mon) >= 255 then
-    self:finish(Dialogue.maxed(name, self.rng), "Inspired") -- nothing to gain, nothing spent
+    self:animate(action, Dialogue.maxed(name, self.rng), "Inspired") -- nothing to gain, nothing spent
     return
   end
 
@@ -179,7 +208,7 @@ function FollowerInteraction:onChoice(index)
     self:grant(action, mon)
     local derived, reason = MonMood.read(mon) -- after the gain
     local hurting = HURTING[reason] == true
-    self:finish(Dialogue.action(action, name, hurting, self.rng),
+    self:animate(action, Dialogue.action(action, name, hurting, self.rng),
       hurting and derived or ACTION_EMOTION[action])
   elseif result.reason == "locked" then
     self:finish(Dialogue.refusal(result.newlyLocked and "locked_now" or "locked", name, self.rng),
@@ -207,6 +236,15 @@ function FollowerInteraction:tick(game)
     -- the callback moves us on synchronously; a menu that vanished without
     -- calling it (a battle, a warp ...) is cleaned up here
     if not EnginePatch.choiceActive() then self:abort() end
+  elseif state == "anim" then
+    if EnginePatch.screenBusy() or not self.adapter then
+      self:abort() -- a battle / menu / warp took the screen mid-scene
+    elseif not self.adapter:actionActive() then
+      local pending = self.pending or {}
+      self.locked = false -- the scene is over; release the field first
+      EnginePatch.unlockField(LOCK_TAG)
+      self:finish(pending.text or "", pending.emotion)
+    end
   elseif state == "result" then
     if not EnginePatch.isMessageOpen() then self:reset() end
   end

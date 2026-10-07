@@ -88,6 +88,19 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
 - [ ] Pet / Play / Talk each reply with a matching face and raise happiness
       (check the summary screen: Pet ~+3, Play +2, Talk +1; Pet at 255 gives
       nothing). B and Cancel close everything with no portrait left behind.
+- [ ] Each choice plays a short scene BEFORE the reply and portrait (both
+      Sprite Styles; try a small follower and a big one such as Rayquaza):
+      - Play: you strike the arms-up pose and a small Poke Ball arcs out in
+        front of the follower (stopping short of walls, water and NPCs); the
+        follower runs to it, spins in a circle (two turns), runs back and
+        faces its old way. Nothing drifts: it ends exactly on its tile.
+      - Pet: the follower plays a quick Idle loop, then its cry.
+      - Talk: the follower cries twice in a row, one after the other.
+      - The player cannot walk, open menus or start another interaction during
+        a scene, and can afterwards. A refused action (cooldown / "had enough")
+        plays no scene.
+      - Starting a battle / warping / loading a save mid-scene leaves nothing
+        stuck (no frozen player, no leftover ball or offset).
 - [ ] A poisoned / burned / low-HP lead keeps its pained face and gets the
       gentler replies.
 - [ ] Repeating an action right away: "isn't in the mood". More than six

@@ -71,7 +71,7 @@ return function(mod)
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.0.1"
+  mod.exports.version = "1.1.0"
   mod.exports.engineReady = false
 
   local layout = EnginePatch.layoutName()
@@ -96,6 +96,7 @@ return function(mod)
   local portraitUI = PortraitUI.new(mod)
   local followerInteraction = FollowerInteraction.new(mod, portraitUI, {
     isAway = function() return followerAdapter:isRecalled() end, -- shrunk into the player
+    adapter = followerAdapter, -- acts the menu choices out (lib/follower_actions.lua)
   })
 
   mod.exports.spawnManager = spawnManager
