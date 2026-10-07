@@ -235,6 +235,50 @@ do
   love = savedLove
 end
 
+-- ------- a Battler out of strength shrinks into the player; a defeated mon sinks
+do
+  local drawn = {}
+  local savedLove = love
+  love = { graphics = {
+    newQuad = function(qx, qy, qw, qh) return { getViewport = function() return qx, qy, qw, qh end, qy = qy } end,
+    draw = function(_img, _q, dx, dy, _r, sx, sy, ox, oy) drawn[#drawn + 1] = { x = dx, y = dy, sx = sx, sy = sy, ox = ox, oy = oy, color = drawn.cur } end,
+    setColor = function(...) drawn.cur = { ... } end,
+  } }
+  local fakeMod = { assets = { image = function() return { getDimensions = function() return 18, 18 * 18 end } end } }
+  local ar = ActorRenderer.new(fakeMod, 4321, false, "pokemmo", "land")
+  ar.pushX, ar.pushY = 0, 0
+  ar.imagePath = function() return "actor_renderer_test_sheet.png" end
+  ar:draw(100, 50, 0, 0, "down", POSE_STAND, false)
+  local base = drawn[#drawn]
+  eq(base.sx, 1, "a normal draw is unscaled")
+
+  ar.act = { sink = 0.5 }
+  ar:draw(100, 50, 0, 0, "down", POSE_STAND, false)
+  local sunk = drawn[#drawn]
+  eq(sunk.sy, 0.5, "sinking squashes the height")
+  eq(sunk.sx, 1, "...not the width")
+  eq(sunk.y, base.y + 18, "...about the feet (bottom of the frame stays put)")
+
+  ar.act = nil
+  ar.recall = 0.5
+  ar:draw(100, 50, 0, 0, "down", POSE_STAND, false)
+  local half = drawn[#drawn]
+  check(half.sx < 1 and half.sx > 0, "a half-recalled Pokemon is smaller")
+  check(drawn[#drawn].color and drawn[#drawn].color[2] < 1, "...and flushed red")
+  local n = #drawn
+  ar.recall = 0
+  ar:draw(100, 50, 0, 0, "down", POSE_STAND, false)
+  eq(#drawn, n, "fully recalled draws nothing")
+
+  ar.recall = nil
+  ar:draw(100, 50, 0, 0, "right", POSE_STAND, false)
+  local right = drawn[#drawn]
+  eq(right.sx, -1, "facing right still mirrors")
+  eq(ActorRenderer.new(fakeMod, 1, false, "pokemmo", "land").frameHeight == nil, false, "frameHeight exists")
+  eq(ar:frameHeight(), 18, "frameHeight is the frame's height")
+  love = savedLove
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

@@ -22,6 +22,7 @@ local RendererFactory = V.require("renderer_factory")
 local SpriteSource = V.require("sprite_source")
 local GrassCover = V.require("grass_cover")
 local FollowerActions = V.require("follower_actions")
+local PopupText = V.require("popup_text")
 
 local FollowerAdapter = {}
 FollowerAdapter.__index = FollowerAdapter
@@ -29,9 +30,11 @@ FollowerAdapter.__index = FollowerAdapter
 local CELL = 16
 FollowerAdapter.STEP_TICKS = 16 -- logic ticks per one-tile step
 
-function FollowerAdapter.new(mod)
+function FollowerAdapter.new(mod, companion)
   return setmetatable({
-    mod = mod, leadSpecies = nil, style = nil, renderer = nil,
+    mod = mod, companion = companion, role = "follow",
+    behaviors = {}, -- role -> behaviour object (lib/forager.lua ...), set by main.lua
+    leadSpecies = nil, style = nil, renderer = nil,
     stepParity = false, wasMoving = false,
     isFloater = false, flapClock = 0, wasRecalled = false,
   }, FollowerAdapter)
@@ -73,6 +76,81 @@ function FollowerAdapter:actionActive()
   return self.action ~= nil
 end
 
+--- Is the follower away from its place or mid-scene (so the Pet / Play / Talk
+--- menu must not open on it)?
+function FollowerAdapter:isBusy()
+  if self.action ~= nil then return true end
+  local b = self.behaviors and self.behaviors[self.role]
+  return b ~= nil and b.isBusy ~= nil and b:isBusy() == true
+end
+
+--- A new map: each behaviour drops what it was doing there (a Forager keeps its
+--- timer, see lib/forager.lua's mapChanged).
+function FollowerAdapter:mapChanged()
+  self.away = false
+  for _, b in pairs(self.behaviors or {}) do
+    if b.mapChanged then b:mapChanged() elseif b.reset then b:reset() end
+  end
+  if not self.action then
+    self.actState = nil
+    if self.renderer then self.renderer.act = nil end
+  end
+end
+
+--- Forget every role behaviour's progress (save load, role change).
+function FollowerAdapter:resetBehaviors()
+  self.away = false
+  for _, b in pairs(self.behaviors or {}) do
+    if b.reset then b:reset() end
+  end
+  if not self.action then
+    self.actState = nil
+    if self.renderer then self.renderer.act = nil end
+  end
+end
+
+-- The companion's role behaviour for this tick (Forager ...): its state in the
+-- same shape a scene returns, mirrored onto the renderer the same way. nil
+-- while the role has none or it is just standing with the player.
+function FollowerAdapter:_tickBehavior(npc)
+  if self.action then return nil end
+  if self.role ~= self.lastRole then
+    self:resetBehaviors()
+    self.lastRole = self.role
+  end
+  local b = self.behaviors and self.behaviors[self.role]
+  local state
+  if b and not self.surfRecall then
+    local pc = EnginePatch.playerCell()
+    local playerMoving = pc and pc.moving or false
+    local forageOk -- nil = the engine pieces are missing: no restriction
+    if EnginePatch.forageAllowed then
+      forageOk = EnginePatch.forageAllowed(Config.FORAGE.allowedMapTypes)
+    end
+    state = b:step({
+      still = not (npc.moving or false) and not playerMoving,
+      fx = npc.cellX, fy = npc.cellY, px = pc and pc.x, py = pc and pc.y,
+      -- where the follower is DRAWN (its tile plus the spacing the renderer adds)
+      fpx = npc.px + (self.renderer and self.renderer.pushX or 0),
+      fpy = npc.py + (self.renderer and self.renderer.pushY or 0),
+      mon = self.mon, renderer = self.renderer,
+      -- routes and caves only (EnginePatch.forageAllowed); nil without the engine pieces
+      forageOk = forageOk,
+    })
+  end
+  self.away = state ~= nil and state.away == true
+  if not state then
+    self.actState = nil
+    if self.renderer then self.renderer.act = nil end
+    return nil
+  end
+  self.actState = state
+  self.actClock = (self.actClock or 0) + 1
+  self.renderer.act = { dx = state.dx or 0, dy = state.dy or 0, facing = state.facing,
+    sink = state.sink, flash = state.flash }
+  return state
+end
+
 --- Drop a running scene at once (the interaction was aborted).
 function FollowerAdapter:cancelAction()
   self.action, self.actState = nil, nil
@@ -100,7 +178,7 @@ end
 --- they surf)? True while the recall is more than half closed.
 function FollowerAdapter:isRecalled()
   local r = self.renderer
-  return r ~= nil and r.isPmd == true and (r.recall or 1) < 0.5
+  return r ~= nil and (r.recall or 1) < 0.5
 end
 
 --- PMDCollab has no swim art, so while the player surfs the follower shrinks
@@ -108,14 +186,21 @@ end
 --- stays in until the FOLLOWER itself is off the water too (it trails a step
 --- or two behind, so it would otherwise reappear standing on a water tile).
 function FollowerAdapter:_tickRecall(npc, r)
-  local surf = EnginePatch.playerSurfState and EnginePatch.playerSurfState()
-  local recalled = surf ~= nil and surf.surfing and not surf.dismounting
-  if not recalled and self.wasRecalled then
-    local overWater = EnginePatch.isWater(npc.cellX, npc.cellY)
-      or (npc.moving and npc.targetX ~= nil and EnginePatch.isWater(npc.targetX, npc.targetY))
-    recalled = overWater == true
+  local recalled = false
+  if r.isPmd then
+    -- only PMD needs it while surfing: the HGSS art has its own swim sprites
+    local surf = EnginePatch.playerSurfState and EnginePatch.playerSurfState()
+    recalled = surf ~= nil and surf.surfing and not surf.dismounting
+    if not recalled and self.wasRecalled then
+      local overWater = EnginePatch.isWater(npc.cellX, npc.cellY)
+        or (npc.moving and npc.targetX ~= nil and EnginePatch.isWater(npc.targetX, npc.targetY))
+      recalled = overWater == true
+    end
   end
   self.wasRecalled = recalled
+  self.surfRecall = recalled
+  -- a Battler out of strength rests inside the player (any art style)
+  if self.away then recalled = true end
 
   local want = recalled and 0 or 1
   if r.recallPlaced then
@@ -146,9 +231,16 @@ function FollowerAdapter:tick()
   if not npc then
     self.leadSpecies, self.style = nil, nil
     self.wasMoving = false
+    if self.actState then self:resetBehaviors() end
     return
   end
-  local species = EnginePatch.leadPartySpecies()
+  local species
+  if self.companion then
+    local mon, role = self.companion:resolve(EnginePatch.partyMons())
+    species, self.role, self.mon = mon and tonumber(mon.species) or nil, role, mon
+  else
+    species, self.role = EnginePatch.leadPartySpecies(), "follow"
+  end
   local style = Config.spriteStyle(self.mod)
   if species ~= self.leadSpecies or style ~= self.style or npc.sprite ~= self.renderer then
     self.leadSpecies, self.style = species, style
@@ -166,7 +258,7 @@ function FollowerAdapter:tick()
     self.action, self.actState = nil, nil
     return
   end
-  local scene = self:_tickAction()
+  local scene = self:_tickAction() or self:_tickBehavior(npc)
 
   -- PMDCollab: the renderer animates itself from a tick clock (Walk while
   -- the follower steps, Idle while it stands) -- none of the pose, grass
@@ -187,7 +279,12 @@ function FollowerAdapter:tick()
         r.idleHold, r.idleSpeed = 0, scene.idleSpeed or 1
       end
     end
-    r:advance(moving)
+    r.walkMul = scene and scene.walkMul or 1
+    if scene and scene.anim and scene.anim ~= "idle" then
+      r:advanceAs(scene.anim, scene.animSpeed)
+    else
+      r:advance(moving)
+    end
     -- Space it out: kept behind the player along its facing by its own
     -- overhang past the 16px tile plus a gap, eased so a turn glides
     -- (same recipe as the pushback of the ActorRenderer styles below).
@@ -232,7 +329,7 @@ function FollowerAdapter:tick()
 
   local pose = ActorRenderer.POSE_STAND
   if scene and scene.bounce then
-    pose = ActorRenderer.idleFlapPose(self.actClock, Config.IDLE_FLAP_TICKS)
+    pose = ActorRenderer.idleFlapPose(self.actClock, scene.flapTicks or Config.IDLE_FLAP_TICKS)
   elseif moving then
     if EnginePatch.playerIsRunning() then
       pose = self.stepParity and ActorRenderer.POSE_RUN_A or ActorRenderer.POSE_RUN_B
@@ -282,6 +379,7 @@ function FollowerAdapter:tick()
     r.pushX = ActorRenderer.approach(r.pushX, tx, maxStep)
     r.pushY = ActorRenderer.approach(r.pushY, ty, maxStep)
   end
+  self:_tickRecall(npc, r)
 end
 
 --- Called from the same `collectActors` hook as lib/spawn_manager.lua's
@@ -299,6 +397,18 @@ function FollowerAdapter:collectActors(actors)
   local ball = self.actState and self.actState.ball
   if ball then
     actors[#actors + 1] = FollowerActions.ballActor(ball, npc.px, npc.py, npc.elevation)
+  end
+  local role = self.behaviors and self.behaviors[self.role]
+  if role and role.collectActors and not self.away then role:collectActors(actors) end
+  local popup = self.actState and self.actState.popup
+  if popup then
+    -- over where the sprite is actually drawn: tile + spacing + the act's offset
+    local r = self.renderer
+    local act = r and r.act
+    local a = PopupText.actor(popup.text,
+      npc.px + ((r and r.pushX) or 0) + ((act and act.dx) or self.actState.dx or 0),
+      npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or self.actState.dy or 0), npc.elevation, 22, 0)
+    if a then actors[#actors + 1] = a end
   end
   GrassCover.append(actors, npc.cellX, npc.cellY, npc.py, npc.elevation, 0)
 end

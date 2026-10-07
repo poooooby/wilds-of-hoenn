@@ -64,6 +64,8 @@ RAW_SPRITE_DIRS = [
 OPTIONAL_RAW_SPRITE_DIRS = [
     "assets/pmd/walk",
     "assets/pmd/idle",
+    "assets/pmd/attack",
+    "assets/pmd/hurt",
     "assets/pmd/portraits",
 ]
 
@@ -216,6 +218,8 @@ def build_variant(name: str, args, version: str, mod_id: str, out_dir: Path) -> 
                   or n.startswith("assets/wilds_generated/true_size18/")
                   or n.startswith("assets/pmd/walk/")
                   or n.startswith("assets/pmd/idle/")
+                  or n.startswith("assets/pmd/attack/")
+                  or n.startswith("assets/pmd/hurt/")
                   or n.startswith("assets/pmd/portraits/")]
         if leaked:
             problems.append(f"atlas mode but {len(leaked)} raw sprite files leaked into the ZIP (first: {leaked[0]})")

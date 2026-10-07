@@ -59,6 +59,10 @@ INDEX_VERSION = 1
 MAX_DEX = 1025
 GUTTER = 2
 ANIMS = ("walk", "idle")  # output names; SpriteCollab names are Walk / Idle
+# Used by the overworld fights (the Battler's blows and a struck Pokemon's flinch);
+# a species without one simply plays a rapid Idle instead, so they never fail a bake.
+OPTIONAL_ANIMS = ("attack", "hurt")  # SpriteCollab: Attack (else Strike) / Hurt
+ALL_ANIMS = ANIMS + OPTIONAL_ANIMS
 WALK_FROM_IDLE_MAX_TICKS = 10  # see the Idle-stands-in-for-Walk case in main()
 
 # Output direction -> source row (the 8-row PMD order: Down, DownRight,
@@ -331,7 +335,7 @@ def main() -> int:
         return 1
     wanted = {int(x) for x in args.species.split(",") if x.strip()} if args.species else None
 
-    for anim in ANIMS:
+    for anim in ALL_ANIMS:
         (out / anim).mkdir(parents=True, exist_ok=True)
     index_path = out / "index.json"
     index = {"version": INDEX_VERSION, "directions": [n for n, _ in DIRECTIONS], "gutter": GUTTER, "dex": {}}
@@ -393,8 +397,25 @@ def main() -> int:
                     shiny.save(out / anim / f"{dex:03d}-shiny.png", "PNG", optimize=True)
             else:
                 stats["skipped_existing"] += 1
+        if ok:
+            for anim in OPTIONAL_ANIMS:
+                meta = anims.get(anim.capitalize())
+                if meta is None and anim == "attack":
+                    meta = anims.get("Strike")
+                result = bake_anim(folder, shiny_dir, anim.capitalize(), meta) if meta else None
+                normal_path = out / anim / f"{dex:03d}-normal.png"
+                if result is None:
+                    normal_path.unlink(missing_ok=True)
+                    (out / anim / f"{dex:03d}-shiny.png").unlink(missing_ok=True)
+                    continue
+                info, normal, _shiny = result
+                # fights are brief: the normal sheet serves shiny too (keeps the ZIP small)
+                entry[anim] = dict(info, shiny=False)
+                (out / anim / f"{dex:03d}-shiny.png").unlink(missing_ok=True)
+                if args.force or not normal_path.exists():
+                    normal.save(normal_path, "PNG", optimize=True)
         if not ok:
-            for anim in ANIMS:  # never leave half a species behind
+            for anim in ALL_ANIMS:  # never leave half a species behind
                 for variant in ("normal", "shiny"):
                     (out / anim / f"{dex:03d}-{variant}.png").unlink(missing_ok=True)
             index["dex"].pop(str(dex), None)

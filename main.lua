@@ -60,6 +60,11 @@ return function(mod)
   local FollowerAdapter = V.require("follower_adapter")
   local PortraitUI = V.require("portrait_ui")
   local FollowerInteraction = V.require("follower_interaction")
+  local Companion = V.require("companion")
+  local Forager = V.require("forager")
+  local ForageSource = V.require("forage_source")
+  local OverworldBattle = V.require("overworld_battle")
+  local PartyRoles = V.require("party_roles")
 
   Config.defineOptions(mod)
 
@@ -71,7 +76,7 @@ return function(mod)
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.1.1"
+  mod.exports.version = "1.2.0"
   mod.exports.engineReady = false
 
   local layout = EnginePatch.layoutName()
@@ -92,11 +97,14 @@ return function(mod)
 
   local spawnManager = SpawnManager.new(mod)
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
-  local followerAdapter = FollowerAdapter.new(mod)
+  local companion = Companion.new(mod)
+  local partyRoles = PartyRoles.new(companion)
+  local followerAdapter = FollowerAdapter.new(mod, companion)
   local portraitUI = PortraitUI.new(mod)
   local followerInteraction = FollowerInteraction.new(mod, portraitUI, {
     isAway = function() return followerAdapter:isRecalled() end, -- shrunk into the player
     adapter = followerAdapter, -- acts the menu choices out (lib/follower_actions.lua)
+    companion = companion,
   })
 
   mod.exports.spawnManager = spawnManager
@@ -104,6 +112,38 @@ return function(mod)
   mod.exports.followerAdapter = followerAdapter
   mod.exports.portraitUI = portraitUI
   mod.exports.followerInteraction = followerInteraction
+  mod.exports.companion = companion
+
+  -- Forage role: wanders on open cells near the player and bags what it finds
+  local forageSource = ForageSource.new(mod)
+  local forager = Forager.new({
+    cellFree = EnginePatch.cellFree,
+    occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
+    pickItem = function() return forageSource:pick() end,
+    playCry = EnginePatch.playCry, -- the cry that tells the player it is foraging
+    playFound = EnginePatch.playSuccess,
+  })
+  followerAdapter.behaviors.forage = forager
+  mod.exports.forager = forager
+
+  -- Battle role: charges wild overworld Pokemon near the player, real moves / PP
+  local battler = OverworldBattle.new({
+    combat = {
+      battlerOf = EnginePatch.battlerOf, moveRow = EnginePatch.moveRow,
+      moveDamage = EnginePatch.moveDamage, moveNumber = EnginePatch.moveNumber,
+      expGain = EnginePatch.expGain, expApply = EnginePatch.expApply,
+      buildWild = EnginePatch.buildWildFighter, rng = math.random,
+    },
+    targets = function() return spawnManager:fightTargets() end,
+    alive = function(e) return spawnManager:get(e.id) == e end,
+    cellFree = EnginePatch.cellFree,
+    occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
+    defeat = function(id) spawnManager:despawn(id) end,
+    playCry = EnginePatch.playCry,
+    rng = math.random,
+  })
+  followerAdapter.behaviors.battle = battler
+  mod.exports.battler = battler
 
   local installed = EnginePatch.install({
     collectActors = function(actors)
@@ -142,6 +182,13 @@ return function(mod)
     interact = function(game)
       return followerInteraction:tryStart(game)
     end,
+    -- Follow / Battle / Forage rows in the party menu (lib/party_roles.lua)
+    partyMenuUpdate = function(menu)
+      partyRoles:onMenuUpdate(menu)
+    end,
+    fromMenu = function(label, ctx)
+      return partyRoles:fromMenu(label, ctx)
+    end,
     followerTick = function(game)
       spawnManager:tick(game)
       followerInteraction:tick(game)
@@ -160,6 +207,7 @@ return function(mod)
   mod.events:on("map.entered", function(ev)
     local ok2, err = pcall(function()
       spawnManager:onMapEntered(ev and ev.mapId, mod.world and mod.world.game)
+      followerAdapter:mapChanged()
     end)
     if not ok2 then
       mod.log:warn("[wilds_of_hoenn] map.entered error: %s", tostring(err))
@@ -171,6 +219,9 @@ return function(mod)
   for _, eventName in ipairs({ "save.loaded", "save.created", "checkpoint.restored" }) do
     mod.events:on(eventName, function()
       pcall(function() followerInteraction:onSaveChanged() end)
+      pcall(function() companion:reset() end)
+      pcall(function() forageSource:reset() end)
+      pcall(function() followerAdapter:resetBehaviors() end)
     end)
   end
 

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.2.0 (2026-10-07)
+
+### Features
+
+- **Companion roles** (Scarlet / Violet style). Open the party menu, pick ANY
+  party Pokemon and choose **Follow**, **Battle** or **Forage**: it becomes
+  the one out in the overworld with that job. The **Follower** option is
+  gone (a companion is always out; the party lead follows until you choose).
+  - **Battle**: it stays near you and, when everything is still, charges
+    any wild overworld Pokemon within 3 tiles of you for a short fight using
+    its REAL moves, stats, damage and PP, with health bars over both, a hit
+    effect and attack / hurt animations (PMD: the species' own Attack and
+    Hurt sheets; HGSS: a rapid idle). A defeated wild Pokemon cries and sinks
+    into the ground; the Battler earns a small share of the EXP. It is never
+    knocked out: at 1 HP (or out of attacks) it runs back, cries and shrinks
+    into you and stays inside until it is healed.
+  - **Forage**: while you are walking, outside on a route or in a cave (never
+    in a building, town, city, the Safari Zone or on the water), it roams 5-10
+    tiles around you on open ground and runs back to your side; every 10-30
+    seconds of walking it goes foraging: it cries to alert you, digs, has a 20%
+    chance to turn up an item for your bag ("Found Potion!"), then runs back
+    quickly. The timer carries across map changes. Finds: healing and status items, Poke
+    Balls, berries, evolution stones and the extra evolution items National
+    Dex Gen 3 adds, cheap TMs. Never HMs, key items, Master Balls, Rare
+    Candy or high-level TMs.
+- The PMDCollab build bakes two more animations per species (Attack, Hurt).
+
 ## 1.1.1 (2026-10-07)
 
 ### Fixes

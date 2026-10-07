@@ -36,7 +36,9 @@ fake["src.core.game3.field_moves"] = {
   GFX_IDS = { CUT_TREE = 95, ROCK_SMASH_ROCK = 96, PUSHABLE_BOULDER = 97 },
   hasBadge = function(_ctx, key) return badgeOwned[key] == true end,
   partyMoveUser = function(_party, key) return moveMon[key] end,
+  fromMenu = function(_label, _ctx) return { ok = false, text = "original" } end,
 }
+fake["src.ui.game3.party_menu"] = { update = function() end, open = false, ACTIONS = {} }
 local followerNpc = nil
 fake["src.world.game3.Follower"] = {
   update = function(_game) end,
@@ -51,9 +53,40 @@ fieldState.lock = function(tag) fieldLocks[tag] = true end
 fieldState.unlock = function(tag) fieldLocks[tag] = nil end
 fake["src.core.game3.field"] = fieldState
 local cryLog, cryDone = {}, false
+local currentMapType = 3
+fake["src.core.game3.map"] = { currentDef = function() if currentMapType == "none" then return nil end return { mapType = currentMapType } end }
+local seLog = {}
 fake["src.core.game3.audio"] = {
   playCry = function(species, mode) cryLog[#cryLog + 1] = { species, mode } return true end,
   isCryFinished = function() return cryDone end,
+  playSe = function(id) seLog[#seLog + 1] = id return true end,
+}
+fake["src.core.game3.se_ids"] = { SE_SUCCESS = 25 }
+local bagLog, bagFull = {}, false
+fake["src.core.game3.bag"] = {
+  add = function(bag, id, qty)
+    if bagFull then return false, 0 end
+    bagLog[#bagLog + 1] = { bag = bag, id = id, qty = qty }
+    return true, qty
+  end,
+}
+local ITEM_INFO = {
+  [4] = { name = "POKé BALL", pocket = "POKE_BALLS", price = 200 },
+  [13] = { name = "POTION", pocket = "ITEMS", price = 300 },
+  [20] = { name = "????????", pocket = "ITEMS", price = 0 },
+  [346] = { name = "HM08", pocket = "TM_CASE", price = 0 },
+}
+fake["src.core.game3.items_data"] = {
+  info = function(id) return ITEM_INFO[id] end,
+  fieldUseKind = function(id) return id == 13 and "heal" or "none" end,
+  isHm = function(id) return id == 346 end,
+  isTm = function(id) return id == 346 end,
+  isEvolutionStone = function() return false end,
+}
+local fontLog = {}
+fake["src.ui.game3.frlg_font"] = {
+  measure = function(text) return #text * 6 end,
+  draw = function(text, x, y) fontLog[#fontLog + 1] = { text, x, y } end,
 }
 local hudBusy = false
 fake["src.ui.game3.hud"] = { busy = function() return hudBusy end }
@@ -95,9 +128,39 @@ fake["src.core.game3.pokemon"] = {
   speciesMeta = function() return {} end,
   isShiny = function(_mon) return false end,
   gender = function() return 0 end,
+  movesAtLevel = function(species, level)
+    if species == 0 then return {} end
+    return { 33, 45 }, { 35, 40 }, { 35, 40 }
+  end,
+  movePp = function(id) return id == 33 and 35 or 40 end,
+  moveName = function(id) return "MOVE" .. tostring(id) end,
+  types = function(species) return { 12, species == 99 and 3 or 0 } end,
+}
+local damageCalls = {}
+fake["src.core.game3.battle.damage"] = {
+  ensureStats = function(mon, level)
+    mon.maxHp = 10 + level mon.attack = 20 mon.defense = 20 mon.spAtk = 20 mon.spDef = 20 mon.speed = 20
+    return mon
+  end,
+  calc = function(attacker, defender, moveId, opts)
+    damageCalls[#damageCalls + 1] = { attacker, defender, moveId, opts }
+    if moveId == 999 then error("boom") end
+    return 7, { effectiveness = 1 }
+  end,
+}
+fake["src.core.game3.battle.moves"] = {
+  get = function(id)
+    if id == 404 then error("no such move") end
+    return { power = 40, accuracy = 100, type = 0, pp = 35 }
+  end,
+}
+local expApplied = {}
+fake["src.core.game3.battle.experience"] = {
+  gainFor = function(species, level) return level * 3 end,
+  apply = function(mon, amount) expApplied[#expApplied + 1] = { mon, amount } return { gained = amount, fromLevel = 5, toLevel = 6 } end,
 }
 fake["src.core.game3.runtime"] = {
-  getSession = function() return { trainerId = 1234, secretId = 5678, party = {} } end,
+  getSession = function() return { trainerId = 1234, secretId = 5678, party = {}, bag = { "bag" } } end,
 }
 fake["src.core.game3.dex"] = { isCaught = function() return false end }
 local safariOn = false
@@ -196,12 +259,17 @@ safariOn = false
 local originalBlocks = fake["src.core.game3.objects"].blocks
 local calls = { collectActors = 0, blocks = 0, followerTick = 0, messageDraw = 0, interact = 0 }
 local originalMessageDraw = fake["src.ui.game3.message"].draw
+local originalPartyUpdate = fake["src.ui.game3.party_menu"].update
+local originalFromMenu = fake["src.core.game3.field_moves"].fromMenu
+local partyCalls, fromMenuAnswer = 0, nil
 local installed = EnginePatch.install({
   collectActors = function(_actors) calls.collectActors = calls.collectActors + 1 end,
   blocks = function(_tx, _ty, _except, _elev) calls.blocks = calls.blocks + 1 return true end,
   followerTick = function(_game) calls.followerTick = calls.followerTick + 1 end,
   messageDraw = function() calls.messageDraw = calls.messageDraw + 1 end,
   interact = function() calls.interact = calls.interact + 1 return calls.takeInteract == true end,
+  partyMenuUpdate = function(menu) partyCalls = partyCalls + 1 calls.menuArg = menu end,
+  fromMenu = function(label, _ctx) calls.fromMenuLabel = label return fromMenuAnswer end,
 }, { warn = function() end, info = function() end })
 check(installed, "install succeeds against the fake engine")
 
@@ -234,6 +302,112 @@ eq(calls.interact, 1, "the interact hook ran before the original")
 calls.takeInteract = true
 eq(fake["src.core.game3.field"].interact({}), true, "interact returns true when the hook takes the press")
 calls.takeInteract = nil
+
+-- party menu seam: the update hook runs after the original, with the menu module
+fake["src.ui.game3.party_menu"].update(1 / 60)
+eq(partyCalls, 1, "the partyMenuUpdate hook ran after PartyMenu.update")
+eq(calls.menuArg, fake["src.ui.game3.party_menu"], "...and received the party menu module")
+eq(EnginePatch.partyMenu(), fake["src.ui.game3.party_menu"], "partyMenu() hands the module out")
+
+-- FieldMoves.fromMenu: our answer wins, anything else reaches the real function
+local passed = fake["src.core.game3.field_moves"].fromMenu("CUT", {})
+eq(passed.text, "original", "a label the hook declines reaches the original fromMenu")
+fromMenuAnswer = { ok = false, text = "ours" }
+eq(fake["src.core.game3.field_moves"].fromMenu("BATTLE", {}).text, "ours", "an answer from the hook replaces the original")
+eq(calls.fromMenuLabel, "BATTLE", "the label is passed to the hook")
+fromMenuAnswer = nil
+
+-- Overworld fights: wild fighter, battlers, damage, EXP
+do
+  local wild = EnginePatch.buildWildFighter(252, 7, 12345)
+  check(wild ~= nil, "a wild fighter is built from species + level")
+  eq(wild.hp, wild.maxHp, "...at full health")
+  eq(wild.personality, 12345, "...keeping the personality it was given")
+  eq(#wild.moves, 2, "...with its learnset moves")
+  eq(wild.pp[1], 35, "...and their PP")
+  check(wild.maxHp > 0 and wild.attack == 20, "...and stats from the engine")
+  eq(EnginePatch.buildWildFighter(0, 7), nil, "a species with no moves builds nothing")
+  local b = EnginePatch.battlerOf({ species = 99, level = 12 })
+  eq(b.type1, 12, "a battler carries its species' types")
+  eq(b.type2, 3, "...both of them")
+  eq(b.level, 12, "...and its level")
+  local row = EnginePatch.moveRow(33)
+  eq(row.power, 40, "moveRow reads power")
+  eq(row.accuracy, 100, "...and accuracy")
+  eq(EnginePatch.moveRow(404), nil, "an unknown move is nil, never an error")
+  eq(EnginePatch.moveNumber({ id = 55 }), 55, "moves may be tables")
+  local dmg, info = EnginePatch.moveDamage(b, b, 33, function() return 1 end, true)
+  eq(dmg, 7, "moveDamage returns the engine's damage")
+  eq(info.effectiveness, 1, "...and its info")
+  eq(damageCalls[#damageCalls][4].noCrit, true, "...passing the options through")
+  eq(EnginePatch.moveDamage(b, b, 999, nil), nil, "a damage error is nil, never thrown")
+  eq(EnginePatch.moveDisplayName(33), "MOVE33", "move names come from the engine")
+  eq(EnginePatch.expGain(252, 7), 21, "EXP value comes from the engine")
+  local result = EnginePatch.expApply({ level = 5 }, 12)
+  eq(result.toLevel, 6, "expApply returns the engine's result")
+  eq(expApplied[1][2], 12, "...for the amount given")
+end
+
+-- Forager: only on routes and in caves
+do
+  local allowed = { [3] = true, [4] = true }
+  currentMapType = 3
+  eq(EnginePatch.mapType(), 3, "mapType reads the current map's type")
+  check(EnginePatch.forageAllowed(allowed), "a route is allowed")
+  currentMapType = 4
+  check(EnginePatch.forageAllowed(allowed), "a cave (underground) is allowed")
+  for _, mt in ipairs({ 1, 2, 5, 6, 8, 9 }) do
+    currentMapType = mt
+    check(not EnginePatch.forageAllowed(allowed), "map type " .. mt .. " (town / city / water / building ...) is not")
+  end
+  currentMapType = "none"
+  eq(EnginePatch.mapType(), nil, "no map: type unknown")
+  check(not EnginePatch.forageAllowed(allowed), "an unknown map type is not allowed")
+  currentMapType = 3
+  check(not EnginePatch.forageAllowed(nil), "no allowed set: nothing is")
+  safariOn = true
+  check(not EnginePatch.forageAllowed(allowed), "never in the Safari Zone")
+  safariOn = false
+  local player = fake["src.core.game3.player"]
+  player.surfing = true
+  check(not EnginePatch.forageAllowed(allowed), "never while surfing")
+  player.surfing = nil
+  check(EnginePatch.forageAllowed(allowed), "...and allowed again on land")
+end
+
+-- Forager helpers: bag, item catalog, sound, font, open cells
+check(EnginePatch.bagAdd(13, 1), "bagAdd puts an item in the session bag")
+eq(bagLog[1].id, 13, "...with the id it was given")
+bagFull = true
+check(not EnginePatch.bagAdd(13, 1), "a full bag reports false")
+bagFull = false
+local catalog = EnginePatch.itemCatalog({ content = { items = { each = function()
+  local list = { { "DAWN_STONE", { id = "DAWN_STONE", name = "Dawn Stone", index = 900, price = 0 } },
+                 { "POTION", { id = "POTION", name = "Potion", index = 13 } } }
+  local i = 0
+  return function() i = i + 1 if list[i] then return list[i][1], list[i][2] end end
+end } } })
+local byName = {}
+for _, e in ipairs(catalog) do byName[e.name] = e end
+check(byName["POKé BALL"] ~= nil and byName["POTION"] ~= nil, "the catalog lists the game's own items")
+check(byName["????????"] == nil, "...skipping placeholder names")
+eq(byName["POTION"].use, "heal", "...with their use kind")
+check(byName["HM08"] and byName["HM08"].isHm, "...flagging HMs")
+check(byName["Dawn Stone"] and byName["Dawn Stone"].extra, "an item another mod registered (index 900+) is added as extra")
+check(byName["Dawn Stone"].use == "evo", "...as an evolution item")
+check(EnginePatch.playSuccess(), "playSuccess plays SE_SUCCESS")
+eq(seLog[1], 25, "...the right id")
+eq(EnginePatch.measureText("abc"), 18, "measureText reads the engine font")
+eq(EnginePatch.drawText("abc", 3, 4), 18, "drawText returns the width")
+eq(fontLog[1][2], 3, "...and draws at the given point")
+check(EnginePatch.cellFree(1, 1), "an open cell is free")
+objectAtCell["1,1"] = { id = 1 }
+check(not EnginePatch.cellFree(1, 1), "a cell with something on it is not")
+objectAtCell["1,1"] = nil
+
+-- party helpers
+check(#EnginePatch.partyMons() >= 0, "partyMons returns a list")
+eq(EnginePatch.battleActive(), false, "battleActive false with no battle module loaded")
 
 -- canStartInteraction mirrors Field.interact's own gating
 check(EnginePatch.canStartInteraction(), "idle field: an interaction may start")
@@ -300,6 +474,8 @@ EnginePatch.uninstall()
 eq(fake["src.core.game3.objects"].blocks, originalBlocks, "uninstall restores the original blocks function")
 eq(fake["src.ui.game3.message"].draw, originalMessageDraw, "uninstall restores the original Message.draw")
 eq(fake["src.core.game3.field"].interact, originalInteract, "uninstall restores the original Field.interact")
+eq(fake["src.ui.game3.party_menu"].update, originalPartyUpdate, "uninstall restores PartyMenu.update")
+eq(fake["src.core.game3.field_moves"].fromMenu, originalFromMenu, "uninstall restores FieldMoves.fromMenu")
 
 local blockedAfterUninstall = fake["src.core.game3.objects"].blocks(1, 2, nil, 3)
 check(blockedAfterUninstall == false, "blocks is back to vanilla (always false) after uninstall")

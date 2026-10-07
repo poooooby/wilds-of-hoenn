@@ -57,7 +57,7 @@ eq(Config.spriteStyle(modNoPmd), "pokemmo", "...and to HGSS / PokeMMO when it is
 eq(Config.classicEncEnabled(mod), true, "classic_enc defaults true")
 eq(Config.silhouetteMode(mod), "off", "silhouette defaults off")
 eq(Config.shinyRate(mod), "native", "shiny_rate defaults native")
-eq(Config.followerEnabled(mod), true, "follower defaults true")
+eq(Config.followerEnabled(mod), true, "a companion is always allowed (no Follower option any more)")
 
 -- ------- saved values override defaults
 optionStore.enabled = false
@@ -73,8 +73,8 @@ optionStore.wild_silhouettes = "all"
 eq(Config.silhouetteMode(mod), "all", "silhouette reads saved all")
 optionStore.shiny_rate = "r4096"
 eq(Config.shinyRate(mod), "r4096", "shiny_rate reads saved r4096")
-optionStore.follower = false
-eq(Config.followerEnabled(mod), false, "follower reads saved false")
+optionStore.follower = false -- a stale saved value from before the option was removed
+eq(Config.followerEnabled(mod), true, "...is ignored")
 
 -- ------- invalid saved choice values fall back to default rather than
 -- propagating garbage into renderer/spawn logic
@@ -118,10 +118,11 @@ for _, row in ipairs(definedSchema or {}) do
   byKey[row.key] = row
   check(#row.label <= 14, "label <=14: " .. tostring(row.label))
 end
-for _, key in ipairs({ "enabled", "sprite_style", "classic_enc", "wild_silhouettes", "shiny_rate", "follower" }) do
+for _, key in ipairs({ "enabled", "sprite_style", "classic_enc", "wild_silhouettes", "shiny_rate" }) do
   check(byKey[key] ~= nil, "schema has " .. key)
   eq(byKey[key].default, Config.DEFAULTS[key], "schema default matches Config.DEFAULTS for " .. key)
 end
+check(byKey.follower == nil, "the Follower option is gone from the schema")
 
 print("")
 if failures > 0 then

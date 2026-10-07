@@ -61,6 +61,9 @@ FAMILIES: dict[str, list[str]] = {
     # a checkout without SpriteCollab has neither directory and bakes nothing.
     "pmd_walk": ["assets/pmd/walk"],
     "pmd_idle": ["assets/pmd/idle"],
+    # the overworld-fight animations (Attack, Hurt): optional per species
+    "pmd_attack": ["assets/pmd/attack"],
+    "pmd_hurt": ["assets/pmd/hurt"],
     "pmd_portraits": ["assets/pmd/portraits"],
 }
 INDEX_VERSION = 1

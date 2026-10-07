@@ -27,6 +27,8 @@
 local V = ...
 local SpriteSource = V.require("sprite_source")
 local SpriteAtlas = V.require("sprite_atlas")
+local Config = V.require("config")
+local RecallMath = V.require("recall_math")
 
 local ActorRenderer = {}
 ActorRenderer.__index = ActorRenderer
@@ -231,6 +233,16 @@ end
 --- renderer draws (see module header), so this is simply the whole loaded
 --- image's own width -- no frame-count division needed, unlike height.
 --- lib/follower_adapter.lua uses this to size `largePushback`.
+--- Visible height in px of one frame (for things floating above the sprite).
+function ActorRenderer:frameHeight()
+  local path = self:imagePath()
+  if not path then return nil end
+  local image = loadImage(self.mod, path)
+  if not image then return nil end
+  local _, h = image:getDimensions()
+  return h / (self.frameCount or 18)
+end
+
 function ActorRenderer:frameWidth()
   local path = self:imagePath()
   if not path then return nil end
@@ -274,13 +286,41 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
 
   if act then pushX, pushY = pushX + (act.dx or 0), pushY + (act.dy or 0) end
 
+  -- recalled into the player (a Battler out of strength): shrink and slide
+  -- toward them; sinking into the ground: squash toward the feet
+  local mul, tint = 1, nil
+  local recall = self.recall
+  if recall ~= nil and recall < 1 then
+    if recall <= 0.02 then return end -- fully inside
+    if self.recallX and self.recallY then
+      x, y, mul = RecallMath.blend(recall, x, y, self.recallX, self.recallY, Config.PMD_RECALL_LIFT)
+    else
+      mul = RecallMath.ease(recall)
+    end
+    tint = 0.55 + 0.45 * mul
+  end
+  local sink = act and tonumber(act.sink) or 0
+  if sink >= 1 then return end
+  local flash = act and tonumber(act.flash) or 0
+  if flash > 0 then tint = math.min(tint or 1, 1 - 0.6 * math.min(1, flash)) end
+
   if self.silhouette then
     -- Multiply-tint to black, keeping the sheet's own alpha -- no pixel
     -- remap needed: Gen 3's world already draws true-color, unshaded.
     love.graphics.setColor(0, 0, 0, 1)
+  elseif tint then
+    love.graphics.setColor(1, tint, tint, 1)
   end
-  love.graphics.draw(image, quad, (x - camX) + drawX + pushX, (y - camY) + drawY + pushY, 0, flipX, 1)
-  if self.silhouette then
+  if mul == 1 and sink <= 0 then
+    love.graphics.draw(image, quad, (x - camX) + drawX + pushX, (y - camY) + drawY + pushY, 0, flipX, 1)
+  else
+    -- scale about the bottom centre of the frame's box (its feet)
+    local boxLeft = (x - camX) + (flipX < 0 and drawX - frameW or drawX) + pushX
+    local boxTop = (y - camY) + drawY + pushY
+    love.graphics.draw(image, quad, boxLeft + frameW / 2, boxTop + frameH, 0,
+      flipX * mul, mul * (1 - sink), frameW / 2, frameH)
+  end
+  if self.silhouette or tint then
     love.graphics.setColor(1, 1, 1, 1)
   end
 end

@@ -59,10 +59,10 @@ fakeEngine.grassSheet = function() return nil end
 local FollowerAdapter = V.require("follower_adapter")
 local fa = FollowerAdapter.new(mod)
 
--- ------- shouldSpawn mirrors the Follower option
-eq(fa:shouldSpawn(), true, "shouldSpawn true when the option is on")
+-- ------- shouldSpawn: always (there is no Follower option; the party menu picks who is out)
+eq(fa:shouldSpawn(), true, "shouldSpawn is always true")
 optionStore.follower = false
-eq(fa:shouldSpawn(), false, "shouldSpawn false when the option is off")
+eq(fa:shouldSpawn(), true, "...even with a stale saved Follower value")
 optionStore.follower = true
 
 -- ------- tick() with no follower spawned does nothing
@@ -393,7 +393,7 @@ do
   npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
   local fr4 = FollowerAdapter.new(pmdMod)
   fr4:tick()
-  check(not fr4.renderer.isPmd and fr4.renderer.recall == nil and not fr4:isRecalled(), "HGSS / PokeMMO keeps its swim art: never recalled")
+  check(not fr4.renderer.isPmd and (fr4.renderer.recall or 1) == 1 and not fr4:isRecalled(), "HGSS / PokeMMO keeps its swim art: never recalled")
 
   fakeEngine.isWater, fakeEngine.playerSurfState, fakeEngine.playerPixel = realIsWater, realSurf, realPixel
   optionStore.sprite_style = "pokemmo"
@@ -501,6 +501,100 @@ do
   end
   check(bounced[V.require("actor_renderer").POSE_WALK_A] or bounced[V.require("actor_renderer").POSE_WALK_B],
     "HGSS Pet bounces through the idle-flap poses")
+  optionStore.sprite_style = "pokemmo"
+end
+
+-- ------- a companion with a role: the role's behaviour drives the follower
+do
+  fakeEngine.partyMons = function() return {} end
+  fakeEngine.playerCell = function() return { x = 5, y = 5, moving = false } end
+  local role = "forage"
+  local companion = { resolve = function() return { species = 999 }, role end }
+  local resets, last, popupOn = 0, nil, false
+  local behavior = {
+    step = function(_, env)
+      last = env
+      if not env.still then return nil end
+      local s = { dx = 16, dy = 0, facing = "right", moving = true }
+      if popupOn then s.popup = { text = "Found Potion!", age = 3 } end
+      return s
+    end,
+    isBusy = function() return last ~= nil and last.still end,
+    reset = function() resets = resets + 1 end,
+  }
+  optionStore.sprite_style = "pmd"
+  npc = { sprite = nil, moving = false, cellX = 4, cellY = 4, px = 64, py = 64, facing = "down", elevation = 3 }
+  local fb = FollowerAdapter.new(pmdMod, companion)
+  fb.behaviors.forage = behavior
+  fb:tick()
+  eq(fb.role, "forage", "the companion's role is read each tick")
+  eq(fb.leadSpecies, 999, "...and its species decides the sprite")
+  eq(last.fx, 4, "the behaviour is told where the follower stands")
+  eq(last.px, 5, "...and where the player is")
+  check(last.still, "...and whether everything is standing still")
+  eq(fb.renderer.act.dx, 16, "its offset reaches the renderer")
+  eq(fb.renderer.act.facing, "right", "...and its facing")
+  eq(fb.renderer.anim, "walk", "a moving behaviour plays Walk")
+  check(fb:isBusy(), "the follower is busy while the behaviour is away")
+
+  popupOn = true
+  fb:tick()
+  local actors = {}
+  fb:collectActors(actors)
+  local popup
+  for _, a in ipairs(actors) do if a.kind == "follower_popup" then popup = a end end
+  check(popup ~= nil, "a find's label becomes a field actor")
+  eq(popup.x, 64 + 16 + 8, "...above the follower's offset position")
+  popupOn = false
+
+  -- the behaviour is told whether foraging is allowed here (routes / caves only)
+  fakeEngine.forageAllowed = function(set) fakeEngine.allowedAsked = set return false end
+  fb:tick()
+  eq(last.forageOk, false, "forageOk reaches the behaviour (false in a town / building / on water)")
+  check(fakeEngine.allowedAsked and fakeEngine.allowedAsked[3] and fakeEngine.allowedAsked[4],
+    "...asked with the routes-and-caves set from the config")
+  fakeEngine.forageAllowed = function() return true end
+  fb:tick()
+  eq(last.forageOk, true, "...and true on a route")
+  fakeEngine.forageAllowed = nil
+
+  -- a map change: behaviours with a mapChanged hook keep their state, others reset
+  local kept, wiped = 0, 0
+  fb.behaviors.forage = { step = behavior.step, isBusy = behavior.isBusy,
+    mapChanged = function() kept = kept + 1 end, reset = function() wiped = wiped + 1 end }
+  fb:mapChanged()
+  eq(kept, 1, "a map change calls the behaviour's mapChanged ...")
+  eq(wiped, 0, "...instead of wiping it")
+  fb.behaviors.forage = behavior
+  local before = resets
+  fb:mapChanged()
+  eq(resets, before + 1, "a behaviour without one is reset")
+
+  npc.moving = true
+  fakeEngine.playerCell = function() return { x = 5, y = 5, moving = true } end
+  fb:tick()
+  check(not last.still, "a walking player/follower is reported as not still")
+  eq(fb.renderer.act, nil, "a behaviour that returns nothing clears the offset")
+
+  role = "follow"
+  npc.moving = false
+  fb:tick()
+  check(resets >= 1, "changing role resets the old behaviour")
+  fb:resetBehaviors()
+  eq(fb.renderer.act, nil, "resetBehaviors clears the offset")
+
+  -- a scene wins over a behaviour
+  role = "forage"
+  fakeEngine.playerCell = function() return { x = 5, y = 5, moving = false } end
+  fb:tick()
+  fakeEngine.playerFacing = function() return "down" end
+  fakeEngine.freeCellsAhead = function() return 1 end
+  fakeEngine.playCry = function() return true end
+  fakeEngine.cryFinished = function() return true end
+  fb:startAction("talk")
+  fb:tick()
+  check(fb:isBusy(), "a scene counts as busy too")
+  fb:cancelAction()
   optionStore.sprite_style = "pokemmo"
 end
 

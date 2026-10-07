@@ -62,11 +62,4 @@ return {
     },
     description = "Native keeps the real shiny chance the engine already rolled against your trainer id (no reroll). Each rate re-rolls a non-shiny encounter at that chance until it is shiny, keeping the same nature and gender. All always shows a shiny.",
   },
-  {
-    key = "follower",
-    label = "Follower",
-    type = "toggle",
-    default = true,
-    description = "Your lead party Pokemon follows you in the overworld.",
-  },
 }

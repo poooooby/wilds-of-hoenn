@@ -20,6 +20,7 @@ local V = ...
 local Config = V.require("config")
 local SpriteSource = V.require("sprite_source")
 local ActorRenderer = V.require("actor_renderer")
+local RecallMath = V.require("recall_math")
 
 local PmdRenderer = {}
 PmdRenderer.__index = PmdRenderer
@@ -75,20 +76,13 @@ function PmdRenderer.contentSize(info)
 end
 
 --- Smoothstep: eases the recall so it starts and ends gently.
-function PmdRenderer.ease(t)
-  t = tonumber(t) or 0
-  if t < 0 then t = 0 elseif t > 1 then t = 1 end
-  return t * t * (3 - 2 * t)
-end
+PmdRenderer.ease = RecallMath.ease
 
 --- Where a recalled follower is drawn. `recall` runs 1 (out, at its own tile
 --- fx, fy) to 0 (inside the player at px, py); it slides toward the player
 --- and rises `lift` px toward their body as it shrinks. Returns the tile
 --- top-left (world px) and the scale multiplier. Pure; for testing.
-function PmdRenderer.recallBlend(recall, fx, fy, px, py, lift)
-  local e = PmdRenderer.ease(recall)
-  return px + (fx - px) * e, py + (fy - py) * e - (lift or 0) * (1 - e), e
-end
+PmdRenderer.recallBlend = RecallMath.blend
 
 function PmdRenderer.new(mod, dex, shiny, info)
   return setmetatable({
@@ -142,8 +136,27 @@ function PmdRenderer:advance(moving)
     self.idleHold = self.idleHold - 1
     return
   end
-  local step = (want == "walk") and (Config.PMD_WALK_SPEED or 1) or (self.idleSpeed or 1)
+  local step = (want == "walk") and (Config.PMD_WALK_SPEED or 1) * (self.walkMul or 1) or (self.idleSpeed or 1)
   self.clock = self.clock + step
+end
+
+--- One field tick of a named animation ("attack", "hurt", ...) instead of
+--- Walk / Idle -- the overworld fights. A species with no such sheet gets a
+--- rapid Idle in its place, so every Pokemon has something to show.
+function PmdRenderer:advanceAs(anim, speed)
+  local want = (self.info and self.info[anim]) and anim or "idle"
+  local rate = speed or 1
+  if want ~= anim then rate = rate * 3 end
+  if want ~= self.anim then
+    self.anim, self.clock, self.idleHold = want, 0, 0
+  end
+  self.clock = self.clock + rate
+end
+
+--- Visible height in px of the sprite as drawn (for things floating above it).
+function PmdRenderer:visualHeight()
+  local _, h = PmdRenderer.contentSize(self.info)
+  return h
 end
 
 local quadCache = {} -- [path] = { [row * cols + col] = quad }
@@ -194,13 +207,26 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   end
   local dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x - camX, y - camY)
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
-  if act then dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5) end
+  local scaleY = scale
+  if act then
+    dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5)
+    -- sinking into the ground: squash toward the feet (the ground point stays put)
+    local sink = tonumber(act.sink) or 0
+    if sink > 0 then
+      if sink >= 1 then return end
+      scaleY = scale * (1 - sink)
+      dy = dy + math.floor(entry.ay * (scale - scaleY) + 0.5)
+    end
+    -- a hit flushes the sprite red
+    local flash = tonumber(act.flash) or 0
+    if flash > 0 then tint = math.min(tint or 1, 1 - 0.6 * math.min(1, flash)) end
+  end
   if self.silhouette then
     love.graphics.setColor(0, 0, 0, 1)
   elseif tint then
     love.graphics.setColor(1, tint, tint, 1)
   end
-  love.graphics.draw(image, quad, dx, dy, 0, scale, scale)
+  love.graphics.draw(image, quad, dx, dy, 0, scale, scaleY)
   if self.silhouette or tint then love.graphics.setColor(1, 1, 1, 1) end
 end
 

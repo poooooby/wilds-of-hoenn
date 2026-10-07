@@ -80,11 +80,20 @@ function FollowerInteraction.new(mod, portraitUI, opts)
   local self = setmetatable({
     mod = mod, portraitUI = portraitUI, state = nil, mon = nil, game = nil,
     rng = opts.rng, isAway = opts.isAway, adapter = opts.adapter,
+    companion = opts.companion,
   }, FollowerInteraction)
   self.limiter = opts.limiter or Limiter.new({
     cfg = Config.INTERACT, clock = opts.clock, store = makeStore(self),
   })
   return self
+end
+
+-- The Pokemon that is out (the saved companion, else the lead).
+function FollowerInteraction:companionMon()
+  if self.companion then
+    return (self.companion:resolve(EnginePatch.partyMons()))
+  end
+  return EnginePatch.leadPartyMon()
 end
 
 function FollowerInteraction:isActive()
@@ -147,11 +156,11 @@ end
 --- and an interaction began -- so the engine must not also act on it.
 function FollowerInteraction:tryStart(game)
   if self.state then return false end
-  if not Config.followerEnabled(self.mod) then return false end
   if not EnginePatch.canStartInteraction() then return false end
   if not EnginePatch.followerInFacingCell() then return false end
   if self.isAway and self.isAway() then return false end
-  local mon = EnginePatch.leadPartyMon()
+  if self.adapter and self.adapter.isBusy and self.adapter:isBusy() then return false end
+  local mon = self:companionMon()
   if not mon then return false end
 
   self.game, self.mon = game or self.game, mon
@@ -191,7 +200,7 @@ function FollowerInteraction:onChoice(index)
     self:abort()
     return
   end
-  local mon = EnginePatch.leadPartyMon()
+  local mon = self:companionMon()
   if not mon or mon ~= self.mon then
     self:abort() -- the party changed under us
     return

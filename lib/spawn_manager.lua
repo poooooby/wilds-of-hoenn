@@ -215,7 +215,9 @@ function SpawnManager:tick(game)
   self:_checkReach()
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    if e and e.state == Config.STATE.AVAILABLE then
+    -- an `engaged` Pokemon is in a skirmish with the player's Battler
+    -- (lib/overworld_battle.lua): it stands its ground and that module animates it
+    if e and e.state == Config.STATE.AVAILABLE and not e.engaged then
       if e.floater and not e.moving then e.flapClock = e.flapClock + 1 end
       Behavior.tick(e, self.game)
       if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
@@ -236,6 +238,7 @@ function SpawnManager:collectActors(actors)
       elseif e.floater then
         pose = ActorRenderer.idleFlapPose(e.flapClock, Config.IDLE_FLAP_TICKS)
       end
+      if e.owPose then pose = e.owPose end -- set by the Battler's skirmish
       actors[#actors + 1] = {
         kind = "wild_mon", i = id,
         x = e.px, y = e.py, sortY = e.py, elevation = e.elevation,
@@ -268,6 +271,24 @@ end
 --- always blocks regardless of the mover's elevation.
 function SpawnManager:blocksCell(tx, ty)
   return self:entityAt(tx, ty) ~= nil
+end
+
+--- Wild Pokemon a Battler may pick a fight with: live, not already in a
+--- skirmish, and not one it already failed to build a fighter for.
+function SpawnManager:fightTargets()
+  local out = {}
+  for _, id in ipairs(self.order) do
+    local e = self.entities[id]
+    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight then
+      out[#out + 1] = e
+    end
+  end
+  return out
+end
+
+--- The entity with this id (nil once it is gone).
+function SpawnManager:get(id)
+  return self.entities[id]
 end
 
 function SpawnManager:markEncounterStarting(id)

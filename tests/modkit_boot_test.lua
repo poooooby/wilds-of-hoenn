@@ -59,6 +59,8 @@ eq(exports and exports.engineReady, true, "engineReady true: EnginePatch.install
 check(exports and exports.spawnManager ~= nil, "spawnManager exported")
 check(exports and exports.battleTrigger ~= nil, "battleTrigger exported")
 check(exports and exports.followerAdapter ~= nil, "followerAdapter exported")
+check(exports and exports.companion ~= nil and exports.forager ~= nil and exports.battler ~= nil,
+  "the companion, Forager and Battler are exported")
 
 local okEnter, errEnter = pcall(Runtime.emit, "map.entered", { mapId = "ROUTE_101" })
 check(okEnter, "a real map.entered through Runtime.emit does not throw (" .. tostring(errEnter) .. ")")

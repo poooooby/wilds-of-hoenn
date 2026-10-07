@@ -9,7 +9,6 @@ Config.DEFAULTS = {
   classic_enc = true,
   wild_silhouettes = "off",
   shiny_rate = "native",
-  follower = true,
 }
 
 Config.STATE = {
@@ -44,6 +43,54 @@ Config.ACTIONS = {
   },
   pet = { idleSpeed = 1.5, maxIdleTicks = 90, minIdleTicks = 36 },
   talk = { cries = 2, gap = 8, cryTimeout = 90 },
+}
+
+-- Battler role (lib/overworld_battle.lua): all ticks / px / cells.
+Config.OW_BATTLE = {
+  radius = 3,           -- a wild Pokemon this close to the PLAYER (cells) may be fought
+  maxWalk = 8,          -- longest charge, in cells
+  scanEvery = 12,       -- ticks between looks for a target (only while everything is still)
+  cooldown = 90,        -- ticks of calm after a fight
+  chaseSpeed = 2.4,     -- px per tick charging in / running back
+  walkMul = 2,          -- how much faster its Walk animation plays while charging
+  windup = 10,          -- ticks from the start of a turn to the blow landing
+  turnTicks = 34,       -- one side's whole turn
+  lunge = 7,            -- px the attacker leans toward its target
+  flashTicks = 12,      -- red hit flash / hurt animation
+  attackSpeed = 1.6,    -- animation rate of attack / hurt
+  winPause = 36,        -- ticks the cry plays before the defeated Pokemon sinks
+  sinkTicks = 40,       -- ... then it sinks into the ground over this long
+  cryPause = 36,        -- the Battler's cry before it shrinks into the player
+  recallTicks = 18,     -- shrinking in / growing back out (the PMD recall length)
+  restCheck = 30,       -- ticks between "healed yet?" checks while resting
+  popupTicks = 110,     -- "+EXP" label time
+  expShare = 0.5,       -- fraction of the engine's EXP value a win is worth
+  resumeFrac = 0.25,    -- healed past this share of max HP (with PP) it may fight again
+}
+
+-- Forager role (lib/forager.lua): all ticks / px / cells.
+Config.FORAGE = {
+  minSpread = 5,         -- a wander / forage spot is this many cells from the PLAYER ...
+  maxSpread = 10,        -- ... to this many
+  maxWalk = 14,          -- longest walk to a spot, in cells (the way round obstacles)
+  forageMin = 600,       -- ticks of walking (10 s) between forages ...
+  forageMax = 1800,      -- ... to 30 s (re-rolled each time; only counts where foraging is allowed)
+  findChance = 0.2,      -- chance a forage turns up an item
+  -- map types it may forage on: 3 = route (outside), 4 = underground (caves). Towns,
+  -- cities, buildings, water and secret bases are off limits.
+  allowedMapTypes = { [3] = true, [4] = true },
+  wanderWaitMin = 40,    -- ticks it trots beside the player between wanders ...
+  wanderWaitMax = 150,   -- ... to this many (only counted while the player moves)
+  lingerMin = 25,        -- ticks it sniffs about at a wander spot ...
+  lingerMax = 70,        -- ... to this many
+  walkSpeed = 1.5,       -- px per tick going out on a wander
+  forageSpeed = 2.2,     -- px per tick going out to forage
+  runSpeed = 2.8,        -- px per tick running back to the player
+  cryPause = 30,         -- ticks after the alert cry before it digs
+  digTicks = 90,         -- digging at the spot
+  popupTicks = 150,      -- the "found X" label stays up
+  maxTmPrice = 3000,     -- TMs dearer than this are "high level" and never found
+  blocklist = {},        -- extra item names to never find
 }
 
 -- PMDCollab style (lib/pmd_renderer.lua). The ground point of a PMD frame
@@ -233,8 +280,11 @@ function Config.shinyRate(mod)
   return Config.DEFAULTS.shiny_rate
 end
 
-function Config.followerEnabled(mod)
-  return optGet(mod, "follower") == true
+--- There is no Follower option any more: a companion is always out (who, and
+--- what it does, is chosen from the party menu -- lib/companion.lua). Kept as a
+--- function so the callers that ask stay one-liners.
+function Config.followerEnabled(_mod)
+  return true
 end
 
 return Config

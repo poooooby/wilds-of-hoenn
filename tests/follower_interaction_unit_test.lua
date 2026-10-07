@@ -118,9 +118,6 @@ E.follower = { cellX = 1 }
 E.lead = nil
 check(not fi2:tryStart({}), "not without a party Pokemon")
 E.lead = mon()
-mod.options.get = function(_, k) if k == "follower" then return false end end
-check(not fi2:tryStart({}), "not when the Follower option is off")
-mod.options.get = function(_, k) if k == "follower" then return true end end
 
 -- ------- a follower shrunk into the player (surfing, PMD recall) cannot be talked to
 do

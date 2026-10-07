@@ -38,8 +38,14 @@ code or save data with it, only a read-only copy of its overworld art.
 - A real Gen 3 shiny check against your own trainer ID, with an optional
   Boosted rate that re-rolls a non-shiny encounter until it's shiny while
   keeping its nature and gender.
-- A Silhouette option (Off / Undiscovered / All) and an optional party
-  follower. Face it and press A for a Pet / Play / Talk menu that raises
+- A Silhouette option (Off / Undiscovered / All) and a party companion.
+  Pick any party Pokemon in the party menu and give it a job: **Follow**,
+  **Battle** (it fights wild overworld Pokemon within 3 tiles of you with its
+  real moves, damage and PP, health bars and hit effects, and earns a little
+  EXP) or **Forage** (on routes and in caves, while you walk, it roams 5-10 tiles around
+  you and, every 10-30 seconds, cries, digs and has a 20% chance to find an
+  item for your bag).
+  A following companion Face it and press A for a Pet / Play / Talk menu that raises
   its happiness: Play throws a ball it fetches and spins around, Pet plays
   an idle and its cry, Talk plays its cry twice, then its portrait
   shows how it feels.
@@ -61,9 +67,9 @@ visible overworld actor: `mod.world:spawnNpc` returns "not supported",
 hook, and collision has no mod hook
 ([RFC 0014](https://github.com/bryanthaboi/gen1recomp/blob/main/docs/rfcs/0014-mod-driven-actors-and-adopted-link-sessions.md)
 proposes one but it isn't implemented). This mod ships ahead of that,
-using the `engine_internals` permission to patch three functions directly
+using the `engine_internals` permission to patch a handful of functions directly
 (`lib/engine_patch.lua` is the *only* file that does this, and documents
-exactly why each one is needed):
+exactly why each one is needed). The three that make the wild Pokemon work:
 
 - `FieldEffects.collectActors` -- draws our wild Pokemon alongside the
   player, NPCs and the follower.
@@ -81,7 +87,11 @@ engine checkout, so an update that moves one of these fields fails CI
 loudly instead of quietly breaking spawns in the field.
 
 The party follower itself needs no patching at all -- it uses the
-engine's existing, public `world.follower.spawn` hook.
+engine's existing, public `world.follower.spawn` hook. The party menu's
+Follow / Battle / Forage rows are the one more seam this mod adds:
+`PartyMenu.update` and `FieldMoves.fromMenu` are wrapped (again only in
+`lib/engine_patch.lua`) because the party menu has no mod hook for its
+action list.
 
 ## Installation
 

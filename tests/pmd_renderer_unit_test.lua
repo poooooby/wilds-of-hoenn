@@ -205,6 +205,60 @@ do
   love = savedLove
 end
 
+-- ------- overworld fights: named animations, sinking, flashing
+do
+  local info = { gutter = 2,
+    walk = { cols = 4, cw = 30, ch = 26, durations = W, ax = 15.5, ay = 19.5 },
+    idle = { cols = 3, cw = 29, ch = 31, durations = { 40, 4, 2 }, ax = 15.5, ay = 25.5 },
+    attack = { cols = 5, cw = 40, ch = 40, durations = { 2, 2, 2, 2, 2 }, ax = 20, ay = 30 } }
+  local r = PmdRenderer.new({}, 4321, false, info)
+  r:advanceAs("attack", 2)
+  eq(r.anim, "attack", "advanceAs switches to the named animation")
+  eq(r.clock, 2, "...and runs its clock at the given rate")
+  r:advanceAs("attack", 2)
+  eq(r.clock, 4, "...continuing")
+  r:advanceAs("hurt", 2)
+  eq(r.anim, "idle", "a species without that sheet shows Idle instead")
+  eq(r.clock, 6, "...at triple the rate, so it still reads as action")
+  r:advance(true)
+  eq(r.anim, "walk", "ordinary advance still works afterwards")
+  r.walkMul = 2
+  local before = r.clock
+  r:advance(true)
+  eq(r.clock, before + 2, "walkMul speeds up the Walk clock (the charge)")
+  local h = r:visualHeight()
+  eq(h, (26 - 4) * 1, "visualHeight is the sprite's content height")
+
+  -- sinking and flashing reach the draw call
+  local drawn = {}
+  local savedLove = love
+  love = { graphics = {
+    newQuad = function(qx, qy) return { qx = qx, qy = qy } end,
+    draw = function(_i, _q, dx, dy, _r, sx, sy) drawn[#drawn + 1] = { x = dx, y = dy, sx = sx, sy = sy, color = drawn.cur } end,
+    setColor = function(...) drawn.cur = { ... } end,
+  } }
+  local fakeMod = { assets = { image = function() return { getDimensions = function() return 200, 200 end } end } }
+  local pr = PmdRenderer.new(fakeMod, 4321, false, info)
+  pr:draw(100, 50, 0, 0, "down", "stand", false)
+  local base = drawn[#drawn]
+  pr.act = { sink = 0.5 }
+  pr:draw(100, 50, 0, 0, "down", "stand", false)
+  local sunk = drawn[#drawn]
+  eq(sunk.sx, base.sx, "sinking keeps the width")
+  eq(sunk.sy, base.sy * 0.5, "...and squashes the height")
+  check(sunk.y > base.y, "...toward the feet (the ground point stays put)")
+  check(math.abs((sunk.y + 25.5 * sunk.sy) - (base.y + 25.5 * base.sy)) <= 0.5, "the ground point stays put (to the pixel)")
+  local count = #drawn
+  pr.act = { sink = 1 }
+  pr:draw(100, 50, 0, 0, "down", "stand", false)
+  eq(#drawn, count, "fully sunk draws nothing")
+  pr.act = { flash = 1 }
+  pr:draw(100, 50, 0, 0, "down", "stand", false)
+  check(drawn[#drawn].color and drawn[#drawn].color[2] < 1, "a flash tints the sprite red")
+  pr.act = nil
+  love = savedLove
+end
+
 -- ------- draw is a no-op (never an error) without art or love
 check(pcall(function() r:draw(0, 0, 0, 0, "down", "stand", false) end), "draw without art/love never throws")
 

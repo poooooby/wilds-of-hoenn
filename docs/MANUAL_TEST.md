@@ -77,6 +77,63 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
       `portraitUI:say("...", { mon = <party mon> })`).
 - [ ] Ordinary NPC/sign messages (no portrait set) look exactly as before.
 
+## Companion roles (party menu: Follow / Battle / Forage)
+
+- [ ] There is no Follower option in the mod's menu any more. A new game /
+      save with nothing chosen: the lead Pokemon follows as before.
+- [ ] Party menu -> A on a Pokemon shows FOLLOW, BATTLE, FORAGE (before
+      SWITCH) in blue like field moves, and the box fits the screen even with
+      several field moves (otherwise one COMPANION row that cycles the role).
+      Eggs show none. In a battle's party screen / item use there are none.
+- [ ] Choosing one shows "<name> will ..." in the menu; leaving the menu, THAT
+      Pokemon (any slot, not just the lead) is the one out. It survives
+      reordering the party, saving and reloading, and checkpoints.
+- [ ] A fainted companion is replaced by the lead (following) and returns to
+      its role once it can walk again.
+
+### Battle
+- [ ] Standing still with a wild overworld Pokemon within 3 tiles of YOU, the
+      Battler charges it quickly (Walk anim speeds up), they trade short turns:
+      lunge, hit effect + red flash, health bars drop above BOTH. Check the
+      summary screen afterwards: the Battler's HP and the PP of the moves it
+      used really changed; it never drops below 1 HP.
+- [ ] PMD: the Attack / Hurt animations play (rapid Idle when a species has
+      none). HGSS: rapid idle bounce. Both styles fight.
+- [ ] Win: the wild Pokemon cries, sinks into the ground and is gone (it
+      respawns later like any); a "+N EXP" label shows, and a level-up shows
+      "Lv.N!". No EVs, no Pokedex entry, no drops.
+- [ ] Lose (use a low-level Battler against a strong one): at 1 HP it runs
+      back, cries, and shrinks into you; the wild Pokemon is left alone. It
+      stays inside until healed (Pokemon Center / Potion past ~25% HP and PP
+      left), then grows back out and fights again.
+- [ ] Walking cancels nothing wrongly: no fight starts while you walk; if you
+      step onto a wild Pokemon mid-fight the normal battle starts and nothing
+      is left stuck (no bars, no frozen Battler).
+- [ ] Surfing (PMD recall) and warping mid-fight leave no flag or offset behind.
+
+### Forage
+- [ ] Only while you are WALKING, and only outside on a route or in a cave: it
+      runs out to a spot 5-10 tiles from you (around obstacles, never over
+      walls or water), sniffs there a moment, and runs back to within a tile
+      of you. While you stand still it stays at your side.
+- [ ] In a town, a city, a building (Pokemon Center, house ...), the Safari
+      Zone, or while surfing / on water, it just trots beside you and never
+      goes out. Walking back onto a route resumes it.
+- [ ] Every 10-30 seconds of walking it goes foraging: at the spot it CRIES (to
+      tell you), digs, and about 1 time in 5 a "Found <item>!" label shows and
+      the item is in the bag; otherwise nothing shows. Then it runs back
+      quickly. Stopping mid-trip still lets it finish.
+- [ ] The forage timer carries over map changes (walking through several maps
+      still gets foraging), but a trip in progress is cancelled by the change.
+- [ ] Finds include healing / status items, Poke Balls, berries, evolution
+      stones (and National Dex Gen 3's extra evolution items when it is
+      installed). NEVER an HM, key item, Master Ball, Rare Candy or an
+      expensive TM. A full bag finds nothing and loses nothing.
+- [ ] Both styles; the Pet / Play / Talk menu is refused while it is away.
+      CHECK the map types: caves (Granite Cave, Meteor Falls ...) count as
+      allowed; if a route or cave never forages, the map-type numbers in
+      `Config.FORAGE.allowedMapTypes` (3 route, 4 underground) are the thing to adjust.
+
 ## Follower interaction
 
 - [ ] Tap the direction toward your follower (so you turn to face it without
@@ -186,10 +243,10 @@ every 15 s).
 - [ ] Shiny Rate Vanilla/Boosted/Off: Boosted should produce a visibly
       shiny wild Pokemon noticeably more often than Vanilla; a shiny wild
       Pokemon shows its shiny sheet and is the same shiny in battle.
-- [x] Follower on/off: the party lead follows in the overworld when on; a
-      party-lead swap changes the follower's sprite within a tick or two.
-      (confirmed the follower appears and follows; haven't specifically
-      checked a party-lead swap)
+- [x] The companion (no on/off option any more): the party lead follows
+      until you pick another Pokemon / role in the party menu; changing who
+      is out swaps the follower's sprite within a tick or two. (confirmed the
+      follower appears and follows)
 - [x] Sprite Style HGSS/PokeMMO vs PMDCollab: switching changes
       both already-spawned wild Pokemon AND the follower immediately, no
       map transition needed. In HGSS/PokeMMO, bigger species (e.g.

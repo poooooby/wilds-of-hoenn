@@ -21,6 +21,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 PMD = ROOT / "assets" / "pmd"
 ANIMS = ("walk", "idle")
+OPTIONAL_ANIMS = ("attack", "hurt")  # present for most species, never required
 DIRECTIONS = 4
 
 
@@ -37,10 +38,11 @@ def main() -> int:
     expected: set[str] = set()
 
     for dex, entry in sorted(dex_map.items(), key=lambda kv: int(kv[0])):
-        for anim in ANIMS:
+        for anim in ANIMS + OPTIONAL_ANIMS:
             e = entry.get(anim)
             if not isinstance(e, dict):
-                errors.append(f"{dex}: no {anim} entry")
+                if anim in ANIMS:
+                    errors.append(f"{dex}: no {anim} entry")
                 continue
             cw, ch, cols = e.get("cw"), e.get("ch"), e.get("cols")
             if not all(isinstance(v, int) and v > 0 for v in (cw, ch, cols)):
@@ -62,7 +64,7 @@ def main() -> int:
                     if im.size != (cw * cols, ch * DIRECTIONS):
                         errors.append(f"{rel}: size {im.size}, expected {(cw * cols, ch * DIRECTIONS)}")
 
-    for anim in ANIMS:
+    for anim in ANIMS + OPTIONAL_ANIMS:
         d = PMD / anim
         if d.is_dir():
             for p in sorted(d.glob("*.png")):

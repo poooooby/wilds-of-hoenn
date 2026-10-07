@@ -55,6 +55,18 @@ EnginePatch.TARGETS = {
   -- picture right after this returns, in the same canvas pixels.
   messageDraw = { mod = "src.ui.game3.message", field = "draw" },
 
+  -- party_menu.lua:1399 PartyMenu.update(dt) runs every frame the party menu is
+  -- open. After it runs we add the Follow / Battle / Forage rows to a freshly
+  -- built overworld action list (lib/party_roles.lua); there is no mod hook for
+  -- the party menu's actions.
+  partyMenuUpdate = { mod = "src.ui.game3.party_menu", field = "update" },
+
+  -- field_moves.lua:804 FieldMoves.fromMenu(label, ctx) answers a field-move row
+  -- chosen in the party menu ({ ok = false, text = ... } shows the text and
+  -- returns to the list). Our three role rows are registered as such rows, so
+  -- this wrap answers them and lets every real field move through untouched.
+  fieldMovesFromMenu = { mod = "src.core.game3.field_moves", field = "fromMenu" },
+
   -- field.lua:865 Field.interact(game) is the A-button handler (talk to an
   -- NPC / read a sign ...). It never looks at the follower, which is not an
   -- Objects entity, so the follower interaction menu (lib/follower_
@@ -161,6 +173,38 @@ EnginePatch.READONLY = {
   -- pose (Gen 3 has no player throw pose; Play borrows this one).
   startFieldMove = { mod = "src.core.game3.player", field = "startFieldMove" },
 
+  -- Overworld fights (lib/ow_combat.lua): the engine's own move table, damage
+  -- formula, learnsets and experience maths -- nothing is reimplemented here.
+  moveGet = { mod = "src.core.game3.battle.moves", field = "get" },
+  damageCalc = { mod = "src.core.game3.battle.damage", field = "calc" },
+  damageEnsureStats = { mod = "src.core.game3.battle.damage", field = "ensureStats" },
+  movesAtLevel = { mod = "src.core.game3.pokemon", field = "movesAtLevel" },
+  movePp = { mod = "src.core.game3.pokemon", field = "movePp" },
+  moveName = { mod = "src.core.game3.pokemon", field = "moveName" },
+  speciesTypes = { mod = "src.core.game3.pokemon", field = "types" },
+  expGainFor = { mod = "src.core.game3.battle.experience", field = "gainFor" },
+  expApply = { mod = "src.core.game3.battle.experience", field = "apply" },
+
+  -- map.lua:23 Map.currentDef() -> the current map's header ({ mapType, ... }):
+  -- a Forager only works on routes and in caves (see EnginePatch.forageAllowed).
+  mapCurrentDef = { mod = "src.core.game3.map", field = "currentDef" },
+
+  -- bag.lua:418 Bag.add(bag, id, qty) -> ok -- a Forager's find goes straight in.
+  bagAdd = { mod = "src.core.game3.bag", field = "add" },
+  -- items_data.lua: ItemsData.info(id) / fieldUseKind(id) / isHm(id) /
+  -- isEvolutionStone(id) -- everything the Forager's item pool is built from.
+  itemInfo = { mod = "src.core.game3.items_data", field = "info" },
+  itemFieldUse = { mod = "src.core.game3.items_data", field = "fieldUseKind" },
+  itemIsHm = { mod = "src.core.game3.items_data", field = "isHm" },
+  itemIsTm = { mod = "src.core.game3.items_data", field = "isTm" },
+  itemIsEvo = { mod = "src.core.game3.items_data", field = "isEvolutionStone" },
+  -- audio.lua:973 Audio.playSe(id) and se_ids.lua's SE_SUCCESS (data).
+  playSe = { mod = "src.core.game3.audio", field = "playSe" },
+  seSuccess = { mod = "src.core.game3.se_ids", field = "SE_SUCCESS", kind = "data" },
+  -- frlg_font.lua:1334 / :1209 -- the engine's own dialogue font (canvas pixels).
+  fontDraw = { mod = "src.ui.game3.frlg_font", field = "draw" },
+  fontMeasure = { mod = "src.ui.game3.frlg_font", field = "measure" },
+
   -- player.lua:62 -- a live boolean DATA FIELD, not a function (toggled at
   -- multiple call sites in that file as the player starts/stops running).
   -- The one exception to "every probed entry is a callable" -- see
@@ -244,6 +288,8 @@ end
 ---   hooks.followerTick(game)          -- run after the real Follower.update
 ---   hooks.messageDraw()               -- run after Message.draw (portraits)
 ---   hooks.interact(game) -> true       -- run BEFORE Field.interact; true = handled
+---   hooks.partyMenuUpdate(PartyMenu)   -- run after PartyMenu.update (role rows)
+---   hooks.fromMenu(label, ctx) -> res  -- first say on a party-menu field-move row
 --- install() does nothing destructive until probe() has already passed;
 --- main.lua is expected to call probe() first and only call install() when
 --- it returns true.
@@ -303,6 +349,24 @@ function EnginePatch.install(hooks, log)
     return originals.interact(game, ...)
   end
 
+  local PartyMenu = loadModule(EnginePatch.TARGETS.partyMenuUpdate.mod)
+  originals.partyMenuUpdate = PartyMenu.update
+  PartyMenu.update = function(...)
+    local a, b, c = originals.partyMenuUpdate(...)
+    if hooks.partyMenuUpdate then safeCall(log, "partyMenuUpdate", hooks.partyMenuUpdate, PartyMenu) end
+    return a, b, c
+  end
+
+  local FieldMoves = loadModule(EnginePatch.TARGETS.fieldMovesFromMenu.mod)
+  originals.fromMenu = FieldMoves.fromMenu
+  FieldMoves.fromMenu = function(label, ctx, ...)
+    if hooks.fromMenu then
+      local res = safeCall(log, "fromMenu", hooks.fromMenu, label, ctx)
+      if res then return res end
+    end
+    return originals.fromMenu(label, ctx, ...)
+  end
+
   EnginePatch._originals = originals
   EnginePatch._installed = true
   return true
@@ -337,6 +401,16 @@ function EnginePatch.uninstall()
   local Field = loadModule(EnginePatch.TARGETS.interact.mod)
   if Field and originals.interact then
     Field.interact = originals.interact
+  end
+
+  local PartyMenu = loadModule(EnginePatch.TARGETS.partyMenuUpdate.mod)
+  if PartyMenu and originals.partyMenuUpdate then
+    PartyMenu.update = originals.partyMenuUpdate
+  end
+
+  local FieldMoves = loadModule(EnginePatch.TARGETS.fieldMovesFromMenu.mod)
+  if FieldMoves and originals.fromMenu then
+    FieldMoves.fromMenu = originals.fromMenu
   end
 
   EnginePatch._originals = {}
@@ -767,6 +841,16 @@ function EnginePatch.grassSheet()
   return nil
 end
 
+--- Any field-effect sheet by name through the same cache-backed loader the engine
+--- uses (field_effects.lua:379): { image, quads[0..], fw, fh, frames } or nil.
+function EnginePatch.fieldEffectSheet(name, fw, fh, frames)
+  local FieldEffects = loadModule(EnginePatch.READONLY.loadFieldEffectSheet.mod)
+  if not FieldEffects then return nil end
+  local ok, sheet = pcall(FieldEffects.loadSheet, name, fw, fh, frames)
+  if ok then return sheet end
+  return nil
+end
+
 --- collision.lua:1035 canEnter(game, tx, ty, opts). Read-only here: our
 --- wild Pokemon use this to decide their OWN steps, the same rules the
 --- player follows (ledges, elevation, water/land dismount).
@@ -904,6 +988,253 @@ function EnginePatch.leadPartyMon()
     end
   end
   return nil
+end
+
+-- ---------------------------------------------------------------- overworld fights
+
+local function moveNumber(m)
+  if type(m) == "table" then m = m.id or m.move or m.moveId or m.num or m[1] end
+  return tonumber(m)
+end
+EnginePatch.moveNumber = moveNumber
+
+--- A wild Pokemon built for an overworld fight: stats, moves and PP from the
+--- engine's own learnset at its level, hp full. Returns the mon table, or nil.
+function EnginePatch.buildWildFighter(species, level, personality)
+  local Pokemon = loadModule(EnginePatch.READONLY.movesAtLevel.mod)
+  local Damage = loadModule(EnginePatch.READONLY.damageEnsureStats.mod)
+  if not (Pokemon and Damage) then return nil end
+  local ok, mon = pcall(function()
+    local moves, pp, maxPp = Pokemon.movesAtLevel(species, level)
+    if not moves or #moves == 0 then return nil end
+    local rnd = EnginePatch.randomPersonality() or 0
+    local m = {
+      species = species, level = level, personality = personality or rnd,
+      ivs = { hp = rnd % 32, atk = math.floor(rnd / 32) % 32, def = math.floor(rnd / 1024) % 32,
+              spe = math.floor(rnd / 32768) % 32, spa = math.floor(rnd / 1048576) % 32,
+              spd = math.floor(rnd / 33554432) % 32 },
+      moves = moves, pp = pp, maxPp = maxPp,
+    }
+    Damage.ensureStats(m, level)
+    if not m.maxHp or m.maxHp <= 0 then return nil end
+    m.hp = m.maxHp
+    return m
+  end)
+  if ok then return mon end
+  return nil
+end
+
+--- The battler shape the damage formula wants: the mon plus its types.
+function EnginePatch.battlerOf(mon)
+  local Pokemon = loadModule(EnginePatch.READONLY.speciesTypes.mod)
+  local t1, t2 = 0, 0
+  if Pokemon and Pokemon.types then
+    local ok, types = pcall(Pokemon.types, mon.species)
+    if ok and type(types) == "table" then t1, t2 = types[1] or 0, types[2] or 0 end
+  end
+  return { mon = mon, type1 = t1, type2 = t2, level = mon.level }
+end
+
+--- { power, accuracy, type, pp } for a move id, or nil.
+function EnginePatch.moveRow(moveId)
+  local Moves = loadModule(EnginePatch.READONLY.moveGet.mod)
+  local id = moveNumber(moveId)
+  if not (Moves and id) then return nil end
+  local ok, row = pcall(Moves.get, id)
+  if not ok or type(row) ~= "table" then return nil end
+  return { power = tonumber(row.power) or 0, accuracy = tonumber(row.accuracy) or 0,
+           type = tonumber(row.type) or 0, pp = tonumber(row.pp) or 0 }
+end
+
+--- The engine's damage formula between two battlers; `rng(lo, hi)` picks the
+--- rolls. Returns damage, info (nil, nil on any trouble).
+function EnginePatch.moveDamage(attacker, defender, moveId, rng, noCrit)
+  local Damage = loadModule(EnginePatch.READONLY.damageCalc.mod)
+  local id = moveNumber(moveId)
+  if not (Damage and id) then return nil end
+  local ok, dmg, info = pcall(Damage.calc, attacker, defender, id, { rng = rng, noCrit = noCrit })
+  if not ok then return nil end
+  return tonumber(dmg), info
+end
+
+function EnginePatch.moveDisplayName(moveId)
+  local Pokemon = loadModule(EnginePatch.READONLY.moveName.mod)
+  if not Pokemon then return tostring(moveId) end
+  local ok, name = pcall(Pokemon.moveName, moveNumber(moveId))
+  return ok and name or tostring(moveId)
+end
+
+--- EXP the engine says a wild `species` at `level` is worth (one participant).
+function EnginePatch.expGain(species, level)
+  local Experience = loadModule(EnginePatch.READONLY.expGainFor.mod)
+  if not Experience then return 0 end
+  local ok, n = pcall(Experience.gainFor, species, level, {})
+  return ok and tonumber(n) or 0
+end
+
+--- Gives `amount` EXP to a party mon (levels it up, recalculates stats).
+--- Returns the engine's result table ({ gained, fromLevel, toLevel, ...}) or nil.
+function EnginePatch.expApply(mon, amount)
+  local Experience = loadModule(EnginePatch.READONLY.expApply.mod)
+  if not Experience then return nil end
+  local ok, result = pcall(Experience.apply, mon, amount)
+  if ok and type(result) == "table" then return result end
+  return nil
+end
+
+--- The current map's type id (include/constants/map_types.h: 1 town, 2 city,
+--- 3 route, 4 underground, 5 underwater, 6 ocean route, 8 indoor, 9 secret
+--- base), or nil when unknown.
+function EnginePatch.mapType()
+  local Map = loadModule(EnginePatch.READONLY.mapCurrentDef.mod)
+  if not Map then return nil end
+  local ok, def = pcall(Map.currentDef)
+  if not (ok and type(def) == "table") then return nil end
+  return tonumber(def.mapType)
+end
+
+--- May a Forager work here and now: the map's type is one of `allowedTypes`
+--- (a set, e.g. { [3] = true, [4] = true } = routes and caves), it is not a
+--- Safari Zone visit, and the player is neither surfing nor standing in water.
+--- An unknown map type counts as NOT allowed.
+function EnginePatch.forageAllowed(allowedTypes)
+  local mt = EnginePatch.mapType()
+  if not (mt and allowedTypes and allowedTypes[mt]) then return false end
+  if EnginePatch.safariActive() then return false end
+  local surf = EnginePatch.playerSurfState()
+  if surf.surfing or surf.dismounting then return false end
+  local cell = EnginePatch.playerCell()
+  if cell and EnginePatch.isWater(cell.x, cell.y) then return false end
+  return true
+end
+
+--- Puts `qty` of item `id` into the player's bag. False when the bag is full or
+--- the id is unknown (nothing is added).
+function EnginePatch.bagAdd(id, qty)
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local Bag = loadModule(EnginePatch.READONLY.bagAdd.mod)
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  if not (Bag and okS and type(session) == "table" and session.bag) then return false end
+  local ok, added = pcall(Bag.add, session.bag, id, qty or 1)
+  return ok and added == true
+end
+
+--- Every item the Forager may consider (see lib/forage_items.lua): the game's
+--- own items by number, plus every item another mod registered with an index
+--- from 900 up -- those are the extra evolution items National Dex Gen 3 adds.
+function EnginePatch.itemCatalog(mod)
+  local ItemsData = loadModule(EnginePatch.READONLY.itemInfo.mod)
+  local out = {}
+  if not ItemsData then return out end
+  local seen = {}
+  for num = 1, 400 do
+    local okI, info = pcall(ItemsData.info, num)
+    if okI and type(info) == "table" and type(info.name) == "string"
+        and info.name ~= "" and not info.name:find("^%?") then
+      local okU, use = pcall(ItemsData.fieldUseKind, num)
+      local okH, hm = pcall(ItemsData.isHm, num)
+      local okT, tm = pcall(ItemsData.isTm, num)
+      local okE, evo = pcall(ItemsData.isEvolutionStone, num)
+      out[#out + 1] = {
+        id = num, name = info.name, pocket = info.pocket, price = info.price,
+        use = okU and use or "none", isHm = okH and hm == true,
+        isTm = okT and tm == true, isEvo = okE and evo == true,
+      }
+      seen[num] = true
+    end
+  end
+  local items = mod and mod.content and mod.content.items
+  if items and type(items.each) == "function" then
+    pcall(function()
+      for id, value in items:each() do
+        local index = type(value) == "table" and tonumber(value.index) or nil
+        if index and index >= 900 and not seen[id] then
+          seen[id] = true
+          out[#out + 1] = {
+            id = value.id or id, name = value.name or tostring(id), pocket = "ITEMS",
+            price = tonumber(value.price) or 0, use = "evo", extra = true,
+          }
+        end
+      end
+    end)
+  end
+  return out
+end
+
+--- A sound effect by its SE_* name (only SE_SUCCESS is probed). No-op when absent.
+function EnginePatch.playSuccess()
+  local Audio = loadModule(EnginePatch.READONLY.playSe.mod)
+  local Ids = loadModule(EnginePatch.READONLY.seSuccess.mod)
+  if not (Audio and Audio.playSe and Ids and Ids.SE_SUCCESS) then return false end
+  return (pcall(Audio.playSe, Ids.SE_SUCCESS))
+end
+
+--- Width in px of `text` in the engine's dialogue font (0 when unavailable).
+function EnginePatch.measureText(text, opts)
+  local Font = loadModule(EnginePatch.READONLY.fontMeasure.mod)
+  if not (Font and Font.measure) then return 0 end
+  local ok, w = pcall(Font.measure, text, opts)
+  return ok and tonumber(w) or 0
+end
+
+--- Draws `text` in the engine's dialogue font at canvas pixel (x, y); returns the
+--- text's width (0 when the font is unavailable).
+function EnginePatch.drawText(text, x, y, opts)
+  local Font = loadModule(EnginePatch.READONLY.fontDraw.mod)
+  if not (Font and Font.draw and Font.measure) then return 0 end
+  local ok, w = pcall(Font.measure, text, opts)
+  local width = ok and tonumber(w) or 0
+  -- the engine's default text colour is white (made for its dark message frames):
+  -- unless the caller picked one, use the dark "normal" colours so it reads on a light plate
+  if not (opts and (opts.colors or opts.color)) and Font.COLOR and Font.COLOR.NORMAL then
+    local copy = {}
+    for k, v in pairs(opts or {}) do copy[k] = v end
+    copy.colors = Font.COLOR.NORMAL
+    opts = copy
+  end
+  pcall(Font.draw, text, x, y, opts)
+  return width
+end
+
+--- Can a creature stand on this cell: dry, walkable, nothing on it.
+function EnginePatch.cellFree(cx, cy)
+  local Collision = EnginePatch.collision()
+  if not (Collision and Collision.isWalkable) then return false end
+  local okK, walkable = pcall(Collision.isWalkable, cx, cy)
+  if not (okK and walkable) then return false end
+  local okW, water = pcall(Collision.isWater, cx, cy)
+  if okW and water then return false end
+  local Objects = loadModule(EnginePatch.READONLY.objectAt.mod)
+  if Objects and Objects.at then
+    local okO, obj = pcall(Objects.at, cx, cy)
+    if okO and obj then return false end
+  end
+  return true
+end
+
+--- The party menu module (the role rows edit its ACTIONS list).
+function EnginePatch.partyMenu()
+  return loadModule(EnginePatch.TARGETS.partyMenuUpdate.mod)
+end
+
+--- The party as a plain list (slot order), or {} without a session.
+function EnginePatch.partyMons()
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local ok, session = pcall(Runtime and Runtime.getSession)
+  local out = {}
+  if not (ok and type(session) == "table" and type(session.party) == "table") then return out end
+  for i = 1, 6 do
+    if type(session.party[i]) == "table" then out[#out + 1] = session.party[i] end
+  end
+  return out
+end
+
+--- True while a battle owns the screen (the party menu's switch rows differ).
+function EnginePatch.battleActive()
+  local Battle = package.loaded["src.core.game3.battle"]
+  if not (Battle and Battle.isActive) then return false end
+  local ok, active = pcall(Battle.isActive)
+  return ok and active == true
 end
 
 function EnginePatch.leadPartySpecies()

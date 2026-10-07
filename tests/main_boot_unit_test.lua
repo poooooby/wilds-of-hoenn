@@ -66,7 +66,9 @@ local function completeFakeEngine(layout)
   fake["src.core.game3.objects"] = { blocks = function() return false end, at = function() return nil end }
   fake["src.core.game3.field_moves"] = {
     partyMoveUser = function() return {} end, hasBadge = function() return true end, GFX_IDS = {},
+    fromMenu = function() return { ok = false } end,
   }
+  fake["src.ui.game3.party_menu"] = { update = function() end, open = false, ACTIONS = {} }
   fake["src.world.game3.Follower"] = { update = function() end, current = function() return nil end, at = function() return nil end }
   fake["src.core.game3.field"] = { running = true, locked = false, interact = function() return false end,
     lock = function() end, unlock = function() end }
@@ -94,7 +96,12 @@ local function completeFakeEngine(layout)
     national = function(id) return id end, speciesFromNational = function(n) return n end,
     speciesMeta = function() return {} end, isShiny = function() return false end,
     gender = function() return 0 end,
+    movesAtLevel = function() return { 33 }, { 35 }, { 35 } end, movePp = function() return 35 end,
+    moveName = function() return "TACKLE" end, types = function() return { 0, 0 } end,
   }
+  fake["src.core.game3.battle.damage"] = { ensureStats = function(m) return m end, calc = function() return 1, {} end }
+  fake["src.core.game3.battle.moves"] = { get = function() return { power = 40, accuracy = 100, type = 0, pp = 35 } end }
+  fake["src.core.game3.battle.experience"] = { gainFor = function() return 10 end, apply = function() return {} end }
   fake["src.core.game3.runtime"] = { getSession = function() return { party = {} } end }
   fake["src.core.game3.dex"] = { isCaught = function() return false end }
   fake["src.ui.game3.message"] = { draw = function() end, isOpen = function() return false end, show = function() return true end, isWaiting = function() return false end, closeStay = function() return false end }
@@ -102,7 +109,17 @@ local function completeFakeEngine(layout)
   fake["src.core.GameVersion"] = { layout = function() return layout end, get = function() return layout end }
   fake["src.core.game3.player"] = { running = false, startFieldMove = function() end }
   fake["src.core.game3.rng"] = { Random32 = function() return 123456789 end }
-  fake["src.core.game3.audio"] = { playCry = function() return true end, isCryFinished = function() return true end }
+  fake["src.core.game3.audio"] = { playCry = function() return true end, isCryFinished = function() return true end,
+    playSe = function() return true end }
+  fake["src.core.game3.se_ids"] = { SE_SUCCESS = 25 }
+  fake["src.core.game3.map"] = { currentDef = function() return { mapType = 3 } end }
+  fake["src.core.game3.bag"] = { add = function() return true end }
+  fake["src.core.game3.items_data"] = {
+    info = function() return nil end, fieldUseKind = function() return "none" end,
+    isHm = function() return false end, isTm = function() return false end,
+    isEvolutionStone = function() return false end,
+  }
+  fake["src.ui.game3.frlg_font"] = { measure = function() return 0 end, draw = function() end }
   fake["src.core.game3.safari"] = { isActive = function() return false end }
   return fake
 end
@@ -152,6 +169,11 @@ withFakeEngine(completeFakeEngine("rse"), function()
   check(mod.exports.spawnManager ~= nil, "RSE boot: spawnManager exported")
   check(mod.exports.battleTrigger ~= nil, "RSE boot: battleTrigger exported")
   check(mod.exports.followerAdapter ~= nil, "RSE boot: followerAdapter exported")
+  check(mod.exports.companion ~= nil, "RSE boot: the companion state is exported")
+  check(mod.exports.forager ~= nil and mod.exports.battler ~= nil, "RSE boot: the Forager and Battler roles exist")
+  check(mod.exports.followerAdapter.behaviors.forage == mod.exports.forager
+    and mod.exports.followerAdapter.behaviors.battle == mod.exports.battler,
+    "RSE boot: both role behaviours are wired into the follower")
   local sawEncounterRoll, sawFollowerSpawn = false, false
   for _, name in ipairs(mod._wraps) do
     if name == "encounter.roll" then sawEncounterRoll = true end
