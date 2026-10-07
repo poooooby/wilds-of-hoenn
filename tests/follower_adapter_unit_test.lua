@@ -297,14 +297,14 @@ eq(Cfg.PMD_FOLLOWER_IDLE_DELAY, 300, "the idle delay is 5 seconds of ticks")
 eq(fa.renderer.idleSpeed, 0.5, "and the follower's Idle plays at 50% speed")
 -- PMD_INDEX walk cell is 30x26; content = cell - 4px of gutter. Facing
 -- up/down uses the HEIGHT (22), left/right the width (26).
-local expect = math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP
+local expect = math.max(0, (22 - 16) / 2) * Cfg.PMD_FOLLOWER_DOWN_OVERHANG + Cfg.PMD_FOLLOWER_GAP_DOWN
 eq(fa.renderer.pushY, -expect, "facing down: pushed back (up) by overhang + gap")
 eq(fa.renderer.pushX, 0, "and not sideways")
 npc.facing = "up"
 fa:tick()
 check(fa.renderer.pushY > -expect and fa.renderer.pushY < expect, "a turn eases the offset instead of snapping")
 for _ = 1, 40 do fa:tick() end
-eq(fa.renderer.pushY, expect, "settles on the new side (facing up -> pushed down)")
+eq(fa.renderer.pushY, math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "settles on the new side (facing up -> pushed down)")
 npc.facing = "left"
 for _ = 1, 40 do fa:tick() end
 eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "left/right uses the sprite's width")

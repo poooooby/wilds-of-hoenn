@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1 (2026-10-06)
+
+### Fixes
+
+- PMDCollab: large sprites are no longer scaled up (the baked true-size
+  scale is ignored; `Config.PMD_TRUE_SIZE` turns it back on).
+- PMDCollab follower: tighter spacing while walking down (tall sprites like
+  Rayquaza trailed too far above the player).
+- PMDCollab follower: the offset slides at a capped speed when the player
+  changes direction, so large sprites glide instead of snapping.
+
 ## 1.0.0 (2026-10-06)
 
 Two builds per release: **HGSS Only** (small, for low-power devices) and

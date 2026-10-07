@@ -57,9 +57,11 @@ function PmdRenderer.placement(entry, scale, groundY, sx, sy)
   return math.floor(gx - entry.ax * scale + 0.5), math.floor(gy - entry.ay * scale + 0.5)
 end
 
---- The species' scale as drawn (global PMD_SCALE x baked true-size scale).
+--- The species' scale as drawn: global PMD_SCALE, x the baked true-size scale
+--- only when Config.PMD_TRUE_SIZE is on (off by default).
 function PmdRenderer.scaleOf(info)
-  return (Config.PMD_SCALE or 1) * (tonumber(info and info.scale) or 1)
+  local species = Config.PMD_TRUE_SIZE and tonumber(info and info.scale) or 1
+  return (Config.PMD_SCALE or 1) * species
 end
 
 --- Visible size in px of a Walk cell's content at the drawn scale (the cell
@@ -171,7 +173,7 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   if not quad then return end
 
   -- global tuning x this species' true-size scale (baked into the index)
-  local scale = (Config.PMD_SCALE or 1) * (tonumber(self.info.scale) or 1)
+  local scale = PmdRenderer.scaleOf(self.info)
   -- recalled into the player (surfing): shrink, slide toward them, flush red
   local tint
   local recall = self.recall

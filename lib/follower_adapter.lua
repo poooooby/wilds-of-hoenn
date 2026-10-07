@@ -123,9 +123,15 @@ function FollowerAdapter:tick()
     local cw, ch = PmdRenderer.contentSize(r.info)
     local vertical = npc.facing == "up" or npc.facing == "down"
     local overhang = math.max(0, ((vertical and ch or cw) - CELL) / 2)
-    local push = overhang + Config.PMD_FOLLOWER_GAP
+    -- walking down the follower trails ABOVE the player, and its art already
+    -- extends upward from its feet, so it gets a smaller gap there
+    local gap = npc.facing == "down" and Config.PMD_FOLLOWER_GAP_DOWN or Config.PMD_FOLLOWER_GAP
+    if npc.facing == "down" then overhang = overhang * Config.PMD_FOLLOWER_DOWN_OVERHANG end
+    local push = overhang + gap
     local tx, ty = ActorRenderer.behindOffset(npc.facing, push)
-    local maxStep = (push * 2) / FollowerAdapter.STEP_TICKS
+    -- a turn takes the same time for every sprite, which makes a big one's
+    -- offset race across the screen: cap the speed so it glides instead
+    local maxStep = math.min((push * 2) / FollowerAdapter.STEP_TICKS, Config.PMD_FOLLOWER_TURN_SPEED)
     if r.pushPlaced then
       r.pushX = ActorRenderer.approach(r.pushX, tx, maxStep)
       r.pushY = ActorRenderer.approach(r.pushY, ty, maxStep)

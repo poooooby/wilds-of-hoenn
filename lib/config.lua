@@ -35,6 +35,10 @@ Config.IDLE_FLAP_TICKS = 20
 -- PMD_WALK_SPEED multiplies the Walk animation clock (1 = the durations in
 -- AnimData.xml). All three are meant to be tuned by eye in game.
 Config.PMD_SCALE = 1
+-- The bake records a per-species upscale (HGSS true size / PMD height) in
+-- index.json. It made big species look oversized, so it is OFF: every PMD
+-- sprite draws at PMD_SCALE x 1. Set true to apply the baked scales again.
+Config.PMD_TRUE_SIZE = false
 Config.PMD_GROUND_Y = 12
 Config.PMD_WALK_SPEED = 1
 -- The PMDCollab follower: extra px of space kept behind the player on top of
@@ -44,6 +48,14 @@ Config.PMD_WALK_SPEED = 1
 -- of no movement at 60 Hz), and how fast that Idle loop then plays (0.5 =
 -- half speed). Wild Pokemon have no delay but play Idle at PMD_WILD_IDLE_SPEED
 -- (0.75 = slowed down by 25%).
+-- facing down, only this fraction of a tall sprite's overhang is kept behind
+-- the player (a big sprite like Rayquaza otherwise trails too far above)
+Config.PMD_FOLLOWER_DOWN_OVERHANG = 0.6
+-- Fastest the follower's offset may slide when the player changes direction,
+-- in px per tick (small sprites turn slower than this anyway; a big one takes
+-- longer instead of snapping)
+Config.PMD_FOLLOWER_TURN_SPEED = 1
+Config.PMD_FOLLOWER_GAP_DOWN = 0 -- the gap while facing down (trailing above the player)
 Config.PMD_FOLLOWER_GAP = 4
 Config.PMD_FOLLOWER_IDLE_DELAY = 300
 Config.PMD_FOLLOWER_IDLE_SPEED = 0.5

@@ -113,6 +113,8 @@ eq(r.clock, before + 2, "PMD_WALK_SPEED scales only the walk clock")
 Config.PMD_WALK_SPEED = 1
 
 -- ------- true-size scale: global PMD_SCALE x the species' baked scale
+eq(PmdRenderer.scaleOf({ scale = 1.5 }), 1, "baked species scale is ignored by default")
+Config.PMD_TRUE_SIZE = true
 eq(PmdRenderer.scaleOf({ scale = 1.5 }), 1.5, "species scale is used")
 eq(PmdRenderer.scaleOf({}), 1, "no baked scale reads as 1")
 Config.PMD_SCALE = 2
@@ -122,6 +124,7 @@ local cw, ch = PmdRenderer.contentSize({ gutter = 2, scale = 1.5, walk = { cw = 
 eq(cw, 45, "content width = (cell - gutters) x scale")
 eq(ch, 36, "content height likewise")
 eq(select(1, PmdRenderer.contentSize(nil)), 0, "no info -> 0")
+Config.PMD_TRUE_SIZE = false
 
 -- ------- idleDelay: rest on Idle's first frame before the loop plays
 local f = PmdRenderer.new({}, 252, false, { walk = { cols = 4, durations = W }, idle = { cols = 3 } })
