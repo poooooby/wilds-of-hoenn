@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 (2026-10-08)
 
 ### New
 
@@ -23,6 +23,12 @@
 - The "+EXP" / "Found X!" label is no longer cut off on Android (and other
   window scalings): it is drawn once into a tiny canvas and drawn like a
   sprite, instead of being clipped with a scissor rectangle.
+- The same label was also cut off on FireRed / LeafGreen (its text was drawn
+  too high for that game's small font); it now sits inside its box on both.
+- The follower's grass: a big follower is drawn away from its own tile, so the
+  grass tuft over that tile cut across its body. The grass now goes on the grass
+  tiles under its real feet, snapped to the tile grid. A companion inside the
+  player has no grass.
 
 ## 1.3.0 (2026-10-07)
 
