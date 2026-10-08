@@ -281,11 +281,39 @@ def read_names(src: Path) -> dict[str, str]:
     return names
 
 
+# Sprites added by hand from the PMDCollab Discord before they reached the public
+# SpriteCollab repo. Their credits.txt files are free text (a handle, not the
+# structured "CUR" log lines credit_line() reads), so the artists are named here
+# -- and in THIRD_PARTY_NOTICES.md ("Sprites added manually"). Keep both in step.
+# Used only when the folder has no structured credit line of its own.
+MANUAL_CREDITS = {
+    514: "butchcats",
+    520: "Pokejavi, POWERCRISTAL",
+    522: "Pokejavi, POWERCRISTAL",
+    558: "JaiFain, POWERCRISTAL",
+    564: "Pokejavi, Soulja",
+    592: "Pokejavi, POWERCRISTAL",
+    616: "Pokejavi",
+    626: "Pokejavi, POWERCRISTAL",
+    741: "baronessfaron",
+    837: "baroness faron",
+    838: "baroness faron",
+    931: "Pokejavi, pi",
+    943: "Gust, DavKriz",
+    956: "rhys",
+    962: "JaiFain",
+    973: "pi",
+    1008: "Delta L",
+    1014: "JaiFain",
+}
+
+
 def credit_line(src: Path, dex: int, names: dict[str, str]) -> str | None:
-    """Current (CUR) authors of the Walk/Idle art for one species."""
+    """Current (CUR) authors of the Walk/Idle art for one species (or, for a
+    sprite added by hand before it reached SpriteCollab, MANUAL_CREDITS)."""
     p = src / "sprite" / f"{dex:04d}" / "credits.txt"
     if not p.is_file():
-        return None
+        return MANUAL_CREDITS.get(dex)
     who: list[str] = []
     for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
         parts = line.split("\t")
@@ -293,6 +321,24 @@ def credit_line(src: Path, dex: int, names: dict[str, str]) -> str | None:
             continue
         files = {f.strip() for f in parts[4].split(",")}
         if not files & {"Walk", "Idle"}:
+            continue
+        author = names.get(parts[1].strip(), parts[1].strip())
+        if author and author not in who:
+            who.append(author)
+    if who:
+        return ", ".join(who)
+    return MANUAL_CREDITS.get(dex)
+
+
+def portrait_credit_line(src: Path, dex: int, names: dict[str, str]) -> str | None:
+    """Current (CUR) authors of one species' portraits (portrait/<dex>/credits.txt)."""
+    p = src / "portrait" / f"{dex:04d}" / "credits.txt"
+    if not p.is_file():
+        return None
+    who: list[str] = []
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        parts = line.split("\t")
+        if len(parts) < 5 or parts[2] != "CUR":
             continue
         author = names.get(parts[1].strip(), parts[1].strip())
         if author and author not in who:
@@ -310,10 +356,15 @@ All custom graphics not originating from official PMD games are licensed
 under Attribution-NonCommercial 4.0 International
 (http://creativecommons.org/licenses/by-nc/4.0/). Graphics originating from
 the official games are (c) Spike Chunsoft / Nintendo / The Pokemon Company.
-The sprites were repacked (Walk and Idle only, cardinal directions only,
-cropped and padded) -- no pixels were altered.
+The sprites were repacked (Walk, Idle, Attack and Hurt only, cardinal
+directions only, cropped and padded) -- no pixels were altered. The portraits
+(40x40 faces) are copied unaltered.
 
 Per-species artists (current sprites), by National Dex number:
+"""
+
+CREDITS_PORTRAITS_HEADER = """
+Per-species artists (portraits), by National Dex number:
 """
 
 
@@ -441,6 +492,7 @@ def main() -> int:
         except (OSError, ValueError):
             pass
     pstats = {"baked": 0, "none": 0}
+    portrait_credits: dict[int, str] = {}
     for dex in range(1, MAX_DEX + 1):
         if wanted is not None and dex not in wanted:
             continue
@@ -453,6 +505,9 @@ def main() -> int:
             continue
         entry, normal, shiny = result
         pindex["dex"][str(dex)] = entry
+        pline = portrait_credit_line(src, dex, names)
+        if pline:
+            portrait_credits[dex] = pline
         if shiny is None:  # never leave an earlier bake's shiny sheet behind
             (out / "portraits" / f"{dex:03d}-shiny.png").unlink(missing_ok=True)
         normal_path = out / "portraits" / f"{dex:03d}-normal.png"
@@ -465,7 +520,9 @@ def main() -> int:
     print(f"portraits: {pstats['baked']} species baked, {pstats['none']} without usable portraits")
     if wanted is None:
         body = "".join(f"{d:04d}  {credits[d]}\n" for d in sorted(credits))
-        (out / "CREDITS.txt").write_text(CREDITS_HEADER + body, encoding="utf-8")
+        pbody = "".join(f"{d:04d}  {portrait_credits[d]}\n" for d in sorted(portrait_credits))
+        (out / "CREDITS.txt").write_text(CREDITS_HEADER + body + CREDITS_PORTRAITS_HEADER + pbody,
+                                         encoding="utf-8")
     print(f"baked {stats['baked']} species ({len(index['dex'])} in index), "
           f"{stats['skipped_existing']} sheets kept (--force to rewrite), "
           f"{stats['no_sprites']} without PMD sprites, {stats['unusable']} unusable")

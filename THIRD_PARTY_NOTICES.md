@@ -61,6 +61,54 @@ PMDCollab sheets. **A build containing them (the `-hgss-pmd` release) is therefo
 non-commercial only.** The `-hgss` release contains none of this art; this
 section applies only to builds that ship `assets/pmd/`.
 
+### Sprites added manually (not yet in the public SpriteCollab repo)
+
+These sprites were added by hand from the PMDCollab Discord before they reached
+the public SpriteCollab repository, so their artists are not credited publicly
+there yet. They are covered by the same CC BY-NC 4.0 terms as the rest of the
+PMDCollab art. Artist handles are as given in each sprite folder's
+`credits.txt`. (The generated `assets/pmd/CREDITS.txt` lists the same artists.)
+
+| # | Pokemon | Artist(s) |
+|---|---|---|
+| 514 | Simisear | butchcats |
+| 520 | Tranquill | Pokejavi, POWERCRISTAL |
+| 522 | Blitzle | Pokejavi, POWERCRISTAL |
+| 558 | Crustle | JaiFain, POWERCRISTAL |
+| 564 | Tirtouga | Pokejavi, Soulja |
+| 592 | Frillish (male) | Pokejavi, POWERCRISTAL |
+| 616 | Shelmet | Pokejavi |
+| 626 | Bouffalant | Pokejavi, POWERCRISTAL |
+| 741 | Oricorio | baronessfaron |
+| 837 | Rolycoly | baroness faron |
+| 838 | Carkol | baroness faron |
+| 931 | Squawkabilly | Pokejavi, pi |
+| 943 | Mabosstiff | Gust, DavKriz |
+| 956 | Espathra | rhys |
+| 962 | Bombirdier | JaiFain |
+| 973 | Flamigo | pi |
+| 1008 | Miraidon | Delta L |
+| 1014 | Okidogi | JaiFain |
+
+### Portraits added or updated manually
+
+These portraits were added or updated by hand from the PMDCollab Discord before
+the change (and its updated credits) reached the public SpriteCollab repository.
+They are covered by the same CC BY-NC 4.0 terms. Artist names are the display
+names from SpriteCollab's `credit_names.txt` for the Discord accounts listed in
+each portrait folder's `credits.txt`. (`assets/pmd/CREDITS.txt` lists the
+portrait artists for every species.)
+
+| # | Pokemon | Artist(s) |
+|---|---|---|
+| 45 | Vileplume | Emmuffin |
+| 68 | Machamp | Soulja |
+| 107 | Hitmonchan | RibbonDove, G〜 |
+| 124 | Jynx | baronessfaron |
+| 295 | Exploud | Tainted#3886 |
+| 365 | Walrein | Top_Kec |
+| 681 | Aegislash | Emmuffin, radpeepo |
+
 ## Engine
 
 Built against [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp),

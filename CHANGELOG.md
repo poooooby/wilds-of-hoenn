@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.2 (2026-10-07)
+
+### Changes
+
+- PMDCollab art update: 20 more species now have PMD sprites (997 of 1025;
+  the rest still fall back to HGSS / PokeMMO), including 18 hand-added ones
+  credited in `THIRD_PARTY_NOTICES.md`. Seven species (Vileplume, Machamp,
+  Hitmonchan, Jynx, Exploud, Walrein, Aegislash) gained their full set of 16
+  portrait emotions.
+- `assets/pmd/CREDITS.txt` now also credits the portrait artists, and the
+  hand-added sprites' artists.
+- (HGSS Only build: no change from 1.2.1.)
+
 ## 1.2.1 (2026-10-07)
 
 ### Changes
