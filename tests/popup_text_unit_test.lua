@@ -85,29 +85,85 @@ do
 end
 
 
--- ------- the text is clipped to the plate (the small face's empty cell half holds grey pixels)
+-- ------- the label is baked into a small canvas once and drawn like a sprite
 do
+  PopupText._dropCache()
   E.measureText = function(t) return #t * 6 end
   E.drawn = {}
-  local scissors, calls = {}, {}
+  local log, canvases = {}, 0
+  local state = { canvas = "screen" }
   local savedLove = love
+  local function rec(name) return function(...) log[#log + 1] = { name, state.canvas, ... } end end
   love = { graphics = {
     setColor = function() end,
-    rectangle = function() end,
-    getScissor = function() return nil end,
-    transformPoint = function(x, y) return x * 2, y * 2 end, -- the field is scaled
-    setScissor = function(...) scissors[#scissors + 1] = { ... } end,
+    rectangle = rec("rectangle"),
+    draw = rec("draw"),
+    newCanvas = function(w, h, settings)
+      canvases = canvases + 1
+      return { w = w, h = h, settings = settings, setFilter = function(self, a, b) self.filter = a .. b end }
+    end,
+    setCanvas = function(c) state.canvas = c or "screen" end,
+    push = function(kind) log[#log + 1] = { "push", kind } state.saved = state.canvas end,
+    pop = function() log[#log + 1] = { "pop" } state.canvas = state.saved end,
+    origin = function() end, setScissor = function() end, setShader = function() end,
+    setBlendMode = function() end, clear = function() end,
   } }
-  local orig = E.drawText
-  E.drawText = function(...) calls[#calls + 1] = #scissors return orig(...) end
+  local origDraw = E.drawText
+  E.drawText = function(text, x, y, opts) log[#log + 1] = { "text", state.canvas, text, x, y } return origDraw(text, x, y, opts) end
   local actor = PopupText.actor("+8 EXP", 0, 0, 3, 20, 0)
   actor.draw(actor, 0, 0)
-  E.drawText = orig
+  eq(canvases, 1, "the label is baked into ONE canvas")
+  local texts, onCanvas, drawn = {}, true, nil
+  for _, e in ipairs(log) do
+    if e[1] == "text" then texts[#texts + 1] = e[3] onCanvas = onCanvas and type(e[2]) == "table" end
+    if e[1] == "draw" then drawn = e end
+  end
+  eq(table.concat(texts, "|"), "+8|EXP", "the words are painted one at a time ...")
+  check(onCanvas, "... onto that canvas, not the screen")
+  check(log[1][1] == "push" and log[1][2] == "all", "the graphics state is saved first (push 'all')")
+  eq(log[#log][1] == "draw" and log[#log][2], "screen", "the canvas is then drawn to the screen like a sprite")
+  check(drawn ~= nil, "(the whole label is one draw call)")
+  local canvas = nil
+  for _, e in ipairs(log) do if e[1] == "draw" then canvas = e[3] end end
+  eq(canvas.settings.dpiscale, 1, "the canvas is 1:1 with the game pixels (no DPI scaling)")
+  eq(canvas.filter, "nearestnearest", "...and nearest-filtered")
+  eq(canvas.w, 4 + 6 * 2 + 6 * 3 + 3 + 2, "it is the plate plus its outline in size")
+  log = {}
+  actor.draw(actor, 0, 0)
+  eq(canvases, 1, "a second frame reuses it (no new canvas)")
+  local n = 0
+  for _, e in ipairs(log) do if e[1] == "draw" then n = n + 1 end end
+  eq(n, 1, "...and just draws it")
+
+  -- a different label gets its own canvas
+  local other = PopupText.actor("Found Potion!", 0, 0, 3, 20, 1)
+  other.draw(other, 0, 0)
+  eq(canvases, 2, "another label bakes another canvas")
+
+  -- no canvas support: the plate and text are drawn straight to the screen
+  PopupText._dropCache()
+  love.graphics.newCanvas = nil
+  log = {}
+  actor.draw(actor, 0, 0)
+  local rects, direct = 0, true
+  for _, e in ipairs(log) do
+    if e[1] == "rectangle" then rects = rects + 1 end
+    if e[1] == "text" and e[2] ~= "screen" then direct = false end
+  end
+  eq(rects, 2, "without canvases the plate (outline + fill) is drawn directly")
+  check(direct, "...with the text straight on the screen")
+
+  -- a canvas that cannot be created falls back too
+  PopupText._dropCache()
+  love.graphics.newCanvas = function() error("no gpu") end
+  log = {}
+  actor.draw(actor, 0, 0)
+  local rects2 = 0
+  for _, e in ipairs(log) do if e[1] == "rectangle" then rects2 = rects2 + 1 end end
+  eq(rects2, 2, "a canvas that fails to build falls back to direct drawing")
+  E.drawText = origDraw
   love = savedLove
-  eq(#scissors, 2, "the clip is set, then restored")
-  check(scissors[1][3] > 0 and scissors[1][4] == 20, "the clip is the plate's rectangle, in the scaled coordinates (height 10 x 2)")
-  eq(scissors[2][1], nil, "the previous (no) scissor is restored afterwards")
-  eq(calls[1], 1, "the words are drawn while the clip is on")
+  PopupText._dropCache()
 end
 
 if failures > 0 then

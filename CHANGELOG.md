@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- The "+EXP" / "Found X!" label is no longer cut off on Android (and other
+  window scalings): it is drawn once into a tiny canvas and drawn like a
+  sprite, instead of being clipped with a scissor rectangle.
+
 ## 1.3.0 (2026-10-07)
 
 ### Fixes
