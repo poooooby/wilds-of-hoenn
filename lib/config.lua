@@ -106,6 +106,9 @@ Config.PMD_SCALE = 1
 Config.PMD_TRUE_SIZE = false
 Config.PMD_GROUND_Y = 12
 Config.PMD_WALK_SPEED = 1
+-- Ticks the Walk animation keeps playing after movement stops, so the one-tick
+-- gaps between chained steps do not flick the sprite to the Idle pose and back.
+Config.PMD_WALK_LINGER = 8
 -- The PMDCollab follower: extra px of space kept behind the player on top of
 -- the sprite's own overhang (a sprite wider/taller than the 16px tile would
 -- otherwise overlap the player), and how many ticks it rests on the Idle

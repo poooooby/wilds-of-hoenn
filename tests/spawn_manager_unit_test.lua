@@ -67,6 +67,8 @@ fakeEngine.rollSweetScent = function(_mapId, terrain)
 end
 
 local SpawnManager = V.require("spawn_manager")
+-- these tests are about the Walk <-> Idle switch itself: no grace period (see the linger tests in pmd_renderer_unit_test.lua)
+V.require("config").PMD_WALK_LINGER = 0
 
 -- ------- targetCount: the fixed density curve
 eq(SpawnManager._targetCount(0), 0, "0 eligible cells -> 0 target")

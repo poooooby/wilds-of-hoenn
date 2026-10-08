@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0 (2026-10-07)
+
+### Fixes
+
+- PMDCollab: fixed walking sprites flicking to their Idle pose between steps
+  (Treecko) and Grovyle looking like it was floating. The game reports
+  "not moving" for a tick or two between chained steps, which dropped the
+  sprite to Idle and restarted its walk; the Walk animation now keeps playing
+  for a few ticks after movement stops (`Config.PMD_WALK_LINGER`).
+
 ## 1.2.2 (2026-10-07)
 
 ### Changes

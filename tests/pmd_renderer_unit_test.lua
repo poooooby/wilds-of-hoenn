@@ -24,6 +24,9 @@ function V.require(name)
 end
 local PmdRenderer = V.require("pmd_renderer")
 local Config = V.require("config")
+-- these tests are about the Walk <-> Idle switch itself: no grace period (see the linger tests in pmd_renderer_unit_test.lua)
+local REAL_LINGER = Config.PMD_WALK_LINGER
+Config.PMD_WALK_LINGER = 0
 
 -- ------- rowFor: baked row order is down, right, up, left
 eq(PmdRenderer.rowFor("down"), 0, "down is row 0")
@@ -257,6 +260,36 @@ do
   check(drawn[#drawn].color and drawn[#drawn].color[2] < 1, "a flash tints the sprite red")
   pr.act = nil
   love = savedLove
+end
+
+-- ------- the grace period: one-tick gaps between steps do not flick to Idle
+do
+  Config.PMD_WALK_LINGER = REAL_LINGER
+  check(REAL_LINGER and REAL_LINGER > 0, "the real default has a walk grace period (" .. tostring(REAL_LINGER) .. " ticks)")
+  local info = { walk = { cols = 4, durations = W }, idle = { cols = 3, durations = { 40, 4, 2 } } }
+  local r = PmdRenderer.new({}, 252, false, info)
+  for _ = 1, 5 do r:advance(true) end
+  eq(r.anim, "walk", "walking")
+  local clock = r.clock
+  r:advance(false) -- a one-tick gap between steps
+  eq(r.anim, "walk", "a single tick of 'not moving' stays on the Walk animation")
+  r:advance(true)
+  eq(r.anim, "walk", "...and the walk carries on")
+  check(r.clock > clock, "...with its clock still running (no restart from frame 0)")
+  -- a real stop: after the grace period it goes to Idle
+  for _ = 1, REAL_LINGER do r:advance(false) end
+  eq(r.anim, "walk", "still walking for the grace period")
+  r:advance(false)
+  eq(r.anim, "idle", "then it settles into Idle")
+  -- a gap that comes right back never touches the idle pose
+  local r2 = PmdRenderer.new({}, 252, false, info)
+  local sawIdle = false
+  for i = 1, 200 do
+    r2:advance(i % 17 ~= 0) -- moving, with a 1-tick gap every 17 ticks
+    if r2.anim == "idle" then sawIdle = true end
+  end
+  check(not sawIdle, "a long walk with a gap every step never shows the Idle pose")
+  Config.PMD_WALK_LINGER = 0
 end
 
 -- ------- draw is a no-op (never an error) without art or love

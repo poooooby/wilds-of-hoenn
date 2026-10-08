@@ -57,6 +57,8 @@ fakeEngine.isGrass = function() return false end
 fakeEngine.grassSheet = function() return nil end
 
 local FollowerAdapter = V.require("follower_adapter")
+-- these tests are about the Walk <-> Idle switch itself: no grace period (see the linger tests in pmd_renderer_unit_test.lua)
+V.require("config").PMD_WALK_LINGER = 0
 local fa = FollowerAdapter.new(mod)
 
 -- ------- shouldSpawn: always (there is no Follower option; the party menu picks who is out)

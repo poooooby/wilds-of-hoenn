@@ -117,6 +117,16 @@ end
 --- same boundary. Idle always restarts from its first frame.
 function PmdRenderer:advance(moving)
   local want = moving and "walk" or "idle"
+  -- A walker that is "not moving" for a tick or two between one step and the
+  -- next (a follower waiting for the player's next step, a wild Pokemon chaining
+  -- steps) must not drop to the Idle pose and snap back: keep walking for a few
+  -- ticks after it stops.
+  if moving then
+    self.stoppedFor = 0
+  elseif self.anim == "walk" then
+    self.stoppedFor = (self.stoppedFor or 0) + 1
+    if self.stoppedFor <= (Config.PMD_WALK_LINGER or 0) then want = "walk" end
+  end
   if want ~= self.anim then
     self.anim = want
     self.clock = 0
