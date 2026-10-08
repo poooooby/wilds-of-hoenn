@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- A shiny Pokemon's follower is now shiny too (it was always drawn in normal
+  colours). It uses the same real shiny check as the overworld spawns, on the
+  Pokemon's own personality and trainer ids, and rebuilds when you swap to or
+  from a shiny.
+
 ## 1.4.0 (2026-10-08)
 
 ### New

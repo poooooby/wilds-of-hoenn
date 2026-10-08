@@ -54,6 +54,12 @@ fakeEngine.nationalFor = function(id) if id == 999 then return 252 end return ni
 fakeEngine.isWater = function() return false end
 fakeEngine.playerIsRunning = function() return false end
 fakeEngine.isGrass = function() return false end
+-- shiny by personality (the follower asks with its own trainer ids)
+local shinyPersonalities, shinyAsked = {}, {}
+fakeEngine.isShiny = function(personality, otId, otSecretId)
+  shinyAsked[#shinyAsked + 1] = { personality, otId, otSecretId }
+  return shinyPersonalities[personality] == true
+end
 fakeEngine.grassSheet = function() return nil end
 
 local FollowerAdapter = V.require("follower_adapter")
@@ -426,6 +432,44 @@ end
 npc = nil
 fa:tick()
 eq(fa.leadSpecies, nil, "leadSpecies cleared once the follower is gone")
+
+-- ------- the follower is shiny when its Pokemon is (like the overworld spawns)
+do
+  optionStore.sprite_style = "pokemmo"
+  shinyPersonalities[777] = true
+  local party = {
+    { species = 999, personality = 111, otId = 4321, otSecretId = 8765 },
+    { species = 999, personality = 777, otId = 4321, otSecretId = 8765 },
+  }
+  local current = 1
+  local companion = { resolve = function() return party[current], "follow" end }
+  npc = { sprite = nil, moving = false, cellX = 4, cellY = 4, px = 64, py = 64, facing = "down", elevation = 3 }
+  local fsh = FollowerAdapter.new(mod, companion)
+  fakeEngine.partyMons = function() return party end
+  fsh:tick()
+  eq(fsh.renderer.shiny, false, "a normal Pokemon's follower is not shiny")
+  local last = shinyAsked[#shinyAsked]
+  eq(last[1], 111, "the shiny check is made on the Pokemon's own personality ...")
+  eq(last[2], 4321, "... and its own trainer id")
+  eq(last[3], 8765, "... and secret id")
+  local before = fsh.renderer
+  current = 2 -- another Pokemon of the same species, but shiny
+  for _ = 1, 3 do fsh:tick() end
+  check(fsh.renderer ~= before, "swapping to a shiny of the same species rebuilds the sprite")
+  eq(fsh.renderer.shiny, true, "the shiny Pokemon's follower is drawn shiny")
+  local sameRenderer = fsh.renderer
+  fsh:tick()
+  check(fsh.renderer == sameRenderer, "(and it is not rebuilt every tick)")
+  current = 1
+  for _ = 1, 3 do fsh:tick() end
+  eq(fsh.renderer.shiny, false, "...and back to normal for a non-shiny one")
+  -- a Pokemon without a personality (no data) is simply not shiny
+  local bare = FollowerAdapter.new(mod, { resolve = function() return { species = 999 }, "follow" end })
+  npc = { sprite = nil, moving = false, cellX = 4, cellY = 4, px = 64, py = 64, facing = "down", elevation = 3 }
+  bare:tick()
+  eq(bare.renderer.shiny, false, "a Pokemon with no personality is not shiny")
+  optionStore.sprite_style = "pokemmo"
+end
 
 -- ------- scenes (lib/follower_actions.lua): the adapter drives them onto the renderer
 do

@@ -236,9 +236,17 @@ end
 -- the old one keeps standing there until the menu is closed, then goes into
 -- its ball and the new one comes out of another.
 
+-- Is this party Pokemon shiny? The same real check the wild spawns use, against
+-- ITS OWN trainer ids (a traded or gifted one is judged by its original trainer).
+local function monShiny(mon)
+  if type(mon) ~= "table" or mon.personality == nil then return false end
+  return EnginePatch.isShiny(mon.personality, tonumber(mon.otId), tonumber(mon.otSecretId)) == true
+end
+
 local function dispOf(mon, role)
   return {
     mon = mon, role = role, species = mon and tonumber(mon.species) or nil,
+    shiny = monShiny(mon),
     key = tostring(mon and (mon.personality or ("species" .. tostring(mon.species)))) .. ":" .. tostring(role),
   }
 end
@@ -334,15 +342,17 @@ function FollowerAdapter:tick()
   local species = self.disp.species
   self.role, self.mon = self.disp.role, self.disp.mon
   local style = Config.spriteStyle(self.mod)
-  if species ~= self.leadSpecies or style ~= self.style or npc.sprite ~= self.renderer then
-    self.leadSpecies, self.style = species, style
+  local shiny = self.disp.shiny == true
+  if species ~= self.leadSpecies or style ~= self.style or shiny ~= self.leadShiny
+      or npc.sprite ~= self.renderer then
+    self.leadSpecies, self.style, self.leadShiny = species, style, shiny
     local dex = species and EnginePatch.nationalFor(species) or nil
     if not dex then
       self.renderer = nil
       npc.sprite = nil
     else
       self.isFloater = SpriteSource.isFloater(self.mod, dex)
-      self.renderer = RendererFactory.new(self.mod, dex, false, style)
+      self.renderer = RendererFactory.new(self.mod, dex, shiny, style)
       npc.sprite = self.renderer
     end
   end
