@@ -509,7 +509,24 @@ function FollowerAdapter:collectActors(actors)
       npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or self.actState.dy or 0), npc.elevation, 22, 0)
     if a then actors[#actors + 1] = a end
   end
-  GrassCover.append(actors, npc.cellX, npc.cellY, npc.py, npc.elevation, 0)
+  -- the grass goes on the tiles under the sprite's real feet: it is spaced away
+  -- from its own tile (and a scene may slide it), and a big one is wider than a tile
+  local r = self.renderer
+  if r and (r.recall or 1) < 0.5 then return end -- inside the player: no grass
+  local act = r and r.act
+  local offX = (r and r.pushX or 0) + (act and act.dx or 0)
+  local offY = (r and r.pushY or 0) + (act and act.dy or 0)
+  local width, ground = CELL, CELL -- the ground point's depth in the tile
+  if r and r.isPmd then
+    width = V.require("pmd_renderer").contentSize(r.info)
+    ground = Config.PMD_GROUND_Y or 12
+  elseif r and r.frameWidth then
+    width = r:frameWidth() or CELL
+  end
+  local npx, npy = npc.px or npc.cellX * CELL, npc.py or npc.cellY * CELL
+  GrassCover.appendFeet(actors, npx + CELL / 2 + offX, npy + ground + offY,
+    width * 0.6, npy, npc.elevation, 0)
+
 end
 
 return FollowerAdapter

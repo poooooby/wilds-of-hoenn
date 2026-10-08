@@ -69,4 +69,40 @@ function GrassCover.append(actors, cellX, cellY, py, elevation, idBase)
   }
 end
 
+--- The same tuft for a sprite drawn away from its own tile (the follower trails
+--- the player by its own overhang): it goes on the grass TILES under the sprite's
+--- real feet -- `fx` the feet's centre x, `fy` their y (world px), `width` the
+--- width of the feet -- one tuft per grass tile they touch, in front of the body's
+--- lower edge. Every tuft stays snapped to its tile, never between tiles, so
+--- the grass is where the grass is and the sprite is covered only by grass it
+--- stands in. For a sprite on its own tile this is exactly GrassCover.append.
+function GrassCover.appendFeet(actors, fx, fy, width, py, elevation, idBase)
+  if type(fx) ~= "number" or type(fy) ~= "number" or type(py) ~= "number" then return end
+  local sheet = EnginePatch.grassSheet()
+  if not (sheet and sheet.quadsFront) then return end
+  local qStatic = sheet.quadsFront[4]
+  if not qStatic then return end
+  local row = math.floor((fy - FEET_H) / CELL)
+  if fy < row * CELL + FEET_H or fy > row * CELL + CELL + 2 then return end
+  local half = math.max(1, (tonumber(width) or CELL) / 2)
+  local first = math.floor((fx - half) / CELL)
+  local last = math.floor((fx + half - 1) / CELL)
+  for col = first, math.min(last, first + 2) do
+    if EnginePatch.isGrass(col, row) then
+      local gx, gy = col * CELL, row * CELL + (CELL - FEET_H)
+      actors[#actors + 1] = {
+        kind = "field_effect_wild_grass",
+        elevation = elevation or 3,
+        sortY = py + 0.5,
+        x = gx, y = gy,
+        i = 90000 + (tonumber(idBase) or 0),
+        draw = function(_, camX, camY)
+          love.graphics.setColor(1, 1, 1, 1)
+          love.graphics.draw(sheet.image, qStatic, gx - camX, gy - camY)
+        end,
+      }
+    end
+  end
+end
+
 return GrassCover

@@ -172,8 +172,28 @@ fakeEngine.isGrass = function() return true end
 fakeEngine.grassSheet = function() return { image = "fake_image", quadsFront = { [4] = "fake_quad" } } end
 local followerActors = {}
 fa:collectActors(followerActors)
-eq(#followerActors, 1, "collectActors appends exactly one grass overlay for the follower")
+check(#followerActors >= 1, "collectActors appends the grass overlay for the follower")
 eq(followerActors[1].kind, "field_effect_wild_grass", "the appended actor is the grass overlay")
+-- every tuft sits on a grass tile, snapped to the grid, however the sprite is offset
+local onlyCol = 2
+fakeEngine.isGrass = function(x, _y) return x == onlyCol end
+fa.renderer.pushY, fa.renderer.pushX, fa.renderer.act = -6, 5, { dy = -2 }
+local movedActors = {}
+fa:collectActors(movedActors)
+check(#movedActors >= 1, "a sprite spaced away from its tile still gets grass")
+for _, a in ipairs(movedActors) do
+  eq(a.x % 16, 0, "a tuft is snapped to a tile column (x " .. a.x .. ")")
+  eq(a.x / 16, onlyCol, "...and only on a grass tile")
+  eq((a.y - 8) % 16, 0, "...and to a tile row")
+end
+fakeEngine.isGrass = function() return true end
+fa.renderer.pushY, fa.renderer.pushX, fa.renderer.act = nil, nil, nil
+-- a companion inside the player has no grass around it
+fa.renderer.recall = 0
+local innerActors = {}
+fa:collectActors(innerActors)
+eq(#innerActors, 0, "a recalled companion has no grass overlay")
+fa.renderer.recall = 1
 fakeEngine.isGrass = function() return false end
 fakeEngine.grassSheet = function() return nil end
 
