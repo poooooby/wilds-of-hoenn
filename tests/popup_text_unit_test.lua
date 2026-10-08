@@ -166,6 +166,30 @@ do
   PopupText._dropCache()
 end
 
+-- ------- the text sits lower in its cell on Ruby / Sapphire / Emerald than on
+-- FireRed / LeafGreen, so the pen is dropped by a different amount
+do
+  local function textY(layout)
+    E.fontLayout = function() return layout end
+    E.measureText = function(t) return #t * 6 end
+    E.drawn = {}
+    local plateY, saved3 = nil, love
+    love = { graphics = { setColor = function() end,
+      rectangle = function(_m, _x, y) plateY = y end } }
+    local actor = PopupText.actor("+5 EXP", 0, 0, 3, 20, 0)
+    actor.draw(actor, 0, 0)
+    love = saved3
+    return E.drawn[1][3] - plateY
+  end
+  local rsOffset = textY("rs")
+  local frlgOffset = textY("frlg")
+  eq(textY(nil), rsOffset, "an unknown layout keeps the Ruby / Sapphire / Emerald drop")
+  check(frlgOffset > rsOffset, "FireRed / LeafGreen's text is drawn lower than RSE's pen offset (less drop), so it is not cut off")
+  eq(frlgOffset - rsOffset, 4, "by the difference between the two drops")
+  E.fontLayout = nil
+end
+
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

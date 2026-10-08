@@ -1203,6 +1203,18 @@ function EnginePatch.measureText(text, opts)
   return ok and tonumber(w) or 0
 end
 
+--- Which game layout the dialogue font is set up for: "rs" (Ruby / Sapphire /
+--- Emerald) or "frlg" (FireRed / LeafGreen), nil without the font module. Its
+--- small face sits in a different place in its cell on each. Only the Ruby /
+--- Sapphire / Emerald profile hands the font a spec (with nativeLayout = "rs");
+--- FireRed / LeafGreen have none, so `_spec` is nil there -- that is NOT "unknown".
+function EnginePatch.fontLayout()
+  local Font = loadModule(EnginePatch.READONLY.fontMeasure.mod)
+  if not Font then return nil end
+  local spec = Font.sync and Font.sync() or Font._spec
+  return (type(spec) == "table" and spec.nativeLayout == "rs") and "rs" or "frlg"
+end
+
 --- Draws `text` in the engine's dialogue font at canvas pixel (x, y); returns the
 --- text's width (0 when the font is unavailable).
 function EnginePatch.drawText(text, x, y, opts)

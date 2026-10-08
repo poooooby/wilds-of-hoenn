@@ -21,9 +21,21 @@ local PopupText = {}
 local PAD = 2
 local FONT = { small = true } -- the engine's small dialogue face
 local PLATE_H = 10
--- The small face draws its 8px glyphs in the BOTTOM half of a 16px cell, so the
--- pen position has to sit this much above where the text should appear.
-local SMALL_FACE_DROP = 8
+-- The small face draws its glyphs lower in a 16px cell than the pen position says,
+-- so the pen has to sit this much above where the text should appear. Ruby /
+-- Sapphire / Emerald put the 8px glyphs in the BOTTOM half of the cell; FireRed /
+-- LeafGreen's small sheet (latin_small_fg.rgba) has them on cell rows 4-10 (11
+-- with the shadow), so the RSE drop pushed the text up out of the plate and cut
+-- off its top. A drop of 4 puts that row 4 on the plate's second pixel row.
+local SMALL_FACE_DROP = { rs = 8, frlg = 4 }
+
+-- an unknown layout (no engine font yet) keeps the Ruby / Sapphire / Emerald drop
+local function faceDrop()
+  local layout = EnginePatch.fontLayout and EnginePatch.fontLayout()
+  if layout == nil or layout == "rs" then return SMALL_FACE_DROP.rs end
+  return SMALL_FACE_DROP.frlg
+end
+PopupText._faceDrop = faceDrop
 -- The small face's space character draws a stray glyph, so words are drawn one
 -- at a time with a plain gap between them instead.
 local WORD_GAP = 3
@@ -57,7 +69,7 @@ local function paintLabel(px, py, w, h, words, widths)
   g.rectangle("fill", px, py, w, h)
   local penX = px + PAD
   for i, word in ipairs(words) do
-    EnginePatch.drawText(word, penX, py + 1 - SMALL_FACE_DROP, FONT)
+    EnginePatch.drawText(word, penX, py + 1 - faceDrop(), FONT)
     penX = penX + widths[i] + WORD_GAP
   end
   g.setColor(1, 1, 1, 1)
