@@ -23,11 +23,13 @@ local SpriteSource = V.require("sprite_source")
 local GrassCover = V.require("grass_cover")
 local FollowerActions = V.require("follower_actions")
 local PopupText = V.require("popup_text")
+local FollowerSwap = V.require("follower_swap")
 
 local FollowerAdapter = {}
 FollowerAdapter.__index = FollowerAdapter
 
 local CELL = 16
+local SWAP_LOCK = "wilds_of_hoenn_follower_swap"
 FollowerAdapter.STEP_TICKS = 16 -- logic ticks per one-tile step
 
 function FollowerAdapter.new(mod, companion)
@@ -79,7 +81,7 @@ end
 --- Is the follower away from its place or mid-scene (so the Pet / Play / Talk
 --- menu must not open on it)?
 function FollowerAdapter:isBusy()
-  if self.action ~= nil then return true end
+  if self.action ~= nil or self.swap ~= nil then return true end
   local b = self.behaviors and self.behaviors[self.role]
   return b ~= nil and b.isBusy ~= nil and b:isBusy() == true
 end
@@ -88,6 +90,7 @@ end
 --- timer, see lib/forager.lua's mapChanged).
 function FollowerAdapter:mapChanged()
   self.away = false
+  self:resetDisplay()
   for _, b in pairs(self.behaviors or {}) do
     if b.mapChanged then b:mapChanged() elseif b.reset then b:reset() end
   end
@@ -113,7 +116,7 @@ end
 -- same shape a scene returns, mirrored onto the renderer the same way. nil
 -- while the role has none or it is just standing with the player.
 function FollowerAdapter:_tickBehavior(npc)
-  if self.action then return nil end
+  if self.action or self.swap then return nil end
   if self.role ~= self.lastRole then
     self:resetBehaviors()
     self.lastRole = self.role
@@ -201,8 +204,15 @@ function FollowerAdapter:_tickRecall(npc, r)
   self.surfRecall = recalled
   -- a Battler out of strength rests inside the player (any art style)
   if self.away then recalled = true end
+  -- a recalled companion stays inside the player
+  if self.role == "recall" then recalled = true end
 
   local want = recalled and 0 or 1
+  if self.swap and self.swapState then want = self.swapState.want end
+  if self.swapFresh then
+    -- the new sprite begins inside the ball, whatever it is about to do
+    r.recall, r.recallPlaced, self.swapFresh = 0, true, false
+  end
   if r.recallPlaced then
     local step = 1 / math.max(1, Config.PMD_RECALL_TICKS)
     r.recall = ActorRenderer.approach(r.recall, want, step)
@@ -219,6 +229,70 @@ function FollowerAdapter:shouldSpawn()
   return Config.followerEnabled(self.mod)
 end
 
+-- ----------------------------------------------------------------- swapping
+-- What the player sees out is `self.disp` ({ mon, role, species, key }). It
+-- follows the companion (lib/companion.lua) only through a swap scene
+-- (lib/follower_swap.lua): the party menu changes the companion at once, but
+-- the old one keeps standing there until the menu is closed, then goes into
+-- its ball and the new one comes out of another.
+
+local function dispOf(mon, role)
+  return {
+    mon = mon, role = role, species = mon and tonumber(mon.species) or nil,
+    key = tostring(mon and (mon.personality or ("species" .. tostring(mon.species)))) .. ":" .. tostring(role),
+  }
+end
+
+--- May a swap scene begin now? (No menu, message or fade, and the player
+--- standing still.) A field so tests can answer for the engine.
+function FollowerAdapter.canSwap()
+  return not EnginePatch.screenBusy() and EnginePatch.canStartInteraction()
+end
+
+--- Forget what is displayed (a save was loaded / a map was entered): the next
+--- tick shows the companion as it is, with no scene.
+function FollowerAdapter:resetDisplay()
+  self:_endSwap()
+  self.disp = nil
+end
+
+function FollowerAdapter:_endSwap()
+  if self.swap then
+    EnginePatch.unlockField(SWAP_LOCK)
+    self.swap, self.swapState = nil, nil
+  end
+end
+
+-- Begins the scene from the displayed companion to `target`.
+function FollowerAdapter:_beginSwap(target)
+  local r = self.renderer
+  local hasOld = self.disp.role ~= "recall" and r ~= nil and (r.recall or 1) > 0.5
+  self.swap = FollowerSwap.new({ hasOld = hasOld, hasNew = target.role ~= "recall" })
+  self.swapTarget = target
+  EnginePatch.lockField(SWAP_LOCK)
+end
+
+-- One tick of the scene: raises the arm, switches the displayed companion at
+-- the right moment, drives the shrink / grow. Returns the state, or nil when
+-- the scene is over (the target is then fully displayed).
+function FollowerAdapter:_tickSwap()
+  local sw = self.swap
+  local s = sw:step()
+  if s == nil then
+    self.disp = self.swapTarget
+    self:_endSwap()
+    return nil
+  end
+  if s.pose then EnginePatch.playerPose(Config.SWAP.poseTicks) end
+  if s.switch then
+    self.disp = self.swapTarget
+    self.swapFresh = true -- the new sprite starts inside the player
+  end
+  if s.cry and self.disp.species then EnginePatch.playCry(self.disp.species) end
+  self.swapState = s
+  return s
+end
+
 --- Called every field tick, after the engine's own Follower.update has run
 --- (engine_patch's `followerTick` hook) -- keeps npc.sprite pointed at a
 --- renderer for the CURRENT party lead in the CURRENT Sprite Style,
@@ -231,16 +305,34 @@ function FollowerAdapter:tick()
   if not npc then
     self.leadSpecies, self.style = nil, nil
     self.wasMoving = false
+    self:resetDisplay()
     if self.actState then self:resetBehaviors() end
     return
   end
-  local species
+  local mon, role
   if self.companion then
-    local mon, role = self.companion:resolve(EnginePatch.partyMons())
-    species, self.role, self.mon = mon and tonumber(mon.species) or nil, role, mon
+    mon, role = self.companion:resolve(EnginePatch.partyMons())
   else
-    species, self.role = EnginePatch.leadPartySpecies(), "follow"
+    local sp = EnginePatch.leadPartySpecies()
+    mon, role = sp and { species = sp } or nil, "follow"
   end
+  local target = dispOf(mon, role)
+  if not self.disp then
+    self.disp = target
+  elseif self.swap then
+    self:_tickSwap()
+  elseif target.key ~= self.disp.key then
+    if not (EnginePatch.screenBusy and EnginePatch.canStartInteraction) then
+      self.disp = target -- no engine to hold a scene in: just change over
+    elseif FollowerAdapter.canSwap() and not self.action then
+      self:_beginSwap(target)
+      self:_tickSwap()
+    end
+  elseif mon then
+    self.disp.mon = mon -- the same companion: keep its live data
+  end
+  local species = self.disp.species
+  self.role, self.mon = self.disp.role, self.disp.mon
   local style = Config.spriteStyle(self.mod)
   if species ~= self.leadSpecies or style ~= self.style or npc.sprite ~= self.renderer then
     self.leadSpecies, self.style = species, style
@@ -397,6 +489,13 @@ function FollowerAdapter:collectActors(actors)
   local ball = self.actState and self.actState.ball
   if ball then
     actors[#actors + 1] = FollowerActions.ballActor(ball, npc.px, npc.py, npc.elevation)
+  end
+  local held = self.swapState and self.swapState.ball
+  if held then
+    local px, py = EnginePatch.playerPixel()
+    if px then
+      actors[#actors + 1] = FollowerActions.ballActor(held, px, py, EnginePatch.playerElevation())
+    end
   end
   local role = self.behaviors and self.behaviors[self.role]
   if role and role.collectActors and not self.away then role:collectActors(actors) end

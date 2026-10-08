@@ -1348,6 +1348,12 @@ function EnginePatch.playerPose(ticks)
   return (pcall(Player.startFieldMove, ticks))
 end
 
+--- The player's elevation layer (what an actor drawn with them must match).
+function EnginePatch.playerElevation()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  return Player and tonumber(Player.elevation) or 3
+end
+
 --- The player's facing ("up" | "down" | "left" | "right"), or nil.
 function EnginePatch.playerFacing()
   local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)

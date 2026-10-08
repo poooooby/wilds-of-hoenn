@@ -45,6 +45,16 @@ Config.ACTIONS = {
   talk = { cries = 2, gap = 8, cryTimeout = 90 },
 }
 
+-- Swapping the companion (lib/follower_swap.lua): all ticks / px.
+Config.SWAP = {
+  poseTicks = 26,    -- the player's arm-up pose, a Poke Ball in hand, per phase
+  recallDelay = 10,  -- ticks of holding the ball up before the old one shrinks in
+  sendDelay = 12,    -- ... before the new one grows out
+  ballLift = 19,     -- px the ball is held above the player's feet
+  ballX = 6,         -- px to the side: the raised hand
+  maxTicks = 240,    -- hard cap: the scene may not hold the field lock longer
+}
+
 -- Battler role (lib/overworld_battle.lua): all ticks / px / cells.
 Config.OW_BATTLE = {
   radius = 3,           -- a wild Pokemon this close to the PLAYER (cells) may be fought

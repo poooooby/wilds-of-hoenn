@@ -4,6 +4,8 @@
 --   follow  the standard follower (Pet / Play / Talk menu, scenes)
 --   battle  fights wild overworld Pokemon near the player (lib/overworld_battle.lua)
 --   forage  wanders and picks up items for the player (lib/forager.lua)
+--   recall  not a job: the Pokemon is shrunk into the player and stays there
+--           until a job is chosen again (from the party menu or by talking to it)
 -- Only one companion is out at a time (the engine supports a single follower).
 --
 -- The choice is saved with the save file (mod.save), identified by the
@@ -14,8 +16,8 @@
 local Companion = {}
 Companion.__index = Companion
 
-Companion.ROLES = { "follow", "battle", "forage" }
-local VALID = { follow = true, battle = true, forage = true }
+Companion.ROLES = { "follow", "battle", "forage" } -- the jobs; "recall" is the absence of one
+local VALID = { follow = true, battle = true, forage = true, recall = true }
 local KEY = "companion/state"
 
 local function healthy(mon)

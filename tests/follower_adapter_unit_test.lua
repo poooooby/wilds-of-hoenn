@@ -600,6 +600,110 @@ do
   optionStore.sprite_style = "pokemmo"
 end
 
+-- ------- swapping the companion: ball scene, old goes in, new comes out
+do
+  optionStore.sprite_style = "pokemmo"
+  V.mod = mod
+  local party = {
+    { species = 999, personality = 111, hp = 20 },
+    { species = 998, personality = 222, hp = 20 },
+  }
+  local saved = { personality = 111, role = "follow" }
+  local comp = { resolve = function()
+    for _, m in ipairs(party) do
+      if m.personality == saved.personality then return m, saved.role end
+    end
+  end }
+  local busy, poses, locks, unlocks, cries = false, 0, 0, 0, {}
+  local pixel = { 40, 48 }
+  local names = { "partyMons", "screenBusy", "canStartInteraction", "playerPose", "lockField",
+    "unlockField", "playCry", "playerPixel", "playerElevation", "nationalFor" }
+  local kept = {}
+  for _, k in ipairs(names) do kept[k] = fakeEngine[k] end
+  fakeEngine.partyMons = function() return party end
+  fakeEngine.screenBusy = function() return busy end
+  fakeEngine.canStartInteraction = function() return not busy end
+  fakeEngine.playerPose = function() poses = poses + 1 return true end
+  fakeEngine.lockField = function() locks = locks + 1 return true end
+  fakeEngine.unlockField = function() unlocks = unlocks + 1 return true end
+  fakeEngine.playCry = function(sp) cries[#cries + 1] = sp return true end
+  fakeEngine.playerPixel = function() return pixel[1], pixel[2] end
+  fakeEngine.playerElevation = function() return 3 end
+  fakeEngine.nationalFor = function(id) return id == 999 and 252 or (id == 998 and 255 or nil) end
+
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  local fs = FollowerAdapter.new(mod, comp)
+  fs:tick()
+  eq(fs.renderer.dex, 252, "the companion is out")
+  eq(fs.renderer.recall, 1, "...fully out, with no scene on a plain load")
+  check(not fs:isBusy(), "nothing is happening")
+
+  -- changed in the party menu: nothing moves until the menu is closed
+  saved = { personality = 222, role = "follow" }
+  busy = true
+  for _ = 1, 5 do fs:tick() end
+  eq(fs.renderer.dex, 252, "the old companion stays out while the menu is open")
+  eq(poses, 0, "...and the player has not raised the ball yet")
+
+  busy = false
+  fs:tick()
+  check(fs:isBusy(), "the swap scene begins once the menu is closed")
+  eq(locks, 1, "...and holds the field")
+  eq(poses, 1, "the player raises the ball")
+  local ball = false
+  local actors = {}
+  fs:collectActors(actors)
+  for _, a in ipairs(actors) do if a.kind == "follower_action_ball" then ball = true end end
+  check(ball, "a ball is drawn in the player's hand")
+
+  local sawOut, sawIn = false, false
+  for _ = 1, 200 do
+    fs:tick()
+    if fs.renderer.dex == 252 and fs.renderer.recall == 0 then sawOut = true end
+    if fs.renderer.dex == 255 and fs.renderer.recall == 0 then sawIn = true end
+    if not fs:isBusy() then break end
+  end
+  check(sawOut, "the old companion shrank all the way into the player first")
+  check(sawIn, "the new one began inside the player")
+  eq(fs.renderer.dex, 255, "the new companion is displayed")
+  eq(fs.renderer.recall, 1, "...grown fully out")
+  eq(poses, 2, "the ball went up once for each")
+  eq(unlocks, 1, "the field is released")
+  eq(cries[#cries], 998, "the new one cried as it came out")
+  check(not fs:isBusy(), "the scene is over")
+
+  -- recall: the companion shrinks in and stays in
+  saved = { personality = 222, role = "recall" }
+  for _ = 1, 200 do fs:tick() if not fs:isBusy() and fs.renderer.recall == 0 then break end end
+  eq(fs.renderer.recall, 0, "a recall leaves it inside the player")
+  check(fs:isRecalled(), "isRecalled is true, so it cannot be talked to")
+  for _ = 1, 30 do fs:tick() end
+  eq(fs.renderer.recall, 0, "...and it stays in")
+
+  -- sent back out: only the grow-out scene
+  poses = 0
+  saved = { personality = 222, role = "forage" }
+  for _ = 1, 200 do fs:tick() if not fs:isBusy() and fs.renderer.recall == 1 then break end end
+  eq(fs.renderer.recall, 1, "choosing a job brings it back out")
+  eq(poses, 1, "...with one raise of the ball")
+
+  -- a job change on the same Pokemon is a swap too
+  poses = 0
+  saved = { personality = 222, role = "follow" }
+  for _ = 1, 200 do fs:tick() if poses > 0 and not fs:isBusy() then break end end
+  eq(poses, 2, "changing the job recalls and sends the same Pokemon out again")
+
+  -- a map change drops a scene in progress, releasing the field
+  saved = { personality = 111, role = "follow" }
+  fs:tick()
+  check(fs:isBusy(), "another swap is under way")
+  fs:mapChanged()
+  check(not fs:isBusy(), "a new map drops the scene")
+  eq(unlocks, locks, "...and every lock was released")
+
+  for _, k in ipairs(names) do fakeEngine[k] = kept[k] end
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

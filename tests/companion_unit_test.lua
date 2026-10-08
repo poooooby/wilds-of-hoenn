@@ -106,6 +106,20 @@ do
   eq(select(2, Companion.new(broken):resolve({ mon(4) })), "follow", "a corrupt saved role is ignored")
 end
 
+-- ------- recall: a saved role of its own, not one of the three jobs
+do
+  local m = newMod()
+  local c = Companion.new(m)
+  local mon5 = mon(5)
+  check(c:set(mon5, "recall"), "recall is accepted")
+  local who, role = c:resolve({ mon(4), mon5 })
+  eq(who, mon5, "a recalled Pokemon is still the companion")
+  eq(role, "recall", "...with the recall role")
+  local c2 = Companion.new(m)
+  eq(select(2, c2:resolve({ mon5 })), "recall", "a recall survives a save and load")
+  eq(#Companion.ROLES, 3, "the jobs are still just follow / battle / forage")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

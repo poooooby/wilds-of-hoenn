@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### New
+
+- Talk to your Pokemon (face it, press A) and the menu is now Interact
+  (Pet / Play / Talk), Role (Follow / Forage / Fight) and Recall, each sub menu
+  with a Back row (B goes back too). Recall shrinks it back into you;
+  it stays inside until you pick a job for it again, from this menu or from the
+  party menu's Follow / Battle / Forage rows.
+- Changing the companion (another Pokemon, another job, or a recall) is now a
+  scene: after you close the menu, you raise a Poke Ball in one hand, the old
+  companion shrinks into you, then you raise it again and the new one grows
+  out and cries. (`lib/follower_swap.lua`, `Config.SWAP`)
+
 ### Fixes
 
 - The "+EXP" / "Found X!" label is no longer cut off on Android (and other

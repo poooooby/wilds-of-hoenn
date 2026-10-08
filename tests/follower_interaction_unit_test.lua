@@ -91,10 +91,32 @@ local function openMenu(fi)
   E.lastPage = true
   fi:tick({})
 end
--- pick a row in the open menu (what Choice.confirm would do)
-local function pick(index)
+-- the interaction under test (the last one built), so pick() can tick it
+local lastFi
+do
+  local realNew = FollowerInteraction.new
+  FollowerInteraction.new = function(...)
+    lastFi = realNew(...)
+    return lastFi
+  end
+end
+-- Pick an action by its old flat index, walking the primary menu and sub menus
+-- the way a player does: 0 Pet, 1 Play, 2 Talk (Interact), 3 Recall,
+-- 4 Follow, 6 Forage, 5 Fight (Role), 7 Cancel, 127 = B on the primary menu.
+local function choose(index)
   E.choiceUp = false
   E.choice.cb(index)
+end
+local function pick(index)
+  if index <= 2 then
+    choose(0) lastFi:tick({}) -- Interact
+    choose(index)
+  elseif index == 3 then choose(2)
+  elseif index >= 4 and index <= 6 then
+    choose(1) lastFi:tick({}) -- Role
+    choose(({ [4] = 0, [6] = 1, [5] = 2 })[index])
+  elseif index == 7 then choose(3)
+  else choose(index) end
 end
 
 -- ------- starting
@@ -140,8 +162,15 @@ check(E.choice == nil, "no menu while the text is still typing")
 E.lastPage = true
 fi:tick({})
 check(E.choice ~= nil, "the menu opens once the last page has been typed")
-eq(table.concat(E.choice.options, "/"), "Pet/Play/Talk/Cancel", "Pet / Play / Talk / Cancel")
-eq(E.choice.default, 0, "the cursor starts on Pet")
+local RIGHT, LEFT = "\226\150\182", "\226\151\128"
+local function plain(options)
+  local out = {}
+  for i, o in ipairs(options) do out[i] = (o:gsub("[ ]+", " ")) end
+  return table.concat(out, "/")
+end
+eq(plain(E.choice.options), "Interact "..RIGHT.."/Role "..RIGHT.."/Recall/Cancel", "primary menu: Interact / Role / Recall / Cancel, arrows on the two that open more")
+eq(#E.choice.options[1], #E.choice.options[2], "the arrows line up in one column (same padded length)")
+eq(E.choice.default, 0, "the cursor starts on the first row")
 eq(E.choice.layout.top, 3, "the menu sits clear of the dialogue box")
 
 -- ------- Pet: friendship up, happy reply with a happy face, then it ends
@@ -296,11 +325,97 @@ do
   closeMessage()
 end
 
+-- ------- Recall and the three jobs: they change the companion and say so
+do
+  local set = {}
+  local comp
+  comp = {
+    saved = nil,
+    savedRole = function(_, _) return comp.saved end,
+    set = function(_, m, role) set[#set + 1] = role comp.saved = role return true end,
+    resolve = function(_, _) return E.lead, comp.saved or "follow" end,
+  }
+  E.partyMons = function() return { E.lead } end
+  local function jobInteraction()
+    return FollowerInteraction.new(mod, P, { clock = function() return clock end, rng = rng, companion = comp })
+  end
+  clock = clock + 5000
+  E.lead = mon()
+  fi = jobInteraction()
+  fi:tryStart({}) openMenu(fi) pick(3)
+  eq(set[#set], "recall", "Recall sets the recall role")
+  check(lastSay().text:find("returned to you"), "...and says it came back")
+  closeMessage()
+  fi = jobInteraction()
+  fi:tryStart({}) openMenu(fi) pick(5)
+  eq(set[#set], "battle", "Fight sets the battle role")
+  check(lastSay().text:find("battle wild"), "...and says what it will do")
+  closeMessage()
+  fi = jobInteraction()
+  fi:tryStart({}) openMenu(fi) pick(6)
+  eq(set[#set], "forage", "Forage sets the forage role")
+  closeMessage()
+  fi = jobInteraction()
+  fi:tryStart({}) openMenu(fi) pick(4)
+  eq(set[#set], "follow", "Follow sets the follow role")
+  local n = #set
+  closeMessage()
+  fi = jobInteraction()
+  fi:tryStart({}) openMenu(fi) pick(4)
+  eq(#set, n, "choosing the job it already has changes nothing")
+  check(lastSay().text:find("already"), "...and says so")
+  closeMessage()
+end
+
+-- ------- sub menus: Interact and Role open under the primary menu, Back returns
+do
+  local fiS = newInteraction()
+  clock = clock + 5000
+  E.lead = mon()
+  fiS:tryStart({}) openMenu(fiS)
+  choose(0) fiS:tick({})
+  eq(table.concat(E.choice.options, "/"), "Pet/Play/Talk/"..LEFT.." Back", "Interact opens Pet / Play / Talk / left arrow Back")
+  choose(3) fiS:tick({})
+  eq(plain(E.choice.options), "Interact "..RIGHT.."/Role "..RIGHT.."/Recall/Cancel", "Back returns to the primary menu")
+  choose(1) fiS:tick({})
+  eq(table.concat(E.choice.options, "/"), "Follow/Forage/Fight/"..LEFT.." Back", "Role opens Follow / Forage / Fight / left arrow Back")
+  choose(127) fiS:tick({})
+  eq(plain(E.choice.options), "Interact "..RIGHT.."/Role "..RIGHT.."/Recall/Cancel", "B in a sub menu goes back too")
+  check(fiS:isActive(), "...and the interaction is still going")
+  choose(3)
+  check(not fiS:isActive(), "Cancel on the primary menu ends it")
+end
+
+-- ------- with the engine font: the arrows end at the same pixel, at the window's edge
+do
+  local widths = { [RIGHT] = 8 }
+  E.measureText = function(text)
+    local w = 0
+    for _, byte in ipairs({ (text:gsub(RIGHT, string.char(1))):byte(1, -1) }) do
+      w = w + (byte == 1 and 8 or 6)
+    end
+    return w
+  end
+  local labels = FollowerInteraction.labels("main")
+  local function clearto(label)
+    local at = label:find(string.char(0xFC, 0x13), 1, true)
+    return at and label:byte(at + 2)
+  end
+  check(clearto(labels[1]) ~= nil, "measured: the arrow is placed by pixel (CLEARTO)")
+  eq(clearto(labels[1]), clearto(labels[2]), "both arrow rows put the arrow at the same pixel")
+  eq(clearto(labels[1]), 8 * 6 + 24, "...a short gap after the widest label")
+  eq(labels[1]:sub(-3), string.char(0xFC, 0x11, 0), "the byte count is padded so the window holds the arrow")
+  local tiles = math.min(18, math.max(6, math.floor(#labels[1] * 0.7) + 2))
+  check(tiles * 8 - 14 >= clearto(labels[1]) + 8, "...and the window is wide enough for it")
+  check(not labels[3]:find(string.char(0xFC), 1, true), "rows without a sub menu are plain")
+  E.measureText = nil
+end
+
 -- ------- Cancel and B
 fi = newInteraction()
 clock = clock + 5000
 E.lead = mon()
-fi:tryStart({}) openMenu(fi) pick(3)
+fi:tryStart({}) openMenu(fi) pick(7)
 check(not fi:isActive(), "Cancel ends the interaction")
 eq(E.closedStay, 1, "...closing the message")
 eq(P.cleared, 1, "...and clearing the portrait")

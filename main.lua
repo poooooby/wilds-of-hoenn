@@ -222,6 +222,7 @@ return function(mod)
       pcall(function() companion:reset() end)
       pcall(function() forageSource:reset() end)
       pcall(function() followerAdapter:resetBehaviors() end)
+      pcall(function() followerAdapter:resetDisplay() end)
     end)
   end
 

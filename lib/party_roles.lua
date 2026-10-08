@@ -22,12 +22,15 @@ local MAX_ROWS = 9
 local ROWS = { "FOLLOW", "BATTLE", "FORAGE" }
 local ROLE_OF = { FOLLOW = "follow", BATTLE = "battle", FORAGE = "forage" }
 local COMPACT = "COMPANION" -- one row that cycles the role, when three would not fit
-local NEXT = { follow = "battle", battle = "forage", forage = "follow" }
+local NEXT = { follow = "battle", battle = "forage", forage = "follow", recall = "follow" }
 local LINES = {
+  recall = "%s returned to you.",
   follow = "%s will follow you.",
   battle = "%s will battle wild Pokemon for you.",
   forage = "%s will forage for items.",
 }
+
+PartyRoles.LINES = LINES
 
 function PartyRoles.new(companion)
   return setmetatable({ companion = companion, injected = nil }, PartyRoles)
