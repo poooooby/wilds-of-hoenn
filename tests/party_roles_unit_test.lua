@@ -14,9 +14,10 @@ local function eq(a, b, msg)
   check(a == b, string.format("%s (got %s expected %s)", msg, tostring(a), tostring(b)))
 end
 
-local E = { battle = false }
+local E = { battle = false, selects = 0 }
 E.battleActive = function() return E.battle end
 E.displayName = function(mon) return mon.nickname or "TREECKO" end
+E.playSelect = function() E.selects = E.selects + 1 end
 
 local modules = {}
 local V = { path = "." }
@@ -34,7 +35,7 @@ local store = {}
 local mod = { save = { get = function(_, k) return store[k] end, set = function(_, k, v) store[k] = v end } }
 
 local function newMenu(actions, mon)
-  local menu = { open = true, mode = "action", cursor = 1, ACTIONS = actions,
+  local menu = { open = true, mode = "action", cursor = 1, actionCursor = 1, ACTIONS = actions,
     _party = { mon or { personality = 1, species = 252, hp = 10, nickname = "BLAZE" } },
     _fieldMoveNames = {},
     _cursorOptionText = function(act)
@@ -44,26 +45,41 @@ local function newMenu(actions, mon)
   }
   return menu
 end
-local function labels(menu) return table.concat(menu.ACTIONS, ",") end
+-- the ROLE / BACK labels carry the arrows; show them by name
+local function labels(menu)
+  local out = {}
+  for i, a in ipairs(menu.ACTIONS) do
+    out[i] = a == PartyRoles.ROLE and "ROLE" or a == PartyRoles.BACK and "BACK" or a
+  end
+  return table.concat(out, ",")
+end
+-- a fake frame input: only the named buttons are pressed
+local function press(...)
+  local down = {}
+  for _, k in ipairs({ ... }) do down[k] = true end
+  return { wasPressed = function(_, k) return down[k] == true end }
+end
 
--- ------- the three rows go in before SWITCH, as field-move rows
+-- ------- one ROLE row goes in before SWITCH, as a field-move row
 do
-  local companion = Companion.new(mod)
-  local roles = PartyRoles.new(companion)
+  local roles = PartyRoles.new(Companion.new(mod))
   local menu = newMenu({ "SUMMARY", "SWITCH", "ITEM", "CANCEL" })
   roles:onMenuUpdate(menu)
-  eq(labels(menu), "SUMMARY,FOLLOW,BATTLE,FORAGE,SWITCH,ITEM,CANCEL", "Follow / Battle / Forage are added before SWITCH")
-  check(menu._fieldMoveNames.FOLLOW and menu._fieldMoveNames.BATTLE and menu._fieldMoveNames.FORAGE,
-    "they are registered as field-move rows (so the engine routes them to FieldMoves.fromMenu)")
+  eq(labels(menu), "SUMMARY,ROLE,SWITCH,ITEM,CANCEL", "ROLE is added before SWITCH")
+  for _, label in ipairs({ PartyRoles.ROLE, "FOLLOW", "FORAGE", "FIGHT", PartyRoles.BACK }) do
+    check(menu._fieldMoveNames[label], label .. " is registered as a field-move row (so the engine accepts it)")
+  end
   eq(menu._actionTexts.list, menu.ACTIONS, "the prebuilt texts belong to the list")
-  eq(#menu._actionTexts.texts, 7, "...one per row")
-  eq(menu._actionTexts.texts[2], "FOLLOW", "our rows show their own names")
-  eq(menu._actionTexts.texts[1], "summary", "...and the engine's rows keep the engine's text")
+  eq(#menu._actionTexts.texts, 5, "...one per row")
+  eq(menu._actionTexts.texts[2], PartyRoles.ROLE, "the ROLE row shows its own label, arrow included")
+  check(menu._actionTexts.texts[2]:find("\226\150\182", 1, true), "...ending in a right arrow")
+  check(menu._actionTexts.texts[2]:find(string.char(0xFC, 0x13), 1, true), "...placed by pixel (CLEARTO)")
+  eq(menu._actionTexts.texts[1], "summary", "the engine's rows keep the engine's text")
   roles:onMenuUpdate(menu)
-  eq(labels(menu), "SUMMARY,FOLLOW,BATTLE,FORAGE,SWITCH,ITEM,CANCEL", "a second update does not add them again")
+  eq(labels(menu), "SUMMARY,ROLE,SWITCH,ITEM,CANCEL", "a second update does not add it again")
   menu.ACTIONS = { "SUMMARY", "SWITCH", "ITEM", "CANCEL" } -- A pressed again: a fresh list
   roles:onMenuUpdate(menu)
-  eq(labels(menu), "SUMMARY,FOLLOW,BATTLE,FORAGE,SWITCH,ITEM,CANCEL", "a freshly built list gets them again")
+  eq(labels(menu), "SUMMARY,ROLE,SWITCH,ITEM,CANCEL", "a freshly built list gets it again")
 end
 
 -- ------- Ruby / Sapphire / Emerald build the list with the field moves FIRST,
@@ -73,13 +89,16 @@ do
   local rs = newMenu({ "CUT", "SUMMARY", "SWITCH", "ITEM", "CANCEL" })
   rs._fieldMoveNames.CUT = true
   roles:onMenuUpdate(rs)
-  eq(labels(rs), "CUT,SUMMARY,FOLLOW,BATTLE,FORAGE,SWITCH,ITEM,CANCEL", "RSE order: after SUMMARY, before SWITCH")
+  eq(labels(rs), "CUT,SUMMARY,ROLE,SWITCH,ITEM,CANCEL", "RSE order: after SUMMARY, before SWITCH")
   local solo = newMenu({ "SUMMARY", "ITEM", "CANCEL" })
   roles:onMenuUpdate(solo)
-  eq(labels(solo), "SUMMARY,FOLLOW,BATTLE,FORAGE,ITEM,CANCEL", "a lone Pokemon (no SWITCH): before ITEM")
+  eq(labels(solo), "SUMMARY,ROLE,ITEM,CANCEL", "a lone Pokemon (no SWITCH): before ITEM")
   local mail = newMenu({ "SUMMARY", "SWITCH", "MAIL", "CANCEL" })
   roles:onMenuUpdate(mail)
-  eq(labels(mail), "SUMMARY,FOLLOW,BATTLE,FORAGE,SWITCH,MAIL,CANCEL", "a Pokemon holding mail (MAIL row) still gets them")
+  eq(labels(mail), "SUMMARY,ROLE,SWITCH,MAIL,CANCEL", "a Pokemon holding mail (MAIL row) still gets it")
+  local crowded = newMenu({ "SUMMARY", "CUT", "CUT", "CUT", "CUT", "SWITCH", "ITEM", "CANCEL" })
+  roles:onMenuUpdate(crowded)
+  eq(#crowded.ACTIONS, 9, "one row always fits, even in a crowded list (9 rows is the box's limit)")
 end
 
 -- ------- Ruby / Sapphire / Emerald's per-frame text lookup asserts on unknown rows
@@ -96,35 +115,72 @@ do
     return action
   end
   roles:onMenuUpdate(menu)
-  for _, act in ipairs(menu.ACTIONS) do
+  for _, act in ipairs({ PartyRoles.ROLE, "FOLLOW", "FORAGE", "FIGHT", PartyRoles.BACK }) do
     local ok, text = pcall(rsActionText, act, menu._fieldMoveData)
     check(ok and text, "the RS text lookup accepts the row " .. act)
   end
   eq(menu._fieldMoveData.byMove, real.byMove, "the rest of the field-move data passes straight through")
   eq(menu._fieldMoveData.base, 7, "...including plain values")
   eq(menu._fieldMoveData.index.CUT, 0, "...and the real index entries")
-  eq(real.index.FOLLOW, nil, "the real field-move data itself is never modified")
+  eq(real.index[PartyRoles.ROLE], nil, "the real field-move data itself is never modified")
 end
 
--- ------- with field moves the rows sit after them; a pike-style list without SWITCH still works
+-- ------- ROLE opens the submenu; Back and B return
 do
   local roles = PartyRoles.new(Companion.new(mod))
-  local menu = newMenu({ "SUMMARY", "CUT", "SWITCH", "ITEM", "CANCEL" })
-  menu._fieldMoveNames.CUT = true
+  local menu = newMenu({ "SUMMARY", "SWITCH", "ITEM", "CANCEL" })
   roles:onMenuUpdate(menu)
-  eq(labels(menu), "SUMMARY,CUT,FOLLOW,BATTLE,FORAGE,SWITCH,ITEM,CANCEL", "field moves keep their place")
-  local pike = newMenu({ "SUMMARY", "ITEM", "CANCEL" })
-  roles:onMenuUpdate(pike)
-  eq(labels(pike), "SUMMARY,FOLLOW,BATTLE,FORAGE,ITEM,CANCEL", "without SWITCH they go before ITEM")
+  menu.actionCursor = 1
+  eq(roles:onInput(menu, press("a")), false, "A on SUMMARY is the engine's")
+  eq(roles:onInput(menu, press("b")), false, "B on the primary list is the engine's (it closes the menu)")
+  eq(roles:onInput(menu, press("down")), false, "moving the cursor is the engine's")
+  menu.actionCursor = 2 -- ROLE
+  E.selects = 0
+  eq(roles:onInput(menu, press("a")), true, "A on ROLE is ours")
+  eq(labels(menu), "FOLLOW,FORAGE,FIGHT,BACK", "the action list is now the role submenu")
+  eq(menu.actionCursor, 1, "the cursor starts on Follow")
+  eq(menu._actionTexts.list, menu.ACTIONS, "its texts belong to the new list")
+  eq(menu._actionTexts.texts[1], "FOLLOW", "the roles show their own names")
+  check(menu._actionTexts.texts[4]:find("\226\151\128", 1, true), "Back has a left arrow")
+  eq(E.selects, 1, "opening it clicks")
+  roles:onMenuUpdate(menu)
+  eq(labels(menu), "FOLLOW,FORAGE,FIGHT,BACK", "a menu update does not treat the submenu as a new list")
+  eq(roles:onInput(menu, press("a")), false, "A on FOLLOW is the engine's (it asks fromMenu)")
+  menu.actionCursor = 3
+  eq(roles:onInput(menu, press("a")), false, "...so is A on FIGHT")
+  menu.actionCursor = 4
+  eq(roles:onInput(menu, press("a")), true, "A on BACK is ours")
+  eq(labels(menu), "SUMMARY,ROLE,SWITCH,ITEM,CANCEL", "it returns to the primary list")
+  eq(menu.actionCursor, 2, "...with the cursor back on ROLE")
+  eq(menu._actionTexts.list, menu.ACTIONS, "...and its texts")
+  roles:onInput(menu, press("a")) -- ROLE again (cursor is on it)
+  eq(labels(menu), "FOLLOW,FORAGE,FIGHT,BACK", "ROLE opens it again")
+  menu.actionCursor = 2
+  eq(roles:onInput(menu, press("b")), true, "B in the submenu is ours")
+  eq(labels(menu), "SUMMARY,ROLE,SWITCH,ITEM,CANCEL", "...and goes back, not out of the menu")
+  -- a role chosen: the engine shows the message and later builds a fresh list
+  roles:onInput(menu, press("a"))
+  menu.ACTIONS = { "SUMMARY", "SWITCH", "ITEM", "CANCEL" }
+  roles:onMenuUpdate(menu)
+  eq(labels(menu), "SUMMARY,ROLE,SWITCH,ITEM,CANCEL", "the next menu starts on the primary list again")
+  eq(roles:onInput(menu, press("b")), false, "...so B closes it as usual")
 end
 
--- ------- too many rows for the box: one COMPANION row that cycles the role
+-- ------- other menus' input is never touched
 do
   local roles = PartyRoles.new(Companion.new(mod))
-  local menu = newMenu({ "SUMMARY", "CUT", "CUT", "CUT", "CUT", "SWITCH", "ITEM", "CANCEL" })
+  local menu = newMenu({ "SUMMARY", "SWITCH", "ITEM", "CANCEL" })
   roles:onMenuUpdate(menu)
-  eq(#menu.ACTIONS, 9, "a crowded list gets a single row (9 rows is the box's limit)")
-  check(menu._fieldMoveNames.COMPANION, "...registered like the others")
+  menu.actionCursor = 2
+  local other = newMenu({ "SUMMARY", "SWITCH", "ITEM", "CANCEL" })
+  other.actionCursor = 2
+  eq(roles:onInput(other, press("a")), false, "a list we did not touch")
+  local list = newMenu({ "SUMMARY", "SWITCH", "ITEM", "CANCEL" })
+  roles:onMenuUpdate(list)
+  list.actionCursor, list.mode = 2, "list"
+  eq(roles:onInput(list, press("a")), false, "the party list itself")
+  eq(roles:onInput(nil, press("a")), false, "no menu at all is harmless")
+  eq(roles:onInput(menu, nil), false, "...and no input")
 end
 
 -- ------- every other menu is left alone
@@ -150,13 +206,13 @@ do
   check(pcall(roles.onMenuUpdate, roles, nil), "no menu at all is harmless")
 end
 
--- ------- choosing a row sets the companion and answers with a message
+-- ------- choosing a role sets the companion and answers with a message
 do
   store = {}
   local companion = Companion.new(mod)
   local roles = PartyRoles.new(companion)
   local mon = { personality = 77, species = 252, hp = 10, nickname = "BLAZE" }
-  local res = roles:fromMenu("BATTLE", { mon = mon, party = { mon } })
+  local res = roles:fromMenu("FIGHT", { mon = mon, party = { mon } })
   check(res and res.ok == false, "the engine is told to show a message (ok = false)")
   check(res.text:find("BLAZE", 1, true) and res.text:lower():find("battle", 1, true), "the message names the Pokemon and the job")
   eq(select(2, companion:resolve({ mon })), "battle", "the companion is now a Battler")
@@ -167,15 +223,8 @@ do
   check(res.text:lower():find("follow", 1, true), "with its own line")
   eq(roles:fromMenu("CUT", { mon = mon }), nil, "a real field move is left to the engine")
   eq(roles:fromMenu("SURF", nil), nil, "...with or without a context")
-  -- the compact row cycles
-  roles:fromMenu("FOLLOW", { mon = mon })
-  roles:fromMenu("COMPANION", { mon = mon })
-  eq(select(2, companion:resolve({ mon })), "battle", "COMPANION: follow -> battle")
-  roles:fromMenu("COMPANION", { mon = mon })
-  eq(select(2, companion:resolve({ mon })), "forage", "...-> forage")
-  roles:fromMenu("COMPANION", { mon = mon })
-  eq(select(2, companion:resolve({ mon })), "follow", "...-> follow")
-  res = roles:fromMenu("BATTLE", { mon = {} })
+  eq(roles:fromMenu("ROLE", { mon = mon }), nil, "ROLE and BACK never reach the engine as roles")
+  res = roles:fromMenu("FIGHT", { mon = {} })
   check(res and res.ok == false, "a Pokemon that cannot be saved still answers (no crash)")
 end
 

@@ -38,7 +38,9 @@ fake["src.core.game3.field_moves"] = {
   partyMoveUser = function(_party, key) return moveMon[key] end,
   fromMenu = function(_label, _ctx) return { ok = false, text = "original" } end,
 }
-fake["src.ui.game3.party_menu"] = { update = function() end, open = false, ACTIONS = {} }
+local handled = { n = 0, last = nil }
+fake["src.ui.game3.party_menu"] = { update = function() end, open = false, ACTIONS = {},
+  handleInput = function(input) handled.n = handled.n + 1 handled.last = input end }
 local followerNpc = nil
 fake["src.world.game3.Follower"] = {
   update = function(_game) end,
@@ -260,6 +262,7 @@ local originalBlocks = fake["src.core.game3.objects"].blocks
 local calls = { collectActors = 0, blocks = 0, followerTick = 0, messageDraw = 0, interact = 0 }
 local originalMessageDraw = fake["src.ui.game3.message"].draw
 local originalPartyUpdate = fake["src.ui.game3.party_menu"].update
+local originalPartyInput = fake["src.ui.game3.party_menu"].handleInput
 local originalFromMenu = fake["src.core.game3.field_moves"].fromMenu
 local partyCalls, fromMenuAnswer = 0, nil
 local installed = EnginePatch.install({
@@ -269,6 +272,7 @@ local installed = EnginePatch.install({
   messageDraw = function() calls.messageDraw = calls.messageDraw + 1 end,
   interact = function() calls.interact = calls.interact + 1 return calls.takeInteract == true end,
   partyMenuUpdate = function(menu) partyCalls = partyCalls + 1 calls.menuArg = menu end,
+  partyMenuInput = function(menu, input) calls.inputArg = input return calls.takeInput end,
   fromMenu = function(label, _ctx) calls.fromMenuLabel = label return fromMenuAnswer end,
 }, { warn = function() end, info = function() end })
 check(installed, "install succeeds against the fake engine")
@@ -308,6 +312,16 @@ fake["src.ui.game3.party_menu"].update(1 / 60)
 eq(partyCalls, 1, "the partyMenuUpdate hook ran after PartyMenu.update")
 eq(calls.menuArg, fake["src.ui.game3.party_menu"], "...and received the party menu module")
 eq(EnginePatch.partyMenu(), fake["src.ui.game3.party_menu"], "partyMenu() hands the module out")
+
+-- party menu input seam: the hook sees the buttons first and may consume them
+local pm = fake["src.ui.game3.party_menu"]
+pm.handleInput("frame1")
+eq(calls.inputArg, "frame1", "the partyMenuInput hook saw the input")
+eq(handled.n, 1, "...and the engine's handleInput still ran when the hook declined")
+calls.takeInput = true
+pm.handleInput("frame2")
+eq(handled.n, 1, "a consumed press never reaches the engine's handleInput")
+calls.takeInput = nil
 
 -- FieldMoves.fromMenu: our answer wins, anything else reaches the real function
 local passed = fake["src.core.game3.field_moves"].fromMenu("CUT", {})
@@ -481,6 +495,7 @@ eq(fake["src.core.game3.objects"].blocks, originalBlocks, "uninstall restores th
 eq(fake["src.ui.game3.message"].draw, originalMessageDraw, "uninstall restores the original Message.draw")
 eq(fake["src.core.game3.field"].interact, originalInteract, "uninstall restores the original Field.interact")
 eq(fake["src.ui.game3.party_menu"].update, originalPartyUpdate, "uninstall restores PartyMenu.update")
+eq(fake["src.ui.game3.party_menu"].handleInput, originalPartyInput, "uninstall restores PartyMenu.handleInput")
 eq(fake["src.core.game3.field_moves"].fromMenu, originalFromMenu, "uninstall restores FieldMoves.fromMenu")
 
 local blockedAfterUninstall = fake["src.core.game3.objects"].blocks(1, 2, nil, 3)

@@ -77,15 +77,15 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
       `portraitUI:say("...", { mon = <party mon> })`).
 - [ ] Ordinary NPC/sign messages (no portrait set) look exactly as before.
 
-## Companion roles (party menu: Follow / Battle / Forage)
+## Companion roles (party menu: ROLE -> Follow / Forage / Fight)
 
 - [ ] There is no Follower option in the mod's menu any more. A new game /
       save with nothing chosen: the lead Pokemon follows as before.
-- [ ] Party menu -> A on a Pokemon shows FOLLOW, BATTLE, FORAGE (before
-      SWITCH) in blue like field moves, and the box fits the screen even with
-      several field moves (otherwise one COMPANION row that cycles the role).
-      Eggs show none. In a battle's party screen / item use there are none.
-- [ ] Choosing one shows "<name> will ..." in the menu; leaving the menu, THAT
+- [ ] Party menu -> A on a Pokemon shows ROLE (before SWITCH, with a right
+      arrow at the far right of the row). A opens FOLLOW, FORAGE, FIGHT and
+      "<- BACK"; B or BACK returns to the first list with the cursor on ROLE.
+      Eggs show none. In a battle's party screen / item use there is none.
+- [ ] Choosing a role shows "<name> will ..." in the menu; leaving the menu, THAT
       Pokemon (any slot, not just the lead) is the one out. It survives
       reordering the party, saving and reloading, and checkpoints.
 - [ ] A fainted companion is replaced by the lead (following) and returns to

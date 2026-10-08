@@ -288,6 +288,7 @@ end
 ---   hooks.messageDraw()               -- run after Message.draw (portraits)
 ---   hooks.interact(game) -> true       -- run BEFORE Field.interact; true = handled
 ---   hooks.partyMenuUpdate(PartyMenu)   -- run after PartyMenu.update (role rows)
+---   hooks.partyMenuInput(PartyMenu, input) -> true  -- run BEFORE PartyMenu.handleInput; true = consumed
 ---   hooks.fromMenu(label, ctx) -> res  -- first say on a party-menu field-move row
 --- install() does nothing destructive until probe() has already passed;
 --- main.lua is expected to call probe() first and only call install() when
@@ -356,6 +357,21 @@ function EnginePatch.install(hooks, log)
     return a, b, c
   end
 
+  -- party_menu.lua:1514 PartyMenu.handleInput(input) reads the buttons (hud.lua calls
+  -- it with the frame's input). The ROLE row opens a submenu of our own, so this
+  -- wrap sees A / B first and may consume them (lib/party_roles.lua onInput). Not
+  -- a probed target: without it the ROLE submenu just never opens.
+  originals.partyMenuInput = PartyMenu.handleInput
+  if type(originals.partyMenuInput) == "function" then
+    PartyMenu.handleInput = function(input, ...)
+      if hooks.partyMenuInput then
+        local consumed = safeCall(log, "partyMenuInput", hooks.partyMenuInput, PartyMenu, input)
+        if consumed then return end
+      end
+      return originals.partyMenuInput(input, ...)
+    end
+  end
+
   local FieldMoves = loadModule(EnginePatch.TARGETS.fieldMovesFromMenu.mod)
   originals.fromMenu = FieldMoves.fromMenu
   FieldMoves.fromMenu = function(label, ctx, ...)
@@ -403,6 +419,9 @@ function EnginePatch.uninstall()
   end
 
   local PartyMenu = loadModule(EnginePatch.TARGETS.partyMenuUpdate.mod)
+  if PartyMenu and originals.partyMenuInput then
+    PartyMenu.handleInput = originals.partyMenuInput
+  end
   if PartyMenu and originals.partyMenuUpdate then
     PartyMenu.update = originals.partyMenuUpdate
   end
@@ -1166,6 +1185,14 @@ function EnginePatch.playSuccess()
   local Ids = loadModule(EnginePatch.READONLY.seSuccess.mod)
   if not (Audio and Audio.playSe and Ids and Ids.SE_SUCCESS) then return false end
   return (pcall(Audio.playSe, Ids.SE_SUCCESS))
+end
+
+--- The menu cursor's click (SE_SELECT). No-op when the audio pieces are absent.
+function EnginePatch.playSelect()
+  local Audio = loadModule(EnginePatch.READONLY.playSe.mod)
+  local Ids = package.loaded["src.core.game3.se_ids"]
+  if not (Audio and Audio.playSe and Ids and Ids.resolve) then return false end
+  return (pcall(function() Audio.playSe(Ids.resolve("SE_SELECT")) end))
 end
 
 --- Width in px of `text` in the engine's dialogue font (0 when unavailable).

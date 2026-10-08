@@ -182,9 +182,13 @@ return function(mod)
     interact = function(game)
       return followerInteraction:tryStart(game)
     end,
-    -- Follow / Battle / Forage rows in the party menu (lib/party_roles.lua)
+    -- the ROLE row in the party menu (lib/party_roles.lua)
     partyMenuUpdate = function(menu)
       partyRoles:onMenuUpdate(menu)
+    end,
+    -- A / B in the party menu's ROLE submenu (lib/party_roles.lua); true = consumed
+    partyMenuInput = function(menu, input)
+      return partyRoles:onInput(menu, input)
     end,
     fromMenu = function(label, ctx)
       return partyRoles:fromMenu(label, ctx)

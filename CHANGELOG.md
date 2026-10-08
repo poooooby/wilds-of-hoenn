@@ -8,7 +8,11 @@
   (Pet / Play / Talk), Role (Follow / Forage / Fight) and Recall, each sub menu
   with a Back row (B goes back too). Recall shrinks it back into you;
   it stays inside until you pick a job for it again, from this menu or from the
-  party menu's Follow / Battle / Forage rows.
+  party menu's ROLE row.
+- The party menu now has a single ROLE row (with a right arrow) that opens a sub
+  menu: Follow / Forage / Fight / Back (B goes back too). It replaces the three
+  Follow / Battle / Forage rows, and always fits the box, so the one-row
+  COMPANION fallback is gone.
 - Changing the companion (another Pokemon, another job, or a recall) is now a
   scene: after you close the menu, you raise a Poke Ball in one hand, the old
   companion shrinks into you, then you raise it again and the new one grows
