@@ -22,6 +22,7 @@ local V = ...
 local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
 local SpriteSource = V.require("sprite_source")
+local FormSource = V.require("form_source")
 local ActorRenderer = V.require("actor_renderer")
 local MonMood = V.require("mon_mood")
 
@@ -56,7 +57,7 @@ end
 --- derived one (e.g. "Determined" for a Play action). Returns false when the
 --- mon has no national dex number to look art up by.
 function PortraitUI:showMon(mon, emotion)
-  local dex = type(mon) == "table" and EnginePatch.nationalFor(mon.species or mon.speciesId) or nil
+  local dex = type(mon) == "table" and FormSource.artKeyFor(self.mod, mon.species or mon.speciesId) or nil
   if not dex then return false end
   local shiny = false
   if mon.personality ~= nil then
@@ -133,8 +134,9 @@ function PortraitUI:draw()
     self:clear()
     return
   end
-  local info = SpriteSource.portraitInfo(self.mod, self.dex)
-  local path, column = SpriteSource.portraitCell(info, self.dex, self.shiny, self.emotion)
+  local key = SpriteSource.portraitKey(self.mod, self.dex)
+  local info = SpriteSource.portraitInfo(self.mod, key)
+  local path, column = SpriteSource.portraitCell(info, key, self.shiny, self.emotion)
   if not path then return end
   local image = ActorRenderer.loadImage(self.mod, path)
   if not image then return end

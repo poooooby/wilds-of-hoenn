@@ -277,6 +277,15 @@ function SpriteSource.portraitInfo(mod, dex)
   return { emotions = entry.emotions, shiny = entry.shiny == true, size = tonumber(index.size) or 40 }
 end
 
+--- The art key whose portrait sheet to use: the form's own when it has one, else
+--- its base species' (a form with no portrait art shows the base species' face).
+function SpriteSource.portraitKey(mod, key)
+  if SpriteSource.isForm(key) and not SpriteSource.portraitInfo(mod, key) then
+    return SpriteSource.baseOf(key)
+  end
+  return key
+end
+
 -- When a species has no art for an emotion, the nearest one it does have is
 -- used, walking this chain and ending at Normal (so e.g. a species with no
 -- Teary-Eyed shows Crying, then Sad).

@@ -205,6 +205,30 @@ do
   eq(SpriteSource.isFloater(mod, "006-nosuch"), SpriteSource.isFloater(mod, 6), "a form floats if its base does")
 end
 
+-- ------- portraits of forms: its own sheet when baked, else the base species'
+do
+  local pm = { read = function(_, rel)
+    if rel == "assets/pmd/portraits.json" then
+      return '{"version":1,"size":40,"dex":{"25":{"emotions":["Normal"]},"479-heat":{"emotions":["Normal"]}}}'
+    end
+  end }
+  local V3 = { path = "." }
+  local mods = {}
+  function V3.require(n)
+    if mods[n] then return mods[n] end
+    if n == "sprite_atlas" then return { installed = function() return false end, has = function() return false end } end
+    mods[n] = assert(loadfile("lib/" .. n .. ".lua"))(V3)
+    return mods[n]
+  end
+  local SS = V3.require("sprite_source")
+  eq(SS.portraitKey(pm, "479-heat"), "479-heat", "a form with its own portrait uses it")
+  eq(SS.portraitKey(pm, "711-small"), 711, "a form without one shows its base species")
+  eq(SS.portraitKey(pm, 25), 25, "a base species is unchanged")
+  local info = SS.portraitInfo(pm, "479-heat")
+  local path = SS.portraitCell(info, "479-heat", false, "Happy")
+  eq(path, "assets/pmd/portraits/479-heat-normal.png", "the form's sheet path")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

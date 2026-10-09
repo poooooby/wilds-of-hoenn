@@ -253,14 +253,15 @@ EMOTIONS = ("Normal", "Happy", "Joyous", "Inspired", "Worried", "Sad",
 PORTRAIT_SIZE = 40
 
 
-def bake_portraits(src: Path, out: Path, dex: int, include_shiny: bool = False):
+def bake_portraits(src: Path, out: Path, dex: int, include_shiny: bool = False,
+                   folder: Path | None = None):
     """-> (entry, normal_sheet, shiny_sheet|None) or None.
 
     Shiny portraits are skipped unless `include_shiny`: they are about half of
     all portrait art and a shiny Pokemon talking with its normal face is a
     fair trade. A species without a shiny sheet is served its normal one by
     SpriteSource.portraitCell (info.shiny == false), so nothing else changes."""
-    folder = src / "portrait" / f"{dex:04d}"
+    folder = folder or src / "portrait" / f"{dex:04d}"
     shiny_dir = folder / SHINY_SUBDIR
     names, normal_imgs, shiny_imgs = [], [], []
     for emotion in EMOTIONS:
@@ -511,28 +512,33 @@ def main() -> int:
             pass
     pstats = {"baked": 0, "none": 0}
     portrait_credits: dict[int, str] = {}
-    for dex in range(1, MAX_DEX + 1):
-        if wanted is not None and dex not in wanted:
-            continue
-        if not (src / "portrait" / f"{dex:04d}").is_dir():
+    targets = [(d, f"{d:03d}", src / "portrait" / f"{d:04d}")
+               for d in range(1, MAX_DEX + 1) if wanted is None or d in wanted]
+    # alternate forms (tools/form_art_map.py): one sheet per form that has its own
+    # portrait folder; a form without one is shown with its base species' portrait
+    targets += [(d, f"{d:03d}-{form}", src / "portrait" / f"{d:04d}" / folder)
+                for d, form, folder, _hgss in FORM_ART
+                if folder and (wanted is None or d in wanted) and not folder.count("/")]
+    for dex, key, folder in targets:
+        if not folder.is_dir():
             pstats["none"] += 1
             continue
-        result = bake_portraits(src, out, dex, args.shiny_portraits)
+        result = bake_portraits(src, out, dex, args.shiny_portraits, folder)
         if result is None:
             pstats["none"] += 1
             continue
         entry, normal, shiny = result
-        pindex["dex"][str(dex)] = entry
-        pline = portrait_credit_line(src, dex, names)
+        pindex["dex"][key] = entry
+        pline = portrait_credit_line(src, dex, names) if key == f"{dex:03d}" else None
         if pline:
             portrait_credits[dex] = pline
         if shiny is None:  # never leave an earlier bake's shiny sheet behind
-            (out / "portraits" / f"{dex:03d}-shiny.png").unlink(missing_ok=True)
-        normal_path = out / "portraits" / f"{dex:03d}-normal.png"
+            (out / "portraits" / f"{key}-shiny.png").unlink(missing_ok=True)
+        normal_path = out / "portraits" / f"{key}-normal.png"
         if args.force or not normal_path.exists():
             normal.save(normal_path, "PNG", optimize=True)
             if shiny is not None:
-                shiny.save(out / "portraits" / f"{dex:03d}-shiny.png", "PNG", optimize=True)
+                shiny.save(out / "portraits" / f"{key}-shiny.png", "PNG", optimize=True)
         pstats["baked"] += 1
     pindex_path.write_text(json.dumps(pindex, separators=(",", ":"), sort_keys=True), encoding="utf-8")
     print(f"portraits: {pstats['baked']} species baked, {pstats['none']} without usable portraits")

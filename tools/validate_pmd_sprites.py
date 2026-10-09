@@ -85,12 +85,12 @@ def main() -> int:
         pidx = json.loads(pidx_path.read_text(encoding="utf-8"))
         size = pidx.get("size")
         pexpected: set[str] = set()
-        for dex, entry in sorted(pidx.get("dex", {}).items(), key=lambda kv: int(kv[0])):
+        for dex, entry in sorted(pidx.get("dex", {}).items(), key=lambda kv: (int(kv[0].split("-")[0]), kv[0])):
             emotions = entry.get("emotions") or []
             if "Normal" not in emotions:
                 errors.append(f"portrait {dex}: no Normal emotion")
             for variant in ["normal"] + (["shiny"] if entry.get("shiny") else []):
-                rel = f"portraits/{int(dex):03d}-{variant}.png"
+                rel = f"portraits/{sheet_name(dex)}-{variant}.png"
                 pexpected.add(rel)
                 p = PMD / rel
                 if not p.is_file():

@@ -10,8 +10,14 @@
   "games": ["gen3"],
   "priority": 80,
   "dependencies": [],
-  "optional_dependencies": [],
-  "conflicts": [],
+  "optional_dependencies": [
+    "national_dex_gen3",
+    "modern_spawns",
+    "g9-battle-sprites-gen3"
+  ],
+  "conflicts": [
+    "wildfollowers"
+  ],
   "permissions": ["engine_internals"],
   "affects_link": false,
   "options_schema": "options.lua",
