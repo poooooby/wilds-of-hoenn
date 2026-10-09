@@ -25,6 +25,12 @@ OPTIONAL_ANIMS = ("attack", "hurt")  # present for most species, never required
 DIRECTIONS = 4
 
 
+def sheet_name(key: str) -> str:
+    """"25" -> "025"; a form key "479-heat" -> "479-heat" (already padded)."""
+    base, _, form = key.partition("-")
+    return f"{int(base):03d}" + (f"-{form}" if form else "")
+
+
 def main() -> int:
     index_path = PMD / "index.json"
     if not index_path.is_file():
@@ -37,7 +43,7 @@ def main() -> int:
     dex_map = index.get("dex", {})
     expected: set[str] = set()
 
-    for dex, entry in sorted(dex_map.items(), key=lambda kv: int(kv[0])):
+    for dex, entry in sorted(dex_map.items(), key=lambda kv: (int(kv[0].split("-")[0]), kv[0])):
         for anim in ANIMS + OPTIONAL_ANIMS:
             e = entry.get(anim)
             if not isinstance(e, dict):
@@ -54,7 +60,7 @@ def main() -> int:
                 errors.append(f"{dex} {anim}: ground anchor ({e.get('ax')},{e.get('ay')}) far outside the {cw}x{ch} cell")
             variants = ["normal"] + (["shiny"] if e.get("shiny") else [])
             for variant in variants:
-                rel = f"{anim}/{int(dex):03d}-{variant}.png"
+                rel = f"{anim}/{sheet_name(dex)}-{variant}.png"
                 expected.add(rel)
                 p = PMD / rel
                 if not p.is_file():

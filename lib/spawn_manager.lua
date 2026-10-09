@@ -11,6 +11,7 @@ local ActorRenderer = V.require("actor_renderer")
 local RendererFactory = V.require("renderer_factory")
 local Reachability = V.require("reachability")
 local SpriteSource = V.require("sprite_source")
+local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
 local ModernSpawns = V.require("modern_spawns_bridge")
 
@@ -156,7 +157,7 @@ function SpawnManager:_spawnOne(terrain, cell)
   -- Modern Spawns' species for the slot the engine rolled (no-op without it)
   enc = ModernSpawns.apply(self.mapId, terrain, enc)
   if not EnginePatch.repelAllows(enc.level) then return false end
-  local dex = EnginePatch.nationalFor(enc.species)
+  local dex = FormSource.artKeyFor(self.mod, enc.species)
   if not dex then return false end
   enc = Shiny.rollForEncounter(self.mod, enc)
 

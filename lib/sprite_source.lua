@@ -74,6 +74,34 @@ SpriteSource.DEFAULT_PRESENTATION = SpriteSource.PRESENTATION_LAND
 -- first, levitates second" is the real behaviour and not a simplification.
 SpriteSource.DEFAULT_WATER_PRESENTATION = SpriteSource.PRESENTATION_SWIMMING
 
+-- An ART KEY names one sheet: a plain national dex NUMBER for a base species,
+-- or the string "%03d-<form>" for an alternate form ("413-sandy", "479-heat",
+-- "670-eternal"; lib/form_source.lua builds it). Forms share their base's dex
+-- number, so the key -- never the number -- is what tells them apart. A form
+-- with no art of its own falls back to its base species' sheet.
+--- "%03d" for a dex number, the string itself for a form key.
+function SpriteSource.keyName(key)
+  if type(key) == "number" then return string.format("%03d", key) end
+  return tostring(key)
+end
+
+--- The base species' dex number behind an art key (nil when malformed).
+function SpriteSource.baseOf(key)
+  if type(key) == "number" then return key end
+  if type(key) == "string" then return tonumber(key:match("^(%d+)")) end
+  return nil
+end
+
+--- true for a form key ("413-sandy"), false for a plain dex number.
+function SpriteSource.isForm(key)
+  return type(key) == "string" and key:find("^%d+%-.") ~= nil
+end
+
+local function validKey(key)
+  local base = SpriteSource.baseOf(key)
+  return base ~= nil and base >= 1 and base <= 1025
+end
+
 local function fileExists(mod, rel)
   -- baked into the atlas (a release ZIP has no loose per-species sheets)
   if SpriteAtlas and SpriteAtlas.installed() and SpriteAtlas.has(rel) then return true end
@@ -106,7 +134,7 @@ local TRUE_SIZE18_FOLDER = {
 local function trueSize18Path(mod, dex, presentation, variant)
   local folder = TRUE_SIZE18_FOLDER[presentation]
   if not folder then return nil end
-  local p = string.format("%s/%s/%03d-%s.png", TRUE_SIZE18_REL, folder, dex, variant)
+  local p = string.format("%s/%s/%s-%s.png", TRUE_SIZE18_REL, folder, SpriteSource.keyName(dex), variant)
   if fileExists(mod, p) then return p end
   return nil
 end
@@ -134,7 +162,7 @@ end
 --- before that style was removed) draws it too. Returns nil if nothing at
 --- all covers this dex.
 function SpriteSource.normalPath(mod, dex, _style, presentation)
-  if type(dex) ~= "number" or dex < 1 or dex > MAX_DEX then return nil end
+  if not validKey(dex) then return nil end
   return pokemmoPath(mod, dex, presentation or SpriteSource.DEFAULT_PRESENTATION, "normal")
 end
 
@@ -142,7 +170,7 @@ end
 --- rules as normalPath. Returns nil if no genuine shiny source art exists
 --- (caller should fall back to normalPath, not synthesize a recolor).
 function SpriteSource.shinyPath(mod, dex, _style, presentation)
-  if type(dex) ~= "number" or dex < 1 or dex > MAX_DEX then return nil end
+  if not validKey(dex) then return nil end
   return pokemmoPath(mod, dex, presentation or SpriteSource.DEFAULT_PRESENTATION, "shiny")
 end
 
@@ -152,11 +180,23 @@ end
 --- copy present (water falls through water -> water -> land, see
 --- pokemmoPath).
 function SpriteSource.pathFor(mod, dex, shiny, style, presentation)
-  if shiny then
-    local p = SpriteSource.shinyPath(mod, dex, style, presentation)
+  -- a form's own art first (shiny, then normal), then its base species'
+  local keys = { dex }
+  if SpriteSource.isForm(dex) then keys[2] = SpriteSource.baseOf(dex) end
+  for _, key in ipairs(keys) do
+    if shiny then
+      local p = SpriteSource.shinyPath(mod, key, style, presentation)
+      if p then return p end
+    end
+    local p = SpriteSource.normalPath(mod, key, style, presentation)
     if p then return p end
   end
-  return SpriteSource.normalPath(mod, dex, style, presentation)
+  return nil
+end
+
+--- Whether an art key (a form) has HGSS / PokeMMO art of its own on land.
+function SpriteSource.hasOwnArt(mod, key)
+  return validKey(key) and trueSize18Path(mod, key, SpriteSource.PRESENTATION_LAND, "normal") ~= nil
 end
 
 -- PMDCollab (STYLE_PMD): assets/pmd/index.json, baked by
@@ -189,7 +229,7 @@ end
 --- species has no PMDCollab art.
 function SpriteSource.pmdInfo(mod, dex)
   local index = SpriteSource.pmdIndex(mod)
-  local info = index and type(dex) == "number" and index.dex[tostring(dex)]
+  local info = index and (type(dex) == "number" or type(dex) == "string") and index.dex[tostring(dex)]
   if type(info) == "table" and type(info.walk) == "table" and type(info.idle) == "table" then
     return info
   end
@@ -202,7 +242,7 @@ function SpriteSource.pmdPath(info, anim, dex, shiny)
   local entry = info and info[anim]
   if type(entry) ~= "table" then return nil end
   local variant = (shiny and entry.shiny) and "shiny" or "normal"
-  return string.format("assets/pmd/%s/%03d-%s.png", anim, dex, variant)
+  return string.format("assets/pmd/%s/%s-%s.png", anim, SpriteSource.keyName(dex), variant)
 end
 
 -- Portraits: assets/pmd/portraits.json lists, per species, which emotions its
@@ -232,7 +272,7 @@ end
 --- or nil when it has no portrait art.
 function SpriteSource.portraitInfo(mod, dex)
   local index = portraitIndex(mod)
-  local entry = index and type(dex) == "number" and index.dex[tostring(dex)]
+  local entry = index and (type(dex) == "number" or type(dex) == "string") and index.dex[tostring(dex)]
   if type(entry) ~= "table" or type(entry.emotions) ~= "table" then return nil end
   return { emotions = entry.emotions, shiny = entry.shiny == true, size = tonumber(index.size) or 40 }
 end
@@ -264,7 +304,7 @@ function SpriteSource.portraitCell(info, dex, shiny, emotion)
   column = column or columns.Normal
   if column == nil then return nil end
   local variant = (shiny and info.shiny) and "shiny" or "normal"
-  return string.format("assets/pmd/portraits/%03d-%s.png", dex, variant), column
+  return string.format("assets/pmd/portraits/%s-%s.png", SpriteSource.keyName(dex), variant), column
 end
 
 function SpriteSource._resetPmdCache() pmdCache = {} portraitCache = {} end
@@ -281,11 +321,14 @@ local NOT_FLOATERS = {
   [6] = true, -- Charizard
 }
 function SpriteSource.isFloater(mod, dex)
-  if type(dex) ~= "number" or dex < 1 or dex > MAX_DEX then return false end
+  if not validKey(dex) then return false end
   if NOT_FLOATERS[dex] then return false end
   local hit = floaterCache[dex]
   if hit == nil then
     hit = trueSize18Path(mod, dex, SpriteSource.PRESENTATION_LEVITATES, "normal") ~= nil
+    if not hit and SpriteSource.isForm(dex) then
+      hit = SpriteSource.isFloater(mod, SpriteSource.baseOf(dex))
+    end
     floaterCache[dex] = hit
   end
   return hit

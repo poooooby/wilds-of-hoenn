@@ -70,6 +70,8 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageStat
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from form_art_map import FORM_ART, GEN9_FOLLOWERS  # noqa: E402
 
 FORM_PREFERENCE = ("b", "f", "m")  # "both" gender art preferred; gendered-only species fall back
 DIRECTION_ROW = {"down": 0, "left": 1, "up": 3}  # row 2 ("right") is never read
@@ -279,12 +281,34 @@ def scale_and_trim(sheet: Image.Image, scale: float) -> Image.Image:
     return out
 
 
+def halve(im: Image.Image) -> Image.Image:
+    """2x box downscale of RGBA pixel art: colours weighted by alpha so transparent
+    pixels do not darken the edges, alpha then cut hard (>= half) to stay crisp.
+    The Gen 9 follower pack draws twice the size of the Wilds grids."""
+    w, h = im.size
+    small = im.resize((w // 2, h // 2), Image.BOX)  # alpha = coverage
+    src, out = im.load(), Image.new("RGBA", small.size)
+    px = out.load()
+    for y in range(h // 2):
+        for x in range(w // 2):
+            r = g = b = a = 0
+            for dy in (0, 1):
+                for dx in (0, 1):
+                    pr, pg, pb, pa = src[x * 2 + dx, y * 2 + dy]
+                    r, g, b, a = r + pr * pa, g + pg * pa, b + pb * pa, a + pa
+            if a >= 2 * 255:  # at least half covered
+                px[x, y] = (round(r / a), round(g / a), round(b / a), 255)
+    return out
+
+
 def bake_species(kind: str, dex: int, variant: str, override, report: bool,
-                 out_root: Path | None = None) -> dict | None:
-    src = find_source(kind, dex, variant)
+                 out_root: Path | None = None, src: Path | None = None) -> dict | None:
+    src = src or find_source(kind, dex, variant)
     if not src:
         return None
     im = Image.open(src).convert("RGBA")
+    if GEN9_FOLLOWERS in src.parents or GEN9_FOLLOWERS.with_name(GEN9_FOLLOWERS.name + " shiny") in src.parents:
+        im = halve(im)
     w, h = im.size
     cw, ch = w // GRID_COLS, h // GRID_ROWS
 
@@ -411,6 +435,35 @@ def main() -> int:
                     continue
 
                 out_path = out_dir / f"{dex:03d}-{variant}.png"
+                if out_path.exists() and not args.force:
+                    stats["skipped_existing"] += 1
+                    continue
+                result["image"].save(out_path, "PNG", optimize=True)
+                stats["written"] += 1
+
+    # Alternate forms (tools/form_art_map.py): HGSS land art only, written as
+    # <dex3>-<form>-<normal|shiny>.png beside the base sheets. A form with no raw
+    # grid is simply absent and the game draws its base species.
+    if "hgss" in kinds:
+        out_dir = out_root / "hgss"
+        for dex, form, _pmd, hgss_variant in FORM_ART:
+            if hgss_variant is None or (species_filter is not None and dex not in species_filter):
+                continue
+            for variant in ("normal", "shiny"):
+                letter = "n" if variant == "normal" else "s"
+                if isinstance(hgss_variant, str):  # a file of the Gen 9 follower pack
+                    folder = GEN9_FOLLOWERS if variant == "normal" else GEN9_FOLLOWERS.with_name(GEN9_FOLLOWERS.name + " shiny")
+                    src = folder / hgss_variant
+                else:
+                    src = source_dir("hgss", variant) / f"{dex:03d}-b-{letter}-{hgss_variant}.png"
+                if not src.is_file():
+                    stats["missing_source"] += 1
+                    continue
+                result = bake_species("hgss", dex, variant, None, args.report, out_root, src=src)
+                if result is None or args.report:
+                    continue
+                out_dir.mkdir(parents=True, exist_ok=True)
+                out_path = out_dir / f"{dex:03d}-{form}-{variant}.png"
                 if out_path.exists() and not args.force:
                     stats["skipped_existing"] += 1
                     continue

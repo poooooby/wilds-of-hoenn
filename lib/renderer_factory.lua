@@ -13,12 +13,19 @@ local PmdRenderer = V.require("pmd_renderer")
 
 local RendererFactory = {}
 
---- `dex` = national dex number; `presentation` is only used by the
+--- `dex` = an art key (a national dex number, or "%03d-<form>" for an
+--- alternate form; see lib/sprite_source.lua); `presentation` is only used by the
 --- ActorRenderer styles (see lib/sprite_source.lua).
 function RendererFactory.new(mod, dex, shiny, style, presentation)
   if style == SpriteSource.STYLE_PMD then
     local info = SpriteSource.pmdInfo(mod, dex)
     if info then return PmdRenderer.new(mod, dex, shiny, info) end
+    if SpriteSource.isForm(dex) and not SpriteSource.hasOwnArt(mod, dex) then
+      -- a form with no PMD art and no HGSS art either: its base species' PMD sheet
+      local base = SpriteSource.baseOf(dex)
+      local baseInfo = SpriteSource.pmdInfo(mod, base)
+      if baseInfo then return PmdRenderer.new(mod, base, shiny, baseInfo) end
+    end
     style = SpriteSource.PMD_FALLBACK_STYLE
   end
   return ActorRenderer.new(mod, dex, shiny, style, presentation)

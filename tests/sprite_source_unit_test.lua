@@ -188,6 +188,23 @@ local pDefaultStyle = SpriteSource.normalPath(mod, 1, nil)
 eq(pDefaultStyle, p1, "no style argument behaves exactly like STYLE_POKEMMO")
 eq(SpriteSource.DEFAULT_STYLE, SpriteSource.STYLE_POKEMMO, "the renderer's default art style is HGSS / PokeMMO")
 
+-- ------- art keys: a form is "%03d-<form>"; with no art of its own it draws its base
+do
+  eq(SpriteSource.keyName(413), "413", "a dex number pads to three digits")
+  eq(SpriteSource.keyName(7), "007", "...")
+  eq(SpriteSource.keyName("413-sandy"), "413-sandy", "a form key is used as is")
+  eq(SpriteSource.baseOf("479-heat"), 479, "a form key's base dex")
+  eq(SpriteSource.baseOf(25), 25, "a dex number is its own base")
+  check(SpriteSource.isForm("479-heat") and not SpriteSource.isForm(479), "isForm tells a key from a number")
+  local base = SpriteSource.pathFor(mod, 1, false, nil, nil)
+  eq(SpriteSource.pathFor(mod, "001-nosuchform", false, nil, nil), base, "a form with no art falls back to its base sheet")
+  eq(SpriteSource.pathFor(mod, "999-x", false, nil, nil), SpriteSource.pathFor(mod, 999, false, nil, nil), "...whichever the base is")
+  local info = { walk = { shiny = true } }
+  eq(SpriteSource.pmdPath(info, "walk", "479-heat", true), "assets/pmd/walk/479-heat-shiny.png", "PMD form sheets are %03d-<form>")
+  eq(SpriteSource.pmdPath(info, "walk", 479, false), "assets/pmd/walk/479-normal.png", "...and base sheets are unchanged")
+  eq(SpriteSource.isFloater(mod, "006-nosuch"), SpriteSource.isFloater(mod, 6), "a form floats if its base does")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

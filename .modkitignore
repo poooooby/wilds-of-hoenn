@@ -29,6 +29,7 @@ tests/follower_swap_unit_test.lua
 tests/forage_items_unit_test.lua
 tests/forage_source_unit_test.lua
 tests/forager_unit_test.lua
+tests/form_source_unit_test.lua
 tests/grass_cover_unit_test.lua
 tests/health_bar_unit_test.lua
 tests/hit_effect_unit_test.lua
@@ -53,6 +54,7 @@ tests/sprite_source_unit_test.lua
 # bake / validation / asset tools
 tools/check_modkitignore.py
 tools/copy_wilds_assets.py
+tools/form_art_map.py
 tools/generate_pmd_sprites.py
 tools/generate_sprite_atlases.py
 tools/generate_true_size_18frame.py
@@ -74,6 +76,8 @@ WoH.png
 
 # local build output
 dist/wilds-of-hoenn-v0.1.0.zip
+dist/wilds-of-hoenn-v1.4.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.4.0-hgss.zip
 release/wilds-of-hoenn-v1.0.1-hgss.zip
 release/wilds-of-hoenn-v1.1.0-hgss-pmd.zip
 release/wilds-of-hoenn-v1.1.0-hgss.zip
@@ -87,3 +91,7 @@ release/wilds-of-hoenn-v1.2.2-hgss-pmd.zip
 release/wilds-of-hoenn-v1.2.2-hgss.zip
 release/wilds-of-hoenn-v1.3.0-hgss-pmd.zip
 release/wilds-of-hoenn-v1.3.0-hgss.zip
+release/wilds-of-hoenn-v1.4.0-hgss-pmd.zip
+release/wilds-of-hoenn-v1.4.0-hgss.zip
+release/wilds-of-hoenn-v1.5.0-hgss-pmd.zip
+release/wilds-of-hoenn-v1.5.0-hgss.zip

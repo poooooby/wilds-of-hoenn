@@ -20,6 +20,7 @@ local EnginePatch = V.require("engine_patch")
 local ActorRenderer = V.require("actor_renderer")
 local RendererFactory = V.require("renderer_factory")
 local SpriteSource = V.require("sprite_source")
+local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
 local FollowerActions = V.require("follower_actions")
 local PopupText = V.require("popup_text")
@@ -346,7 +347,7 @@ function FollowerAdapter:tick()
   if species ~= self.leadSpecies or style ~= self.style or shiny ~= self.leadShiny
       or npc.sprite ~= self.renderer then
     self.leadSpecies, self.style, self.leadShiny = species, style, shiny
-    local dex = species and EnginePatch.nationalFor(species) or nil
+    local dex = species and FormSource.artKeyFor(self.mod, species) or nil
     if not dex then
       self.renderer = nil
       npc.sprite = nil

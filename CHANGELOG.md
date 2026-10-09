@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Alternate forms draw their own art. With National Dex Gen 3 installed, a form in
+  your party or a wild spawn (Wormadam-Sandy, Rotom-Heat, Galarian / Hisuian forms,
+  Flabebe colours ...) is looked up by its form (`%03d-<form>`, e.g. `479-heat`)
+  instead of its base species' dex number. PMDCollab has 68 form sheets (portraits
+  still use the base species) and HGSS has 73 (from the Wilds grids and the Gen 9
+  follower pack). A form with no art of its own draws its base species: Pumpkaboo /
+  Gourgeist sizes, Zygarde Complete, Antique Sinistea / Polteageist, Artisan
+  Poltchageist, Masterpiece Sinistcha (no different sprite exists for them), and a few
+  PMD forms. See `tools/form_art_map.py`.
+
 ## 1.5.0 (2026-10-08)
 
 ### Fixes

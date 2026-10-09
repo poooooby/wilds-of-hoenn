@@ -52,6 +52,8 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from form_art_map import FORM_ART, SHINY_DIR_OVERRIDE  # noqa: E402
 DEFAULT_SRC = ROOT.parent / "SpriteCollab"
 DEFAULT_OUT = ROOT / "assets" / "pmd"
 
@@ -72,6 +74,24 @@ DIRECTIONS = (("down", 0), ("right", 2), ("up", 4), ("left", 6))
 # The shiny sprites live in <dex>/<form>/<shiny>: form 0, shiny 0001.
 SHINY_SUBDIR = Path("0000") / "0001"
 GROUND_MARKER = (255, 255, 255, 255)
+
+
+def bake_targets(sprite_root: Path, wanted):
+    """(dex, key, folder, shiny folder) for every sheet to bake: each base species
+    (key "%03d"), then each alternate form SpriteCollab draws (key "%03d-<form>",
+    see tools/form_art_map.py; a form whose folder is missing is left out and the
+    game draws the base species instead)."""
+    for dex in range(1, MAX_DEX + 1):
+        if wanted is not None and dex not in wanted:
+            continue
+        folder = sprite_root / f"{dex:04d}"
+        yield dex, f"{dex:03d}", folder, folder / SHINY_SUBDIR
+    for dex, form, pmd_folder, _hgss in FORM_ART:
+        if not pmd_folder or (wanted is not None and dex not in wanted):
+            continue
+        folder = sprite_root / f"{dex:04d}" / pmd_folder
+        shiny = SHINY_DIR_OVERRIDE.get((dex, form)) or f"{pmd_folder}/0001"
+        yield dex, f"{dex:03d}-{form}", folder, sprite_root / f"{dex:04d}" / shiny
 
 
 def parse_anims(xml_path: Path) -> dict[str, dict]:
@@ -203,8 +223,10 @@ def median_height(sheet: Image.Image, cells: list[tuple[int, int]], cw: int, ch:
     return statistics.median(hs) if hs else None
 
 
-def true_size_scale(dex: int, walk_sheet: Image.Image, walk: dict) -> float:
-    p = HGSS_DIR / f"{dex:03d}-normal.png"
+def true_size_scale(dex: int, key: str, walk_sheet: Image.Image, walk: dict) -> float:
+    p = HGSS_DIR / f"{key}-normal.png"
+    if not p.is_file():  # a form with no HGSS sheet of its own is sized like its base
+        p = HGSS_DIR / f"{dex:03d}-normal.png"
     if not p.is_file():
         return 1.0
     hgss = Image.open(p).convert("RGBA")
@@ -400,10 +422,7 @@ def main() -> int:
     credits: dict[int, str] = {}
     stats = {"baked": 0, "skipped_existing": 0, "no_sprites": 0, "unusable": 0}
 
-    for dex in range(1, MAX_DEX + 1):
-        if wanted is not None and dex not in wanted:
-            continue
-        folder = sprite_root / f"{dex:04d}"
+    for dex, key, folder, shiny_dir in bake_targets(sprite_root, wanted):
         xml_path = folder / "AnimData.xml"
         if not xml_path.is_file():
             stats["no_sprites"] += 1
@@ -414,7 +433,6 @@ def main() -> int:
             print(f"WARN dex {dex}: AnimData.xml unreadable ({e})", file=sys.stderr)
             stats["unusable"] += 1
             continue
-        shiny_dir = folder / SHINY_SUBDIR
         shiny_dir = shiny_dir if shiny_dir.is_dir() else None
 
         entry: dict = {}
@@ -440,12 +458,12 @@ def main() -> int:
             info, normal, shiny = result
             entry[anim] = dict(info, shiny=shiny is not None)
             if anim == "walk":
-                entry["scale"] = true_size_scale(dex, normal, info)
-            normal_path = out / anim / f"{dex:03d}-normal.png"
+                entry["scale"] = true_size_scale(dex, key, normal, info)
+            normal_path = out / anim / f"{key}-normal.png"
             if args.force or not normal_path.exists():
                 normal.save(normal_path, "PNG", optimize=True)
                 if shiny is not None:
-                    shiny.save(out / anim / f"{dex:03d}-shiny.png", "PNG", optimize=True)
+                    shiny.save(out / anim / f"{key}-shiny.png", "PNG", optimize=True)
             else:
                 stats["skipped_existing"] += 1
         if ok:
@@ -454,26 +472,26 @@ def main() -> int:
                 if meta is None and anim == "attack":
                     meta = anims.get("Strike")
                 result = bake_anim(folder, shiny_dir, anim.capitalize(), meta) if meta else None
-                normal_path = out / anim / f"{dex:03d}-normal.png"
+                normal_path = out / anim / f"{key}-normal.png"
                 if result is None:
                     normal_path.unlink(missing_ok=True)
-                    (out / anim / f"{dex:03d}-shiny.png").unlink(missing_ok=True)
+                    (out / anim / f"{key}-shiny.png").unlink(missing_ok=True)
                     continue
                 info, normal, _shiny = result
                 # fights are brief: the normal sheet serves shiny too (keeps the ZIP small)
                 entry[anim] = dict(info, shiny=False)
-                (out / anim / f"{dex:03d}-shiny.png").unlink(missing_ok=True)
+                (out / anim / f"{key}-shiny.png").unlink(missing_ok=True)
                 if args.force or not normal_path.exists():
                     normal.save(normal_path, "PNG", optimize=True)
         if not ok:
             for anim in ALL_ANIMS:  # never leave half a species behind
                 for variant in ("normal", "shiny"):
-                    (out / anim / f"{dex:03d}-{variant}.png").unlink(missing_ok=True)
-            index["dex"].pop(str(dex), None)
+                    (out / anim / f"{key}-{variant}.png").unlink(missing_ok=True)
+            index["dex"].pop(key, None)
             stats["unusable"] += 1
             continue
-        index["dex"][str(dex)] = entry
-        line = credit_line(src, dex, names)
+        index["dex"][key] = entry
+        line = credit_line(src, dex, names) if key == f"{dex:03d}" else None  # a form is credited with its base
         if line:
             credits[dex] = line
         stats["baked"] += 1
