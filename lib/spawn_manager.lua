@@ -157,9 +157,15 @@ function SpawnManager:_spawnOne(terrain, cell)
   -- Modern Spawns' species for the slot the engine rolled (no-op without it)
   enc = ModernSpawns.apply(self.mapId, terrain, enc)
   if not EnginePatch.repelAllows(enc.level) then return false end
+  return self:_place(terrain, cell, enc)
+end
+
+-- Puts an already rolled encounter on `cell` as a visible wild Pokemon.
+-- `keepShiny` skips the SHINY RATE roll (the encounter's own `shiny` stands).
+function SpawnManager:_place(terrain, cell, enc, keepShiny)
   local dex = FormSource.artKeyFor(self.mod, enc.species)
   if not dex then return false end
-  enc = Shiny.rollForEncounter(self.mod, enc)
+  if not keepShiny then enc = Shiny.rollForEncounter(self.mod, enc) end
 
   local id = self.nextId
   self.nextId = id + 1
@@ -192,6 +198,65 @@ function SpawnManager:_spawnOne(terrain, cell)
     state = Config.STATE.AVAILABLE,
   }
   self.order[#self.order + 1] = id
+  return true
+end
+
+-- ------- tooling: a chosen species instead of a rolled one -------------------
+-- For developer tools (a separate mod calls these through mod.exports): they
+-- reproduce a problem spawn on demand. Nothing in the game calls them.
+
+--- An encounter for engine species id `species` at `level` with a fresh
+--- personality; `opts.shiny` makes it genuinely shiny (same nature and gender).
+function SpawnManager:encounterFor(species, level, opts)
+  opts = opts or {}
+  local enc = { species = tonumber(species), level = tonumber(level) or 10,
+                personality = EnginePatch.randomPersonality(), shiny = false }
+  if opts.shiny then
+    local ids = EnginePatch.trainerIds() or { otId = 0, otSecretId = 0 }
+    if not EnginePatch.isShiny(enc.personality, ids.otId, ids.otSecretId) then
+      local p = Shiny.boostedPersonality(enc.personality, ids.otId, ids.otSecretId,
+        function(x) return EnginePatch.genderOf(enc.species, x) end)
+      if p then enc.personality = p end
+    end
+    enc.shiny = true
+  end
+  return enc
+end
+
+--- Spawns `species` on a free eligible tile within `opts.radius` (default 3)
+--- of the player: a land tile, else a water tile (`opts.terrain` forces one).
+--- Returns true, cell -- or nil, reason.
+function SpawnManager:spawnSpecies(species, level, opts)
+  opts = opts or {}
+  if not tonumber(species) then return nil, "no species" end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if not p then return nil, "no player" end
+  local radius = tonumber(opts.radius) or 3
+  local order = opts.terrain and { opts.terrain } or { "land", "water" }
+  for _, terrain in ipairs(order) do
+    local near = {}
+    for _, c in ipairs(self.source:eligibleCells(terrain)) do
+      if math.max(math.abs(c.x - p.x), math.abs(c.y - p.y)) <= radius and self:_cellFree(c.x, c.y) then
+        near[#near + 1] = c
+      end
+    end
+    if #near > 0 then
+      local cell = near[math.random(1, #near)]
+      local enc = self:encounterFor(species, level, opts)
+      if self:_place(terrain, cell, enc, true) then return true, cell end
+      return nil, "could not place it"
+    end
+  end
+  return nil, "no valid tile within " .. radius .. " tiles"
+end
+
+--- Starts a wild battle against `species` at `level` right now.
+--- Returns true, or nil, reason.
+function SpawnManager:battleSpecies(species, level, opts)
+  if not tonumber(species) then return nil, "no species" end
+  local enc = self:encounterFor(species, level, opts)
+  local ok, err = EnginePatch.startWild(self.game, enc, {})
+  if not ok then return nil, tostring(err or "the battle did not start") end
   return true
 end
 

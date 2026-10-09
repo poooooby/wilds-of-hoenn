@@ -391,6 +391,48 @@ do
   check(pcall(function() smNone:tick(R_GAME) end), "and ticking is safe")
 end
 
+-- ------- tooling: a chosen species on a tile near the player, or a battle with it
+do
+  fakeEngine.mapBounds = function() return 6, 1 end
+  fakeEngine.terrainAt = function() return "land" end
+  fakeEngine.randomPersonality = function() return 777 end
+  fakeEngine.playerCell = function() return { x = 5, y = 0, moving = false } end
+  local smT = SpawnManager.new(mod)
+  smT:onMapEntered("ROUTE_1", { world = { player = { cellX = 5, cellY = 0 } } })
+  smT:clearAll()
+  local ok, cell = smT:spawnSpecies(999, 12)
+  check(ok == true and cell ~= nil, "spawnSpecies places it")
+  check(cell and math.abs(cell.x - 5) <= 3 and cell.x ~= 5, "...within 3 tiles of the player, never on their tile")
+  local made
+  for _, e in pairs(smT.entities) do made = e end
+  eq(made and made.species, 999, "it is the species asked for")
+  eq(made and made.level, 12, "...at the level asked for")
+  eq(made and made.dex, 252, "...drawn through the usual national dex lookup")
+  eq(made and made.shiny, false, "...not shiny unless asked")
+
+  smT:clearAll()
+  ok = smT:spawnSpecies(999, 5, { shiny = true })
+  for _, e in pairs(smT.entities) do made = e end
+  check(ok == true and made.shiny == true, "shiny = true makes it shiny")
+
+  smT:clearAll()
+  ok = smT:spawnSpecies(999, 5, { radius = 0 })
+  eq(ok, nil, "a radius with no free eligible tile reports why")
+  eq(select(2, smT:spawnSpecies(nil, 5)), "no species", "no species is refused")
+  fakeEngine.playerCell = nil
+  eq(select(2, smT:spawnSpecies(999, 5)), "no player", "no player cell is refused")
+
+  local started
+  fakeEngine.startWild = function(game, enc, opts) started = { game = game, enc = enc } return true end
+  smT.game = { g = 1 }
+  eq(smT:battleSpecies(999, 20, { shiny = true }), true, "battleSpecies starts a battle")
+  check(started and started.enc.species == 999 and started.enc.level == 20 and started.enc.shiny == true,
+    "...with that species, level and shininess")
+  fakeEngine.startWild = function() return nil, "busy" end
+  local bok, why = smT:battleSpecies(999, 20)
+  check(bok == nil and why == "busy", "a battle that will not start says why")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
