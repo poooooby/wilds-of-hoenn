@@ -29,6 +29,7 @@ local SpriteSource = V.require("sprite_source")
 local SpriteAtlas = V.require("sprite_atlas")
 local Config = V.require("config")
 local RecallMath = V.require("recall_math")
+local HdField = V.require("hd_field")
 
 local ActorRenderer = {}
 ActorRenderer.__index = ActorRenderer
@@ -175,7 +176,11 @@ local function loadImage(mod, path)
     local ok, loaded = pcall(SpriteAtlas.image, mod, path)
     if ok then img = loaded end
   end
-  if img then imageCache[path] = img end
+  if img then
+    imageCache[path] = img
+    -- drawn at window resolution by gen3-hd-sprites when it is installed (lib/hd_field.lua)
+    HdField.tag(mod, img)
+  end
   return img
 end
 

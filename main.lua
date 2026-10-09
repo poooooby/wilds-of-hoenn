@@ -53,6 +53,7 @@ return function(mod)
   end
 
   local Config = V.require("config")
+  local HdField = V.require("hd_field")
   local EnginePatch = V.require("engine_patch")
   local SpriteAtlas = V.require("sprite_atlas")
   local SpawnManager = V.require("spawn_manager")
@@ -68,6 +69,7 @@ return function(mod)
   local PartyRoles = V.require("party_roles")
 
   Config.defineOptions(mod)
+  HdField.setSize(Config.get(mod, "overworld_size"))
 
   -- Pure asset I/O, no engine dependency: safe to try regardless of game
   -- version. A repo checkout or --no-atlas build has no assets/atlas/
@@ -277,6 +279,8 @@ return function(mod)
       elseif ev.value ~= true then
         spawnManager:onMapExited()
       end
+    elseif ev.key == "overworld_size" then
+      HdField.setSize(ev.value)
     elseif ev.key == "sprite_style" then
       -- Re-point every already-spawned entity's renderer immediately,
       -- rather than waiting for the next map transition.

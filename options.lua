@@ -62,4 +62,19 @@ return {
     },
     description = "Native keeps the real shiny chance the engine already rolled against your trainer id (no reroll). Each rate re-rolls a non-shiny encounter at that chance until it is shiny, keeping the same nature and gender. All always shows a shiny.",
   },
+  {
+    key = "overworld_size",
+    label = "Overworld Size",
+    type = "choice",
+    default = "100",
+    choices = {
+      { "100%", "100" },
+      { "90%", "90" },
+      { "80%", "80" },
+      { "75%", "75" },
+      { "67%", "67" },
+      { "50%", "50" },
+    },
+    description = "Size of wild Pokemon and your follower in the overworld. Needs the Gen 3 HD Sprites mod (with its Field HD option on), which draws them at your screen's full resolution so any size keeps every pixel of the art; without it they are always drawn at 100%.",
+  },
 }

@@ -13,7 +13,8 @@
   "optional_dependencies": [
     "national_dex_gen3",
     "modern_spawns",
-    "g9-battle-sprites-gen3"
+    "g9-battle-sprites-gen3",
+    "gen3-hd-sprites"
   ],
   "conflicts": [
     "wildfollowers"

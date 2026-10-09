@@ -9,6 +9,7 @@ Config.DEFAULTS = {
   classic_enc = true,
   wild_silhouettes = "off",
   shiny_rate = "native",
+  overworld_size = "100",
 }
 
 Config.STATE = {
