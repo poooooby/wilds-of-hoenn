@@ -34,6 +34,7 @@ tests/grass_cover_unit_test.lua
 tests/health_bar_unit_test.lua
 tests/hit_effect_unit_test.lua
 tests/interaction_limiter_unit_test.lua
+tests/level_ready_unit_test.lua
 tests/main_boot_unit_test.lua
 tests/modern_spawns_bridge_unit_test.lua
 tests/modkit_boot_test.lua
@@ -78,6 +79,8 @@ WoH.png
 dist/wilds-of-hoenn-v0.1.0.zip
 dist/wilds-of-hoenn-v1.4.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.4.0-hgss.zip
+dist/wilds-of-hoenn-v1.6.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.6.0-hgss.zip
 release/wilds-of-hoenn-v1.0.1-hgss.zip
 release/wilds-of-hoenn-v1.1.0-hgss-pmd.zip
 release/wilds-of-hoenn-v1.1.0-hgss.zip

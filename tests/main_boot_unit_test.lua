@@ -96,11 +96,16 @@ local function completeFakeEngine(layout)
     national = function(id) return id end, speciesFromNational = function(n) return n end,
     speciesMeta = function() return {} end, isShiny = function() return false end,
     gender = function() return 0 end,
+    movesLearnedAt = function() return {} end, knowsMove = function() return false end,
     movesAtLevel = function() return { 33 }, { 35 }, { 35 } end, movePp = function() return 35 end,
     moveName = function() return "TACKLE" end, types = function() return { 0, 0 } end,
   }
   fake["src.core.game3.battle.damage"] = { ensureStats = function(m) return m end, calc = function() return 1, {} end }
   fake["src.core.game3.battle.moves"] = { get = function() return { power = 40, accuracy = 100, type = 0, pp = 35 } end }
+  fake["src.core.game3.evolution"] = { levelTarget = function() return nil end }
+  fake["src.core.game3.move_learn"] = { relearnableMoves = function() return {} end }
+  fake["src.ui.game3.evolution_scene"] = { start = function() end, isOpen = function() return false end }
+  fake["src.ui.game3.move_relearner"] = { show = function() end, isOpen = function() return false end }
   fake["src.core.game3.battle.experience"] = { gainFor = function() return 10 end, apply = function() return {} end }
   fake["src.core.game3.runtime"] = { getSession = function() return { party = {} } end }
   fake["src.core.game3.dex"] = { isCaught = function() return false end }

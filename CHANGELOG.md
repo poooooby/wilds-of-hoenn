@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.6.1 (2026-10-09)
+
+### Added
+
+- A Battler that levels up now asks you to finish the job. It cannot learn moves or
+  evolve mid-walk, so "New move ready!" and "Ready to evolve!" float over its head
+  (alternating when both apply) until you face it, press A and pick **Learn Move**
+  or **Evolve** from the menu, which opens the game's own move relearner (listing
+  only the moves it skipped) or evolution scene (you can stop it). Remembered per
+  Pokemon in the save; it stops asking when the move is known or the evolution is
+  no longer possible. It is kept per Pokemon in the save, so it survives a battle,
+  leaving the area, recalling the Pokemon, swapping it out, the PC and a reload,
+  and a request to evolve stays until the Pokemon evolves. A Pokemon holding an
+  Everstone never asks to evolve (the request returns if the stone comes off), and
+  while a move or evolution is waiting the Battler earns no more EXP, so no level
+  (and no move) is skipped.
+
 ## 1.6.0 (2026-10-08)
 
 ### Added

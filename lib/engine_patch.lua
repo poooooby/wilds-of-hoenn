@@ -183,6 +183,16 @@ EnginePatch.READONLY = {
   speciesTypes = { mod = "src.core.game3.pokemon", field = "types" },
   expGainFor = { mod = "src.core.game3.battle.experience", field = "gainFor" },
   expApply = { mod = "src.core.game3.battle.experience", field = "apply" },
+  -- A companion that levels up cannot open the engine's learn / evolve screens
+  -- mid-walk, so it asks the player to (lib/level_ready.lua): the moves it would
+  -- learn at a level, whether it knows one, what it evolves into, and the three
+  -- screens that do it (evolution scene, move relearner; Ruby / Sapphire's has its own).
+  movesLearnedAt = { mod = "src.core.game3.pokemon", field = "movesLearnedAt" },
+  knowsMove = { mod = "src.core.game3.pokemon", field = "knowsMove" },
+  evolutionLevelTarget = { mod = "src.core.game3.evolution", field = "levelTarget" },
+  moveLearnRelearnable = { mod = "src.core.game3.move_learn", field = "relearnableMoves" },
+  evolutionSceneStart = { mod = "src.ui.game3.evolution_scene", field = "start" },
+  moveRelearnerShow = { mod = "src.ui.game3.move_relearner", field = "show" },
 
   -- map.lua:23 Map.currentDef() -> the current map's header ({ mapType, ... }):
   -- a Forager only works on routes and in caves (see EnginePatch.forageAllowed).
@@ -1098,6 +1108,102 @@ function EnginePatch.expApply(mon, amount)
   local ok, result = pcall(Experience.apply, mon, amount)
   if ok and type(result) == "table" then return result end
   return nil
+end
+
+--- Moves `mon`'s species learns at exactly `level` (engine learnset), as ids.
+function EnginePatch.movesLearnedAt(mon, level)
+  local Pokemon = loadModule(EnginePatch.READONLY.movesLearnedAt.mod)
+  if not (Pokemon and type(mon) == "table") then return {} end
+  local species = tonumber(mon.species or mon.speciesId)
+  local ok, list = pcall(Pokemon.movesLearnedAt, species, level)
+  return (ok and type(list) == "table") and list or {}
+end
+
+--- Does `mon` already know `moveId`?
+function EnginePatch.knowsMove(mon, moveId)
+  local Pokemon = loadModule(EnginePatch.READONLY.knowsMove.mod)
+  if not Pokemon then return false end
+  local ok, knows = pcall(Pokemon.knowsMove, mon, moveId)
+  return ok and knows == true
+end
+
+--- What `mon` evolves into at its current level (a level-up evolution), or nil.
+function EnginePatch.evolutionTarget(mon)
+  local Evolution = loadModule(EnginePatch.READONLY.evolutionLevelTarget.mod)
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  if not (Evolution and type(mon) == "table") then return nil end
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  local ok, target = pcall(Evolution.levelTarget, mon, okS and session or nil)
+  if ok and target and target ~= 0 then return target end
+  return nil
+end
+
+--- Opens the engine's evolution scene for `mon` -> `target` (the player may stop
+--- it, as after a battle). `onDone` runs once, when the scene closes. Returns
+--- false (and never calls `onDone`) when the scene could not open.
+function EnginePatch.startEvolution(mon, target, onDone)
+  local Scene = loadModule(EnginePatch.READONLY.evolutionSceneStart.mod)
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  if not (Scene and Scene.start) then return false end
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  session = okS and session or nil
+  local okAudio, Audio = pcall(require, "src.core.game3.audio")
+  local ok = pcall(Scene.start, mon, target, {
+    canStop = true, session = session, bag = type(session) == "table" and session.bag or nil,
+    savedSong = okAudio and Audio and Audio._mapSong or nil,
+    onDone = function() if onDone then onDone() end end,
+  })
+  return ok and Scene.isOpen and Scene.isOpen() == true
+end
+
+--- Opens the engine's move relearner for `mon`, listing only `moveIds` (the moves
+--- a companion skipped, not everything it could ever relearn). Picks Ruby /
+--- Sapphire's own screen on those games. `onDone(learned)` runs once when it
+--- closes. Returns false (and never calls `onDone`) when it could not open.
+function EnginePatch.startMoveLearn(mon, moveIds, onDone)
+  local MoveLearn = loadModule(EnginePatch.READONLY.moveLearnRelearnable.mod)
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  if not (MoveLearn and type(moveIds) == "table" and #moveIds > 0) then return false end
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  session = okS and session or nil
+  local version = type(session) == "table" and session.version or nil
+  local screen = "src.ui.game3.move_relearner"
+  if version == "ruby" or version == "sapphire" then
+    screen = "src.ui.game3.rs.move_relearner"
+  elseif EnginePatch.layoutName() == "rse" then
+    screen = "src.ui.game3.rse.move_relearner"
+  end
+  local okUi, Relearner = pcall(require, screen)
+  if not (okUi and type(Relearner) == "table" and Relearner.show) then return false end
+  -- the screen asks MoveLearn for its list, again after each declined move: answer
+  -- with the skipped moves only (the ones the mon does not know yet) while it is open
+  local original = MoveLearn.relearnableMoves
+  local function only(m)
+    local out = {}
+    for _, id in ipairs(moveIds) do
+      if not EnginePatch.knowsMove(m, id) then out[#out + 1] = id end
+    end
+    return out
+  end
+  MoveLearn.relearnableMoves = only
+  local function restore()
+    if MoveLearn.relearnableMoves == only then MoveLearn.relearnableMoves = original end
+  end
+  local okShow = pcall(Relearner.show, mon, {
+    session = session,
+    onDone = function(learned)
+      restore()
+      if onDone then onDone(learned == true) end
+    end,
+  })
+  -- Ruby / Sapphire's screen is a skin on the shared RSE one, which holds the open flag
+  local isOpen = Relearner.isOpen
+  if not isOpen then
+    local okBase, Base = pcall(require, "src.ui.game3.rse.move_relearner")
+    isOpen = okBase and type(Base) == "table" and Base.isOpen or nil
+  end
+  if not (okShow and isOpen and isOpen()) then restore() return false end
+  return true
 end
 
 --- The current map's type id (include/constants/map_types.h: 1 town, 2 city,

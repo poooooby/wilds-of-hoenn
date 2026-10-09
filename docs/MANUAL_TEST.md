@@ -106,6 +106,20 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
       back, cries, and shrinks into you; the wild Pokemon is left alone. It
       stays inside until healed (Pokemon Center / Potion past ~25% HP and PP
       left), then grows back out and fights again.
+- [ ] Level-up follow-through: let a Battler level up past a level where it
+      learns a move (and one where it evolves). "New move ready!" / "Ready to
+      evolve!" floats over its head (alternating if both) and stays across a
+      save and reload. Face it, press A: the menu has "Learn Move" / "Evolve"
+      rows. Learn Move opens the move relearner listing ONLY the skipped moves
+      (try with 4 moves: it asks which to forget); Evolve opens the evolution
+      scene (B stops it: the label goes away and does not come back). With a
+      move or evolution waiting, further wins give no EXP (no "+N EXP" label).
+      A Pokemon holding an Everstone never shows "Ready to evolve!". Check on
+      Ruby / Sapphire (their own relearner screen), Emerald and FireRed.
+- [ ] With a move / evolution waiting: start a real battle, change maps, Recall
+      the Pokemon, swap it out for another and back, deposit / withdraw it at a
+      PC, save and reload -- the label (and the Learn Move / Evolve row) is still
+      there each time. Decline an evolution with B: it keeps asking until it evolves.
 - [ ] Walking cancels nothing wrongly: no fight starts while you walk; if you
       step onto a wild Pokemon mid-fight the normal battle starts and nothing
       is left stuck (no bars, no frozen Battler).

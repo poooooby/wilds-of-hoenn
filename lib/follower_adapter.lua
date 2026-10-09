@@ -87,6 +87,25 @@ function FollowerAdapter:isBusy()
   return b ~= nil and b.isBusy ~= nil and b:isBusy() == true
 end
 
+-- What the companion is waiting for after levelling up (lib/level_ready.lua):
+-- re-read every READY_REFRESH ticks (it asks the engine), shown by collectActors.
+local READY_REFRESH = 30
+function FollowerAdapter:_tickReady()
+  local lr = self.levelReady
+  if not lr then return end
+  self.readyClock = (self.readyClock or 0) + 1
+  if self.readyClock % READY_REFRESH == 1 or self.readyMon ~= self.mon then
+    self.readyMon = self.mon
+    self.readyPending = self.mon and lr:pending(self.mon) or nil
+  end
+end
+
+--- The text floating over the follower's head ("New move ready!" ...), or nil.
+function FollowerAdapter:readyLabel()
+  if not self.levelReady or self.away or self.action or self.swap then return nil end
+  return V.require("level_ready").textFor(self.readyPending, self.readyClock)
+end
+
 --- A new map: each behaviour drops what it was doing there (a Forager keeps its
 --- timer, see lib/forager.lua's mapChanged).
 function FollowerAdapter:mapChanged()
@@ -342,6 +361,7 @@ function FollowerAdapter:tick()
   end
   local species = self.disp.species
   self.role, self.mon = self.disp.role, self.disp.mon
+  self:_tickReady()
   local style = Config.spriteStyle(self.mod)
   local shiny = self.disp.shiny == true
   if species ~= self.leadSpecies or style ~= self.style or shiny ~= self.leadShiny
@@ -511,13 +531,15 @@ function FollowerAdapter:collectActors(actors)
   local role = self.behaviors and self.behaviors[self.role]
   if role and role.collectActors and not self.away then role:collectActors(actors) end
   local popup = self.actState and self.actState.popup
-  if popup then
+  local ready = not popup and (self.renderer and (self.renderer.recall or 1) >= 0.5) and self:readyLabel() or nil
+  if popup or ready then
     -- over where the sprite is actually drawn: tile + spacing + the act's offset
     local r = self.renderer
     local act = r and r.act
-    local a = PopupText.actor(popup.text,
-      npc.px + ((r and r.pushX) or 0) + ((act and act.dx) or self.actState.dx or 0),
-      npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or self.actState.dy or 0), npc.elevation, 22, 0)
+    local state = self.actState or {}
+    local a = PopupText.actor(popup and popup.text or ready,
+      npc.px + ((r and r.pushX) or 0) + ((act and act.dx) or state.dx or 0),
+      npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or state.dy or 0), npc.elevation, 22, popup and 0 or 1)
     if a then actors[#actors + 1] = a end
   end
   -- the grass goes on the tiles under the sprite's real feet: it is spaced away

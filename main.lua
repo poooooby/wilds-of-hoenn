@@ -61,6 +61,7 @@ return function(mod)
   local PortraitUI = V.require("portrait_ui")
   local FollowerInteraction = V.require("follower_interaction")
   local Companion = V.require("companion")
+  local LevelReady = V.require("level_ready")
   local Forager = V.require("forager")
   local ForageSource = V.require("forage_source")
   local OverworldBattle = V.require("overworld_battle")
@@ -76,7 +77,7 @@ return function(mod)
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.6.0"
+  mod.exports.version = "1.6.1"
   mod.exports.engineReady = false
 
   local layout = EnginePatch.layoutName()
@@ -100,11 +101,18 @@ return function(mod)
   local companion = Companion.new(mod)
   local partyRoles = PartyRoles.new(companion)
   local followerAdapter = FollowerAdapter.new(mod, companion)
+  -- what a levelled-up companion is waiting for ("New move ready!" / "Ready to evolve!")
+  local levelReady = LevelReady.new(mod, {
+    movesLearnedAt = EnginePatch.movesLearnedAt, knowsMove = EnginePatch.knowsMove,
+    evolutionTarget = EnginePatch.evolutionTarget,
+  })
+  followerAdapter.levelReady = levelReady
   local portraitUI = PortraitUI.new(mod)
   local followerInteraction = FollowerInteraction.new(mod, portraitUI, {
     isAway = function() return followerAdapter:isRecalled() end, -- shrunk into the player
     adapter = followerAdapter, -- acts the menu choices out (lib/follower_actions.lua)
     companion = companion,
+    levelReady = levelReady,
   })
 
   mod.exports.spawnManager = spawnManager
@@ -113,6 +121,7 @@ return function(mod)
   mod.exports.portraitUI = portraitUI
   mod.exports.followerInteraction = followerInteraction
   mod.exports.companion = companion
+  mod.exports.levelReady = levelReady
 
   -- Forage role: wanders on open cells near the player and bags what it finds
   local forageSource = ForageSource.new(mod)
@@ -140,6 +149,8 @@ return function(mod)
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
     defeat = function(id) spawnManager:despawn(id) end,
     playCry = EnginePatch.playCry,
+    levelUp = function(mon, from, to) levelReady:record(mon, from, to) end,
+    expFrozen = function(mon) return levelReady:pending(mon) ~= nil end,
     rng = math.random,
   })
   followerAdapter.behaviors.battle = battler
@@ -224,6 +235,7 @@ return function(mod)
     mod.events:on(eventName, function()
       pcall(function() followerInteraction:onSaveChanged() end)
       pcall(function() companion:reset() end)
+      pcall(function() levelReady:reset() end)
       pcall(function() forageSource:reset() end)
       pcall(function() followerAdapter:resetBehaviors() end)
       pcall(function() followerAdapter:resetDisplay() end)

@@ -768,6 +768,33 @@ do
   for _, k in ipairs(names) do fakeEngine[k] = kept[k] end
 end
 
+-- ------- the "waiting to learn / evolve" label over the follower's head
+do
+  local asked = 0
+  local waiting = { moves = { 40 }, evolve = false }
+  local f = FollowerAdapter.new(mod)
+  eq(f:readyLabel(), nil, "no level tracker: no label")
+  f.levelReady = { pending = function() asked = asked + 1 return waiting end }
+  local mon1 = { personality = 1 }
+  f.mon = mon1
+  f:_tickReady()
+  eq(f:readyLabel(), "New move ready!", "a waiting move shows its label")
+  for _ = 1, 20 do f:_tickReady() end
+  eq(asked, 1, "the tracker is only asked now and then, not every tick")
+  waiting = { moves = {}, evolve = true }
+  for _ = 1, 40 do f:_tickReady() end
+  eq(f:readyLabel(), "Ready to evolve!", "...and the label follows what it says")
+  f.away = true
+  eq(f:readyLabel(), nil, "nothing floats while it is inside the player")
+  f.away = false
+  f.mon = { personality = 2 }
+  f:_tickReady()
+  eq(asked, 4, "a different Pokemon is asked about at once")
+  waiting = nil
+  f:_tickReady() f.readyClock = 0 f:_tickReady()
+  eq(f:readyLabel(), nil, "nothing waiting: no label")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

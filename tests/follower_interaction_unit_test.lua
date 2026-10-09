@@ -625,6 +625,95 @@ do
   end
 end
 
+-- ------- a companion waiting to learn / evolve: extra rows open the engine's screens
+do
+  local waiting = nil
+  local lr = { pending = function() return waiting end }
+  local screens = {}
+  E.evolutionTarget = function() return 278 end
+  E.startEvolution = function(m, target, cb) screens[#screens + 1] = { "evolve", target, cb } return true end
+  E.startMoveLearn = function(m, ids, cb) screens[#screens + 1] = { "learn", ids, cb } return true end
+  local function readyInteraction()
+    P.says, P.cleared = {}, 0
+    E.messageOpen, E.lastPage, E.choiceUp, E.choice = false, false, false, nil
+    E.closedStay = 0
+    return FollowerInteraction.new(mod, P, { clock = function() return clock end, rng = rng, levelReady = lr })
+  end
+  clock = clock + 5000
+  E.lead = mon()
+  waiting = nil
+  local f1 = readyInteraction()
+  f1:tryStart({}) openMenu(f1)
+  eq(#E.choice.options, 4, "nothing waiting: the usual four rows")
+  f1:abort()
+
+  waiting = { moves = { 40 }, evolve = false }
+  f1 = readyInteraction()
+  f1:tryStart({}) openMenu(f1)
+  eq(#E.choice.options, 5, "a move waiting adds a row")
+  eq(E.choice.options[1], "Learn Move", "...first")
+  E.choiceUp = false
+  E.choice.cb(0)
+  eq(f1.state, "screen", "choosing it hands the screen to the engine")
+  eq(screens[#screens][1], "learn", "...the move relearner")
+  eq(screens[#screens][2][1], 40, "...for the skipped moves")
+  eq(E.closedStay, 1, "our message came down first")
+  f1:tick({})
+  eq(f1.state, "screen", "the interaction waits while the screen is open")
+  screens[#screens][3](true)
+  f1:tick({})
+  eq(f1.state, nil, "...and ends when it closes")
+
+  waiting = { moves = { 40 }, evolve = true }
+  f1 = readyInteraction()
+  f1:tryStart({}) openMenu(f1)
+  eq(#E.choice.options, 6, "both waiting: two extra rows")
+  eq(E.choice.options[1], "Evolve", "evolving comes first")
+  eq(E.choice.options[2], "Learn Move", "...then the move")
+  E.choiceUp = false
+  E.choice.cb(0)
+  eq(screens[#screens][1], "evolve", "Evolve opens the evolution scene")
+  eq(screens[#screens][2], 278, "...for the engine's target")
+  screens[#screens][3]()
+  f1:tick({})
+  eq(f1.state, nil, "it ends when the scene closes")
+
+  -- a screen that cannot open says so instead of hanging
+  waiting = { moves = { 40 }, evolve = false }
+  local realMove = E.startMoveLearn
+  E.startMoveLearn = function() return false end
+  f1 = readyInteraction()
+  f1:tryStart({}) openMenu(f1)
+  E.choiceUp = false
+  E.choice.cb(0)
+  eq(f1.state, "result", "a screen that will not open ends in a message")
+  closeMessage()
+  E.startMoveLearn = realMove
+
+  -- it learned the move some other way before choosing: nothing to do
+  waiting = { moves = { 40 }, evolve = false }
+  f1 = readyInteraction()
+  f1:tryStart({}) openMenu(f1)
+  waiting = nil
+  E.choiceUp = false
+  E.choice.cb(0)
+  eq(f1.state, "result", "nothing waiting any more: it says so")
+  closeMessage()
+
+  -- a callback after the interaction was dropped changes nothing
+  waiting = { moves = { 40 }, evolve = false }
+  f1 = readyInteraction()
+  f1:tryStart({}) openMenu(f1)
+  E.choiceUp = false
+  E.choice.cb(0)
+  local cbLate = screens[#screens][3]
+  f1:abort()
+  cbLate(true)
+  f1:tick({})
+  eq(f1.state, nil, "a late callback after an abort is ignored")
+  waiting = nil
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

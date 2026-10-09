@@ -380,12 +380,17 @@ function OverworldBattle:_mode_win(env)
   if sink >= 1 then
     -- gone; the EXP
     local amount = OwCombat.expReward(self.wild, self.combatDeps, cfg.expShare)
+    -- EXP is held while it waits for the player to learn a move or evolve
+    -- (lib/level_ready.lua): another level on top could skip one of those
+    if amount > 0 and self.deps.expFrozen and self.deps.expFrozen(env.mon) then amount = 0 end
     local text
     if amount > 0 then
       local result = self.combatDeps.expApply(env.mon, amount)
       text = "+" .. amount .. " EXP"
       if result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel then
         text = "Lv." .. result.toLevel .. "!"
+        -- it cannot learn or evolve mid-walk: tell the owner, which asks the player
+        if self.deps.levelUp then pcall(self.deps.levelUp, env.mon, result.fromLevel, result.toLevel) end
       end
     end
     local id = e.id

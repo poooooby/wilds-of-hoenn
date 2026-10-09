@@ -50,6 +50,28 @@ end
 local okRse, _ = pcall(EnginePatch.isRse)
 check(okRse, "EnginePatch.isRse() runs without error")
 
+-- "Ready to evolve!" must never show for a Pokemon holding an Everstone: the label
+-- is only set when the REAL engine offers an evolution, and the engine's own
+-- rule (pokemon.c GetEvolutionTargetSpecies) refuses one for an Everstone holder.
+-- No ROM here, so the species' evolution row is stubbed; the gate is the real code.
+do
+  local okMods, Pokemon = pcall(require, "src.core.game3.pokemon")
+  local okEvo, Evolution = pcall(require, "src.core.game3.evolution")
+  if okMods and okEvo and Pokemon and Evolution then
+    local real = Pokemon.evolutions
+    Pokemon.evolutions = function() return { { method = Evolution.EVO_LEVEL, param = 16, target = 278 } } end
+    local ITEM_EVERSTONE = 195
+    local mon = { species = 277, level = 30, personality = 1 }
+    check((Evolution.targetSpecies(mon, Evolution.EVO_MODE_NORMAL)) == 278, "engine: a Pokemon past its evolution level has a target")
+    mon.item = ITEM_EVERSTONE
+    check((Evolution.targetSpecies(mon, Evolution.EVO_MODE_NORMAL)) == 0, "engine: holding an Everstone, it has none")
+    mon.item = nil
+    mon.level = 10
+    check((Evolution.targetSpecies(mon, Evolution.EVO_MODE_NORMAL)) == 0, "engine: below the level, none")
+    Pokemon.evolutions = real
+  end
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

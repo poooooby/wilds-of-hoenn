@@ -185,6 +185,49 @@ do
   check(sawBusy, "it was busy while away")
 end
 
+-- ------- a level gained is reported (the owner asks the player to learn / evolve)
+do
+  reset()
+  wildEntity(1, 13, 10)
+  local reported = {}
+  local b = newBattler({ levelUp = function(m, from, to) reported[#reported + 1] = { m, from, to } end })
+  local mon = newMon({ exp = 99 })
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    if #defeated > 0 and b.mode == "idle" then break end
+  end
+  eq(#reported, 1, "a level-up is reported once")
+  eq(reported[1] and reported[1][1], mon, "...for the Battler's own Pokemon")
+  eq(reported[1] and reported[1][2], 10, "...from the level it was")
+  eq(reported[1] and reported[1][3], 11, "...to the level it reached")
+end
+
+-- ------- EXP is held while a move / evolution waits for the player
+do
+  reset()
+  wildEntity(1, 13, 10)
+  local frozen = true
+  local b = newBattler({ expFrozen = function() return frozen end })
+  local mon = newMon()
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    if #defeated > 0 and b.mode == "idle" then break end
+  end
+  eq(#defeated, 1, "the fight still happens")
+  eq(mon.exp, nil, "but no EXP is given while one is waiting")
+  check(b.popup == nil, "...and no EXP label shows")
+  reset()
+  wildEntity(1, 13, 10)
+  frozen = false
+  b = newBattler({ expFrozen = function() return frozen end })
+  mon = newMon()
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    if #defeated > 0 and b.mode == "idle" then break end
+  end
+  check(mon.exp and mon.exp > 0, "once nothing waits, EXP flows again")
+end
+
 -- ------- an unbuildable fighter is never retried
 do
   reset()

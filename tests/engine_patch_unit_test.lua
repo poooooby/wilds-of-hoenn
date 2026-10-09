@@ -130,6 +130,8 @@ fake["src.core.game3.pokemon"] = {
   speciesMeta = function() return {} end,
   isShiny = function(_mon) return false end,
   gender = function() return 0 end,
+  movesLearnedAt = function(species, level) if level == 7 then return { 40, 41 } end return {} end,
+  knowsMove = function(mon, id) for _, m in ipairs(mon.moves or {}) do if m == id then return true end end return false end,
   movesAtLevel = function(species, level)
     if species == 0 then return {} end
     return { 33, 45 }, { 35, 40 }, { 35, 40 }
@@ -156,6 +158,26 @@ fake["src.core.game3.battle.moves"] = {
     return { power = 40, accuracy = 100, type = 0, pp = 35 }
   end,
 }
+local startedEvolution, evolutionOpen, relearnerOpen = nil, false, false
+fake["src.core.game3.evolution"] = {
+  levelTarget = function(mon) return mon.evolvesTo end,
+}
+fake["src.ui.game3.evolution_scene"] = {
+  start = function(mon, target, opts) evolutionOpen = true startedEvolution = { mon, target, opts } end,
+  isOpen = function() return evolutionOpen end,
+}
+local relearnerShown
+fake["src.core.game3.move_learn"] = {
+  relearnableMoves = function() return { 1, 2, 3, 4, 5 } end,
+}
+fake["src.ui.game3.move_relearner"] = {
+  show = function(mon, opts)
+    relearnerOpen = true
+    relearnerShown = { mon = mon, opts = opts, list = require("src.core.game3.move_learn").relearnableMoves(mon) }
+  end,
+  isOpen = function() return relearnerOpen end,
+}
+fake["src.ui.game3.rse.move_relearner"] = fake["src.ui.game3.move_relearner"]
 local expApplied = {}
 fake["src.core.game3.battle.experience"] = {
   gainFor = function(species, level) return level * 3 end,
@@ -592,6 +614,44 @@ eq(bumpCount, 1, "a genuine player-originated blocks call (not via canEnter) sti
 
 check(not EnginePatch.isProbingCanEnter(), "the probing flag is cleared again after canEnter returns")
 EnginePatch.uninstall()
+
+-- ------- level-up helpers: what a leveled companion is waiting to do
+do
+  local m = { species = 277, moves = { 33 }, evolvesTo = nil }
+  check(#EnginePatch.movesLearnedAt(m, 7) == 2 and EnginePatch.movesLearnedAt(m, 7)[1] == 40, "movesLearnedAt: the moves learned at a level")
+  check(#EnginePatch.movesLearnedAt(m, 8) == 0, "...none at another level")
+  check(#EnginePatch.movesLearnedAt(nil, 7) == 0, "...and nothing for no Pokemon")
+  check(EnginePatch.knowsMove(m, 33) and not EnginePatch.knowsMove(m, 40), "knowsMove")
+  check(EnginePatch.evolutionTarget(m) == nil, "no evolution target when the engine finds none")
+  m.evolvesTo = 278
+  check(EnginePatch.evolutionTarget(m) == 278, "evolutionTarget is the engine's level-up target")
+
+  check(EnginePatch.startEvolution(m, 278, function() end) == true, "startEvolution opens the engine scene")
+  check(startedEvolution[2] == 278 and startedEvolution[3].canStop == true, "...to the target, and the player may stop it")
+  check(startedEvolution[3].bag and startedEvolution[3].bag[1] == "bag", "...with the session's bag")
+  local done = 0
+  startedEvolution[3].onDone()
+  check(startedEvolution ~= nil, "(onDone callable)")
+  evolutionOpen = false
+  local realStart = fake["src.ui.game3.evolution_scene"].start
+  fake["src.ui.game3.evolution_scene"].start = function() end
+  check(EnginePatch.startEvolution(m, 278) == false, "a scene that does not open reports false")
+  fake["src.ui.game3.evolution_scene"].start = realStart
+  evolutionOpen = false
+
+  local learned
+  local okLearn = EnginePatch.startMoveLearn(m, { 40, 41, 33 }, function(l) learned = l end)
+  check(okLearn == true, "startMoveLearn opens the relearner")
+  check(#relearnerShown.list == 2 and relearnerShown.list[1] == 40 and relearnerShown.list[2] == 41,
+    "...listing only the skipped moves the mon does not know")
+  relearnerOpen = false
+  relearnerShown.opts.onDone(true)
+  check(learned == true, "onDone reports whether a move was learned")
+  local ml = require("src.core.game3.move_learn")
+  check(#ml.relearnableMoves(m) == 5, "...and the engine's own list is restored afterwards")
+  check(EnginePatch.startMoveLearn(m, {}, nil) == false, "no moves: nothing opens")
+  relearnerOpen = false
+end
 
 _G.require = realRequire
 

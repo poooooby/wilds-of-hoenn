@@ -98,7 +98,7 @@ function FollowerInteraction.new(mod, portraitUI, opts)
   local self = setmetatable({
     mod = mod, portraitUI = portraitUI, state = nil, mon = nil, game = nil,
     rng = opts.rng, isAway = opts.isAway, adapter = opts.adapter,
-    companion = opts.companion,
+    companion = opts.companion, levelReady = opts.levelReady,
   }, FollowerInteraction)
   self.limiter = opts.limiter or Limiter.new({
     cfg = Config.INTERACT, clock = opts.clock, store = makeStore(self),
@@ -125,6 +125,7 @@ function FollowerInteraction:reset()
     if self.adapter then self.adapter:cancelAction() end
   end
   self.state, self.mon, self.pending, self.pendingMenu, self.menuName = nil, nil, nil, nil, nil
+  self.menuRows, self.screenDone = nil, nil
 end
 
 --- Drop everything half-done: close our message, clear the portrait.
@@ -234,8 +235,22 @@ local function measure(text)
   return EnginePatch.measureText and EnginePatch.measureText(text) or 0
 end
 
-function FollowerInteraction.labels(name)
+-- The rows of a menu. The main menu gains "Evolve" and "Learn Move" rows while
+-- the companion is waiting for them (lib/level_ready.lua): they open the engine's
+-- own evolution scene / move relearner.
+function FollowerInteraction:rowsFor(name)
   local rows = MENUS[name]
+  local pending = name == "main" and self.levelReady and self.mon and self.levelReady:pending(self.mon) or nil
+  if not pending then return rows end
+  local out = {}
+  if pending.evolve then out[#out + 1] = { "Evolve", "evolve" } end
+  if #pending.moves > 0 then out[#out + 1] = { "Learn Move", "learn" } end
+  for _, row in ipairs(rows) do out[#out + 1] = row end
+  return out
+end
+
+function FollowerInteraction.labels(name, rows)
+  rows = rows or MENUS[name]
   local out, arrowed, widest = {}, {}, nil
   for i, row in ipairs(rows) do
     out[i] = row[1]
@@ -267,16 +282,46 @@ end
 -- Opens the named menu (from the tick: the engine's choice callback runs in the
 -- middle of the HUD's input handling, so nothing is opened from inside it).
 function FollowerInteraction:openMenu(name)
-  local labels = FollowerInteraction.labels(name)
+  self.menuRows = self:rowsFor(name)
+  local labels = FollowerInteraction.labels(name, self.menuRows)
   self.menuName = name
   if not EnginePatch.showChoice(labels, 0, function(index) self:onChoice(index) end, MENU_LAYOUT) then
     self:abort()
   end
 end
 
+-- "Learn Move" / "Evolve": hands the screen to the engine's own scene (its
+-- relearner listing only the moves the companion skipped, or its evolution
+-- scene the player may stop). Our message and portrait come down first; the
+-- interaction waits (state "screen") until the scene closes.
+function FollowerInteraction:openScreen(kind, mon, name)
+  local pending = self.levelReady and self.levelReady:pending(mon)
+  if not pending then
+    self:finish(string.format("%s has nothing to do right now.", name), (MonMood.read(mon)))
+    return
+  end
+  local function done()
+    if self.state == "screen" then self.screenDone = true end
+  end
+  EnginePatch.closeStayMessage()
+  self.portraitUI:clear()
+  local opened
+  if kind == "evolve" then
+    local target = pending.evolve and EnginePatch.evolutionTarget(mon)
+    opened = target and EnginePatch.startEvolution(mon, target, done)
+  else
+    opened = #pending.moves > 0 and EnginePatch.startMoveLearn(mon, pending.moves, done)
+  end
+  if opened then
+    self.state, self.screenDone = "screen", false
+  else
+    self:finish(string.format("%s can't do that right now.", name), (MonMood.read(mon)))
+  end
+end
+
 --- The menu's callback: row index 0.. (127 = B pressed).
 function FollowerInteraction:onChoice(index)
-  local row = self.state == "menu" and MENUS[self.menuName] and MENUS[self.menuName][(tonumber(index) or -1) + 1]
+  local row = self.state == "menu" and self.menuRows and self.menuRows[(tonumber(index) or -1) + 1]
   local action = row and row[2]
   if not action then
     if self.menuName ~= "main" and tonumber(index) == 127 and self.state == "menu" then
@@ -301,6 +346,11 @@ function FollowerInteraction:onChoice(index)
     return
   end
   local name = EnginePatch.displayName(mon)
+
+  if action == "learn" or action == "evolve" then
+    self:openScreen(action, mon, name)
+    return
+  end
 
   -- Recall and the three jobs: no scene and no friendship; they change what the
   -- companion is doing (lib/follower_adapter.lua plays the ball scene once the
@@ -401,6 +451,8 @@ function FollowerInteraction:tick(game)
       EnginePatch.unlockField(LOCK_TAG)
       self:finish(pending.text or "", pending.emotion)
     end
+  elseif state == "screen" then
+    if self.screenDone then self:reset() end
   elseif state == "result" then
     if not EnginePatch.isMessageOpen() then self:reset() end
   end
