@@ -35,6 +35,14 @@
 
 ### Changed
 
+- **The Battler fights water spawns reliably.** Before, it only walked on land. It never fought
+  anything while you surfed, and a water spawn only counted if a land tile touched it. It also
+  ignored wild Pokemon that were mid-step, which water spawns often are.
+  - It now swims out to water spawns, both from the shore and while you surf, and is drawn
+    swimming while it's on the water (both styles).
+  - It picks up a wild Pokemon mid-step and plans for the tile it's stepping onto. That Pokemon
+    finishes its step instead of freezing between tiles.
+
 - **Foraging reworked: every trip finds something, and friendship matters.** The Forager no
   longer makes idle trips or digs up nothing. Every 1-3 minutes of walking it catches a scent:
   it stops and perks up, a glint appears on the ground 3-5 tiles away, it dashes over, digs and

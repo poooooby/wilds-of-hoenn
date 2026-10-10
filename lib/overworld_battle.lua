@@ -38,6 +38,7 @@ local CELL = 16
 ---   combat = { battlerOf, moveRow, moveDamage, moveNumber, expGain, expApply, buildWild, rng }
 ---   targets() -> entities       wild Pokemon that may be fought (SpawnManager:fightTargets)
 ---   cellFree(x, y) -> bool      a creature can stand there
+---   swimFree(x, y) -> bool      optional: a water cell it can swim through
 ---   occupied(x, y) -> bool      optional: a wild Pokemon is there
 ---   defeat(id)                  remove a defeated wild Pokemon
 ---   playCry(species)            the engine cry
@@ -116,20 +117,32 @@ end
 
 -- ---------------------------------------------------------------- targets
 
+--- Where a wild Pokemon will be standing: the cell it is stepping into while it moves
+--- (an engaged one finishes its step, lib/spawn_manager.lua), else its own.
+local function restingCell(e)
+  if e.moving and e.targetX then return e.targetX, e.targetY end
+  return e.cellX, e.cellY
+end
+OverworldBattle._restingCell = restingCell
+
 function OverworldBattle:_findTarget(env)
   local cfg, deps = self.cfg, self.deps
+  -- land, and water too (`swimFree`): it swims out to a water spawn, and fights while
+  -- the player surfs
   local res = CellPath.search(env.fx, env.fy, {
     maxDepth = cfg.maxWalk,
     free = function(x, y)
-      return deps.cellFree(x, y) and not (deps.occupied and deps.occupied(x, y))
+      if deps.occupied and deps.occupied(x, y) then return false end
+      return deps.cellFree(x, y) or (deps.swimFree ~= nil and deps.swimFree(x, y)) or false
     end,
   })
   local best, bestPath
   for _, e in ipairs(deps.targets()) do
-    if cheb(e.cellX, e.cellY, env.px, env.py) <= cfg.radius and not e.moving then
+    local ex, ey = restingCell(e)
+    if cheb(ex, ey, env.px, env.py) <= cfg.radius then
       -- the cell beside it that is nearest to walk to
       for _, s in ipairs(CellPath.STEPS) do
-        local cx, cy = e.cellX - s[1], e.cellY - s[2] -- standing here, facing s
+        local cx, cy = ex - s[1], ey - s[2] -- standing here, facing s
         local path = not (cx == env.px and cy == env.py) -- never on top of the player
           and CellPath.pathTo(res, cx, cy) or nil
         if path and (not bestPath or #path < #bestPath) then

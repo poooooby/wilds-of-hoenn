@@ -143,6 +143,9 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
 - [ ] Walking cancels nothing wrongly: no fight starts while you walk; if you
       step onto a wild Pokemon mid-fight the normal battle starts and nothing
       is left stuck (no bars, no frozen Battler).
+- [ ] Battler on a shore next to a water spawn: it swims out (drawn swimming), fights, swims back.
+- [ ] Battler while surfing: it fights water spawns within range of the player.
+- [ ] A wild Pokemon caught mid-step finishes the step before the fight, never stuck between tiles.
 - [ ] Surfing (PMD swim) and warping mid-fight leave no flag or offset behind.
 
 ### Forage

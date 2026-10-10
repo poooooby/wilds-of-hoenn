@@ -1509,6 +1509,26 @@ function EnginePatch.cellFree(cx, cy)
   return true
 end
 
+--- A water cell a swimming creature can be in: water, inside the map, nothing (an
+--- object, a rock) on it. The Battler swims out to water spawns through these
+--- (lib/overworld_battle.lua); cellFree keeps everything else on land.
+function EnginePatch.waterFree(cx, cy)
+  local Collision = EnginePatch.collision()
+  if not Collision then return false end
+  local okW, water = pcall(Collision.isWater, cx, cy)
+  if not (okW and water) then return false end
+  if type(Collision.inBounds) == "function" then
+    local okB, inside = pcall(Collision.inBounds, cx, cy)
+    if okB and not inside then return false end
+  end
+  local Objects = loadModule(EnginePatch.READONLY.objectAt.mod)
+  if Objects and Objects.at then
+    local okO, obj = pcall(Objects.at, cx, cy)
+    if okO and obj then return false end
+  end
+  return true
+end
+
 --- The party menu module (the role rows edit its ACTIONS list).
 function EnginePatch.partyMenu()
   return loadModule(EnginePatch.TARGETS.partyMenuUpdate.mod)

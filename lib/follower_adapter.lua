@@ -251,6 +251,20 @@ function FollowerAdapter:isRecalled()
   return r ~= nil and (r.recall or 1) < 0.5
 end
 
+--- Is the follower DRAWN over water this tick? Its own tile, or -- while a role
+--- behaviour or scene moves it away from that tile (the Battler swimming out to a wild
+--- Pokemon) -- the tile it is drawn on.
+function FollowerAdapter:_drawnOnWater(npc)
+  local cx, cy = npc.cellX, npc.cellY
+  local scene = self.sceneNow
+  if scene and ((scene.dx or 0) ~= 0 or (scene.dy or 0) ~= 0) and npc.px and npc.py then
+    local r = self.renderer
+    cx = math.floor((npc.px + ((r and r.pushX) or 0) + scene.dx + CELL / 2) / CELL)
+    cy = math.floor((npc.py + ((r and r.pushY) or 0) + scene.dy + CELL / 2) / CELL)
+  end
+  return EnginePatch.isWater(cx, cy) == true
+end
+
 --- PMDCollab has no swim art of its own: on a water tile the follower is drawn
 --- swimming (cut off at its baked waterline with foam, lib/pmd_renderer.lua) and
 --- trails the surfing player like the HGSS swim sprites do; a true flyer
@@ -263,7 +277,7 @@ function FollowerAdapter:_tickRecall(npc, r)
   local recalled = false
   local swims = r.isPmd and r.canSwim and r:canSwim()
   if swims then
-    local onWater = EnginePatch.isWater(npc.cellX, npc.cellY) == true
+    local onWater = self:_drawnOnWater(npc)
     r.swimming = onWater and not SpriteSource.pmdFlies(r.dex)
   elseif r.isPmd then
     -- only PMD needs it while surfing: the HGSS art has its own swim sprites
@@ -443,6 +457,7 @@ function FollowerAdapter:tick()
   local emerging = self:_tickEmerge(npc)
   local scene = nil
   if not emerging then scene = self:_tickAction() or self:_tickBehavior(npc) end
+  self.sceneNow = scene
 
   -- PMDCollab: the renderer animates itself from a tick clock (Walk while
   -- the follower steps, Idle while it stands) -- none of the pose, grass
@@ -534,7 +549,7 @@ function FollowerAdapter:tick()
   end
   self.renderer.poseOverride = pose
 
-  self.renderer.presentation = EnginePatch.isWater(npc.cellX, npc.cellY)
+  self.renderer.presentation = self:_drawnOnWater(npc)
     and SpriteSource.DEFAULT_WATER_PRESENTATION or SpriteSource.PRESENTATION_LAND
 
   -- "Spacing out" a large (True Size) follower so it doesn't visually

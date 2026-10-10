@@ -337,6 +337,51 @@ for _, k in ipairs({ "radius", "maxWalk", "scanEvery", "cooldown", "chaseSpeed",
 end
 eq(Config.OW_BATTLE.radius, 3, "it fights within 3 tiles of the player")
 
+-- ------- water: it swims out to a water spawn, and fights while the player surfs
+do
+  -- a lake: every cell with x >= 13 is water (not cellFree)
+  local function landOnly(x, y)
+    if x >= 13 or x < 0 or y < 0 or y > 40 then return false end
+    for _, e in ipairs(entities) do if e.cellX == x and e.cellY == y then return false end end
+    return true
+  end
+  local function water(x, y) return x >= 13 and x <= 40 and y >= 0 and y <= 40 end
+
+  reset()
+  local w = wildEntity(1, 14, 10) -- one cell out from the shore (x = 13 is water)
+  local b = newBattler({ cellFree = landOnly })
+  local e, path = b:_findTarget(env(newMon()))
+  check(e == nil, "without swimming it cannot reach a spawn with water all round its sides")
+  b = newBattler({ cellFree = landOnly, swimFree = water })
+  e, path = b:_findTarget(env(newMon()))
+  check(e == w and path ~= nil, "with swimFree it swims out to it")
+  local last = path and path[#path]
+  check(last and math.abs(last[1] - 14) + math.abs(last[2] - 10) == 1, "...to the cell beside it")
+
+  -- the player surfing: the follower itself is on the water
+  reset()
+  w = wildEntity(1, 18, 10)
+  b = newBattler({ cellFree = landOnly, swimFree = water })
+  e = b:_findTarget(env(newMon(), { fx = 16, fy = 10, fpx = 256, fpy = 160, px = 17, py = 10 }))
+  check(e == w, "surfing: it fights a water spawn from the water")
+  b = newBattler({ cellFree = landOnly })
+  e = b:_findTarget(env(newMon(), { fx = 16, fy = 10, fpx = 256, fpy = 160, px = 17, py = 10 }))
+  check(e == nil, "...which the old land-only search never could (the inconsistency)")
+end
+
+-- ------- a wild Pokemon caught mid-step is planned for the cell it lands on
+do
+  reset()
+  local w = wildEntity(1, 12, 12)
+  w.moving, w.targetX, w.targetY = true, 12, 11
+  local b = newBattler()
+  local e, path = b:_findTarget(env(newMon()))
+  check(e == w, "a moving wild Pokemon can be picked")
+  local last = path and path[#path]
+  check(last and math.abs(last[1] - 12) + math.abs(last[2] - 11) == 1, "...standing beside where it will stop")
+  eq(OverworldBattle._restingCell(w), 12, "its resting cell is its destination (x)")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

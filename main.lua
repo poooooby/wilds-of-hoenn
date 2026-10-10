@@ -155,6 +155,7 @@ return function(mod)
     targets = function() return spawnManager:fightTargets() end,
     alive = function(e) return spawnManager:get(e.id) == e end,
     cellFree = EnginePatch.cellFree,
+    swimFree = EnginePatch.waterFree,
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
     defeat = function(id) spawnManager:despawn(id) end,
     playCry = EnginePatch.playCry,

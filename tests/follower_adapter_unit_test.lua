@@ -964,6 +964,25 @@ do
 end
 
 print("")
+-- ------- drawn over water: its own tile, or where a behaviour has moved it
+do
+  local realIsWater = fakeEngine.isWater
+  fakeEngine.isWater = function(x, y) return x >= 5 end
+  local fw = FollowerAdapter.new(mod)
+  fw.renderer = { pushX = 0, pushY = 0 }
+  local n = { cellX = 3, cellY = 3, px = 48, py = 48 }
+  fw.sceneNow = nil
+  check(not fw:_drawnOnWater(n), "standing on its own land tile: not on water")
+  fw.sceneNow = { dx = 32, dy = 0 }
+  check(fw:_drawnOnWater(n), "the Battler swum out two tiles onto water: on water")
+  fw.sceneNow = { dx = 8, dy = 0 }
+  check(not fw:_drawnOnWater(n), "half a tile out is still its own tile")
+  n.cellX, n.px = 6, 96
+  fw.sceneNow = nil
+  check(fw:_drawnOnWater(n), "a follower on a water tile (surfing) is on water")
+  fakeEngine.isWater = realIsWater
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

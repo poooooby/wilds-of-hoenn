@@ -287,6 +287,10 @@ function SpawnManager:tick(game)
       if e.floater and not e.moving then e.flapClock = e.flapClock + 1 end
       Behavior.tick(e, self.game)
       if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
+    elseif e and e.engaged and e.moving then
+      -- caught mid-step: it finishes the step (the Battler planned for the cell it
+      -- lands on), then stands its ground
+      Behavior._advanceMove(e)
     end
   end
   self:refill("land")

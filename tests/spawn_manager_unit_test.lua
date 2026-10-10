@@ -447,6 +447,23 @@ do
 end
 
 print("")
+-- ------- an engaged wild Pokemon caught mid-step finishes the step, then stands still
+do
+  local smE = SpawnManager.new(mod)
+  smE:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local en
+  for _, e in pairs(smE.entities) do en = e break end
+  en.engaged = true
+  en.fromX, en.fromY, en.targetX, en.targetY = en.cellX, en.cellY, en.cellX + 1, en.cellY
+  en.progress, en.stepFrames, en.moving = 0, 4, true
+  local tx = en.targetX
+  for _ = 1, 6 do smE:tick(smE.game) end
+  check(en.moving == false and en.cellX == tx, "it lands on the cell it was stepping into")
+  local x, y = en.cellX, en.cellY
+  for _ = 1, 30 do smE:tick(smE.game) end
+  check(en.cellX == x and en.cellY == y and not en.moving, "...and then stands its ground")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)
