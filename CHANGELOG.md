@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.6.2-beta.1 (2026-10-09)
 
 ### Added
 
