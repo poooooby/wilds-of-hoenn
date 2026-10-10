@@ -251,13 +251,21 @@ function FollowerAdapter:isRecalled()
   return r ~= nil and (r.recall or 1) < 0.5
 end
 
---- PMDCollab has no swim art, so while the player surfs the follower shrinks
---- into them like a recall and grows back out once they walk on land. It
---- stays in until the FOLLOWER itself is off the water too (it trails a step
---- or two behind, so it would otherwise reappear standing on a water tile).
+--- PMDCollab has no swim art of its own: on a water tile the follower is drawn
+--- swimming (cut off at its baked waterline with foam, lib/pmd_renderer.lua) and
+--- trails the surfing player like the HGSS swim sprites do; a true flyer
+--- (lib/pmd_water.lua) is drawn whole. Only art without waterline data (an old
+--- bake) falls back to the recall: while the player surfs the follower shrinks
+--- into them and grows back out once they walk on land. It stays in until the
+--- FOLLOWER itself is off the water too (it trails a step or two behind, so it
+--- would otherwise reappear standing on a water tile).
 function FollowerAdapter:_tickRecall(npc, r)
   local recalled = false
-  if r.isPmd then
+  local swims = r.isPmd and r.canSwim and r:canSwim()
+  if swims then
+    local onWater = EnginePatch.isWater(npc.cellX, npc.cellY) == true
+    r.swimming = onWater and not SpriteSource.pmdFlies(r.dex)
+  elseif r.isPmd then
     -- only PMD needs it while surfing: the HGSS art has its own swim sprites
     local surf = EnginePatch.playerSurfState and EnginePatch.playerSurfState()
     recalled = surf ~= nil and surf.surfing and not surf.dismounting
@@ -431,6 +439,7 @@ function FollowerAdapter:tick()
   end
   -- walking out of a doorway: hidden in it, fading in as it steps out; nothing
   -- else (a scene, a Forager trip ...) starts until it is out
+  self:_tickRipple(npc)
   local emerging = self:_tickEmerge(npc)
   local scene = nil
   if not emerging then scene = self:_tickAction() or self:_tickBehavior(npc) end
@@ -572,6 +581,37 @@ end
 --- collectActors runs) -- this only adds the extra overlay, never the
 --- follower's own sprite. `idBase = 0`, distinct from every wild-mon id
 --- (lib/spawn_manager.lua's ids start at 1).
+--- Each tile the follower steps onto that ripples for the player (pond water, a
+--- puddle) gets the engine's ripple too. A fresh follower (a map change re-creates it)
+--- is only noted, so appearing on water makes no ripple.
+function FollowerAdapter:_tickRipple(npc)
+  local cx, cy = npc.cellX, npc.cellY
+  if npc ~= self.rippleNpc then
+    self.rippleNpc, self.rippleX, self.rippleY = npc, cx, cy
+    return
+  end
+  if cx == self.rippleX and cy == self.rippleY then return end
+  self.rippleX, self.rippleY = cx, cy
+  if npc.hidden or self:isRecalled() then return end
+  if EnginePatch.ripplesAt and EnginePatch.ripplesAt(cx, cy) then EnginePatch.startRipple(cx, cy) end
+end
+
+--- The follower's water reflection, for lib/reflection.lua (the drawBehind hook).
+function FollowerAdapter:reflections(list)
+  local npc = EnginePatch.followerCurrent()
+  local r = self.renderer
+  if not (npc and r and r.reflectionGeometry) or npc.hidden then return end
+  local geo = r:reflectionGeometry(npc.px or npc.cellX * CELL, npc.py or npc.cellY * CELL,
+    npc.facing, ActorRenderer.POSE_STAND)
+  if not geo then return end
+  local moving = npc.moving and npc.targetX ~= nil
+  list[#list + 1] = {
+    geo = geo,
+    cell = { cx = moving and npc.targetX or npc.cellX, cy = moving and npc.targetY or npc.cellY,
+             pcx = npc.cellX, pcy = npc.cellY },
+  }
+end
+
 function FollowerAdapter:collectActors(actors)
   local npc = EnginePatch.followerCurrent()
   if not npc or npc.hidden then return end

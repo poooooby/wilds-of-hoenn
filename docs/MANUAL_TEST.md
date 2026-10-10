@@ -57,7 +57,27 @@ rest on each of the three games before calling v1 verified.
 - [ ] A species with no PMD art (e.g. Pecharunt, dex 1025) falls back to
       HGSS / PokeMMO instead of vanishing.
 - [ ] Grass cover still overlays the lower part of a PMD sprite in grass.
-- [ ] Water spawns look acceptable (PMD has no water art; v1 reuses Walk/Idle).
+- [ ] Water spawns (Route 104/106) sit IN the water: cut about a quarter of the way up the body
+      with a thin pale foam line, both walking and idle, in all four directions -- like the HGSS
+      swim sprites. Spot-check Magikarp, Gyarados, Tentacool, Lapras, Wailord.
+- [ ] Listed true flyers over water (Zubat, Wingull, Pelipper, Gastly ...) are drawn whole;
+      winged walkers (Charizard, Pidgeot, Dragonite) sit in the water.
+- [ ] Surf with a PMDCollab companion: it swims behind you (cut with foam) instead of shrinking
+      into you, the A-button menu still opens on it, and it is whole again on land.
+- [ ] With Gen 3 HD Sprites + Species Sizes on: the foam stays on the body at every size.
+- [ ] Swimmers sit IN the water at every size (bowl bottom just below the tile), not floating.
+
+## Reflections and ripples (both sprite styles)
+
+- [ ] Walk the companion past a pond (Route 102/104 ponds, Petalburg Woods puddles, Sootopolis):
+      its reflection shows on the pond tiles below it, wobbling on RSE water, mirrored the right
+      way when it faces left/right, and hidden under bridges / shore tiles like the player's.
+- [ ] A wild Pokemon standing above a pond is reflected too; land tiles show no reflection.
+- [ ] Surfing on a pond: the swimming companion's reflection starts at its waterline.
+- [ ] Each step the companion or a wild Pokemon takes onto pond water or a puddle leaves a ripple,
+      like the player's; appearing on water (map change) makes none.
+- [ ] With Gen 3 HD Sprites on, the reflection is the size of the sprite it mirrors.
+- [ ] FireRed / LeafGreen: reflections on ponds and ice, no wobble (as the player's).
 
 ## Portraits (needs `python3 tools/generate_pmd_sprites.py` first)
 
@@ -123,7 +143,7 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
 - [ ] Walking cancels nothing wrongly: no fight starts while you walk; if you
       step onto a wild Pokemon mid-fight the normal battle starts and nothing
       is left stuck (no bars, no frozen Battler).
-- [ ] Surfing (PMD recall) and warping mid-fight leave no flag or offset behind.
+- [ ] Surfing (PMD swim) and warping mid-fight leave no flag or offset behind.
 
 ### Forage
 - [ ] Only while you are WALKING, and only outside on a route or in a cave. While

@@ -308,6 +308,17 @@ eq(ActorRenderer.alphaOf({ alpha = 2 }), 1, "...clamped to 1")
 eq(ActorRenderer.alphaOf({ alpha = -1 }), 0, "...and to 0")
 eq(ActorRenderer.alphaOf(nil), 1, "no renderer: opaque")
 
+-- ------- swimmers sit lower in the water (same look as PMDCollab's)
+do
+  local Cfg = V.require("config")
+  eq(ActorRenderer.swimDropFor("assets/wilds_generated/true_size18/swimming/007-normal.png"), Cfg.SWIM_DROP,
+    "a swimming sheet is drawn SWIM_DROP px lower")
+  eq(Cfg.SWIM_DROP, 4, "...4 px")
+  eq(ActorRenderer.swimDropFor("assets/wilds_generated/true_size18/levitates/041-normal.png"), 0, "levitating art keeps its place")
+  eq(ActorRenderer.swimDropFor("assets/wilds_generated/true_size18/hgss/007-normal.png"), 0, "land art too")
+  eq(ActorRenderer.swimDropFor(nil), 0, "no path: no drop")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

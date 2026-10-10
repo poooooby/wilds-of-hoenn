@@ -54,9 +54,9 @@ end
 --- point lands on the tile's feet spot: horizontal centre of the 16px tile,
 --- `groundY` px below the tile's top edge. `sx, sy` = tile top-left on
 --- screen. Pure; split out for testing without love.graphics.
-function PmdRenderer.placement(entry, scale, groundY, sx, sy)
+function PmdRenderer.placement(entry, scale, groundY, sx, sy, anchorY)
   local gx, gy = sx + CELL / 2, sy + groundY
-  return math.floor(gx - entry.ax * scale + 0.5), math.floor(gy - entry.ay * scale + 0.5)
+  return math.floor(gx - entry.ax * scale + 0.5), math.floor(gy - (anchorY or entry.ay) * scale + 0.5)
 end
 
 --- The species' scale as drawn: global PMD_SCALE, x the baked true-size scale
@@ -95,6 +95,7 @@ function PmdRenderer.new(mod, dex, shiny, info)
     pushX = 0, pushY = 0,        -- cosmetic offset in px (follower spacing)
     recall = 1,                  -- 1 = out, 0 = shrunk into the player (follower, surfing)
     recallX = nil, recallY = nil, -- the player's world px the follower shrinks into
+    swimming = false,            -- on water: cut off at the waterline with foam (see draw)
   }, PmdRenderer)
 end
 
@@ -177,19 +178,76 @@ function PmdRenderer:visualHeight()
   return h
 end
 
-local quadCache = {} -- [path] = { [row * cols + col] = quad }
+--- Rows of a cell drawn while swimming: `body` = the sheet's own rows down to the top
+--- of the foam bowl, `band` = the band sheet's rows down to the bowl's bottom (the baked
+--- waterline; everything below is under water), both clamped to the cell. nil when the
+--- animation has no waterline (drawn whole). Pure; for testing.
+function PmdRenderer.cropHeight(entry)
+  local w = type(entry) == "table" and tonumber(entry.waterline)
+  if not w then return nil end
+  local band = math.max(1, math.min(entry.ch, math.floor(w)))
+  local body = math.max(1, band - math.max(0, math.floor(tonumber(entry.bowl) or 0)))
+  return body, band
+end
 
-local function quadFor(path, image, entry, col, row)
+--- True when this species' art can be drawn swimming (the bake gave Walk a waterline).
+function PmdRenderer:canSwim()
+  return PmdRenderer.cropHeight(self.info and self.info.walk) ~= nil
+end
+
+local quadCache = {} -- [path] = { [(row * cols + col) * 1024 + height] = quad }
+
+local function quadFor(path, image, entry, col, row, height)
   local perPath = quadCache[path]
   if not perPath then perPath = {} quadCache[path] = perPath end
-  local key = row * entry.cols + col
+  height = height or entry.ch
+  local key = (row * entry.cols + col) * 1024 + height
   local q = perPath[key]
   if q then return q end
   if not (love and love.graphics and love.graphics.newQuad) then return nil end
   local iw, ih = image:getDimensions()
-  q = love.graphics.newQuad(col * entry.cw, row * entry.ch, entry.cw, entry.ch, iw, ih)
+  q = love.graphics.newQuad(col * entry.cw, row * entry.ch, entry.cw, height, iw, ih)
   perPath[key] = q
   return q
+end
+
+--- The frame this sprite would draw at world (x, y), for its water reflection
+--- (lib/reflection.lua): mirrored about its feet, or a swimmer's waterline, at the size
+--- it is shown at (gen3-hd-sprites included). nil while it is shrunk, sinking or a
+--- silhouette.
+function PmdRenderer:reflectionGeometry(x, y, facing)
+  if self.silhouette or (self.recall or 1) < 1 then return nil end
+  local act = self.act
+  if act and act.facing then facing = act.facing end
+  if act and (tonumber(act.sink) or 0) > 0 then return nil end
+  local entry = self.info[self.anim]
+  if type(entry) ~= "table" then return nil end
+  local path = SpriteSource.pmdPath(self.info, self.anim, self.dex, self.shiny)
+  local image = path and ActorRenderer.loadImage(self.mod, path)
+  if not image then return nil end
+  local col = PmdRenderer.frameAt(entry.durations, self.clock)
+  local row = PmdRenderer.rowFor(facing)
+  local _, band
+  if self.swimming then _, band = PmdRenderer.cropHeight(entry) end
+  local anchorY = band or entry.ay
+  local scale = PmdRenderer.scaleOf(self.info)
+  local dx, dy
+  if band then
+    dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_SWIM_Y or 18, x, y, band)
+  else
+    dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x, y)
+  end
+  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
+  if act then dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5) end
+  -- gen3-hd-sprites grows it about that same point
+  local px, py = dx + entry.ax * scale, dy + anchorY * scale
+  local s = scale * (HdField.scaleOfPath(self.mod, path) or 1)
+  return {
+    mod = self.mod, image = image,
+    qx = col * entry.cw, qy = row * entry.ch, qw = entry.cw, rows = anchorY,
+    left = px - entry.ax * s, mirror = py, sx = s, sy = s,
+    alpha = ActorRenderer.alphaOf(self),
+  }
 end
 
 function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
@@ -204,8 +262,25 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   local image = ActorRenderer.loadImage(self.mod, path)
   if not image then return end
   local col = PmdRenderer.frameAt(entry.durations, self.clock)
-  local quad = quadFor(path, image, entry, col, PmdRenderer.rowFor(facing))
+  local row = PmdRenderer.rowFor(facing)
+  -- swimming: the sheet cut off at the top of the foam bowl, the band sheet (the bowl
+  -- and the body inside it) drawn right after with the same transform
+  local crop, bandCrop
+  if self.swimming then crop, bandCrop = PmdRenderer.cropHeight(entry) end
+  local foamImage, foamQuad
+  if crop then
+    local foamPath = SpriteSource.pmdFoamPath(self.info, self.anim, self.dex, self.shiny)
+    foamImage = foamPath and ActorRenderer.loadImage(self.mod, foamPath)
+    foamQuad = foamImage and quadFor(foamPath, foamImage, entry, col, row, bandCrop)
+    if not foamQuad then crop = bandCrop end -- no band art: a straight cut at the waterline
+  end
+  local quad = quadFor(path, image, entry, col, row, crop)
   if not quad then return end
+  if crop then
+    -- it stands on its waterline, and gen3-hd-sprites grows it about that point too
+    HdField.quadPivot(image, quad, entry.ax, bandCrop)
+    if foamQuad then HdField.quadPivot(foamImage, foamQuad, entry.ax, bandCrop) end
+  end
 
   -- global tuning x this species' true-size scale (baked into the index)
   local scale = PmdRenderer.scaleOf(self.info)
@@ -223,7 +298,12 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     scale = scale * mul
     tint = 0.55 + 0.45 * mul
   end
-  local dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x - camX, y - camY)
+  local dx, dy
+  if crop then
+    dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_SWIM_Y or 18, x - camX, y - camY, bandCrop)
+  else
+    dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x - camX, y - camY)
+  end
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
   local scaleY = scale
   if act then
@@ -250,6 +330,9 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     love.graphics.setColor(1, 1, 1, alpha)
   end
   love.graphics.draw(image, quad, dx, dy, 0, scale, scaleY)
+  if foamQuad then
+    love.graphics.draw(foamImage, foamQuad, dx, dy, 0, scale, scaleY)
+  end
   if self.silhouette or tint or alpha < 1 then love.graphics.setColor(1, 1, 1, 1) end
 end
 

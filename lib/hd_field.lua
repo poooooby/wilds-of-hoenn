@@ -42,14 +42,17 @@ end
 
 --- What a sprite sheet path is: style ("hgss" | "pmd"), art key ("479" or "479-heat"),
 --- base dex number and, for PMD, the animation. nil for anything else (a portrait, an
---- unknown path).
+--- unknown path). A swimming Pokemon's foam overlay (assets/pmd/foam<anim>/) reads as
+--- its animation, so it is sized and pivoted exactly like the sprite it sits on.
 function HdField.parse(path)
   if type(path) ~= "string" then return nil end
   local key = path:match("/true_size18/%w+/(%d+[%w_%-]-)%-%a+%.png$")
   if key then return { style = "hgss", key = key, dex = tonumber(key:match("^(%d+)")) } end
   local anim, pkey = path:match("^assets/pmd/(%a+)/(%d+[%w_%-]-)%-%a+%.png$")
   if anim and anim ~= "portraits" then
-    return { style = "pmd", key = pkey, dex = tonumber(pkey:match("^(%d+)")), anim = anim }
+    local foam = anim:match("^foam(%a+)$")
+    return { style = "pmd", key = pkey, dex = tonumber(pkey:match("^(%d+)")), anim = foam or anim,
+             foam = foam ~= nil or nil }
   end
   return nil
 end
@@ -107,6 +110,44 @@ function HdField.tag(mod, image, path)
   specs[image] = spec
   local ok = pcall(ex.tag, image, spec)
   return ok
+end
+
+--- Make draws of `image` through `quad` scale about (x, y) in the quad instead of the
+--- sheet's ground point -- a swimming PMD sprite stands on its waterline, not its feet.
+--- `scale` (optional) replaces the sheet's size for that quad: 1 for a slice that is
+--- already drawn at its final size (a reflection). Needs a gen3-hd-sprites that reads
+--- `quadPivots` (HdField.slicesSupported); an older one ignores it. No-op for an
+--- untagged image.
+function HdField.quadPivot(image, quad, x, y, scale)
+  local spec = image and specs[image]
+  if not (spec and quad) then return false end
+  spec.quadPivots = spec.quadPivots or setmetatable({}, { __mode = "k" })
+  local p = spec.quadPivots[quad]
+  if not (p and p[1] == x and p[2] == y and p[3] == scale) then spec.quadPivots[quad] = { x, y, scale } end
+  return true
+end
+
+--- Can `image` be drawn in slices through gen3-hd-sprites (the library is installed,
+--- reads per-quad pivots and scales, and the image is tagged)? Otherwise a slice must be
+--- drawn the plain way (HdField.untagged), or the library would size it twice.
+function HdField.slicesSupported(mod, image)
+  if not (image and specs[image]) then return false end
+  local ex = library(mod)
+  return ex ~= nil and type(ex.features) == "table" and ex.features.quadPivots == true
+end
+
+--- Run `fn` with `image` drawn the plain way: gen3-hd-sprites would otherwise catch
+--- every draw of a tagged sheet and redraw it at window resolution about its own pivot,
+--- which is wrong for a sliced, mirrored reflection (lib/reflection.lua). The tag is put
+--- back right after, even when `fn` fails.
+function HdField.untagged(mod, image, fn)
+  local spec = image and specs[image]
+  local ex = spec and library(mod)
+  if not (ex and type(ex.untag) == "function") then return fn() end
+  pcall(ex.untag, image)
+  local ok, err = pcall(fn)
+  pcall(ex.tag, image, spec)
+  if not ok then error(err, 0) end
 end
 
 local function rescale()

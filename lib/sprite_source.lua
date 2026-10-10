@@ -245,6 +245,16 @@ function SpriteSource.pmdPath(info, anim, dex, shiny)
   return string.format("assets/pmd/%s/%s-%s.png", anim, SpriteSource.keyName(dex), variant)
 end
 
+--- rel path of the swim band a swimming Pokemon's `anim` sheet is finished with (the
+--- foam bowl plus the body inside it; same layout as the sheet, shiny when the sheet
+--- is), or nil when the bake gave that animation no waterline.
+function SpriteSource.pmdFoamPath(info, anim, dex, shiny)
+  local entry = info and info[anim]
+  if type(entry) ~= "table" or not tonumber(entry.waterline) then return nil end
+  local variant = (shiny and entry.shiny) and "shiny" or "normal"
+  return string.format("assets/pmd/foam%s/%s-%s.png", anim, SpriteSource.keyName(dex), variant)
+end
+
 -- Portraits: assets/pmd/portraits.json lists, per species, which emotions its
 -- sheet has (column order) and whether a shiny sheet exists; the sheets are
 -- assets/pmd/portraits/%03d-<normal|shiny>.png, 40x40 cells side by side.
@@ -343,6 +353,27 @@ function SpriteSource.isFloater(mod, dex)
   return hit
 end
 function SpriteSource._resetFloaterCache() floaterCache = {} end
+
+--- Whether the PMDCollab style draws this species WHOLE over water (a true flyer or
+--- floater) instead of swimming. The list is lib/pmd_water.lua (hand-edited, seeded by
+--- tools/generate_pmd_water.py) -- deliberately NOT isFloater's levitates pack, which
+--- also holds walkers such as Charizard. A form key ("479-fan") wins over its dex.
+local pmdWater
+function SpriteSource.pmdFlies(key)
+  if pmdWater == nil then
+    local ok, t = false, nil
+    if V and V.require then ok, t = pcall(V.require, "pmd_water") end
+    pmdWater = (ok and type(t) == "table" and type(t.fly) == "table") and t.fly or false
+  end
+  if not pmdWater or not validKey(key) then return false end
+  if SpriteSource.isForm(key) then
+    local own = pmdWater[key]
+    if own ~= nil then return own == true end
+    key = SpriteSource.baseOf(key)
+  end
+  return pmdWater[tonumber(key)] == true
+end
+function SpriteSource._setPmdWater(t) pmdWater = t end
 
 --- Transparent rows baked under the water packs' frames (swimming/levitates;
 --- tools/generate_true_size_18frame.py's WATER_PAD). 0 for every other sheet.

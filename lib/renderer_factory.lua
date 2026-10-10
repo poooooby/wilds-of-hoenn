@@ -13,18 +13,33 @@ local PmdRenderer = V.require("pmd_renderer")
 
 local RendererFactory = {}
 
+--- Whether a PMDCollab sprite with this presentation is drawn swimming (cut at its
+--- waterline with foam): any water presentation, unless the species is a true flyer
+--- (SpriteSource.pmdFlies, lib/pmd_water.lua).
+function RendererFactory.pmdSwims(dex, presentation)
+  local water = presentation == SpriteSource.PRESENTATION_SWIMMING
+    or presentation == SpriteSource.PRESENTATION_LEVITATES
+  return water and not SpriteSource.pmdFlies(dex) or false
+end
+
 --- `dex` = an art key (a national dex number, or "%03d-<form>" for an
 --- alternate form; see lib/sprite_source.lua); `presentation` is only used by the
 --- ActorRenderer styles (see lib/sprite_source.lua).
 function RendererFactory.new(mod, dex, shiny, style, presentation)
   if style == SpriteSource.STYLE_PMD then
     local info = SpriteSource.pmdInfo(mod, dex)
-    if info then return PmdRenderer.new(mod, dex, shiny, info) end
-    if SpriteSource.isForm(dex) and not SpriteSource.hasOwnArt(mod, dex) then
+    local renderer
+    if info then
+      renderer = PmdRenderer.new(mod, dex, shiny, info)
+    elseif SpriteSource.isForm(dex) and not SpriteSource.hasOwnArt(mod, dex) then
       -- a form with no PMD art and no HGSS art either: its base species' PMD sheet
       local base = SpriteSource.baseOf(dex)
       local baseInfo = SpriteSource.pmdInfo(mod, base)
-      if baseInfo then return PmdRenderer.new(mod, base, shiny, baseInfo) end
+      if baseInfo then renderer = PmdRenderer.new(mod, base, shiny, baseInfo) end
+    end
+    if renderer then
+      renderer.swimming = RendererFactory.pmdSwims(dex, presentation)
+      return renderer
     end
     style = SpriteSource.PMD_FALLBACK_STYLE
   end

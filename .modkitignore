@@ -46,9 +46,11 @@ tests/overworld_battle_unit_test.lua
 tests/ow_combat_unit_test.lua
 tests/party_roles_unit_test.lua
 tests/pmd_renderer_unit_test.lua
+tests/pmd_water_unit_test.lua
 tests/popup_text_unit_test.lua
 tests/portrait_ui_unit_test.lua
 tests/reachability_unit_test.lua
+tests/reflection_unit_test.lua
 tests/renderer_factory_unit_test.lua
 tests/shiny_unit_test.lua
 tests/spawn_manager_unit_test.lua
@@ -61,6 +63,7 @@ tools/copy_wilds_assets.py
 tools/form_art_map.py
 tools/generate_pmd_scale.py
 tools/generate_pmd_sprites.py
+tools/generate_pmd_water.py
 tools/generate_sprite_atlases.py
 tools/generate_true_size_18frame.py
 tools/validate_option_labels.py

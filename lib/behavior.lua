@@ -52,6 +52,10 @@ local function advanceMove(entity)
   if t >= 1 then
     entity.cellX, entity.cellY = entity.targetX, entity.targetY
     entity.moving = false
+    -- a step that ends on pond water / a puddle leaves a ripple, like the player's
+    if EnginePatch.ripplesAt and EnginePatch.ripplesAt(entity.cellX, entity.cellY) then
+      EnginePatch.startRipple(entity.cellX, entity.cellY)
+    end
   end
 end
 Behavior._advanceMove = advanceMove

@@ -3,7 +3,9 @@
 assets/pmd/index.json has its Walk and Idle sheets, each sheet is exactly
 cols x 4 directions of cw x ch cells, durations match the frame count, the
 ground anchor lies near its cell, a species flagged `shiny` has the shiny
-sheet, and no stray sheet exists without an index entry.
+sheet, every `waterline` lies in its cell with a `bowl` that fits above it and has
+its swim band sheets (foam<anim>/, same size as the sheet, shiny when the sheet is), and no stray sheet exists without an
+index entry.
 
     python3 tools/validate_pmd_sprites.py            # validates assets/pmd/
 
@@ -85,14 +87,35 @@ def main() -> int:
                 with Image.open(p) as im:
                     if im.size != (cw * cols, ch * DIRECTIONS):
                         errors.append(f"{rel}: size {im.size}, expected {(cw * cols, ch * DIRECTIONS)}")
+            # swimming: where the foam bowl ends + its depth, and the band sheets (same layout)
+            w = e.get("waterline")
+            if w is not None:
+                if not (isinstance(w, int) and 2 <= w <= ch):
+                    errors.append(f"{dex} {anim}: waterline {w!r} outside the {ch}px cell")
+                b = e.get("bowl")
+                if not (isinstance(b, int) and 1 <= b < (w if isinstance(w, int) else 0)):
+                    errors.append(f"{dex} {anim}: bowl {b!r} does not fit above waterline {w!r}")
+                for variant in variants:
+                    rel = f"foam{anim}/{sheet_name(dex)}-{variant}.png"
+                    expected.add(rel)
+                    p = PMD / rel
+                    if not p.is_file():
+                        errors.append(f"{dex}: missing {rel}")
+                        continue
+                    with Image.open(p) as im:
+                        if im.size != (cw * cols, ch * DIRECTIONS):
+                            errors.append(f"{rel}: size {im.size}, expected {(cw * cols, ch * DIRECTIONS)}")
+            elif anim in ANIMS:
+                errors.append(f"{dex} {anim}: no waterline (rebake: tools/generate_pmd_sprites.py)")
 
     for anim in ANIMS + OPTIONAL_ANIMS:
-        d = PMD / anim
-        if d.is_dir():
-            for p in sorted(d.glob("*.png")):
-                rel = f"{anim}/{p.name}"
-                if rel not in expected:
-                    errors.append(f"stray sheet without an index entry: {rel}")
+        for folder in (anim, f"foam{anim}"):
+            d = PMD / folder
+            if d.is_dir():
+                for p in sorted(d.glob("*.png")):
+                    rel = f"{folder}/{p.name}"
+                    if rel not in expected:
+                        errors.append(f"stray sheet without an index entry: {rel}")
 
     # portraits
     pidx_path = PMD / "portraits.json"

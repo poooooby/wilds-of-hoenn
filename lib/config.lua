@@ -143,6 +143,20 @@ Config.PMD_SCALE = 1
 -- sprite draws at PMD_SCALE x 1. Set true to apply the baked scales again.
 Config.PMD_TRUE_SIZE = false
 Config.PMD_GROUND_Y = 12
+-- A swimming PMD sprite (lib/pmd_renderer.lua) stands on its WATERLINE, the bottom of
+-- its foam bowl, instead of its feet: this many px below the tile's top edge.
+Config.PMD_SWIM_Y = 18
+-- The HGSS / PokeMMO swimming sheets are drawn this many px lower than usual, so they
+-- sit as low in the water as a PMD swimmer (PMD_SWIM_Y).
+Config.SWIM_DROP = 4
+
+-- Water reflections of wild Pokemon and the follower (lib/reflection.lua). The engine
+-- recolours an NPC's reflection with a paler, bluer reflection palette; our art has
+-- none, so each pixel is blended REFLECTION_MIX of the way toward REFLECTION_TINT.
+-- OVERLAP: how far up the feet the mirrored image starts, like the engine's (2 px).
+Config.REFLECTION_TINT = { 0.78, 0.86, 1.0 }
+Config.REFLECTION_MIX = 0.45
+Config.REFLECTION_OVERLAP = 2
 Config.PMD_WALK_SPEED = 1
 -- Ticks the Walk animation keeps playing after movement stops, so the one-tick
 -- gaps between chained steps do not flick the sprite to the Idle pose and back.

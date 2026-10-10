@@ -205,6 +205,28 @@ do
   eq(SpriteSource.isFloater(mod, "006-nosuch"), SpriteSource.isFloater(mod, 6), "a form floats if its base does")
 end
 
+-- ------- PMD water: foam overlay paths and the true-flyer list
+do
+  local info = { walk = { shiny = true, waterline = 17 }, idle = { shiny = false } }
+  eq(SpriteSource.pmdFoamPath(info, "walk", 7), "assets/pmd/foamwalk/007-normal.png", "a swim band path")
+  eq(SpriteSource.pmdFoamPath(info, "walk", 7, true), "assets/pmd/foamwalk/007-shiny.png", "...shiny when the sheet is")
+  info.idle.waterline = 20
+  eq(SpriteSource.pmdFoamPath(info, "idle", 7, true), "assets/pmd/foamidle/007-normal.png", "...the normal band for an animation without a shiny sheet")
+  info.idle.waterline = nil
+  eq(SpriteSource.pmdFoamPath(info, "walk", "479-heat"), "assets/pmd/foamwalk/479-heat-normal.png", "...and a form's")
+  eq(SpriteSource.pmdFoamPath(info, "idle", 7), nil, "no waterline -> no foam")
+  eq(SpriteSource.pmdFoamPath(info, "hurt", 7), nil, "no animation -> no foam")
+
+  SpriteSource._setPmdWater({ [41] = true, [479] = true, ["479-wash"] = false, ["413-trash"] = true })
+  check(SpriteSource.pmdFlies(41), "a listed dex flies")
+  check(not SpriteSource.pmdFlies(6), "an unlisted one swims")
+  check(SpriteSource.pmdFlies("479-heat"), "a form flies when its base does")
+  check(not SpriteSource.pmdFlies("479-wash"), "...unless its own key says false")
+  check(SpriteSource.pmdFlies("413-trash") and not SpriteSource.pmdFlies(413), "a form key of its own wins over its dex")
+  check(not SpriteSource.pmdFlies(nil) and not SpriteSource.pmdFlies("x"), "junk keys never fly")
+  SpriteSource._setPmdWater(nil)
+end
+
 -- ------- portraits of forms: its own sheet when baked, else the base species'
 do
   local pm = { read = function(_, rel)

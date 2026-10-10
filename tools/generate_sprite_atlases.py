@@ -64,6 +64,8 @@ FAMILIES: dict[str, list[str]] = {
     # the overworld-fight animations (Attack, Hurt): optional per species
     "pmd_attack": ["assets/pmd/attack"],
     "pmd_hurt": ["assets/pmd/hurt"],
+    # the foam overlays a swimming Pokemon is drawn with (mostly transparent, tiny)
+    "pmd_foam": ["assets/pmd/foamwalk", "assets/pmd/foamidle", "assets/pmd/foamattack", "assets/pmd/foamhurt"],
     "pmd_portraits": ["assets/pmd/portraits"],
 }
 INDEX_VERSION = 1

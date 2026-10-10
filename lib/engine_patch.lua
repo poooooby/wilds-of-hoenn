@@ -385,6 +385,19 @@ function EnginePatch.install(hooks, log)
     end
   end
 
+  -- field_effects.lua:1940 FieldEffects.drawBehind(camX, camY) paints what lies under
+  -- the field's sprites (reflections, the Surf blob, ripples). Our wild Pokemon and the
+  -- follower are not Objects, so the engine never reflects them: the hook draws their
+  -- reflections FIRST, so the engine's own reflections, blob and ripples go over them.
+  -- Not a probed target: without it they simply have no reflection.
+  originals.drawBehind = FieldEffects.drawBehind
+  if type(originals.drawBehind) == "function" then
+    FieldEffects.drawBehind = function(camX, camY, ...)
+      if hooks.drawBehind then safeCall(log, "drawBehind", hooks.drawBehind, camX or 0, camY or 0) end
+      return originals.drawBehind(camX, camY, ...)
+    end
+  end
+
   local FieldMoves = loadModule(EnginePatch.TARGETS.fieldMovesFromMenu.mod)
   originals.fromMenu = FieldMoves.fromMenu
   FieldMoves.fromMenu = function(label, ctx, ...)
@@ -409,6 +422,9 @@ function EnginePatch.uninstall()
   local FieldEffects = loadModule(EnginePatch.TARGETS.collectActors.mod)
   if FieldEffects and originals.collectActors then
     FieldEffects.collectActors = originals.collectActors
+  end
+  if FieldEffects and originals.drawBehind then
+    FieldEffects.drawBehind = originals.drawBehind
   end
 
   local Objects = loadModule(EnginePatch.TARGETS.blocks.mod)
@@ -870,6 +886,114 @@ function EnginePatch.grassSheet()
   local ok, sheet = pcall(FieldEffects.loadSheet, "tall_grass", 16, 16, 5)
   if ok then return sheet end
   return nil
+end
+
+-- ------------------------------------------------------------------ water
+-- Reflections and ripples, the engine's own rules (all fail soft: nil/false/0 when a
+-- piece is missing). RSE: field_effects_rse.lua (FieldEffects.rse()); FRLG:
+-- field_effects.lua's frlg* helpers.
+
+local function fieldFx()
+  local FieldEffects = loadModule(EnginePatch.TARGETS.collectActors.mod)
+  if not FieldEffects then return nil, nil end
+  local rse = nil
+  if type(FieldEffects.rse) == "function" then
+    local ok, R = pcall(FieldEffects.rse)
+    if ok and type(R) == "table" then rse = R end
+  end
+  return FieldEffects, rse
+end
+
+local function worldBehavior(tx, ty)
+  local Collision = EnginePatch.collision()
+  if not Collision then return nil end
+  local fn = Collision.worldBehavior or Collision.behavior
+  if type(fn) ~= "function" then return nil end
+  local ok, b = pcall(fn, tx, ty)
+  return ok and b or nil
+end
+
+--- Does something standing at (cx, cy) (stepping from (pcx, pcy)), w x h px, cast a
+--- reflection? 0 = no, 1 = ice / FRLG (plain), 2 = RSE water (wobbles).
+--- field_effects_rse.lua:615 FxRse.reflectionType / field_effects.lua:88.
+function EnginePatch.reflectionKind(cx, cy, pcx, pcy, w, h)
+  local FieldEffects, R = fieldFx()
+  if R and type(R.reflectionType) == "function" then
+    local ok, t = pcall(R.reflectionType, cx, cy, pcx, pcy, w, h)
+    return ok and tonumber(t) or 0
+  end
+  if FieldEffects and type(FieldEffects.frlgReflectionType) == "function" then
+    local ok, t = pcall(FieldEffects.frlgReflectionType, cx, cy, pcx, pcy, w, h, worldBehavior)
+    return (ok and t) and 1 or 0
+  end
+  return 0
+end
+
+--- Is the tile at (tx, ty) one a reflection shows on?
+function EnginePatch.reflectiveAt(tx, ty)
+  local b = worldBehavior(tx, ty)
+  if b == nil then return false end
+  local FieldEffects, R = fieldFx()
+  if R and type(R.B) == "table" and type(R.B.reflective) == "function" then
+    local ok, yes = pcall(R.B.reflective, b)
+    return ok and yes == true
+  end
+  if FieldEffects and type(FieldEffects.isFrlgReflective) == "function" then
+    local ok, yes = pcall(FieldEffects.isFrlgReflective, b)
+    return ok and yes == true
+  end
+  return false
+end
+
+--- The water wobble this frame (field_effects_rse.lua:364): the reflection's width is
+--- multiplied by 256 / this. nil when there is none (FRLG).
+function EnginePatch.reflectionWobble()
+  local _, R = fieldFx()
+  if not (R and type(R.reflectionScale) == "function") then return nil end
+  local ok, pa = pcall(R.reflectionScale)
+  return ok and tonumber(pa) or nil
+end
+
+--- Redraw the map's upper layer over a world rect, so reflections sit under bridges,
+--- rocks and shore tiles like the engine's own (field_effects_rse.lua:821).
+function EnginePatch.coverReflections(left, top, w, h, camX, camY)
+  local _, R = fieldFx()
+  if not (R and type(R.coverWorldRect) == "function") then return false end
+  return pcall(R.coverWorldRect, left, top, w, h, camX, camY)
+end
+
+local RIPPLE_NAMES = { "POND_WATER", "PUDDLE" }
+local rippleIds = nil
+
+--- Does a step onto (cx, cy) leave a ripple? The player's rule: pond water and puddles
+--- (field_effects.lua:1439), plus Sootopolis' deep water in RSE (field_effects_rse.lua:503).
+function EnginePatch.ripplesAt(cx, cy)
+  local b = worldBehavior(cx, cy)
+  if b == nil then return false end
+  local _, R = fieldFx()
+  if R and type(R.B) == "table" and type(R.B.ripples) == "function" then
+    local ok, yes = pcall(R.B.ripples, b)
+    return ok and yes == true
+  end
+  if rippleIds == nil then
+    rippleIds = {}
+    local ok, MB = pcall(require, "src.core.game3.mb")
+    if ok and type(MB) == "table" and type(MB.id) == "function" then
+      for _, n in ipairs(RIPPLE_NAMES) do
+        local okId, id = pcall(MB.id, n)
+        if okId and id ~= nil then rippleIds[id] = true end
+      end
+    end
+  end
+  return rippleIds[b] == true
+end
+
+--- field_effects.lua:1488 FieldEffects.startRipple(cx, cy): the ring the player leaves
+--- on pond water, drawn and timed by the engine.
+function EnginePatch.startRipple(cx, cy)
+  local FieldEffects = fieldFx()
+  if not (FieldEffects and type(FieldEffects.startRipple) == "function") then return false end
+  return pcall(FieldEffects.startRipple, cx, cy)
 end
 
 --- Any field-effect sheet by name through the same cache-backed loader the engine

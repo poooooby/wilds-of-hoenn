@@ -15,7 +15,7 @@ Bring Hoenn and Kanto to life in [Gen1Recomp](https://github.com/bryanthaboi/gen
 - 🫂 **Build friendship.** Face your follower and press A to pet it, play with it, or talk to it. Its portrait shows how it really feels, based on its HP, status and friendship.
 - ✨ **Adjustable shiny rolls** for overworld encounters (gifts, eggs and starters are not affected).
 - 🔗 **Works with dex expansion mods** such as [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3) and [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3), so overworld encounters can reach all the way through Generation 9. Art is included for the whole National Dex (1-1025). Optional [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns) integration too.
-- 👾 Two sprite styles: **HGSS / PokeMMO** or fully animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
+- 👾 Two sprite styles: **HGSS / PokeMMO** or fully animated **PMDCollab** sprites with walk, idle, attack and hurt animations (and swimming on water).
 - **+ much more on the way!**
 
 ### 💾 Installation

@@ -67,6 +67,7 @@ return function(mod)
   local ForageSource = V.require("forage_source")
   local OverworldBattle = V.require("overworld_battle")
   local PartyRoles = V.require("party_roles")
+  local Reflection = V.require("reflection")
 
   Config.defineOptions(mod)
   HdField.setSpeciesSizes(Config.get(mod, "species_sizes"))
@@ -195,6 +196,14 @@ return function(mod)
     end,
     messageDraw = function()
       portraitUI:draw()
+    end,
+    -- water reflections of the wild Pokemon and the follower (lib/reflection.lua),
+    -- drawn just before the engine's own reflections of the player and NPCs
+    drawBehind = function(camX, camY)
+      local list = {}
+      spawnManager:reflections(list)
+      followerAdapter:reflections(list)
+      if #list > 0 then Reflection.drawAll(list, camX, camY) end
     end,
     -- Runs BEFORE the engine's A-button handler: facing your follower and
     -- pressing A opens its Pet / Play / Talk menu instead (true = handled).

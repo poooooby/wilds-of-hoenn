@@ -153,6 +153,24 @@ Behavior.tick(terrainMon, {}, seq({ 0.1, 0.0 }))
 eq(canEnterCalls, 0, "canEnter is never called for a direction terrainAt already rejects")
 check(terrainMon.moving == false, "the step is still refused")
 
+-- ------- a step that lands on pond water leaves a ripple there (the player's rule)
+do
+  local ripples = {}
+  fakeEngine.ripplesAt = function(x, y) return x == 3 and y == 2 end
+  fakeEngine.startRipple = function(x, y) ripples[#ripples + 1] = x .. "," .. y end
+  local swimmer = { cellX = 2, cellY = 2, fromX = 2, fromY = 2, targetX = 3, targetY = 2,
+                    progress = 0, stepFrames = 4, moving = true, px = 32, py = 32 }
+  for _ = 1, 3 do Behavior._advanceMove(swimmer) end
+  eq(#ripples, 0, "no ripple mid-step")
+  Behavior._advanceMove(swimmer)
+  eq(ripples[1], "3,2", "a ripple on the tile it stepped onto, once it lands")
+  local walker = { cellX = 3, cellY = 2, fromX = 3, fromY = 2, targetX = 4, targetY = 2,
+                   progress = 0, stepFrames = 1, moving = true, px = 48, py = 32 }
+  Behavior._advanceMove(walker)
+  eq(#ripples, 1, "a tile without ripples gets none")
+  fakeEngine.ripplesAt, fakeEngine.startRipple = nil, nil
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

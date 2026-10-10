@@ -72,6 +72,50 @@ do
   end
 end
 
+-- Water reflections and ripples for wild Pokemon and the follower (lib/reflection.lua,
+-- EnginePatch.reflectionKind/reflectiveAt/reflectionWobble/coverReflections/
+-- ripplesAt/startRipple, and the optional drawBehind wrap): every engine piece they
+-- call is still there. They fail soft, so a rename would silently remove the effects;
+-- this is what catches it.
+do
+  local okFx, FieldEffects = pcall(require, "src.core.game3.field_effects")
+  check(okFx and type(FieldEffects.drawBehind) == "function", "engine: FieldEffects.drawBehind (reflection hook)")
+  check(okFx and type(FieldEffects.startRipple) == "function", "engine: FieldEffects.startRipple")
+  check(okFx and type(FieldEffects.rse) == "function", "engine: FieldEffects.rse")
+  check(okFx and type(FieldEffects.frlgReflectionType) == "function", "engine: FieldEffects.frlgReflectionType (FRLG)")
+  check(okFx and type(FieldEffects.isFrlgReflective) == "function", "engine: FieldEffects.isFrlgReflective (FRLG)")
+  local okR, R = pcall(require, "src.core.game3.field_effects_rse")
+  check(okR and type(R.reflectionType) == "function", "engine: FxRse.reflectionType (RSE)")
+  check(okR and type(R.reflectionScale) == "function", "engine: FxRse.reflectionScale (RSE water wobble)")
+  check(okR and type(R.coverWorldRect) == "function", "engine: FxRse.coverWorldRect (RSE)")
+  check(okR and type(R.B) == "table" and type(R.B.reflective) == "function" and type(R.B.ripples) == "function",
+    "engine: FxRse.B.reflective / ripples (RSE)")
+  local okC, Collision = pcall(require, "src.core.game3.collision")
+  check(okC and type(Collision.worldBehavior or Collision.behavior) == "function", "engine: Collision.worldBehavior")
+  if okR then
+    local pa = R.reflectionScale()
+    check(type(pa) == "number" and pa > 240 and pa < 272, "engine: the wobble is a width factor near 256 (" .. tostring(pa) .. ")")
+  end
+
+  -- the drawBehind wrap: ours runs first, then the engine's; uninstall puts it back
+  if okFx then
+    local realDraw = FieldEffects.drawBehind
+    local order = {}
+    FieldEffects.drawBehind = function() order[#order + 1] = "engine" end
+    local wrapped = FieldEffects.drawBehind
+    local EP = EnginePatch
+    EP.uninstall()
+    local okI = EP.install({ drawBehind = function() order[#order + 1] = "ours" end }, function() end)
+    if okI then
+      FieldEffects.drawBehind(0, 0)
+      check(order[1] == "ours" and order[2] == "engine", "drawBehind: our reflections first, then the engine's")
+      EP.uninstall()
+      check(FieldEffects.drawBehind == wrapped, "uninstall restores drawBehind")
+    end
+    FieldEffects.drawBehind = realDraw
+  end
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

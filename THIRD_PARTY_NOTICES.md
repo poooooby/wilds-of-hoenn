@@ -33,7 +33,7 @@ released under the MIT License:
 ## Overworld sprites
 
 The HGSS / PokeMMO art under `assets/enhanced_overworld/` and
-`assets/wilds_generated/` is a read-only copy of **Wilds of Kanto Revival**'s
+`assets/wilds_generated/` is a read-only copy of **Wilds of Kanto**'s
 HGSS / PokeMMO Sprite Style sources (`tools/copy_wilds_assets.py`, run against
 a sibling `poooooby/wilds-of-kanto-gen-3` checkout). Originally sourced from
 https://www.pokecommunity.com/threads/generation-9-resource-pack-v21-1.527398/

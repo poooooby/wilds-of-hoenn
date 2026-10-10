@@ -274,6 +274,52 @@ function ActorRenderer:visualWidth()
   return w * HdField.scaleOfPath(self.mod, path)
 end
 
+--- The frame this sprite would draw at world (x, y), for its water reflection
+--- (lib/reflection.lua): mirrored about its feet (the frame's bottom, above any baked
+--- water padding), at the size it is shown at (gen3-hd-sprites grows it about the same
+--- point). nil while it is shrunk, sinking or a silhouette.
+--- How far a swimming sheet is drawn below its usual spot: Config.SWIM_DROP (the same
+--- lower-in-the-water look as PMDCollab's Config.PMD_SWIM_Y). Only the swimming pack;
+--- levitating art hovers and keeps its place. Pure; for testing.
+function ActorRenderer.swimDropFor(path)
+  if type(path) == "string" and path:find("/true_size18/swimming/", 1, true) then
+    return Config.SWIM_DROP or 0
+  end
+  return 0
+end
+
+function ActorRenderer:reflectionGeometry(x, y, facing, walkPhase)
+  if self.silhouette or (self.recall or 1) < 1 then return nil end
+  local act = self.act
+  if act and act.facing then facing = act.facing end
+  if act and (tonumber(act.sink) or 0) > 0 then return nil end
+  local path = self:imagePath()
+  local image = path and loadImage(self.mod, path)
+  if not image then return nil end
+  local frameIndex = ActorRenderer.frameIndexFor(facing, self.poseOverride or walkPhase, self.frameCount)
+  local quad = quadFor(path, image, frameIndex, self.frameCount)
+  if not quad then return nil end
+  local qx, qy, frameW, frameH = quad:getViewport()
+  local drawX, drawY, flipX = ActorRenderer.drawOffset(facing, frameW, frameH)
+  local pad = SpriteSource.bottomPadFor(path)
+  drawY = drawY + pad + ActorRenderer.swimDropFor(path)
+  local pushX, pushY = self.pushX, self.pushY
+  if pushX == nil or pushY == nil then
+    pushX, pushY = ActorRenderer.behindOffset(facing, self.largePushback)
+  end
+  if act then pushX, pushY = pushX + (act.dx or 0), pushY + (act.dy or 0) end
+  local boxLeft = x + (flipX < 0 and drawX - frameW or drawX) + pushX
+  local bottom = y + drawY + pushY + frameH
+  local k = HdField.scaleOfPath(self.mod, path) or 1
+  return {
+    mod = self.mod, image = image,
+    qx = qx, qy = qy, qw = frameW, rows = frameH - pad,
+    left = boxLeft + frameW / 2 - frameW * k / 2, mirror = bottom - pad * k,
+    sx = flipX * k, sy = k,
+    alpha = ActorRenderer.alphaOf(self),
+  }
+end
+
 function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   -- a follower action scene (lib/follower_actions.lua) overrides the facing
   -- and slides the sprite by a cosmetic pixel offset
@@ -299,6 +345,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   local _qx, _qy, frameW, frameH = quad:getViewport()
   local drawX, drawY, flipX = ActorRenderer.drawOffset(facing, frameW, frameH)
   drawY = drawY + SpriteSource.bottomPadFor(path) -- baked-in bottom margin
+  drawY = drawY + ActorRenderer.swimDropFor(path) -- sits lower in the water
   -- A follower's offset is eased tick-by-tick by lib/follower_adapter.lua
   -- (pushX/pushY) so a turn glides instead of snapping; anything that never
   -- sets those falls back to the instantaneous per-facing value.

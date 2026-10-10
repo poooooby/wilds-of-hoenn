@@ -139,6 +139,21 @@ do
   check(info and info.style == "hgss" and info.key == "718-10" and info.dex == 718, "a numeric form name parses")
   info = HdField.parse("assets/pmd/attack/741-pom_pom-normal.png")
   check(info and info.style == "pmd" and info.key == "741-pom_pom" and info.anim == "attack", "a PMD form sheet parses")
+  info = HdField.parse("assets/pmd/foamwalk/150-normal.png")
+  check(info and info.style == "pmd" and info.anim == "walk" and info.foam and info.dex == 150,
+    "a foam overlay parses as its animation")
+  local foam = {}
+  HdField.tag(pmod, foam, "assets/pmd/foamwalk/150-normal.png")
+  check(specOf(foam) and specOf(foam).lowPivot and specOf(foam).lowPivot[1] == 19.5 and specOf(foam).lowPivot[2] == 35.5,
+    "...so it pivots on its sprite's ground point")
+  check(specOf(foam).scale == specOf(walk).scale, "...and is drawn at the sprite's size")
+  -- a swimming draw's own quad pivots on the waterline; the rest keep the ground point
+  local swimQuad = {}
+  check(HdField.quadPivot(walk, swimQuad, 19.5, 30), "a quad of a tagged sheet gets its own pivot")
+  local qp = specOf(walk).quadPivots[swimQuad]
+  check(qp and qp[1] == 19.5 and qp[2] == 30, "...stored on the sheet's spec, where the library reads it")
+  check(specOf(walk).lowPivot[2] == 35.5, "...and the sheet's own pivot is unchanged")
+  check(HdField.quadPivot({}, swimQuad, 1, 2) == false, "an untagged image is left alone")
 end
 
 -- the table itself

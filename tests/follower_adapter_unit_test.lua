@@ -459,6 +459,80 @@ do
   V.mod = mod
 end
 
+-- ------- PMDCollab swimming: art with a baked waterline swims behind the
+-- surfing player (cut off with foam) instead of shrinking into them
+do
+  local SWIM_INDEX = PMD_INDEX:gsub('"ay":19.5,', '"ay":19.5,"waterline":17,"bowl":3,'):gsub('"ay":25.5,', '"ay":25.5,"waterline":22,"bowl":3,')
+  local swimMod = {
+    id = "wilds_of_hoenn", options = mod.options,
+    read = function(_, rel) if rel == "assets/pmd/index.json" then return SWIM_INDEX end return mod.read(_, rel) end,
+  }
+  local surf = { surfing = false, dismounting = false }
+  local water = {}
+  local realIsWater, realSurf, realPixel = fakeEngine.isWater, fakeEngine.playerSurfState, fakeEngine.playerPixel
+  fakeEngine.isWater = function(x, y) return water[x .. "," .. y] == true end
+  fakeEngine.playerSurfState = function() return surf end
+  fakeEngine.playerPixel = function() return 40, 48 end
+  local SS = V.require("sprite_source")
+  local Cfg = V.require("config")
+
+  optionStore.sprite_style = "pmd"
+  V.mod = swimMod
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  local fs = FollowerAdapter.new(swimMod)
+  fs:tick()
+  check(fs.renderer.isPmd and fs.renderer:canSwim(), "a PMD follower with a waterline can swim")
+  check(not fs.renderer.swimming, "on land it is drawn whole")
+
+  surf.surfing = true
+  water["3,3"] = true
+  for _ = 1, Cfg.PMD_RECALL_TICKS + 2 do fs:tick() end
+  eq(fs.renderer.recall, 1, "surfing: it is NOT recalled into the player")
+  check(not fs:isRecalled(), "...so the interaction menu still works")
+  check(fs.renderer.swimming == true, "on a water tile it swims (cut at the waterline)")
+
+  surf.surfing = false
+  water["3,3"] = false
+  fs:tick()
+  check(not fs.renderer.swimming, "back on land: whole again")
+
+  -- a true flyer (lib/pmd_water.lua) stays whole over water
+  SS._setPmdWater({ [252] = true })
+  surf.surfing, water["3,3"] = true, true
+  fs:tick()
+  check(not fs.renderer.swimming and fs.renderer.recall == 1, "a listed flyer is drawn whole over water, never recalled")
+  SS._setPmdWater(nil)
+  surf.surfing, water["3,3"] = false, false
+
+  fakeEngine.isWater, fakeEngine.playerSurfState, fakeEngine.playerPixel = realIsWater, realSurf, realPixel
+  optionStore.sprite_style = "pokemmo"
+  V.mod = mod
+end
+
+-- ------- ripples: each pond tile the follower steps onto, never on appearing
+do
+  local ripples = {}
+  local realAt, realStart = fakeEngine.ripplesAt, fakeEngine.startRipple
+  fakeEngine.ripplesAt = function(x, y) return y == 5 end
+  fakeEngine.startRipple = function(x, y) ripples[#ripples + 1] = x .. "," .. y end
+  npc = { sprite = nil, moving = false, cellX = 1, cellY = 5, facing = "down" }
+  local fp = FollowerAdapter.new(mod)
+  fp:tick()
+  eq(#ripples, 0, "appearing on pond water makes no ripple")
+  npc.cellX = 2
+  fp:tick()
+  eq(ripples[1], "2,5", "stepping onto a pond tile ripples it")
+  fp:tick()
+  eq(#ripples, 1, "standing still does not")
+  npc.cellY = 4
+  fp:tick()
+  eq(#ripples, 1, "a tile without ripples gets none")
+  npc = { sprite = nil, moving = false, cellX = 7, cellY = 5, facing = "down" }
+  fp:tick()
+  eq(#ripples, 1, "a re-created follower (map change) is only noted")
+  fakeEngine.ripplesAt, fakeEngine.startRipple = realAt, realStart
+end
+
 -- ------- the follower vanishing (map transition) clears the tracked state
 npc = nil
 fa:tick()

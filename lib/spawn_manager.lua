@@ -294,17 +294,42 @@ function SpawnManager:tick(game)
 end
 
 --- Appends one actor per live entity (engine_patch's `collectActors` hook).
+local function poseOf(e)
+  local pose = ActorRenderer.POSE_STAND
+  if e.moving then
+    pose = e.stepParity and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
+  elseif e.floater then
+    pose = ActorRenderer.idleFlapPose(e.flapClock, Config.IDLE_FLAP_TICKS)
+  end
+  if e.owPose then pose = e.owPose end -- set by the Battler's skirmish
+  return pose
+end
+
+--- Every live wild Pokemon's water reflection, for lib/reflection.lua (the
+--- drawBehind hook).
+function SpawnManager:reflections(list)
+  for _, id in ipairs(self.order) do
+    local e = self.entities[id]
+    local r = e and e.state ~= Config.STATE.DESPAWNED and e.renderer
+    if r and r.reflectionGeometry then
+      local geo = r:reflectionGeometry(e.px, e.py, e.facing, poseOf(e))
+      if geo then
+        local moving = e.moving and e.targetX ~= nil
+        list[#list + 1] = {
+          geo = geo,
+          cell = { cx = moving and e.targetX or e.cellX, cy = moving and e.targetY or e.cellY,
+                   pcx = e.cellX, pcy = e.cellY },
+        }
+      end
+    end
+  end
+end
+
 function SpawnManager:collectActors(actors)
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     if e and e.state ~= Config.STATE.DESPAWNED then
-      local pose = ActorRenderer.POSE_STAND
-      if e.moving then
-        pose = e.stepParity and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
-      elseif e.floater then
-        pose = ActorRenderer.idleFlapPose(e.flapClock, Config.IDLE_FLAP_TICKS)
-      end
-      if e.owPose then pose = e.owPose end -- set by the Battler's skirmish
+      local pose = poseOf(e)
       actors[#actors + 1] = {
         kind = "wild_mon", i = id,
         x = e.px, y = e.py, sortY = e.py, elevation = e.elevation,

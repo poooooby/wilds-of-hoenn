@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### Added
+
+- **PMDCollab Pokemon swim.** PMDCollab has no water art, so water Pokemon used to stand on the
+  water in full. Now they sit in it like the HGSS swim sprites: the body ends in a curved bowl of
+  pale foam that follows the width of each frame (narrow from the front, wide from the side). Each
+  species shows as much of itself as its HGSS swim sprite does (about 75-90%); species without
+  HGSS swim art show 80%.
+  - **While you Surf, a PMDCollab companion swims along behind you** instead of shrinking into
+    you.
+  - **Swimmers sit a little lower in the water** for the RSE perspective: PMDCollab swimmers
+    (the bowl's bottom is 2 px below the tile) and the HGSS / PokeMMO swim sprites alike
+    (4 px lower, `Config.SWIM_DROP`).
+- **Water reflections and ripples for wild Pokemon and your companion, in both sprite styles.**
+  The game reflects the player and every NPC on ponds, puddles and ice, and the player leaves a
+  ripple on pond water. Now our Pokemon get the same:
+  - **Reflections** are mirrored below the sprite and shown only on reflective tiles. On RSE
+    water they have the game's wobble, and they stay under bridges and shore tiles.
+  - **Our art has no reflection palette, so reflections are blended toward a pale blue**
+    (`Config.REFLECTION_TINT`, `REFLECTION_MIX`), to match the paler look of the game's own.
+  - **With Gen 3 HD Sprites, reflections are drawn at window resolution too.** They're exactly
+    the size and place of the plain ones (this needs the gen3-hd-sprites update that adds
+    per-quad scales; older versions draw them the plain way).
+  - **Ripples:** each step onto pond water or a puddle leaves the game's own ripple.
+  - **True flyers and floaters stay whole over water.** This covers species like Zubat, Gastly,
+    Koffing and Rayquaza. Winged walkers such as Charizard and Pidgeot sit in the water.
+  - **The flyer list can be edited by hand** in `lib/pmd_water.lua`. It was seeded by
+    `tools/generate_pmd_water.py`.
+  - **The cut and foam are worked out when the art is baked.** The bowl is stored as
+    `waterline` and `bowl` in `index.json`. The few rows inside it are a tiny band sheet drawn
+    over the cut. The art itself isn't copied, so the ZIP stays about the same size.
+
 ### Changed
 
 - **Foraging reworked: every trip finds something, and friendship matters.** The Forager no

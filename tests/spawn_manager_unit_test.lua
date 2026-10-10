@@ -288,6 +288,19 @@ check(pe.renderer.silhouette == true, "the rebuild keeps the silhouette")
 optionStore.sprite_style = "pmd"
 smPmd:refreshSpriteStyle()
 check(pe.renderer.isPmd == true, "switching to pmd rebuilds a PmdRenderer")
+-- swimming: a water spawn is cut at its waterline, unless it is a true flyer
+local SSw = V.require("sprite_source")
+check(pe.renderer.swimming == (pe.terrain == "water"), "a PMD spawn swims exactly when it is on water")
+pe.terrain = "water"
+smPmd:refreshSpriteStyle()
+check(pe.renderer.swimming == true, "a PMD water spawn is drawn swimming")
+SSw._setPmdWater({ [252] = true })
+smPmd:refreshSpriteStyle()
+check(pe.renderer.swimming == false, "...but a listed true flyer is drawn whole")
+pe.terrain = "land"
+smPmd:refreshSpriteStyle()
+check(pe.renderer.swimming == false, "a land spawn never swims")
+SSw._setPmdWater(nil)
 optionStore.sprite_style = "pokemmo"
 V.mod = mod
 

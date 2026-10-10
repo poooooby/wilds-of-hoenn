@@ -13,6 +13,7 @@ writes:
 
     assets/pmd/walk/<dex>-normal.png   (and -shiny.png when SpriteCollab has one)
     assets/pmd/idle/<dex>-normal.png
+    assets/pmd/foam<anim>/<dex>-normal.png  swim band (foam bowl) for a swimming Pokemon (see bake_water)
     assets/pmd/portraits/<dex>-normal.png  (and -shiny.png) emotion sheets, 40x40 cells
     assets/pmd/portraits.json          which emotions each species' sheet has, in column order
     assets/pmd/index.json              per-species frame size, durations, anchor
@@ -30,7 +31,8 @@ true_size_scale: up only, never below 1).
 
 The index records, per animation, `cw`/`ch` (cell size), `cols`, `durations`
 (60 Hz ticks, straight from AnimData.xml) and `ax`/`ay` (the ground point
-inside a cell; the renderer puts that point on the tile's feet position).
+inside a cell; the renderer puts that point on the tile's feet position) and
+`waterline` / `bowl` (where a swimming Pokemon's foam bowl ends and how deep it is).
 
     python3 tools/generate_pmd_sprites.py
     python3 tools/generate_pmd_sprites.py --species 6,25,252 --force
@@ -248,6 +250,131 @@ def true_size_scale(dex: int, key: str, walk_sheet: Image.Image, walk: dict) -> 
     return ratio if ratio >= TRUE_SIZE_MIN else 1.0
 
 
+# Water. PMDCollab has no swimming art, so a Pokemon on water is drawn SWIMMING the way
+# the HGSS swimming sheets draw it: the body ends in a bowl of foam (232, 232, 248 --
+# their colour). Measured on those sheets, the bowl's bottom row is solid foam, and each
+# row above it steps OUT by about 2 px per side, foam on its ends, until it meets the
+# body's own edge; the body outside the bowl is cut away. So the bowl follows the
+# width of each frame (narrow front/back, wide side views).
+#
+# Drawn in two parts (lib/pmd_renderer.lua), neither a second copy of the art:
+#   * the animation sheet itself, its quad cut off at the TOP of the bowl
+#     (`waterline - bowl` rows);
+#   * a BAND sheet (assets/pmd/foam<anim>/<key>-<normal|shiny>.png) with the sheet's
+#     exact layout, holding only the bowl rows: the body pixels inside the bowl plus the
+#     foam. Mostly transparent, so tiny; same pivot as the sheet, so it lines up at any
+#     size (gen3-hd-sprites).
+# How much of the body shows is the species' OWN HGSS ratio (swimming height / land
+# height, hgss_keep) when it has HGSS swim art, else WATER_KEEP.
+WATER_KEEP = 0.80          # share of the body above the water without HGSS swim art
+KEEP_RANGE = (0.65, 0.92)  # clamp of an HGSS-derived share
+FOAM = (232, 232, 248, 255)
+SWIM_DIR = ROOT / "assets" / "wilds_generated" / "true_size18" / "swimming"
+
+
+def hgss_keep(dex: int, key: str, fallback: float) -> float:
+    """Share of the body an HGSS swim sprite shows: median stand height of the swimming
+    sheet over that of the land sheet (a form without its own uses its base species)."""
+    def height(folder: Path):
+        p = folder / f"{key}-normal.png"
+        if not p.is_file():
+            p = folder / f"{dex:03d}-normal.png"
+        if not p.is_file():
+            return None
+        im = Image.open(p).convert("RGBA")
+        fh = im.height // 18
+        return median_height(im, [(0, i * fh) for i in range(3)], im.width, fh)
+    swim, land = height(SWIM_DIR), height(HGSS_DIR)
+    if not swim or not land:
+        return fallback
+    return max(KEEP_RANGE[0], min(KEEP_RANGE[1], swim / land))
+
+
+def cells_of(entry: dict):
+    cw, ch = entry["cw"], entry["ch"]
+    for r in range(len(DIRECTIONS)):
+        for c in range(entry["cols"]):
+            yield c * cw, r * ch
+
+
+def waterline_of(sheet: Image.Image, entry: dict, keep: float) -> int | None:
+    """Row (cell pixels, exclusive) where the bowl ends: per frame, `keep` of the way
+    from the body's top to its bottom; the median over the frames (one cut per
+    animation). None when the sheet has no visible body."""
+    cw, ch = entry["cw"], entry["ch"]
+    ws = []
+    for x, y in cells_of(entry):
+        box = sheet.crop((x, y, x + cw, y + ch)).getchannel("A").getbbox()
+        if box:
+            ws.append(box[1] + keep * (box[3] - box[1]))
+    if not ws:
+        return None
+    return max(3, min(ch, round(statistics.median(ws))))
+
+
+def bowl_rows(sheet: Image.Image, entry: dict, w: int) -> int:
+    """Depth of the bowl: 3 rows for a body at least 14 px wide at the waterline, else 2
+    (the HGSS sheets: Lapras 3, Squirtle 2)."""
+    widths = []
+    for x0, y0 in cells_of(entry):
+        row = [x for x in range(entry["cw"]) if sheet.getpixel((x0 + x, y0 + w - 3))[3] > 0]
+        if row:
+            widths.append(row[-1] - row[0] + 1)
+    return 3 if widths and statistics.median(widths) >= 14 else 2
+
+
+def band_sheet(sheet: Image.Image, entry: dict, w: int, depth: int) -> Image.Image:
+    """The bowl band for `sheet`: rows w-depth .. w-1 of every cell. The bowl spans the
+    body's width just above it (left..right); row k from the top is inset by k * step on
+    each side (step up to 2 px, smaller for a narrow body), keeps the body pixels inside
+    that span, and is foam on its `edge` outermost pixels each side; the last row is all
+    foam."""
+    cw = entry["cw"]
+    out = Image.new("RGBA", sheet.size, (0, 0, 0, 0))
+    src, dst = sheet.load(), out.load()
+    top = w - depth
+    for x0, y0 in cells_of(entry):
+        xs = [x for y in range(max(0, top - 1), top + 1) for x in range(cw) if src[x0 + x, y0 + y][3] > 0]
+        if not xs:
+            continue
+        left, right = min(xs), max(xs)
+        width = right - left + 1
+        step = min(2.0, width / 8.0)
+        edge = 2 if width >= 14 else 1
+        for k in range(depth):
+            inset = round(k * step)
+            lo, hi = left + inset, right - inset
+            if lo > hi:
+                break
+            y = y0 + top + k
+            for x in range(lo, hi + 1):
+                if k == depth - 1 or x < lo + edge or x > hi - edge:
+                    dst[x0 + x, y] = FOAM
+                elif src[x0 + x, y][3] > 0:
+                    dst[x0 + x, y] = src[x0 + x, y]
+    return out
+
+
+def bake_water(out: Path, anim: str, dex: int, key: str, normal: Image.Image, shiny: Image.Image | None,
+               info: dict, keep: float, force: bool):
+    """Adds `waterline` (the bowl's bottom, exclusive) and `bowl` (its depth in rows) to
+    `info` and writes the band sheets (a shiny one when the animation has a shiny sheet)."""
+    folder = out / f"foam{anim}"
+    w = waterline_of(normal, info, hgss_keep(dex, key, keep))
+    if w is None:
+        for variant in ("normal", "shiny"):
+            (folder / f"{key}-{variant}.png").unlink(missing_ok=True)
+        return
+    depth = bowl_rows(normal, info, w)
+    info["waterline"], info["bowl"] = w, depth
+    for variant, sheet in (("normal", normal), ("shiny", shiny)):
+        path = folder / f"{key}-{variant}.png"
+        if sheet is None:
+            path.unlink(missing_ok=True)
+        elif force or not path.exists():
+            band_sheet(sheet, info, w, depth).save(path, "PNG", optimize=True)
+
+
 # Portraits. SpriteCollab keeps one 40x40 PNG per emotion in
 # portrait/<dex4>/ (form 0, default gender; shiny in 0000/0001/, which may
 # hold only the emotions that differ). Per species one sheet is baked:
@@ -407,6 +534,8 @@ def main() -> int:
     ap.add_argument("--shiny-portraits", action="store_true",
                     help="also bake the shiny portrait sheets (about half of all portrait art); "
                          "by default a shiny Pokemon uses its normal portrait")
+    ap.add_argument("--water-keep", type=float, default=WATER_KEEP,
+                    help=f"share of the body left above the water for a species without HGSS swim art (default {WATER_KEEP})")
     args = ap.parse_args()
 
     src, out = Path(args.src), Path(args.out)
@@ -418,6 +547,7 @@ def main() -> int:
 
     for anim in ALL_ANIMS:
         (out / anim).mkdir(parents=True, exist_ok=True)
+        (out / f"foam{anim}").mkdir(parents=True, exist_ok=True)
     index_path = out / "index.json"
     index = {"version": INDEX_VERSION, "directions": [n for n, _ in DIRECTIONS], "gutter": GUTTER, "dex": {}}
     if index_path.is_file() and wanted is not None:
@@ -464,6 +594,7 @@ def main() -> int:
                 ok = False
                 break
             info, normal, shiny = result
+            bake_water(out, anim, dex, key, normal, shiny, info, args.water_keep, args.force)
             entry[anim] = dict(info, shiny=shiny is not None)
             if anim == "walk":
                 entry["scale"] = true_size_scale(dex, key, normal, info)
@@ -484,8 +615,11 @@ def main() -> int:
                 if result is None:
                     normal_path.unlink(missing_ok=True)
                     (out / anim / f"{key}-shiny.png").unlink(missing_ok=True)
+                    for variant in ("normal", "shiny"):
+                        (out / f"foam{anim}" / f"{key}-{variant}.png").unlink(missing_ok=True)
                     continue
                 info, normal, _shiny = result
+                bake_water(out, anim, dex, key, normal, None, info, args.water_keep, args.force)
                 # fights are brief: the normal sheet serves shiny too (keeps the ZIP small)
                 entry[anim] = dict(info, shiny=False)
                 (out / anim / f"{key}-shiny.png").unlink(missing_ok=True)
@@ -495,6 +629,7 @@ def main() -> int:
             for anim in ALL_ANIMS:  # never leave half a species behind
                 for variant in ("normal", "shiny"):
                     (out / anim / f"{key}-{variant}.png").unlink(missing_ok=True)
+                    (out / f"foam{anim}" / f"{key}-{variant}.png").unlink(missing_ok=True)
             index["dex"].pop(index_key(dex, key), None)
             stats["unusable"] += 1
             continue

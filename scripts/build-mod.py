@@ -66,6 +66,10 @@ OPTIONAL_RAW_SPRITE_DIRS = [
     "assets/pmd/idle",
     "assets/pmd/attack",
     "assets/pmd/hurt",
+    "assets/pmd/foamwalk",
+    "assets/pmd/foamidle",
+    "assets/pmd/foamattack",
+    "assets/pmd/foamhurt",
     "assets/pmd/portraits",
 ]
 
@@ -127,7 +131,7 @@ def iter_files(skip_dirs: set[Path]):
 
 # The atlas families that are HGSS / PokeMMO art (everything not pmd_*).
 HGSS_FAMILIES = "hgss18,swimming18,levitates18"
-PMD_FAMILIES = ("pmd_walk", "pmd_idle", "pmd_portraits")
+PMD_FAMILIES = ("pmd_walk", "pmd_idle", "pmd_foam", "pmd_portraits")
 
 VARIANTS = {
     "hgss": {"suffix": "-hgss", "pmd": False, "label": "HGSS / PokeMMO only"},
@@ -220,6 +224,7 @@ def build_variant(name: str, args, version: str, mod_id: str, out_dir: Path) -> 
                   or n.startswith("assets/pmd/idle/")
                   or n.startswith("assets/pmd/attack/")
                   or n.startswith("assets/pmd/hurt/")
+                  or n.startswith("assets/pmd/foam")
                   or n.startswith("assets/pmd/portraits/")]
         if leaked:
             problems.append(f"atlas mode but {len(leaked)} raw sprite files leaked into the ZIP (first: {leaked[0]})")

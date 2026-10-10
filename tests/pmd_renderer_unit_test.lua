@@ -292,6 +292,29 @@ do
   Config.PMD_WALK_LINGER = 0
 end
 
+-- ------- swimming: the quad is cut at the baked waterline
+do
+  local body, band = PmdRenderer.cropHeight({ ch = 26, waterline = 17, bowl = 3 })
+  eq(body, 14, "the sheet is cut at the top of the foam bowl")
+  eq(band, 17, "...and the band sheet at its bottom, the waterline")
+  body, band = PmdRenderer.cropHeight({ ch = 26, waterline = 40, bowl = 3 })
+  eq(band, 26, "...never past the cell")
+  body, band = PmdRenderer.cropHeight({ ch = 26, waterline = 0, bowl = 3 })
+  check(body == 1 and band == 1, "...nor empty")
+  body, band = PmdRenderer.cropHeight({ ch = 26, waterline = 17 })
+  check(body == 17 and band == 17, "no bowl depth: a straight cut")
+  -- a swimmer stands on its waterline: row 17 of the cell lands on the swim spot
+  local _, sy = PmdRenderer.placement({ ax = 15.5, ay = 19.5 }, 1, 14, 0, 0, 17)
+  eq(sy, 14 - 17, "the waterline (not the feet) sits on the swim spot")
+  local _, gy = PmdRenderer.placement({ ax = 15.5, ay = 19.5 }, 1, 12, 0, 0)
+  eq(gy, math.floor(12 - 19.5 + 0.5), "on land the feet still do")
+end
+eq(PmdRenderer.cropHeight({ ch = 26 }), nil, "no waterline: drawn whole")
+eq(PmdRenderer.cropHeight(nil), nil, "...nor without an entry")
+check(PmdRenderer.new(V.mod, 7, false, { walk = { ch = 26, waterline = 17 }, idle = {} }):canSwim(), "art with a waterline can swim")
+check(not PmdRenderer.new(V.mod, 7, false, { walk = { ch = 26 }, idle = {} }):canSwim(), "an old bake without one cannot")
+check(PmdRenderer.new(V.mod, 7, false, { walk = {}, idle = {} }).swimming == false, "a new sprite is not swimming")
+
 -- ------- draw is a no-op (never an error) without art or love
 check(pcall(function() r:draw(0, 0, 0, 0, "down", "stand", false) end), "draw without art/love never throws")
 
