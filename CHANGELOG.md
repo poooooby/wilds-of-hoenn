@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.6.2 (2026-10-10)
+
+Includes everything from 1.6.2-beta.1 (below).
 
 ### Added
 
@@ -22,8 +24,8 @@
   - **Our art has no reflection palette, so reflections are blended toward a pale blue**
     (`Config.REFLECTION_TINT`, `REFLECTION_MIX`), to match the paler look of the game's own.
   - **With Gen 3 HD Sprites, reflections are drawn at window resolution too.** They're exactly
-    the size and place of the plain ones (this needs the gen3-hd-sprites update that adds
-    per-quad scales; older versions draw them the plain way).
+    the size and place of the plain ones (this needs Gen 3 HD Sprites 0.2.0 or newer; older
+    versions draw them the plain way).
   - **Ripples:** each step onto pond water or a puddle leaves the game's own ripple.
   - **True flyers and floaters stay whole over water.** This covers species like Zubat, Gastly,
     Koffing and Rayquaza. Winged walkers such as Charizard and Pidgeot sit in the water.
