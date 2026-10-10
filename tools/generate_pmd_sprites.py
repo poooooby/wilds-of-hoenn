@@ -76,6 +76,13 @@ SHINY_SUBDIR = Path("0000") / "0001"
 GROUND_MARKER = (255, 255, 255, 255)
 
 
+def index_key(dex: int, key: str) -> str:
+    """The key an entry has in index.json / portraits.json. The runtime looks a base
+    species up by tostring(<dex number>) -- "6", NOT the zero-padded "006" its sheet
+    files are named with -- and a form by its "<dex3>-<form>" key (lib/form_source.lua)."""
+    return str(dex) if key == f"{dex:03d}" else key
+
+
 def bake_targets(sprite_root: Path, wanted):
     """(dex, key, folder, shiny folder) for every sheet to bake: each base species
     (key "%03d"), then each alternate form SpriteCollab draws (key "%03d-<form>",
@@ -488,10 +495,10 @@ def main() -> int:
             for anim in ALL_ANIMS:  # never leave half a species behind
                 for variant in ("normal", "shiny"):
                     (out / anim / f"{key}-{variant}.png").unlink(missing_ok=True)
-            index["dex"].pop(key, None)
+            index["dex"].pop(index_key(dex, key), None)
             stats["unusable"] += 1
             continue
-        index["dex"][key] = entry
+        index["dex"][index_key(dex, key)] = entry
         line = credit_line(src, dex, names) if key == f"{dex:03d}" else None  # a form is credited with its base
         if line:
             credits[dex] = line
@@ -528,7 +535,7 @@ def main() -> int:
             pstats["none"] += 1
             continue
         entry, normal, shiny = result
-        pindex["dex"][key] = entry
+        pindex["dex"][index_key(dex, key)] = entry
         pline = portrait_credit_line(src, dex, names) if key == f"{dex:03d}" else None
         if pline:
             portrait_credits[dex] = pline

@@ -179,7 +179,7 @@ local function loadImage(mod, path)
   if img then
     imageCache[path] = img
     -- drawn at window resolution by gen3-hd-sprites when it is installed (lib/hd_field.lua)
-    HdField.tag(mod, img)
+    HdField.tag(mod, img, path)
   end
   return img
 end
@@ -254,6 +254,16 @@ function ActorRenderer:frameWidth()
   local image = loadImage(self.mod, path)
   if not image then return nil end
   return (image:getDimensions())
+end
+
+--- The width the sprite is actually drawn at: the sheet's own width times the size
+--- gen3-hd-sprites draws it at (Overworld Size x Species Sizes; 1 without that mod).
+--- Spacing a follower out from the player goes by this, not by the sheet.
+function ActorRenderer:visualWidth()
+  local path = self:imagePath()
+  local w = self:frameWidth()
+  if not (path and w) then return w end
+  return w * HdField.scaleOfPath(self.mod, path)
 end
 
 function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)

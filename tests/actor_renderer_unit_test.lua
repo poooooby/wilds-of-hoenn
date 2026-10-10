@@ -279,6 +279,28 @@ do
   love = savedLove
 end
 
+-- ------- visualWidth: the width a sprite is DRAWN at (spacing a follower goes by this)
+do
+  local Hd = V.require("hd_field")
+  local SS = V.require("HGSS_scale")
+  local libMod = { find = function(_, id)
+    if id == "gen3-hd-sprites" then return { exports = { tag = function() end, isActive = function() return true end } } end
+  end }
+  local r = setmetatable({ mod = libMod }, ActorRenderer)
+  r.imagePath = function() return "assets/wilds_generated/true_size18/hgss/006-normal.png" end
+  r.frameWidth = function() return 40 end
+  Hd.setSize("100") Hd.setSpeciesSizes(true)
+  check(math.abs(r:visualWidth() - 40 * SS[6]) < 1e-9, "visualWidth = the sheet's width x its species size")
+  Hd.setSpeciesSizes(false)
+  eq(r:visualWidth(), 40, "...the sheet's own width with Species Sizes off")
+  Hd.setSpeciesSizes(true)
+  r.mod = { find = function() return nil end }
+  eq(r:visualWidth(), 40, "...and the sheet's own width without gen3-hd-sprites")
+  r.imagePath = function() return nil end
+  r.frameWidth = function() return nil end
+  eq(r:visualWidth(), nil, "...nil with no art installed")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

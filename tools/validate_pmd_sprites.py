@@ -31,6 +31,18 @@ def sheet_name(key: str) -> str:
     return f"{int(base):03d}" + (f"-{form}" if form else "")
 
 
+def bad_index_key(key: str) -> str | None:
+    """The runtime looks a base species up by tostring(dex) ("6") and a form by its
+    "<dex3>-<form>" key ("479-heat"); anything else is never found, so the whole PMD
+    style silently falls back to HGSS (this shipped broken once with "006")."""
+    if key.isdigit():
+        return None if key == str(int(key)) and 1 <= int(key) <= 1025 else "base keys are plain dex numbers (no zero padding)"
+    base, _, form = key.partition("-")
+    if len(base) >= 3 and base.isdigit() and form:
+        return None
+    return "not a dex number or a <dex3>-<form> key"
+
+
 def main() -> int:
     index_path = PMD / "index.json"
     if not index_path.is_file():
@@ -42,6 +54,10 @@ def main() -> int:
         errors.append(f"unsupported index version {index.get('version')!r}")
     dex_map = index.get("dex", {})
     expected: set[str] = set()
+    for key in dex_map:
+        why = bad_index_key(key)
+        if why:
+            errors.append(f"index.json key {key!r}: {why}")
 
     for dex, entry in sorted(dex_map.items(), key=lambda kv: (int(kv[0].split("-")[0]), kv[0])):
         for anim in ANIMS + OPTIONAL_ANIMS:
@@ -85,6 +101,10 @@ def main() -> int:
         pidx = json.loads(pidx_path.read_text(encoding="utf-8"))
         size = pidx.get("size")
         pexpected: set[str] = set()
+        for key in pidx.get("dex", {}):
+            why = bad_index_key(key)
+            if why:
+                errors.append(f"portraits.json key {key!r}: {why}")
         for dex, entry in sorted(pidx.get("dex", {}).items(), key=lambda kv: (int(kv[0].split("-")[0]), kv[0])):
             emotions = entry.get("emotions") or []
             if "Normal" not in emotions:

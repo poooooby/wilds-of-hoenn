@@ -36,6 +36,8 @@ Bring Hoenn and Kanto to life in [Gen1Recomp](https://github.com/bryanthaboi/gen
 | **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your companion. PMDCollab has animated walk and idle loops; species without PMD art fall back to HGSS / PokeMMO. (PMDCollab is only in the HGSS + PMDCollab build.) |
 | **Classic Enc** | On / Off | On | Keeps the original step-based random encounters in grass and water. Visible wild Pokémon stay active either way. Fishing and Rock Smash are unaffected. |
 | **Silhouette** | Off / Undiscovered / All | Off | Draws visible wild Pokémon as black silhouettes: only species you haven't caught, or all of them. |
+| **Species Sizes** | On / Off | On | With the [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites) mod, draws each HGSS / PokeMMO species at its own relative size (a Charizard bigger than a Charmander), the same table as Wilds of Kanto Revival. Without that mod, or with its Field HD off, every species is drawn at its sheet's size. PMDCollab sprites are drawn at their own size unless tuned in `lib/PMD_scale.lua`. The two tables (`lib/HGSS_scale.lua`, `lib/PMD_scale.lua`) can be edited by hand. |
+| **Overworld Size** | 100%, 90%, 80%, 75%, 67%, 50% | 100% | Scales wild Pokémon and your follower, on top of Species Sizes (needs Gen 3 HD Sprites too). |
 | **Shiny Rate** | Native, 1/4096, 1/2048, 1/1024, 1/500, 1/100, 1/10, All | Native | *Native* uses the game's real shiny chance. The other rates give visible wild Pokémon an extra roll at that chance, keeping their nature and gender. *All* makes every one shiny. Does not affect gifts, eggs or starters. |
 
 ### Pokémon Menu (party menu: select a Pokémon, then choose a job)

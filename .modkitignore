@@ -57,6 +57,7 @@ tests/sprite_source_unit_test.lua
 tools/check_modkitignore.py
 tools/copy_wilds_assets.py
 tools/form_art_map.py
+tools/generate_pmd_scale.py
 tools/generate_pmd_sprites.py
 tools/generate_sprite_atlases.py
 tools/generate_true_size_18frame.py

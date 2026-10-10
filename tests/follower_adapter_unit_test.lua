@@ -335,7 +335,38 @@ for _ = 1, 40 do fa:tick() end
 eq(fa.renderer.pushY, math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "settles on the new side (facing up -> pushed down)")
 npc.facing = "left"
 for _ = 1, 40 do fa:tick() end
-eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "left/right uses the sprite's width")
+eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) * Cfg.PMD_FOLLOWER_SIDE_OVERHANG + Cfg.PMD_FOLLOWER_GAP,
+  "left/right uses the sprite's width, scaled by PMD_FOLLOWER_SIDE_OVERHANG")
+local realSide = Cfg.PMD_FOLLOWER_SIDE_OVERHANG
+Cfg.PMD_FOLLOWER_SIDE_OVERHANG = 1
+for _ = 1, 40 do fa:tick() end
+eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "a factor of 1 keeps the full overhang")
+Cfg.PMD_FOLLOWER_SIDE_OVERHANG = realSide
+for _ = 1, 40 do fa:tick() end
+npc.facing = "up"
+for _ = 1, 40 do fa:tick() end
+eq(fa.renderer.pushY, math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "facing up is not affected by the side factor")
+npc.facing = "left"
+for _ = 1, 40 do fa:tick() end
+-- a small sprite (no overhang, no down gap: a push of 0 facing down) must not be left
+-- off to the side after walking sideways: its offset eases back to 0 anyway
+do
+  local realOver, realGapDown = Cfg.PMD_FOLLOWER_DOWN_OVERHANG, Cfg.PMD_FOLLOWER_GAP_DOWN
+  Cfg.PMD_FOLLOWER_DOWN_OVERHANG, Cfg.PMD_FOLLOWER_GAP_DOWN = 0, 0
+  npc.facing = "left"
+  for _ = 1, 60 do fa:tick() end
+  check(fa.renderer.pushX ~= 0, "sanity: facing left it is offset sideways (" .. tostring(fa.renderer.pushX) .. ")")
+  npc.facing = "down"
+  for _ = 1, 60 do fa:tick() end
+  eq(fa.renderer.pushX, 0, "facing down with a push of 0, the sideways offset eases back to 0 (not stuck)")
+  eq(fa.renderer.pushY, 0, "...and so does the vertical one")
+  npc.facing = "right"
+  for _ = 1, 60 do fa:tick() end
+  npc.facing = "up"
+  for _ = 1, 60 do fa:tick() end
+  eq(fa.renderer.pushX, 0, "right then up: no sideways offset is left behind")
+  Cfg.PMD_FOLLOWER_DOWN_OVERHANG, Cfg.PMD_FOLLOWER_GAP_DOWN = realOver, realGapDown
+end
 optionStore.sprite_style = "pokemmo"
 V.mod = mod
 

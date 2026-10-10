@@ -10,6 +10,7 @@ Config.DEFAULTS = {
   wild_silhouettes = "off",
   shiny_rate = "native",
   overworld_size = "100",
+  species_sizes = true,
 }
 
 Config.STATE = {
@@ -130,6 +131,10 @@ Config.PMD_WALK_LINGER = 8
 -- facing down, only this fraction of a tall sprite's overhang is kept behind
 -- the player (a big sprite like Rayquaza otherwise trails too far above)
 Config.PMD_FOLLOWER_DOWN_OVERHANG = 0.6
+-- facing left or right, the same idea for a wide sprite (a long-tailed Tyranitar
+-- otherwise trails nearly two tiles behind): only this fraction of its overhang is
+-- kept behind the player. 1 = the full overhang (the old behaviour).
+Config.PMD_FOLLOWER_SIDE_OVERHANG = 0.6
 -- Fastest the follower's offset may slide when the player changes direction,
 -- in px per tick (small sprites turn slower than this anyway; a big one takes
 -- longer instead of snapping)

@@ -21,6 +21,7 @@ local Config = V.require("config")
 local SpriteSource = V.require("sprite_source")
 local ActorRenderer = V.require("actor_renderer")
 local RecallMath = V.require("recall_math")
+local HdField = V.require("hd_field")
 
 local PmdRenderer = {}
 PmdRenderer.__index = PmdRenderer
@@ -67,10 +68,10 @@ end
 
 --- Visible size in px of a Walk cell's content at the drawn scale (the cell
 --- minus its baked gutter) -- used to space the follower out.
-function PmdRenderer.contentSize(info)
+function PmdRenderer.contentSize(info, extra)
   local walk = info and info.walk
   if not walk then return 0, 0 end
-  local scale = PmdRenderer.scaleOf(info)
+  local scale = PmdRenderer.scaleOf(info) * (tonumber(extra) or 1)
   local g = 2 * (info.gutter or 2)
   return math.max(0, walk.cw - g) * scale, math.max(0, walk.ch - g) * scale
 end
@@ -163,9 +164,16 @@ function PmdRenderer:advanceAs(anim, speed)
   self.clock = self.clock + rate
 end
 
+--- The size gen3-hd-sprites draws this sprite at on top of its own (Overworld Size x
+--- Species Sizes, lib/hd_field.lua); 1 without that mod.
+function PmdRenderer:hdScale()
+  local path = SpriteSource.pmdPath(self.info, "walk", self.dex, self.shiny)
+  return path and HdField.scaleOfPath(self.mod, path) or 1
+end
+
 --- Visible height in px of the sprite as drawn (for things floating above it).
 function PmdRenderer:visualHeight()
-  local _, h = PmdRenderer.contentSize(self.info)
+  local _, h = PmdRenderer.contentSize(self.info, self:hdScale())
   return h
 end
 

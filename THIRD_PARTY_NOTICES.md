@@ -4,8 +4,9 @@ This mod's own code is MIT-licensed (see `LICENSE`). The art below is not.
 
 ## Code adapted from Wilds of Kanto Revival
 
-`lib/json_decode.lua`, `tools/generate_sprite_atlases.py` and
-`tools/validate_sprite_atlases.py` are copied or adapted from
+`lib/json_decode.lua`, `lib/HGSS_scale.lua` (the per-species overworld size table; `lib/PMD_scale.lua` is its PMDCollab twin),
+`tools/generate_sprite_atlases.py` and `tools/validate_sprite_atlases.py` are copied or
+adapted from
 **Wilds of Kanto Revival** (`poooooby/wilds-of-kanto-gen-3`), which is
 released under the MIT License:
 

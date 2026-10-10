@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Species Sizes** (with the Gen 3 HD Sprites mod): each HGSS / PokeMMO species is drawn
+  at its own relative size, the per-species table from Wilds of Kanto Revival (0.67x to
+  1.2x of the sheet, a form sized like its base species). It multiplies with Overworld
+  Size, applies to wild Pokemon, water Pokemon and the follower, and is on by default; it
+  does nothing without the library. A large follower is spaced out from the player by
+  its drawn width, not the sheet's.
+- **`lib/HGSS_scale.lua` and `lib/PMD_scale.lua`**: the per-species size tables, one per
+  sprite style, edited by hand. A dex number sizes a
+  species and its forms; a form key like `479-heat` sizes one form. A PMD sheet now scales
+  about its baked ground point, so shrinking one keeps it standing on its tile.
+  `PMD_scale.lua` is sized so each PMD sprite is as big as its HGSS one (mean of height and
+  area), with a pixel-density floor from 0.49 (small) to 0.8 (big) so a large Pokemon is not
+  shrunk into a tiny, too-fine sprite (`tools/generate_pmd_scale.py`).
+
+### Fixes
+
+- **PMDCollab sprites and portraits for Pokemon #1-99 were missing** in 1.6.0 and 1.6.1 (they
+  drew as HGSS, with no portrait). The form update wrote the PMD index with zero-padded keys
+  ("006") that the game never looked up; #100 and up happened to match. The bake now keys base
+  species by plain dex number, and the validator and a unit test check it.
+- A small follower facing down could stay stuck off to one side after walking left or right,
+  until you turned a different way. Its offset now always eases back to the centre.
+- A wide PMD follower (a long-tailed Tyranitar) trailed nearly two tiles behind when you walked
+  left or right: only 60% of its overhang is kept behind you there now
+  (`PMD_FOLLOWER_SIDE_OVERHANG`, like the down factor).
+
 ## 1.6.1 (2026-10-09)
 
 ### Added

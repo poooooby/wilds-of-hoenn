@@ -69,6 +69,7 @@ return function(mod)
   local PartyRoles = V.require("party_roles")
 
   Config.defineOptions(mod)
+  HdField.setSpeciesSizes(Config.get(mod, "species_sizes"))
   HdField.setSize(Config.get(mod, "overworld_size"))
 
   -- Pure asset I/O, no engine dependency: safe to try regardless of game
@@ -281,6 +282,8 @@ return function(mod)
       end
     elseif ev.key == "overworld_size" then
       HdField.setSize(ev.value)
+    elseif ev.key == "species_sizes" then
+      HdField.setSpeciesSizes(ev.value)
     elseif ev.key == "sprite_style" then
       -- Re-point every already-spawned entity's renderer immediately,
       -- rather than waiting for the next map transition.

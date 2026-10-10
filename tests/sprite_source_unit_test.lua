@@ -229,6 +229,35 @@ do
   eq(path, "assets/pmd/portraits/479-heat-normal.png", "the form's sheet path")
 end
 
+-- ------- the REAL baked index: a base species is found by its plain dex number (this
+-- shipped broken once, with zero-padded keys, and every PMD sprite fell back to HGSS)
+do
+  local f = io.open("assets/pmd/index.json", "rb")
+  if f then
+    f:close()
+    local modules = {}
+    local V4 = { path = "." }
+    function V4.require(n)
+      if modules[n] then return modules[n] end
+      if n == "sprite_atlas" then return { installed = function() return false end, has = function() return false end } end
+      modules[n] = assert(loadfile("lib/" .. n .. ".lua"))(V4)
+      return modules[n]
+    end
+    local SS = V4.require("sprite_source")
+    local realMod = { read = function(_, rel)
+      local fh = io.open(rel, "rb") if not fh then return nil end
+      local d = fh:read("*a") fh:close() return d
+    end }
+    for _, dex in ipairs({ 1, 6, 25, 150, 252, 384 }) do
+      check(SS.pmdInfo(realMod, dex) ~= nil, "the real PMD index has dex " .. dex .. " under its plain number")
+    end
+    check(SS.pmdInfo(realMod, "479-heat") ~= nil, "...and a form under its <dex3>-<form> key")
+    check(SS.portraitInfo(realMod, 25) ~= nil, "the real portrait index has dex 25 under its plain number")
+  else
+    print("skip: no baked assets/pmd (a fresh clone)")
+  end
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

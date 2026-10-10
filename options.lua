@@ -63,6 +63,13 @@ return {
     description = "Native keeps the real shiny chance the engine already rolled against your trainer id (no reroll). Each rate re-rolls a non-shiny encounter at that chance until it is shiny, keeping the same nature and gender. All always shows a shiny.",
   },
   {
+    key = "species_sizes",
+    label = "Species Sizes",
+    type = "toggle",
+    default = true,
+    description = "Draw each HGSS / PokeMMO species at its own relative size, the same table Wilds of Kanto Revival uses (a Charizard bigger than a Charmander, a Rattata small). Needs the Gen 3 HD Sprites mod (with its Field HD option on); without it every species is drawn at its sheet's size. PMDCollab sprites keep their own sizes.",
+  },
+  {
     key = "overworld_size",
     label = "Overworld Size",
     type = "choice",
@@ -75,6 +82,6 @@ return {
       { "67%", "67" },
       { "50%", "50" },
     },
-    description = "Size of wild Pokemon and your follower in the overworld. Needs the Gen 3 HD Sprites mod (with its Field HD option on), which draws them at your screen's full resolution so any size keeps every pixel of the art; without it they are always drawn at 100%.",
+    description = "Size of wild Pokemon and your follower in the overworld, on top of Species Sizes. Needs the Gen 3 HD Sprites mod (with its Field HD option on), which draws them at your screen's full resolution so any size keeps every pixel of the art; without it they are always drawn at 100%.",
   },
 }

@@ -412,18 +412,24 @@ function FollowerAdapter:tick()
     -- overhang past the 16px tile plus a gap, eased so a turn glides
     -- (same recipe as the pushback of the ActorRenderer styles below).
     local PmdRenderer = V.require("pmd_renderer")
-    local cw, ch = PmdRenderer.contentSize(r.info)
+    local cw, ch = PmdRenderer.contentSize(r.info, r:hdScale())
     local vertical = npc.facing == "up" or npc.facing == "down"
     local overhang = math.max(0, ((vertical and ch or cw) - CELL) / 2)
     -- walking down the follower trails ABOVE the player, and its art already
     -- extends upward from its feet, so it gets a smaller gap there
     local gap = npc.facing == "down" and Config.PMD_FOLLOWER_GAP_DOWN or Config.PMD_FOLLOWER_GAP
     if npc.facing == "down" then overhang = overhang * Config.PMD_FOLLOWER_DOWN_OVERHANG end
+    if not vertical then overhang = overhang * (Config.PMD_FOLLOWER_SIDE_OVERHANG or 1) end
     local push = overhang + gap
     local tx, ty = ActorRenderer.behindOffset(npc.facing, push)
     -- a turn takes the same time for every sprite, which makes a big one's
     -- offset race across the screen: cap the speed so it glides instead
-    local maxStep = math.min((push * 2) / FollowerAdapter.STEP_TICKS, Config.PMD_FOLLOWER_TURN_SPEED)
+    -- (the speed goes by the larger of the new push and the offset it is leaving, never
+    -- by the new push alone: a small sprite facing down has a push of 0, which would
+    -- make the speed 0 and leave it stuck off to the side after a sideways turn)
+    local travel = math.max(push, math.abs(r.pushX or 0), math.abs(r.pushY or 0))
+    -- (with a floor, so it lands exactly instead of easing toward the target forever)
+    local maxStep = math.min(math.max((travel * 2) / FollowerAdapter.STEP_TICKS, 0.25), Config.PMD_FOLLOWER_TURN_SPEED)
     if r.pushPlaced then
       r.pushX = ActorRenderer.approach(r.pushX, tx, maxStep)
       r.pushY = ActorRenderer.approach(r.pushY, ty, maxStep)
@@ -482,7 +488,7 @@ function FollowerAdapter:tick()
   -- whose HGSS / PokeMMO art fits in 16px.
   local pushback = 0
   if self.renderer.style == SpriteSource.STYLE_POKEMMO then
-    local fw = self.renderer:frameWidth()
+    local fw = self.renderer:visualWidth()
     if fw and fw > CELL then
       pushback = (fw - CELL) / 2
     end
@@ -551,10 +557,10 @@ function FollowerAdapter:collectActors(actors)
   local offY = (r and r.pushY or 0) + (act and act.dy or 0)
   local width, ground = CELL, CELL -- the ground point's depth in the tile
   if r and r.isPmd then
-    width = V.require("pmd_renderer").contentSize(r.info)
+    width = V.require("pmd_renderer").contentSize(r.info, r:hdScale())
     ground = Config.PMD_GROUND_Y or 12
   elseif r and r.frameWidth then
-    width = r:frameWidth() or CELL
+    width = r:visualWidth() or CELL
   end
   local npx, npy = npc.px or npc.cellX * CELL, npc.py or npc.cellY * CELL
   GrassCover.appendFeet(actors, npx + CELL / 2 + offX, npy + ground + offY,
