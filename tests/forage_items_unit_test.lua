@@ -85,19 +85,115 @@ for _, e in ipairs(pool.entries) do names[e.name] = true end
 check(names["Potion"] and names["Super Potion"] and names["Dawn Stone"], "the right items are in")
 check(not names["HM01"] and not names["Master Ball"], "the wrong ones are out")
 
--- ------- rolling
-local seen = {}
-for i = 0, 99 do
-  local e = ForageItems.roll(pool, function() return i / 100 end)
-  seen[e.name] = (seen[e.name] or 0) + 1
+-- ------- tiers: 1 common .. 4 very rare
+local T = function(e) return ForageItems.tier(e, CFG) end
+eq(T(item("POK959 BALL", "POKE_BALLS", 200)), 1, "a Poke Ball is common")
+eq(T(item("GREAT BALL", "POKE_BALLS", 600)), 2, "a Great Ball is uncommon")
+eq(T(item("ULTRA BALL", "POKE_BALLS", 1200)), 3, "an Ultra Ball is rare")
+eq(T(item("Potion", "ITEMS", 300, { use = "heal" })), 1, "a 300 heal is common")
+eq(T(item("Super Potion", "ITEMS", 700, { use = "heal" })), 2, "a 700 heal is uncommon")
+eq(T(item("Hyper Potion", "ITEMS", 1200, { use = "heal" })), 3, "a 1200 heal is rare")
+eq(T(item("Max Revive", "ITEMS", 4000, { use = "revive" })), 4, "a 4000 revive is very rare")
+eq(T(item("Oran Berry", "BERRY_POUCH", 20)), 1, "berries are common")
+eq(T(item("TM04 Calm Mind", "TM_CASE", 2000, { isTm = true })), 2, "a cheap TM is uncommon")
+eq(T(item("TM26 Earthquake", "TM_CASE", 3500, { isTm = true })), nil, "an expensive TM has no tier (never found)")
+eq(T(item("Fire Stone", "ITEMS", 2100, { use = "evo", isEvo = true })), 3, "an evolution stone is rare")
+eq(T(item("Peat Block", "ITEMS", 1000, { use = "evo", extra = true })), 3, "a National Dex Gen 3 item at 1000 is rare")
+eq(T(item("Dusk Stone", "ITEMS", 2100, { use = "evo", extra = true })), 3, "...at 2100 too")
+eq(T(item("Ice Stone", "ITEMS", 3000, { use = "evo", extra = true })), 4, "...and at 3000 it is very rare")
+eq(T(item("Dawn Stone", "ITEMS", 0, { use = "evo", extra = true })), 3, "...one with no price is rare")
+eq(T(item("Repel", "ITEMS", 350)), 1, "a cheap other item is common")
+eq(T(item("Escape Rope", "ITEMS", 550)), 2, "...a mid one uncommon")
+eq(T(item("Nugget2", "ITEMS", 4000)), 3, "...a dear one rare")
+eq(T(item("HM01", "TM_CASE", 0, { isHm = true })), nil, "an HM has no tier")
+
+-- ------- friendship bands and gates
+local MonMood = assert(loadfile("lib/mon_mood.lua"))({ require = function() return {} end })
+local cfgBands = { 0, 30, 70, 130, 200, 255 }
+for i, row in ipairs(MonMood.FRIENDSHIP_TIERS) do
+  eq(cfgBands[i], row[1], "the forage bands are MonMood's friendship tiers (" .. row[2] .. ")")
 end
-check(seen["Potion"] > seen["Super Potion"], "a heavier item is rolled more often")
-check(seen["Dawn Stone"] > 0, "a rare one still turns up")
-eq(ForageItems.roll(pool, function() return 0 end).name, "Potion", "a roll of 0 picks the first entry")
-eq(ForageItems.roll(pool, function() return 0.999999 end).name, "Dawn Stone", "a roll near 1 picks the last")
-eq(ForageItems.roll({ entries = {}, weights = {}, total = 0 }, nil), nil, "an empty pool finds nothing")
-eq(ForageItems.roll(nil, nil), nil, "no pool finds nothing")
-eq(ForageItems.buildPool(nil, CFG).total, 0, "no catalog is an empty pool")
+local function tw(f) return ForageItems.tierWeights(f) end
+eq(tw(129)[3], 0, "rare finds are gated below 130")
+check(tw(130)[3] > 0, "...and open at 130")
+eq(tw(199)[4], 0, "very rare finds are gated below 200")
+check(tw(200)[4] > 0, "...and open at 200")
+eq(tw(0)[3] + tw(0)[4], 0, "a friendship-0 Pokemon finds nothing rare")
+check(tw(255)[3] > tw(200)[3] and tw(200)[3] > tw(130)[3], "rare finds grow with friendship above the gate")
+check(tw(255)[4] > tw(200)[4], "...very rare too")
+check(tw(255)[1] < tw(0)[1], "common finds fade as friendship grows")
+eq(ForageItems.band(-5), 1, "friendship below 0 is the first band")
+eq(ForageItems.band(300), 6, "...above 255 the last")
+eq(ForageItems.band(nil), 1, "...and none at all is 0")
+eq(ForageItems.band(29), 1, "29 is band 1") eq(ForageItems.band(30), 2, "30 band 2")
+eq(ForageItems.band(69), 2, "69 band 2") eq(ForageItems.band(70), 3, "70 band 3")
+eq(ForageItems.band(254), 5, "254 band 5") eq(ForageItems.band(255), 6, "255 band 6")
+
+-- ------- the pool by tier
+local evoTop = item("Ice Stone", "ITEMS", 3000, { use = "evo", extra = true })
+local big = {
+  item("POK959 BALL", "POKE_BALLS", 200), potion, item("Oran Berry", "BERRY_POUCH", 20),
+  superPotion, item("GREAT BALL", "POKE_BALLS", 600),
+  item("ULTRA BALL", "POKE_BALLS", 1200), item("Dawn Stone", "ITEMS", 2100, { use = "evo", extra = true }),
+  evoTop, item("Max Revive", "ITEMS", 4000, { use = "revive" }),
+}
+local tpool = ForageItems.buildPool(big, CFG)
+eq(#tpool.tiers[1].entries, 3, "three common finds")
+eq(#tpool.tiers[2].entries, 2, "two uncommon")
+eq(#tpool.tiers[3].entries, 2, "two rare (Ultra Ball, an NDex item)")
+eq(#tpool.tiers[4].entries, 2, "two very rare (the 3000 NDex item, Max Revive)")
+
+-- ------- rolling: the tier mix follows friendship, whatever the pool holds
+local function lcg(seed)
+  local x = seed
+  return function() x = (x * 1103515245 + 12345) % 2147483648 return x / 2147483648 end
+end
+local function mix(friendship, n)
+  local rng, c = lcg(7), { 0, 0, 0, 0 }
+  for _ = 1, n do
+    local _, t = ForageItems.roll(tpool, friendship, rng, nil, CFG)
+    c[t] = c[t] + 1
+  end
+  for t = 1, 4 do c[t] = c[t] / n end
+  return c
+end
+local function expect(f)
+  local wts, sum = ForageItems.tierWeights(f), 0
+  for t = 1, 4 do sum = sum + wts[t] end
+  return { wts[1] / sum, wts[2] / sum, wts[3] / sum, wts[4] / sum }
+end
+for _, f in ipairs({ 0, 130, 255 }) do
+  local got, want = mix(f, 20000), expect(f)
+  local close = true
+  for t = 1, 4 do if math.abs(got[t] - want[t]) > 0.015 then close = false end end
+  check(close, string.format("friendship %d: tiers %.2f/%.2f/%.2f/%.2f vs %.2f/%.2f/%.2f/%.2f", f,
+    got[1], got[2], got[3], got[4], want[1], want[2], want[3], want[4]))
+end
+local zero = mix(0, 4000)
+eq(zero[3] + zero[4], 0, "friendship 0 never rolls a rare find")
+local at129 = mix(129, 4000)
+eq(at129[3], 0, "friendship 129 never rolls a rare find")
+local at199 = mix(199, 4000)
+eq(at199[4], 0, "friendship 199 never rolls a very rare find")
+check(mix(255, 4000)[4] > 0, "friendship 255 does")
+
+-- ------- the accept filter (the bag): a tier left empty shares its odds
+local onlyRare = function(e) return e.name == "Dawn Stone" end
+local e, t = ForageItems.roll(tpool, 255, lcg(3), onlyRare, CFG)
+check(e and e.name == "Dawn Stone" and t == 3, "when only one item fits, that one is found")
+eq(ForageItems.roll(tpool, 255, lcg(3), function() return false end, CFG), nil, "nothing fits: nothing is rolled")
+eq(ForageItems.roll(tpool, 0, lcg(3), onlyRare, CFG), nil, "the only fitting item is gated: nothing is rolled")
+eq(ForageItems.roll({ entries = {}, weights = {}, total = 0 }, 255, lcg(1)), nil, "an old-style pool with no tiers finds nothing")
+eq(ForageItems.roll(nil, 255, lcg(1)), nil, "no pool finds nothing")
+eq(ForageItems.roll(ForageItems.buildPool(nil, CFG), 255, lcg(1)), nil, "an empty pool finds nothing")
+local heavy = ForageItems.buildPool({ potion, superPotion }, CFG)
+local seen = {}
+local r = lcg(11)
+for _ = 1, 2000 do
+  local x = ForageItems.roll(heavy, 0, r, nil, CFG)
+  seen[x.name] = (seen[x.name] or 0) + 1
+end
+check(seen["Potion"] > 0 and seen["Super Potion"] > 0, "both tiers come up")
 
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

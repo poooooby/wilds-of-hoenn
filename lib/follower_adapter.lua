@@ -48,7 +48,7 @@ end
 --- is stepped from tick() below; `actionActive()` says when it is over.
 function FollowerAdapter:startAction(kind)
   local npc = EnginePatch.followerCurrent()
-  if not (npc and self.renderer) then return nil end
+  if not (npc and self.renderer) or self.emerge then return nil end
   local species = self.leadSpecies
   local facing = EnginePatch.playerFacing() or npc.facing
   local ctx = {
@@ -106,6 +106,51 @@ function FollowerAdapter:readyLabel()
   return V.require("level_ready").textFor(self.readyPending, self.readyClock)
 end
 
+-- Walking out of a doorway. On a map change the engine makes a fresh follower ON
+-- THE PLAYER'S CELL (src/world/game3/Follower.lua); after a door / cave / stairs exit
+-- that is the doorway, and the player is walked one step out while the follower
+-- stays there until their next step -- drawn on the door, over the building. So a
+-- fresh follower on a warp tile (EnginePatch.isWarpCell) is hidden while it stands
+-- in it and fades in (renderer.alpha 0 -> 1) over the step it takes out. A map-edge
+-- connection, Fly, a fall or a save load never lands on a warp tile: no change there.
+-- Returns true while it is still coming out.
+function FollowerAdapter:_tickEmerge(npc)
+  if npc ~= self.lastNpc then
+    self:_endEmerge(self.lastNpc)
+    self.lastNpc = npc
+    if EnginePatch.isWarpCell and EnginePatch.isWarpCell(npc.cellX, npc.cellY) then
+      self.emerge = { x = npc.cellX, y = npc.cellY }
+    end
+  end
+  local em = self.emerge
+  if not em then return false end
+  if npc.cellX ~= em.x or npc.cellY ~= em.y then -- out of the doorway
+    self:_endEmerge(npc)
+    return false
+  end
+  local r = self.renderer
+  if npc.moving then
+    -- stepping out: visible again, fading in over the step
+    if self.hidByUs then npc.hidden, self.hidByUs = false, false end
+    if r then r.alpha = math.max(0, math.min(1, (tonumber(npc.progress) or 0) / math.max(1, tonumber(npc.stepFrames) or 16))) end
+  else
+    -- still in the doorway: not drawn (the engine's own flag; we only ever undo it
+    -- if we set it)
+    if not npc.hidden then npc.hidden, self.hidByUs = true, true end
+    if r then r.alpha = 0 end
+  end
+  return true
+end
+
+function FollowerAdapter:_endEmerge(npc)
+  if self.hidByUs and npc then npc.hidden = false end
+  self.hidByUs, self.emerge = false, nil
+  if self.renderer then self.renderer.alpha = nil end
+end
+
+--- Still walking out of a doorway?
+function FollowerAdapter:isEmerging() return self.emerge ~= nil end
+
 --- A new map: each behaviour drops what it was doing there (a Forager keeps its
 --- timer, see lib/forager.lua's mapChanged).
 function FollowerAdapter:mapChanged()
@@ -157,6 +202,8 @@ function FollowerAdapter:_tickBehavior(npc)
       fpx = npc.px + (self.renderer and self.renderer.pushX or 0),
       fpy = npc.py + (self.renderer and self.renderer.pushY or 0),
       mon = self.mon, renderer = self.renderer,
+      -- 0-255: a Forager finds sooner and rarer the fonder it is
+      friendship = self.mon and EnginePatch.friendshipOf and EnginePatch.friendshipOf(self.mon) or 0,
       -- routes and caves only (EnginePatch.forageAllowed); nil without the engine pieces
       forageOk = forageOk,
     })
@@ -333,6 +380,7 @@ function FollowerAdapter:tick()
   if not npc then
     self.leadSpecies, self.style = nil, nil
     self.wasMoving = false
+    self.lastNpc, self.emerge, self.hidByUs = nil, nil, false
     self:resetDisplay()
     if self.actState then self:resetBehaviors() end
     return
@@ -381,7 +429,11 @@ function FollowerAdapter:tick()
     self.action, self.actState = nil, nil
     return
   end
-  local scene = self:_tickAction() or self:_tickBehavior(npc)
+  -- walking out of a doorway: hidden in it, fading in as it steps out; nothing
+  -- else (a scene, a Forager trip ...) starts until it is out
+  local emerging = self:_tickEmerge(npc)
+  local scene = nil
+  if not emerging then scene = self:_tickAction() or self:_tickBehavior(npc) end
 
   -- PMDCollab: the renderer animates itself from a tick clock (Walk while
   -- the follower steps, Idle while it stands) -- none of the pose, grass

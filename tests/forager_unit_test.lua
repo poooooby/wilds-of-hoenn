@@ -23,24 +23,31 @@ function V.require(name)
   return value
 end
 local Forager = V.require("forager")
+local Config = V.require("config")
 
+-- a quick timer (every 50 walking ticks) so the trips can be watched end to end
 local CFG = {
-  minSpread = 5, maxSpread = 10, maxWalk = 30, forageMin = 300, forageMax = 300, findChance = 0.2,
-  wanderWaitMin = 10, wanderWaitMax = 10, lingerMin = 10, lingerMax = 10,
-  walkSpeed = 2, forageSpeed = 3, runSpeed = 4, cryPause = 6, digTicks = 12, popupTicks = 40,
-  maxTmPrice = 3000,
+  minSpread = 3, maxSpread = 5, maxWalk = 12,
+  intervalMin = 50, intervalMax = 50, skewLow = 0.5, skewHigh = 3, retryTicks = 20,
+  allowedMapTypes = { [3] = true },
+  perkMax = 45, perkMin = 30, forageSpeedMin = 2.2, forageSpeedMax = 3.0, runSpeed = 4,
+  digTicks = 12, cryPause = 6, cryGap = 10, rarePause = 20, rarePause4 = 30,
+  popupTicks = 40, popupTicksRare = 60, popupTicksTop = 80,
 }
 
 -- a long open road with a wall column at x = 40 (north of y = 30 only)
+local blocked = {}
 local function open(x, y)
   if x < 0 or x > 5000 or y < 0 or y > 80 then return false end
   if x == 40 and y < 30 then return false end
+  if blocked[x .. "," .. y] then return false end
   return true
 end
 
-local function newForager(deps)
-  local d = { cellFree = open, rng = function() return 0.5 end, cfg = CFG,
-              pickItem = function() return "Potion" end }
+local function newForager(deps, cfg)
+  local d = { cellFree = open, rng = function() return 0.5 end, cfg = cfg or CFG,
+              rollItem = function() return { name = "Potion", tier = 1 } end,
+              commitItem = function(r) return r end }
   for k, v in pairs(deps or {}) do d[k] = v end
   return Forager.new(d)
 end
@@ -49,281 +56,347 @@ local MON = { species = 252 }
 -- the player at cell (px, 30), the follower one cell behind; `moving` = walking
 local function env(px, moving, t)
   local e = { still = not moving, fx = px - 1, fy = 30, fpx = (px - 1) * 16, fpy = 30 * 16,
-              px = px, py = 30, mon = MON }
+              px = px, py = 30, mon = MON, friendship = 70 }
   for k, v in pairs(t or {}) do e[k] = v end
   return e
 end
 
 -- walk the player along the row for `ticks`, one cell per 16 ticks
-local function walk(f, startPx, ticks, onTick)
+local function walk(f, startPx, ticks, onTick, t)
   local px = startPx
   for i = 1, ticks do
     if i % 16 == 0 then px = px + 1 end
-    local s = f:step(env(px, true))
-    if onTick then onTick(s, px, i) end
+    local e = env(px, true, t)
+    local s = f:step(e)
+    if onTick then onTick(s, px, i, e) end
   end
   return px
+end
+-- walk until the first trip is back home (or `ticks` run out)
+local function firstTrip(f, startPx, ticks, onTick, t)
+  local px, left = startPx, false
+  for i = 1, ticks do
+    if i % 16 == 0 then px = px + 1 end
+    local e = env(px, true, t)
+    local s = f:step(e)
+    if f.mode ~= "near" then left = true end
+    if onTick then onTick(s, px, i, e) end
+    if left and f.mode == "near" then return true end
+  end
+  return false
+end
+local function modesOf(f, startPx, ticks, t)
+  local order, last = {}, nil
+  walk(f, startPx, ticks, function() if f.mode ~= last then order[#order + 1] = f.mode last = f.mode end end, t)
+  return table.concat(order, ">")
 end
 
 -- ------- a standing player: it stays beside them and nothing starts
 do
   local f = newForager()
-  local quiet = true
-  for _ = 1, 600 do if f:step(env(20, false)) ~= nil then quiet = false end end
-  check(quiet, "standing player: no override, ever")
-  check(not f:isBusy(), "...and it is not busy")
-end
-
--- ------- a walking player: it roams 5-10 tiles out, then runs back to within a tile
-do
-  local f = newForager({ rng = function() return 0.99 end })
-  local sawOut, sawBack, maxDist, minDist, backedWithin = false, false, 0, 99, false
-  walk(f, 20, 1500, function(_, px)
-    if f.mode == "out" or f.mode == "linger" then sawOut = true end
-    if f.mode == "back" then sawBack = true end
-    -- measured the moment it reaches a wander spot (the player walks on afterwards)
-    if f.mode == "linger" and f.t == 1 then
-      local wcx, wcy = math.floor(f.wx / 16 + 0.5), math.floor(f.wy / 16 + 0.5)
-      local d = math.max(math.abs(wcx - px), math.abs(wcy - 30))
-      maxDist, minDist = math.max(maxDist, d), math.min(minDist, d)
-    end
-    if sawBack and f.mode == "near" then backedWithin = true end
-  end)
-  check(sawOut, "while the player walks it heads out")
-  check(minDist >= 4, "...at least ~5 tiles from the player when it arrives (closest " .. minDist .. ")")
-  check(maxDist <= 12, "...and about 10 at most (the player keeps walking while it goes) (farthest " .. maxDist .. ")")
-  check(sawBack, "then runs back")
-  check(backedWithin, "...to the player's side")
-end
-
--- ------- it is back within a tile of the player when it returns
-do
-  local f = newForager({ rng = function() return 0.99 end })
-  local closest = 1e9
-  walk(f, 20, 1200, function()
-    if f.mode == "near" then closest = math.min(closest, math.abs(f.dx), math.abs(f.dy)) end
-  end)
-  eq(closest, 0, "returning ends exactly beside the follower")
-end
-
--- ------- stopping drops a wander and brings it home
-do
-  local f = newForager({ rng = function() return 0.99 end })
-  local px = walk(f, 20, 200)
-  local away = false
-  for _ = 1, 40 do f:step(env(px, true)) if f:isBusy() then away = true end end
-  check(away, "it was out on a wander")
-  local ticks = 0
-  while f:isBusy() and ticks < 800 do
-    ticks = ticks + 1
-    f:step(env(px, false))
+  for _ = 1, 400 do
+    eq(f:step(env(20, false)), nil, "standing: nothing to draw") ; if f.mode ~= "near" then break end
   end
-  check(not f:isBusy(), "when the player stops it comes home (" .. ticks .. " ticks)")
-  for _ = 1, 600 do f:step(env(px, false)) end
-  check(not f:isBusy(), "...and stays there while they stand")
+  eq(f.mode, "near", "standing still never starts a trip")
+  eq(f.forageTimer, 0, "...and the timer does not count")
 end
 
--- ------- every 10-30 seconds of walking: a forage with a cry, a dig, a find, a run back
+-- ------- a find, end to end: perk > out > dig > react > back, and always an item
 do
-  local log, cries = {}, 0
+  local log, cries, found = {}, 0, 0
   local f = newForager({
-    rng = function() return 0.05 end, -- under the 20% find chance
-    playCry = function(species) cries = cries + 1 log[#log + 1] = "cry" eq(species, 252, "the cry is the Forager's own species") end,
-    pickItem = function() log[#log + 1] = "pick" return "Potion" end,
-    playFound = function() log[#log + 1] = "found" end,
+    playCry = function(species) cries = cries + 1 log[#log + 1] = "cry" eq(species, 252, "the cry is its own species") end,
+    playFound = function() found = found + 1 log[#log + 1] = "found" end,
+    commitItem = function(r) log[#log + 1] = "bag" return r end,
   })
-  local sawDig, sawPopup, popupText, order = false, false, nil, {}
-  local lastMode
-  walk(f, 20, 900, function(s)
-    if f.mode ~= lastMode then order[#order + 1] = f.mode lastMode = f.mode end
-    if s and s.bounce then sawDig = true end
+  local sawPopup, popupText, sawBounceInPerk = false, nil, false
+  local spotDist, spotChecked = nil, false
+  local order = modesOf(f, 20, 600)
+  check(order:find("near>perk>out>dig>react>back>near", 1, true) ~= nil, "a trip is near > perk > out > dig > react > back (" .. order .. ")")
+  -- run another trip watching the details
+  local f2 = newForager({ playCry = function() cries = cries + 1 end })
+  walk(f2, 20, 600, function(s, px, _, e)
+    if f2.mode == "perk" and s and s.bounce then sawBounceInPerk = true end
+    if f2.spot and not spotChecked then
+      spotChecked = true
+      spotDist = math.max(math.abs(f2.spot.x - e.px), math.abs(f2.spot.y - e.py))
+    end
     if s and s.popup then sawPopup, popupText = true, s.popup.text end
   end)
-  check(cries >= 1, "it cried to tell the player it found something (" .. cries .. " cries)")
-  eq(log[1], "pick", "the find came first")
-  eq(log[2], "found", "...with the sound")
-  eq(log[3], "cry", "...and then the cry")
-  check(sawDig, "it dug (bounce animation)")
+  eq(log[1], "bag", "the find is bagged when it has dug")
+  eq(log[2], "found", "...then the sound")
+  eq(log[3], "cry", "...then its cry")
   check(sawPopup and popupText == "Found Potion!", "a 'Found Potion!' label showed")
-  local joined = table.concat(order, ">")
-  check(joined:find("out>dig>cry>back", 1, true) ~= nil, "a forage that finds something is out > dig > cry > back (" .. joined .. ")")
+  check(sawBounceInPerk, "it perks up (an alert bounce) before it dashes off")
+  check(spotDist and spotDist >= 3 and spotDist <= 5, "the spot is 3-5 cells from the player (" .. tostring(spotDist) .. ")")
 end
 
--- ------- the real defaults: 10-30 seconds between forages, a 20% find chance
+-- ------- every trip finds something: the item is rolled before it sets out
 do
-  local Config = V.require("config")
-  eq(Config.FORAGE.forageMin, 600, "a forage at least 10 s (600 ticks) apart")
-  eq(Config.FORAGE.forageMax, 1800, "...at most 30 s apart")
-  eq(Config.FORAGE.findChance, 0.2, "a 20% chance to find an item")
-  check(Config.FORAGE.allowedMapTypes[3] and Config.FORAGE.allowedMapTypes[4], "routes (3) and caves (4) are allowed")
-  check(not (Config.FORAGE.allowedMapTypes[1] or Config.FORAGE.allowedMapTypes[2] or Config.FORAGE.allowedMapTypes[8]
-    or Config.FORAGE.allowedMapTypes[5] or Config.FORAGE.allowedMapTypes[6]), "towns, cities, buildings and water are not")
-  local f = Forager.new({ cellFree = open, cfg = Config.FORAGE })
-  check(f.forageGoal >= 600 and f.forageGoal <= 1800, "the first forage is due after 600-1800 walking ticks (" .. f.forageGoal .. ")")
+  local rolled, committed = 0, 0
+  local f = newForager({
+    rollItem = function(friendship) rolled = rolled + 1 eq(friendship, 70, "the roll is told its friendship") return { name = "Potion", tier = 1 } end,
+    commitItem = function(r) committed = committed + 1 return r end,
+  })
+  walk(f, 20, 2000)
+  check(rolled >= 2, "it went out more than once (" .. rolled .. ")")
+  check(committed >= rolled - 1, "every trip that set out bagged its find")
 end
 
--- ------- the find chance: a low roll finds, a high roll finds nothing (and says nothing)
+-- ------- nothing that fits the bag (or nothing to find): no trip, the timer waits
 do
-  local picks, popups = 0, 0
-  local f = newForager({ rng = function() return 0.5 end, pickItem = function() picks = picks + 1 return "Potion" end })
-  f.forageGoal = 20
-  walk(f, 20, 700, function(s) if s and s.popup then popups = popups + 1 end end)
-  eq(picks, 0, "a roll at or above 20% finds nothing")
-  eq(popups, 0, "...and shows no label")
-  local f2 = newForager({ rng = function() return 0.1 end, pickItem = function() picks = picks + 1 return "Potion" end })
-  f2.forageGoal = 20
-  walk(f2, 20, 700)
-  check(picks >= 1, "a roll under 20% finds an item")
+  local fits = false
+  local tries = 0
+  local f = newForager({ rollItem = function() tries = tries + 1 if fits then return { name = "Potion", tier = 1 } end return nil end })
+  local order = modesOf(f, 20, 300)
+  eq(order, "near", "a full bag never sends it out")
+  check(f.forageTimer >= 50, "...the timer is kept (it is due)")
+  check(tries >= 2 and tries <= 300 / 20 + 1, "...and it only looks again now and then (" .. tries .. " tries)")
+  fits = true
+  check(modesOf(f, 40, 200):find("perk", 1, true) ~= nil, "once something fits it sets out")
 end
 
--- ------- a forage that finds nothing is silent: no cry, no label
+-- ------- nowhere to go: no trip, the roll is not even asked
 do
-  local cries, picks, sawDig, sawPopup = 0, 0, false, false
-  local f = newForager({ rng = function() return 0.9 end, -- over the 20% find chance
-    playCry = function() cries = cries + 1 end, pickItem = function() picks = picks + 1 return "Potion" end })
-  f.forageGoal = 20
-  local order, lastMode = {}, nil
-  walk(f, 20, 1500, function(s)
-    if f.mode ~= lastMode then order[#order + 1] = f.mode lastMode = f.mode end
-    if s and s.bounce then sawDig = true end
-    if s and s.popup then sawPopup = true end
-  end)
-  check(sawDig, "it still digs")
-  eq(cries, 0, "...but a dig that finds nothing never cries")
-  eq(picks, 0, "...and picks nothing")
-  check(not sawPopup, "...and shows no label")
-  check(table.concat(order, ">"):find("out>dig>back", 1, true) ~= nil, "it goes straight back (out > dig > back)")
+  local rolls = 0
+  local f = newForager({ cellFree = function() return false end, rollItem = function() rolls = rolls + 1 return { name = "Potion" } end })
+  eq(modesOf(f, 20, 300), "near", "hemmed in: it just trots along")
+  eq(rolls, 0, "...and nothing is rolled")
 end
 
--- ------- no forage before the timer runs out
+-- ------- no idle wandering, ever
 do
-  local cries = 0
-  local f = newForager({ playCry = function() cries = cries + 1 end, rng = function() return 0.05 end })
-  f.forageGoal = 2000
-  walk(f, 20, 900)
-  eq(cries, 0, "no forage before the timer is up")
-  f.forageGoal = 1000
-  walk(f, 80, 400)
-  check(cries >= 1, "...but one once it is")
+  local f = newForager(nil, setmetatable({ intervalMin = 1e9, intervalMax = 1e9 }, { __index = CFG }))
+  local drawn = 0
+  walk(f, 20, 20000, function(s) if s then drawn = drawn + 1 end end)
+  eq(f.mode, "near", "with no find due it never leaves the player's side")
+  eq(drawn, 0, "...and never draws away from them")
 end
 
--- ------- the timer only runs while walking
+-- ------- the timer only runs while walking, where foraging is allowed
 do
-  local cries = 0
-  local f = newForager({ playCry = function() cries = cries + 1 end, rng = function() return 0.05 end })
-  f.forageGoal = 100
-  for _ = 1, 1000 do f:step(env(20, false)) end
-  eq(cries, 0, "a standing player never starts a forage")
-  eq(f.forageTimer, 0, "...and the timer does not run")
+  local f = newForager()
+  for _ = 1, 100 do f:step(env(20, false)) end
+  eq(f.forageTimer, 0, "standing does not count")
+  walk(f, 20, 30, nil, { forageOk = false })
+  eq(f.forageTimer, 0, "walking in a town / building / on water does not count")
+  eq(modesOf(f, 20, 300, { forageOk = false }), "near", "...and never starts a trip there")
+  walk(f, 20, 10)
+  eq(f.forageTimer, 10, "walking on a route does")
 end
 
--- ------- towns, buildings and water are off limits
+-- ------- the tell: it stops where it is while the player walks on; fonder = shorter
 do
-  local cries = 0
-  local f = newForager({ playCry = function() cries = cries + 1 end, rng = function() return 0.05 end })
-  f.forageGoal = 20
-  local px, quiet = 20, true
-  for i = 1, 1500 do
-    if i % 16 == 0 then px = px + 1 end
-    if f:step(env(px, true, { forageOk = false })) ~= nil then quiet = false end
+  local function tell(friendship)
+    local f = newForager()
+    local ticks, positions, followerMoved, firstFpx = 0, {}, false, nil
+    firstTrip(f, 20, 600, function(s, _, _, e)
+      if f.mode == "perk" and s then
+        ticks = ticks + 1
+        positions[#positions + 1] = e.fpx + s.dx
+        firstFpx = firstFpx or e.fpx
+        if e.fpx ~= firstFpx then followerMoved = true end
+      end
+    end, { friendship = friendship })
+    local still = true
+    for i = 2, #positions do if positions[i] ~= positions[1] then still = false end end
+    return ticks, still, followerMoved
   end
-  check(quiet, "where foraging is not allowed it just trots along")
-  eq(cries, 0, "no forage there")
-  eq(f.forageTimer, 0, "...and the timer does not run there")
-  check(not f:isBusy(), "...it never leaves the player's side")
-  -- back where it is allowed, the (kept) timer carries on
-  f.forageTimer = 10
-  walk(f, px, 700)
-  check(cries >= 1, "back on a route it forages again")
+  local ticks0, still0, moved0 = tell(0)
+  check(still0 and moved0, "during the tell it stays put on the ground while the player walks on")
+  eq(ticks0, 45, "the tell lasts 45 ticks at friendship 0")
+  local ticks255 = tell(255)
+  eq(ticks255, 30, "...and 30 at friendship 255 (a fond Pokemon is more eager)")
 end
 
--- ------- a map change cancels the trip but keeps the timer
+-- ------- and dashes out faster the fonder it is
 do
-  local f = newForager({ rng = function() return 0.99 end })
-  walk(f, 20, 300)
-  f.forageTimer = 123
+  local function outTicks(friendship)
+    local f = newForager()
+    local n, dist = 0, 0
+    firstTrip(f, 20, 600, function() if f.mode == "out" then n = n + 1 end end, { friendship = friendship })
+    return n
+  end
+  local slow, quick = outTicks(0), outTicks(255)
+  check(quick < slow, "the dash is quicker at friendship 255 (" .. quick .. " vs " .. slow .. " ticks)")
+end
+
+-- ------- the glint: from the tell until it has dug, and nowhere else
+do
+  local f = newForager()
+  local byMode = {}
+  walk(f, 20, 600, function()
+    local a = {}
+    f:collectActors(a)
+    byMode[f.mode] = byMode[f.mode] or {}
+    byMode[f.mode][#a > 0 and "yes" or "no"] = true
+    if #a > 0 then eq(a[1].kind, "ow_forage_sparkle", "the glint is the forage sparkle") end
+  end)
+  check(byMode.perk and byMode.perk.yes and not byMode.perk.no, "it glints during the tell")
+  check(byMode.out and byMode.out.yes and not byMode.out.no, "...while it runs there")
+  check(byMode.dig and byMode.dig.yes, "...and while it digs")
+  check(byMode.near and not byMode.near.yes, "never while it is beside the player")
+  check(byMode.back and not byMode.back.yes, "...or on the way back")
+  local g = newForager()
+  walk(g, 20, 60)
+  local a = {}
+  g:collectActors(a)
+  check(g.mode == "perk" and #a == 1, "sanity: it glints during a tell")
+  g:mapChanged()
+  a = {}
+  g:collectActors(a)
+  eq(#a, 0, "a map change takes the glint away")
+  walk(g, 20, 60)
+  g:reset()
+  a = {}
+  g:collectActors(a)
+  eq(#a, 0, "so does a reset")
+end
+
+-- ------- a rare find: two cries, a longer label and a longer, happier pause
+do
+  local function react(tier)
+    local cries, cryAt, label, reactTicks, bounced = 0, {}, nil, 0, false
+    local f = newForager({
+      rollItem = function() return { name = "Dusk Stone", tier = tier } end,
+      playCry = function() cries = cries + 1 cryAt[#cryAt + 1] = f and f.t end,
+    })
+    firstTrip(f, 20, 700, function(s)
+      if f.mode == "react" then
+        reactTicks = reactTicks + 1
+        if s and s.bounce then bounced = true end
+      end
+      if s and s.popup and not label then label = s.popup.text end
+    end)
+    return { cries = cries, reactTicks = reactTicks, popupFor = f.popupFor, bounced = bounced, label = label }
+  end
+  local common, rare, top = react(1), react(3), react(4)
+  eq(common.cries, 1, "a common find cries once")
+  eq(rare.cries, 2, "a rare find cries twice")
+  eq(top.cries, 2, "...a very rare one too")
+  eq(common.popupFor, CFG.popupTicks, "a common label lasts popupTicks")
+  eq(rare.popupFor, CFG.popupTicksRare, "a rare one longer")
+  eq(top.popupFor, CFG.popupTicksTop, "a very rare one longer still")
+  check(rare.bounced and not common.bounced, "a rare find gets a happy bounce, a common one does not")
+  check(top.reactTicks > rare.reactTicks and rare.reactTicks > common.reactTicks, "the pause grows with rarity")
+  eq(rare.label, "Found Dusk Stone!", "the label names the find")
+end
+
+-- ------- the bag filled while it was out: no cry, no label, home it goes
+do
+  local cries, popups = 0, 0
+  local f = newForager({ commitItem = function() return nil end, playCry = function() cries = cries + 1 end })
+  local order = modesOf(f, 20, 400)
+  walk(f, 40, 200, function(s) if s and s.popup then popups = popups + 1 end end)
+  check(order:find("dig>back", 1, true) ~= nil, "it comes straight back (" .. order .. ")")
+  eq(cries, 0, "no cry without a find")
+  eq(popups, 0, "...and no label")
+end
+
+-- ------- the walking carried over: after a find the surplus counts toward the next
+do
+  local f = newForager(nil, setmetatable({ intervalMin = 50, intervalMax = 50 }, { __index = CFG }))
+  local timerAtReact
+  walk(f, 20, 600, function() if f.mode == "react" and not timerAtReact then timerAtReact = f.forageTimer end end)
+  check(timerAtReact ~= nil and timerAtReact > 0 and timerAtReact < 200, "the timer keeps what was walked past the goal (" .. tostring(timerAtReact) .. ")")
+end
+
+-- ------- a map change cancels the trip but keeps the timer: the next map starts at once
+do
+  local f = newForager()
+  walk(f, 20, 60)
+  eq(f.mode, "perk", "sanity: a tell is under way")
+  local timer = f.forageTimer
   f:mapChanged()
-  check(not f:isBusy(), "a map change brings it back to the player's side")
-  eq(f.forageTimer, 123, "...and keeps the forage timer")
-  f:reset()
-  eq(f.forageTimer, 0, "(a full reset, e.g. a save load, clears it)")
+  eq(f.mode, "near", "a map change cancels the trip")
+  eq(f.spot, nil, "...and its spot")
+  check(f.forageTimer >= timer, "...but keeps the timer")
+  f:step(env(100, true))
+  eq(f.mode, "perk", "on the next allowed map it sets out at once")
 end
 
--- ------- a forage that has begun is finished even if the player stops
+-- ------- a trip that has begun is finished even if the player stops
 do
-  local cries, picked = 0, 0
-  local f = newForager({ rng = function() return 0.05 end, playCry = function() cries = cries + 1 end,
-    pickItem = function() picked = picked + 1 return "Potion" end })
-  f.forageGoal, f.forageTimer = 1, 1
-  local px = 20
-  local ticks = 0
-  -- walk until the trip is out
-  while f.mode ~= "out" and ticks < 2000 do
-    ticks = ticks + 1
-    if ticks % 16 == 0 then px = px + 1 end
-    f:step(env(px, true))
+  local f = newForager()
+  walk(f, 20, 60)
+  eq(f.mode, "perk", "sanity: a tell is under way")
+  local reached = false
+  for _ = 1, 500 do
+    f:step(env(23, false))
+    if f.mode == "react" then reached = true end
+    if f.mode == "near" then break end
   end
-  eq(f.purpose, "forage", "a forage trip is under way")
-  for _ = 1, 600 do f:step(env(px, false)) end
-  eq(cries, 1, "it still cried although the player stopped")
-  eq(picked, 1, "...and still found its item")
-  check(not f:isBusy(), "...and came home")
+  check(reached, "it still goes and digs its find")
+  eq(f.mode, "near", "...and comes home")
 end
 
--- ------- hemmed in / blocked: it just trots along
+-- ------- never into or across a wall, never onto a wild Pokemon
 do
-  local f = newForager({ cellFree = function(x, y) return x == 19 and y == 30 end })
-  for _ = 1, 400 do f:step(env(20, true)) end
-  check(not f:isBusy(), "with nowhere to go it never sets off")
-end
-
--- ------- it avoids cells a wild Pokemon stands on
-do
-  local asked = 0
-  local f = newForager({ occupied = function() asked = asked + 1 return true end })
-  for _ = 1, 400 do f:step(env(20, true)) end
-  check(asked > 0 and not f:isBusy(), "occupied cells are never a destination")
-end
-
--- ------- never into or across a wall
-do
-  local bad = 0
-  local f = newForager({ rng = function() return 0.3 end })
-  walk(f, 36, 3000, function()
-    local cx, cy = math.floor(f.wx / 16 + 0.5), math.floor(f.wy / 16 + 0.5)
-    if f.mode == "out" and not open(cx, cy) then bad = bad + 1 end
+  local wild = {}
+  local f = newForager({ occupied = function(x, y) return wild[x .. "," .. y] == true end })
+  for x = 22, 30 do wild[x .. ",27"] = true end
+  local bad = false
+  walk(f, 36, 1200, function(s, _, _, e)
+    if s then
+      local wx, wy = e.fpx + s.dx, e.fpy + s.dy
+      local cx, cy = math.floor(wx / 16 + 0.5), math.floor(wy / 16 + 0.5)
+      if (f.mode == "out" or f.mode == "dig") and (not open(cx, cy) or wild[cx .. "," .. cy]) then bad = true end
+    end
+    if f.spot and (not open(f.spot.x, f.spot.y) or wild[f.spot.x .. "," .. f.spot.y]) then bad = true end
   end)
-  eq(bad, 0, "on the way out it only ever stands on open cells")
-end
-
--- ------- no find: no label, still comes home
-do
-  local f = newForager({ rng = function() return 0.05 end, pickItem = function() return nil end })
-  f.forageGoal = 1
-  local sawPopup = false
-  walk(f, 20, 3000, function(s) if s and s.popup then sawPopup = true end end)
-  check(not sawPopup, "no find, no label")
+  check(not bad, "its spot and its way there are always open ground")
 end
 
 -- ------- reset
 do
   local f = newForager()
-  walk(f, 20, 200)
+  walk(f, 20, 60)
   f:reset()
-  check(not f:isBusy(), "reset puts it back at the player's side")
-  check(f.forageTimer == 0 and f.forageGoal == 300, "...and clears the forage timer")
+  eq(f.mode, "near", "reset brings it home")
+  eq(f.forageTimer, 0, "...and starts the timer over")
+  eq(f.rolled, nil, "...dropping the find it had not bagged yet")
+  check(not f:isBusy(), "...and it is not busy")
 end
 
--- ------- the real defaults carry every knob it reads, with the asked-for ranges
+-- ------- the wait: always 1-3 minutes of walking, sooner the fonder it is
 do
-  local Config = V.require("config")
-  for _, k in ipairs({ "minSpread", "maxSpread", "maxWalk", "forageMin", "forageMax", "findChance", "allowedMapTypes",
-    "wanderWaitMin", "wanderWaitMax", "lingerMin", "lingerMax", "walkSpeed", "forageSpeed", "runSpeed",
-    "cryPause", "digTicks", "popupTicks", "maxTmPrice" }) do
-    check(Config.FORAGE[k] ~= nil, "Config.FORAGE." .. k)
+  local f = Forager.new({ cellFree = open, cfg = Config.FORAGE })
+  local sum0, sum255, inRange = 0, 0, true
+  local n = 200
+  for i = 0, n - 1 do
+    f.goalRoll = i / n
+    local g0, g255 = f:goal(0), f:goal(255)
+    if g0 < 3600 or g0 > 10800 or g255 < 3600 or g255 > 10800 then inRange = false end
+    sum0, sum255 = sum0 + g0, sum255 + g255
   end
-  eq(Config.FORAGE.minSpread, 5, "it roams from 5 tiles ...")
-  eq(Config.FORAGE.maxSpread, 10, "... to 10 tiles out")
+  check(inRange, "every wait is between 3600 and 10800 walking ticks (1-3 minutes)")
+  local mean0, mean255 = sum0 / n / 60, sum255 / n / 60
+  check(mean0 > 125 and mean0 < 155, string.format("friendship 0 waits ~140 s on average (%.0f s)", mean0))
+  check(mean255 > 80 and mean255 < 100, string.format("friendship 255 waits ~90 s (%.0f s)", mean255))
+  check(f:goal(nil) == f:goal(0), "no friendship counts as 0")
+end
+
+-- ------- the real defaults
+do
+  local F = Config.FORAGE
+  for _, k in ipairs({ "minSpread", "maxSpread", "maxWalk", "intervalMin", "intervalMax", "skewLow", "skewHigh",
+    "retryTicks", "allowedMapTypes", "perkMax", "perkMin", "forageSpeedMin", "forageSpeedMax", "runSpeed",
+    "digTicks", "cryPause", "cryGap", "rarePause", "rarePause4", "popupTicks", "popupTicksRare", "popupTicksTop",
+    "bands", "tierBase", "tierGate", "tierMult", "evoTop", "maxTmPrice" }) do
+    check(F[k] ~= nil, "Config.FORAGE." .. k)
+  end
+  for _, k in ipairs({ "findChance", "wanderWaitMin", "wanderWaitMax", "lingerMin", "lingerMax", "forageMin", "forageMax" }) do
+    eq(F[k], nil, "Config.FORAGE." .. k .. " is gone")
+  end
+  eq(F.minSpread, 3, "the find is 3 ...")
+  eq(F.maxSpread, 5, "... to 5 cells from the player")
+  eq(F.intervalMin, 3600, "one find per 1 ...")
+  eq(F.intervalMax, 10800, "... to 3 minutes of walking")
+  eq(F.tierGate[3], 130, "rare finds need friendship 130")
+  eq(F.tierGate[4], 200, "very rare ones 200")
+  check(F.allowedMapTypes[3] and F.allowedMapTypes[4], "routes (3) and caves (4) are allowed")
+  check(not (F.allowedMapTypes[1] or F.allowedMapTypes[2] or F.allowedMapTypes[8]
+    or F.allowedMapTypes[5] or F.allowedMapTypes[6]), "towns, cities, buildings and water are not")
 end
 
 if failures > 0 then

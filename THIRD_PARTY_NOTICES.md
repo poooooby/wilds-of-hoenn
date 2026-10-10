@@ -24,6 +24,12 @@ released under the MIT License:
 > substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS",
 > WITHOUT WARRANTY OF ANY KIND (the full MIT terms are in `LICENSE`).
 
+## Inspiration
+
+- **TTiN** and **Untamed Tohjo**: the idea of weighting a Forager's finds by its friendship (a fonder
+  Pokemon finds better and rarer items) comes from their foraging. No code or assets were copied; the
+  Forager here (`lib/forager.lua`, `lib/forage_items.lua`) is this mod's own implementation.
+
 ## Overworld sprites
 
 The HGSS / PokeMMO art under `assets/enhanced_overworld/` and

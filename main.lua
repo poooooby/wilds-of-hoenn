@@ -131,11 +131,16 @@ return function(mod)
   local forager = Forager.new({
     cellFree = EnginePatch.cellFree,
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
-    pickItem = function() return forageSource:pick() end,
+    -- the find is rolled before it sets out (so a trip never comes back empty)
+    -- and only bagged once it has dug it up
+    rollItem = function(friendship) return forageSource:roll(friendship) end,
+    commitItem = function(rolled) return forageSource:commit(rolled) end,
+    elevation = EnginePatch.playerElevation,
     playCry = EnginePatch.playCry, -- the cry that tells the player it is foraging
     playFound = EnginePatch.playSuccess,
   })
   followerAdapter.behaviors.forage = forager
+  mod.exports.forageSource = forageSource -- what it can find (tests and tools)
   mod.exports.forager = forager
 
   -- Battle role: charges wild overworld Pokemon near the player, real moves / PP

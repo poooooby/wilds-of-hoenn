@@ -200,6 +200,9 @@ EnginePatch.READONLY = {
 
   -- bag.lua:418 Bag.add(bag, id, qty) -> ok -- a Forager's find goes straight in.
   bagAdd = { mod = "src.core.game3.bag", field = "add" },
+  -- bag.lua:375 Bag.canAdd(bag, id, qty) -> bool -- a Forager only sets out for a find
+  -- that will fit (so a full bag never turns into a failed trip).
+  bagCanAdd = { mod = "src.core.game3.bag", field = "canAdd" },
   -- items_data.lua: ItemsData.info(id) / fieldUseKind(id) / isHm(id) /
   -- isEvolutionStone(id) -- everything the Forager's item pool is built from.
   itemInfo = { mod = "src.core.game3.items_data", field = "info" },
@@ -1217,6 +1220,21 @@ function EnginePatch.mapType()
   return tonumber(def.mapType)
 end
 
+--- Is (x, y) one of the current map's warp tiles -- a door, a cave mouth, stairs,
+--- a ladder, an escalator (map.lua's def.warps, the same list warping reads)?
+--- False with no map loaded. The follower uses it to walk out of a doorway
+--- instead of appearing on it (lib/follower_adapter.lua).
+function EnginePatch.isWarpCell(x, y)
+  local Map = loadModule(EnginePatch.READONLY.mapCurrentDef.mod)
+  if not (Map and Map.currentDef) or not (tonumber(x) and tonumber(y)) then return false end
+  local ok, def = pcall(Map.currentDef)
+  if not (ok and type(def) == "table" and type(def.warps) == "table") then return false end
+  for _, w in ipairs(def.warps) do
+    if type(w) == "table" and tonumber(w.x) == tonumber(x) and tonumber(w.y) == tonumber(y) then return true end
+  end
+  return false
+end
+
 --- May a Forager work here and now: the map's type is one of `allowedTypes`
 --- (a set, e.g. { [3] = true, [4] = true } = routes and caves), it is not a
 --- Safari Zone visit, and the player is neither surfing nor standing in water.
@@ -1241,6 +1259,17 @@ function EnginePatch.bagAdd(id, qty)
   if not (Bag and okS and type(session) == "table" and session.bag) then return false end
   local ok, added = pcall(Bag.add, session.bag, id, qty or 1)
   return ok and added == true
+end
+
+--- Would `qty` of item `id` fit in the player's bag right now? False with no
+--- session / bag or an unknown id. Nothing is added.
+function EnginePatch.bagCanAdd(id, qty)
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local Bag = loadModule(EnginePatch.READONLY.bagCanAdd.mod)
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  if not (Bag and Bag.canAdd and okS and type(session) == "table" and session.bag) then return false end
+  local ok, fits = pcall(Bag.canAdd, session.bag, id, qty or 1)
+  return ok and fits == true
 end
 
 --- Every item the Forager may consider (see lib/forage_items.lua): the game's

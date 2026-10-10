@@ -1,5 +1,11 @@
 -- What a Forager can find.
 --
+-- A find is rolled in two steps: first a TIER (1 common .. 4 very rare) by the
+-- Pokemon's friendship -- the rare tiers are gated (tier 3 needs 130, tier 4 200)
+-- and grow with friendship above their gate -- then an item inside that tier by
+-- its own weight. Rolling the tier first keeps the odds the same however many
+-- items are installed (National Dex Gen 3's extra items do not shift them).
+--
 -- Pure: it is handed a catalog of item entries (lib/engine_patch.lua builds it
 -- from the engine's own item data plus every item another mod registered, e.g.
 -- the evolution items National Dex Gen 3 adds) and turns it into a weighted
@@ -103,35 +109,147 @@ function ForageItems.weightOf(entry, cfg)
   return W.other[otherTier(price)]
 end
 
---- Weighted pool: { entries = {...}, weights = {...}, total = n }.
+--- The rarity tier of an allowed entry: 1 common, 2 uncommon, 3 rare, 4 very rare
+--- (nil when it can never be found). From the same pocket / price / use data as
+--- weightOf, so it works for any item, including the ones a mod registered.
+function ForageItems.tier(entry, cfg)
+  if ForageItems.weightOf(entry, cfg) <= 0 then return nil end
+  cfg = cfg or {}
+  local name = upper(entry.name)
+  local price = tonumber(entry.price) or 0
+  local use = entry.use or "none"
+  if entry.extra or entry.isEvo or use == "evo" then
+    return price >= (cfg.evoTop or 3000) and 4 or 3
+  end
+  if entry.isTm or entry.pocket == "TM_CASE" then return 2 end
+  if entry.pocket == "POKE_BALLS" then
+    if name == "POKE BALL" then return 1 end
+    if name == "GREAT BALL" then return 2 end
+    if name == "ULTRA BALL" then return 3 end
+    if price <= 500 then return 1 end
+    return price <= 2000 and 2 or 3
+  end
+  if entry.pocket == "BERRY_POUCH" then return 1 end
+  if use == "heal" or use == "status" or use == "revive" then
+    if price <= 300 then return 1 end
+    if price <= 800 then return 2 end
+    if price <= 1500 then return 3 end
+    return 4
+  end
+  if price <= 500 then return 1 end
+  if price <= 2000 then return 2 end
+  return 3
+end
+
+--- Weighted pool: { entries, weights, total } (every find) plus
+--- `tiers[1..4] = { entries, weights, total }`.
 function ForageItems.buildPool(catalog, cfg)
-  local pool = { entries = {}, weights = {}, total = 0 }
+  local pool = { entries = {}, weights = {}, total = 0, tiers = {} }
+  for t = 1, 4 do pool.tiers[t] = { entries = {}, weights = {}, total = 0 } end
   local seen = {}
   for _, entry in ipairs(catalog or {}) do
     local key = tostring(entry.id)
     if not seen[key] then
       local w = ForageItems.weightOf(entry, cfg)
-      if w > 0 then
+      local t = w > 0 and ForageItems.tier(entry, cfg) or nil
+      if t then
         seen[key] = true
         pool.entries[#pool.entries + 1] = entry
         pool.weights[#pool.weights + 1] = w
         pool.total = pool.total + w
+        local bucket = pool.tiers[t]
+        bucket.entries[#bucket.entries + 1] = entry
+        bucket.weights[#bucket.weights + 1] = w
+        bucket.total = bucket.total + w
       end
     end
   end
   return pool
 end
 
---- Picks one entry; `rng()` returns [0,1). nil on an empty pool.
-function ForageItems.roll(pool, rng)
-  if not pool or pool.total <= 0 or #pool.entries == 0 then return nil end
-  local r = (rng and rng() or math.random()) * pool.total
-  local acc = 0
-  for i, w in ipairs(pool.weights) do
-    acc = acc + w
-    if r < acc then return pool.entries[i] end
+local DEFAULT_TIERS = {
+  bands = { 0, 30, 70, 130, 200, 255 },
+  tierBase = { 100, 35, 12, 3 },
+  tierGate = { 0, 0, 130, 200 },
+  tierMult = {
+    { 1.00, 1.00, 0, 0 }, { 0.95, 1.10, 0, 0 }, { 0.90, 1.25, 0, 0 },
+    { 0.80, 1.35, 1.0, 0 }, { 0.70, 1.40, 1.6, 1.0 }, { 0.60, 1.40, 2.6, 2.5 },
+  },
+}
+
+--- The friendship band (1-based) for 0-255 friendship.
+function ForageItems.band(friendship, cfg)
+  local bands = (cfg and cfg.bands) or DEFAULT_TIERS.bands
+  local f = math.max(0, math.min(255, tonumber(friendship) or 0))
+  local band = 1
+  for i, lo in ipairs(bands) do
+    if f >= lo then band = i end
   end
-  return pool.entries[#pool.entries]
+  return band
+end
+
+--- The weight of each tier { w1, w2, w3, w4 } at this friendship: base x the
+--- band's multiplier, 0 below the tier's gate.
+function ForageItems.tierWeights(friendship, cfg)
+  cfg = cfg or {}
+  local base = cfg.tierBase or DEFAULT_TIERS.tierBase
+  local gate = cfg.tierGate or DEFAULT_TIERS.tierGate
+  local mult = (cfg.tierMult or DEFAULT_TIERS.tierMult)[ForageItems.band(friendship, cfg)]
+  local f = math.max(0, math.min(255, tonumber(friendship) or 0))
+  local out = {}
+  for t = 1, 4 do
+    out[t] = (f >= (gate[t] or 0)) and (base[t] or 0) * ((mult and mult[t]) or 0) or 0
+  end
+  return out
+end
+
+local function pick(entries, weights, total, r)
+  local acc = 0
+  for i, w in ipairs(weights) do
+    acc = acc + w
+    if r < acc then return entries[i] end
+  end
+  return entries[#entries]
+end
+
+--- Rolls a find for a Pokemon with `friendship`: a tier first, then an item in
+--- it. `accept(entry)` (optional, e.g. "fits in the bag") rules entries out for
+--- this roll; a tier left empty is dropped and the others share its odds. Returns
+--- `entry, tier`, or nil when nothing at all can be found. `rng()` returns [0,1).
+function ForageItems.roll(pool, friendship, rng, accept, cfg)
+  if not pool or not pool.tiers then return nil end
+  rng = rng or math.random
+  local tw = ForageItems.tierWeights(friendship, cfg)
+  -- per tier, the entries this roll may use
+  local usable, total = {}, 0
+  for t = 1, 4 do
+    local bucket = pool.tiers[t]
+    local entries, weights, sum = {}, {}, 0
+    if tw[t] > 0 and bucket then
+      for i, e in ipairs(bucket.entries) do
+        if not accept or accept(e) then
+          entries[#entries + 1] = e
+          weights[#weights + 1] = bucket.weights[i]
+          sum = sum + bucket.weights[i]
+        end
+      end
+    end
+    if sum > 0 then
+      usable[t] = { entries = entries, weights = weights, total = sum }
+      total = total + tw[t]
+    end
+  end
+  if total <= 0 then return nil end
+  local r, acc, tier = rng() * total, 0, nil
+  for t = 1, 4 do
+    if usable[t] then
+      acc = acc + tw[t]
+      if r < acc then tier = t break end
+      tier = t
+    end
+  end
+  local u = usable[tier]
+  return pick(u.entries, u.weights, u.total, rng() * u.total), tier
 end
 
 return ForageItems

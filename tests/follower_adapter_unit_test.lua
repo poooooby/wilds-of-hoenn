@@ -826,6 +826,69 @@ do
   eq(f:readyLabel(), nil, "nothing waiting: no label")
 end
 
+-- ------- walking out of a doorway: hidden in it, fading in as it steps out
+do
+  local warps = { ["5,8"] = true }
+  local realWarp = fakeEngine.isWarpCell
+  fakeEngine.isWarpCell = function(x, y) return warps[x .. "," .. y] == true end
+  local f = FollowerAdapter.new(mod)
+  -- a fresh follower on the door tile (the engine makes one on the player's cell)
+  npc = { sprite = nil, moving = false, cellX = 5, cellY = 8, px = 80, py = 128, facing = "down" }
+  f:tick()
+  check(f:isEmerging(), "a fresh follower on a warp tile is coming out of the doorway")
+  eq(npc.hidden, true, "...and is not drawn while it stands in it")
+  for _ = 1, 30 do f:tick() end
+  eq(npc.hidden, true, "it stays hidden while the player is walked out")
+  eq(f:startAction("pet"), nil, "no scene can start while it is in the doorway")
+  -- it steps out: visible again, fading in over the step
+  npc.moving, npc.progress, npc.stepFrames, npc.targetX, npc.targetY = true, 4, 16, 5, 9
+  f:tick()
+  eq(npc.hidden, false, "stepping out it is drawn again")
+  eq(f.renderer.alpha, 0.25, "...fading in with the step (4 of 16)")
+  npc.progress = 12
+  f:tick()
+  eq(f.renderer.alpha, 0.75, "...12 of 16")
+  -- out of the doorway
+  npc.moving, npc.cellX, npc.cellY = false, 5, 9
+  f:tick()
+  check(not f:isEmerging(), "once it is out of the doorway it is done")
+  eq(f.renderer.alpha, nil, "...fully visible")
+  eq(npc.hidden, false, "...and not hidden")
+  -- the same follower later on a warp tile (walking over a door mat) does not re-trigger
+  npc.cellX, npc.cellY = 5, 8
+  f:tick()
+  check(not f:isEmerging(), "only a FRESH follower on a warp tile walks out (not one that walks onto one)")
+
+  -- a fresh follower on an ordinary tile (route border, Fly, a load): drawn as always
+  npc = { sprite = nil, moving = false, cellX = 20, cellY = 20, px = 320, py = 320, facing = "down" }
+  f:tick()
+  check(not f:isEmerging(), "a fresh follower anywhere else is drawn at once")
+  check(not npc.hidden, "...not hidden")
+
+  -- the engine's own hiding is never undone by us
+  local g = FollowerAdapter.new(mod)
+  npc = { sprite = nil, moving = false, cellX = 5, cellY = 8, px = 80, py = 128, facing = "down", hidden = true }
+  g:tick()
+  npc.moving, npc.progress, npc.stepFrames = true, 8, 16
+  g:tick()
+  eq(npc.hidden, true, "a follower the engine hid stays hidden (we only undo our own)")
+
+  -- a new map mid-way restores the old follower and starts over
+  local h = FollowerAdapter.new(mod)
+  local old = { sprite = nil, moving = false, cellX = 5, cellY = 8, px = 80, py = 128, facing = "down" }
+  npc = old
+  h:tick()
+  eq(old.hidden, true, "sanity: hidden in the doorway")
+  npc = { sprite = nil, moving = false, cellX = 30, cellY = 30, px = 480, py = 480, facing = "down" }
+  h:tick()
+  eq(old.hidden, false, "a new follower: the old one is not left hidden")
+  check(not h:isEmerging(), "...and the new one (not on a warp) is drawn")
+  npc = nil
+  h:tick()
+  check(not h:isEmerging(), "no follower at all clears it")
+  fakeEngine.isWarpCell = realWarp
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

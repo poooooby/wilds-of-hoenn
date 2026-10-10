@@ -27,7 +27,9 @@ tests/follower_dialogue_unit_test.lua
 tests/follower_interaction_unit_test.lua
 tests/follower_swap_unit_test.lua
 tests/forage_items_unit_test.lua
+tests/forage_ndex_catalog_test.lua
 tests/forage_source_unit_test.lua
+tests/forage_sparkle_unit_test.lua
 tests/forager_unit_test.lua
 tests/form_source_unit_test.lua
 tests/grass_cover_unit_test.lua
@@ -102,3 +104,5 @@ release/wilds-of-hoenn-v1.5.0-hgss-pmd.zip
 release/wilds-of-hoenn-v1.5.0-hgss.zip
 release/wilds-of-hoenn-v1.6.1-hgss-pmd.zip
 release/wilds-of-hoenn-v1.6.1-hgss.zip
+release/wilds-of-hoenn-v1.6.2-beta.1-hgss-pmd.zip
+release/wilds-of-hoenn-v1.6.2-beta.1-hgss.zip

@@ -71,6 +71,14 @@ local FRAME_COUNT_TO_TABLE = {
   [FRAME_COUNT_POKEMMO] = FRAME_INDEX_18,
 }
 
+--- The opacity a renderer draws at: its `alpha` field (0..1), 1 when unset. Shared
+--- with lib/pmd_renderer.lua. Pure (tested).
+function ActorRenderer.alphaOf(r)
+  local a = r and tonumber(r.alpha)
+  if not a then return 1 end
+  return math.max(0, math.min(1, a))
+end
+
 --- Pure frame-index lookup, split out from draw() so it is testable without
 --- love.graphics. `pose` is one of the ActorRenderer.POSE_* constants (any
 --- other value, including nil/0 -- the engine's own `a.walkPhase or 0`
@@ -319,12 +327,17 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   local flash = act and tonumber(act.flash) or 0
   if flash > 0 then tint = math.min(tint or 1, 1 - 0.6 * math.min(1, flash)) end
 
+  -- fading in (a follower walking out of a doorway, lib/follower_adapter.lua)
+  local alpha = ActorRenderer.alphaOf(self)
+  if alpha <= 0 then return end
   if self.silhouette then
     -- Multiply-tint to black, keeping the sheet's own alpha -- no pixel
     -- remap needed: Gen 3's world already draws true-color, unshaded.
-    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.setColor(0, 0, 0, alpha)
   elseif tint then
-    love.graphics.setColor(1, tint, tint, 1)
+    love.graphics.setColor(1, tint, tint, alpha)
+  elseif alpha < 1 then
+    love.graphics.setColor(1, 1, 1, alpha)
   end
   if mul == 1 and sink <= 0 then
     love.graphics.draw(image, quad, (x - camX) + drawX + pushX, (y - camY) + drawY + pushY, 0, flipX, 1)
@@ -335,7 +348,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
     love.graphics.draw(image, quad, boxLeft + frameW / 2, boxTop + frameH, 0,
       flipX * mul, mul * (1 - sink), frameW / 2, frameH)
   end
-  if self.silhouette or tint then
+  if self.silhouette or tint or alpha < 1 then
     love.graphics.setColor(1, 1, 1, 1)
   end
 end

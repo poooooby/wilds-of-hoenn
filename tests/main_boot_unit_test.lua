@@ -118,7 +118,7 @@ local function completeFakeEngine(layout)
     playSe = function() return true end }
   fake["src.core.game3.se_ids"] = { SE_SUCCESS = 25 }
   fake["src.core.game3.map"] = { currentDef = function() return { mapType = 3 } end }
-  fake["src.core.game3.bag"] = { add = function() return true end }
+  fake["src.core.game3.bag"] = { add = function() return true end, canAdd = function() return true end }
   fake["src.core.game3.items_data"] = {
     info = function() return nil end, fieldUseKind = function() return "none" end,
     isHm = function() return false end, isTm = function() return false end,

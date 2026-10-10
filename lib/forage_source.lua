@@ -1,4 +1,4 @@
--- Rolls a Forager's find and puts it in the bag.
+-- Rolls a Forager's find (by friendship, lib/forage_items.lua) and puts it in the bag.
 --
 -- The item pool is built lazily from the engine's item data the first time it
 -- is needed (the data is only loaded once a game is running) and rebuilt after
@@ -28,12 +28,29 @@ function ForageSource:getPool()
   return self.pool
 end
 
---- Rolls an item and bags it. Returns its display name, or nil when nothing
---- was found (empty pool, or the bag is full -- nothing is lost either way).
-function ForageSource:pick()
-  local entry = ForageItems.roll(self:getPool(), self.rng)
+-- an entry the bag can take right now
+local function fits(entry)
+  return EnginePatch.bagCanAdd(entry.id, 1)
+end
+
+--- Rolls what a Pokemon with `friendship` will find, WITHOUT bagging it (the
+--- Forager sets out only once it knows it will find something). Only items that
+--- fit in the bag are considered. Returns { entry, name, tier }, or nil when
+--- nothing at all can be found (empty pool, full bag).
+function ForageSource:roll(friendship)
+  local entry, tier = ForageItems.roll(self:getPool(), friendship, self.rng, fits, Config.FORAGE)
   if not entry then return nil end
-  if EnginePatch.bagAdd(entry.id, 1) then return entry.name end
+  return { entry = entry, name = entry.name, tier = tier, friendship = friendship }
+end
+
+--- Puts a rolled find in the bag (at the end of the dig). If the bag filled up
+--- while the Pokemon was out, one fresh roll that fits is tried instead. Returns
+--- what was bagged ({ entry, name, tier }), or nil when nothing could be.
+function ForageSource:commit(rolled)
+  if type(rolled) ~= "table" or not rolled.entry then return nil end
+  if EnginePatch.bagAdd(rolled.entry.id, 1) then return rolled end
+  local again = self:roll(rolled.friendship)
+  if again and EnginePatch.bagAdd(again.entry.id, 1) then return again end
   return nil
 end
 

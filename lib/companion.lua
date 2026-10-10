@@ -3,7 +3,7 @@
 -- Scarlet / Violet style: any party member can be sent out with a job --
 --   follow  the standard follower (Pet / Play / Talk menu, scenes)
 --   battle  fights wild overworld Pokemon near the player (lib/overworld_battle.lua)
---   forage  wanders and picks up items for the player (lib/forager.lua)
+--   forage  sniffs out items for the player while they walk (lib/forager.lua)
 --   recall  not a job: the Pokemon is shrunk into the player and stays there
 --           until a job is chosen again (from the party menu or by talking to it)
 -- Only one companion is out at a time (the engine supports a single follower).

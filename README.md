@@ -48,7 +48,7 @@ There is no Follower on/off option. The party leader follows until you choose so
 |---|---|
 | **FOLLOW** | Follows you. Face it and press A for **Pet** (a quick idle and its cry), **Play** (you throw a ball, it fetches it and spins) or **Talk** (it cries twice). Each one raises its friendship (Play +3, Pet +2, Talk +1), with limits so it can't be spammed. A hurt or sick Pokémon won't play and tells you why; petting a sick Pokémon has a 25% chance to cure it; talking shows how much it likes you. |
 | **BATTLE** | When you stand still and a wild overworld Pokémon is within **3 tiles of you**, it charges in for a short fight with its **real moves, stats, damage and PP**. Health bars and hit effects appear on both, and it earns a little EXP for a win. When it levels up, "New move ready!" or "Ready to evolve!" floats over its head: face it, press A and pick **Learn Move** or **Evolve** to open the game's own screens. It earns no more EXP until you have, and a Pokémon holding an Everstone never asks to evolve. The defeated Pokémon cries and sinks into the ground. A Battler is never knocked out: at 1 HP (or with no attack PP left) it runs back, cries and shrinks into you, and rests until it's healed. |
-| **FORAGE** | While you **walk on routes and in caves** (not in towns, buildings, the Safari Zone or on water), it roams 5-10 tiles around you and runs back. Every 10-30 seconds it digs and has a **20% chance** to find an item for your bag (it cries to tell you when it does): healing and status items, Poké Balls, berries, evolution items (including National Dex Gen 3's extras) and cheap TMs. Never HMs, key items, Master Balls, Rare Candy or high-level TMs. |
+| **FORAGE** | While you **walk on routes and in caves** (not in towns, buildings, the Safari Zone or on water), every **1-3 minutes** it catches a scent: it stops and perks up, a glint appears on the ground **3-5 tiles away**, it dashes over, digs, and **always** comes back with something for your bag (it cries to tell you). It never leaves your side for nothing. **Friendship matters**: the fonder it is, the sooner it finds things and the more eager it is, and rarer finds unlock as you bond (**friendship 130+**: rare items such as evolution stones and National Dex Gen 3's evolution items; **200+**: the rarest), with a bigger reaction for a rare find. Finds include healing and status items, Poké Balls, berries, evolution items and cheap TMs. Never HMs, key items, Master Balls, Rare Candy or high-level TMs, and a full bag means it waits. |
 
 ## 🤓 Dev Information
 
@@ -73,6 +73,7 @@ for f in tests/*_unit_test.lua; do lua "$f" || echo "FAIL: $f"; done
 cd ../gen1recomp
 luajit mods/wilds_of_hoenn/tests/engine_patch_probe_test.lua
 luajit mods/wilds_of_hoenn/tests/modkit_boot_test.lua
+luajit mods/wilds_of_hoenn/tests/forage_ndex_catalog_test.lua  # with national_dex_gen3 linked too
 cd -
 
 # Pre-release validation
@@ -116,5 +117,6 @@ The mod's own code and tools are released under the [MIT License](LICENSE). The 
 - **HGSS / PokeMMO overworld sprites** - a read-only copy of [Wilds of Kanto Revival](https://github.com/poooooby/wilds-of-kanto-gen-3)'s sprite sources, made by many individual artists (full credits in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and that project's notices).
 - **PMDCollab sprites and portraits** - from [PMDCollab/SpriteCollab](https://github.com/PMDCollab/SpriteCollab), licensed **CC BY-NC 4.0** (non-commercial); official-game graphics remain © Spike Chunsoft / Nintendo / The Pokémon Company. Per-species artist credits ship with the HGSS + PMDCollab release as `assets/pmd/CREDITS.txt`.
 - **Code** adapted from Wilds of Kanto Revival (MIT) is listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- **Inspiration:** TTiN and Untamed Tohjo inspired the friendship-weighted foraging (a fonder Pokémon finds rarer items, and finds them sooner).
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for every asset's credit and terms. Pokémon and its characters are trademarks of Nintendo, Game Freak and The Pokémon Company; this is an unofficial fan project and is not affiliated with them.

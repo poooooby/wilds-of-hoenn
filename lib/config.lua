@@ -80,27 +80,53 @@ Config.OW_BATTLE = {
   resumeFrac = 0.25,    -- healed past this share of max HP (with PP) it may fight again
 }
 
--- Forager role (lib/forager.lua): all ticks / px / cells.
+-- Forager role (lib/forager.lua, lib/forage_items.lua): all ticks / px / cells.
+-- It only ever leaves the player's side for a find, and every trip finds something.
 Config.FORAGE = {
-  minSpread = 5,         -- a wander / forage spot is this many cells from the PLAYER ...
-  maxSpread = 10,        -- ... to this many
-  maxWalk = 14,          -- longest walk to a spot, in cells (the way round obstacles)
-  forageMin = 600,       -- ticks of walking (10 s) between forages ...
-  forageMax = 1800,      -- ... to 30 s (re-rolled each time; only counts where foraging is allowed)
-  findChance = 0.2,      -- chance a forage turns up an item
+  minSpread = 3,         -- the find is this many cells from the PLAYER ...
+  maxSpread = 5,         -- ... to this many
+  maxWalk = 12,          -- longest walk to it, in cells (round obstacles; the player keeps walking during the tell)
+  -- one find per 1-3 minutes of WALKING (only counted where foraging is allowed). The wait
+  -- leans long at low friendship and short at high: goal = min + (max - min) * r ^ e, with
+  -- e = skewLow at friendship 0 rising to skewHigh at 255 (mean ~140 s -> ~90 s).
+  intervalMin = 3600,
+  intervalMax = 10800,
+  skewLow = 0.5,
+  skewHigh = 3.0,
+  retryTicks = 60,       -- no spot / nothing that fits the bag yet: look again this much later
   -- map types it may forage on: 3 = route (outside), 4 = underground (caves). Towns,
   -- cities, buildings, water and secret bases are off limits.
   allowedMapTypes = { [3] = true, [4] = true },
-  wanderWaitMin = 300,   -- ticks it trots beside the player between trips (5 s) ...
-  wanderWaitMax = 900,   -- ... to 15 s (only counted while the player moves)
-  lingerMin = 25,        -- ticks it sniffs about at a wander spot ...
-  lingerMax = 70,        -- ... to this many
-  walkSpeed = 1.5,       -- px per tick going out on a wander
-  forageSpeed = 2.2,     -- px per tick going out to forage
+  -- the tell: it stops and perks up (a sparkle shows where it is going), then dashes there;
+  -- both get more eager with friendship
+  perkMax = 45,          -- ticks of the tell at friendship 0 ...
+  perkMin = 30,          -- ... down to this at 255
+  forageSpeedMin = 2.2,  -- px per tick dashing out at friendship 0 ...
+  forageSpeedMax = 3.0,  -- ... up to this at 255
   runSpeed = 2.8,        -- px per tick running back to the player
-  cryPause = 30,         -- ticks it stays put after crying out about a find
   digTicks = 90,         -- digging at the spot
-  popupTicks = 150,      -- the "found X" label stays up
+  cryPause = 30,         -- after a common find: the cry, then this pause
+  cryGap = 40,           -- a rare find cries twice, this far apart ...
+  rarePause = 70,        -- ... and stays put this long (tier 3)
+  rarePause4 = 90,       -- ... or this long (tier 4)
+  popupTicks = 150,      -- the "Found X!" label (tiers 1-2) ...
+  popupTicksRare = 240,  -- ... tier 3
+  popupTicksTop = 300,   -- ... tier 4
+  -- what it finds (lib/forage_items.lua): first a TIER by friendship, then an item in it.
+  -- bands are MonMood.FRIENDSHIP_TIERS (0 Angry, 30 Sad, 70 Normal, 130 Happy, 200 Joyous,
+  -- 255 Inspired); a tier below its gate never comes up.
+  bands = { 0, 30, 70, 130, 200, 255 },
+  tierBase = { 100, 35, 12, 3 },
+  tierGate = { 0, 0, 130, 200 },
+  tierMult = {             -- per band: { T1, T2, T3, T4 }
+    { 1.00, 1.00, 0, 0 },  -- 0-29
+    { 0.95, 1.10, 0, 0 },  -- 30-69
+    { 0.90, 1.25, 0, 0 },  -- 70-129
+    { 0.80, 1.35, 1.0, 0 },-- 130-199
+    { 0.70, 1.40, 1.6, 1.0 }, -- 200-254
+    { 0.60, 1.40, 2.6, 2.5 }, -- 255
+  },
+  evoTop = 3000,         -- an evolution item this dear (or dearer) is tier 4, else tier 3
   maxTmPrice = 3000,     -- TMs dearer than this are "high level" and never found
   blocklist = {},        -- extra item names to never find
 }

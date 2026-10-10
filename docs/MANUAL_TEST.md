@@ -126,28 +126,42 @@ script with `mod.exports.portraitUI:say("Hello!", { dex = 252, emotion = "Happy"
 - [ ] Surfing (PMD recall) and warping mid-fight leave no flag or offset behind.
 
 ### Forage
-- [ ] Only while you are WALKING, and only outside on a route or in a cave: it
-      runs out to a spot 5-10 tiles from you (around obstacles, never over
-      walls or water), sniffs there a moment, and runs back to within a tile
-      of you. While you stand still it stays at your side.
-- [ ] In a town, a city, a building (Pokemon Center, house ...), the Safari
-      Zone, or while surfing / on water, it just trots beside you and never
-      goes out. Walking back onto a route resumes it.
-- [ ] Every 10-30 seconds of walking it goes foraging: at the spot it digs, and
-      about 1 time in 5 it finds something: a "Found <item>!" label shows, the
-      item is in the bag, and ONLY THEN does it cry (to tell you). A dig that
-      finds nothing is silent. Then it runs back quickly. Stopping mid-trip
-      still lets it finish.
-- [ ] The forage timer carries over map changes (walking through several maps
-      still gets foraging), but a trip in progress is cancelled by the change.
-- [ ] Finds include healing / status items, Poke Balls, berries, evolution
-      stones (and National Dex Gen 3's extra evolution items when it is
-      installed). NEVER an HM, key item, Master Ball, Rare Candy or an
-      expensive TM. A full bag finds nothing and loses nothing.
+- [ ] Only while you are WALKING, and only outside on a route or in a cave. While
+      you stand still, or in a town, a city, a building, the Safari Zone or on
+      water, it just trots beside you and NEVER leaves your side (no idle trips).
+- [ ] Every 1-3 minutes of walking: it stops and perks up (an alert bounce) while
+      you walk on, a small glint appears on the ground 3-5 tiles from you, it
+      dashes there (round obstacles, never over walls, water or a wild Pokemon),
+      digs, and ALWAYS finds something: a "Found <item>!" label, the item is in
+      the bag, the found sound and its cry. Then it runs back. There is no
+      failed dig any more.
+- [ ] The glint looks the same whatever it finds (no spoiler).
+- [ ] Friendship: a low-friendship Pokemon (< 130) never finds evolution stones /
+      National Dex Gen 3 evolution items, Ultra Balls or dear healing items; at
+      130+ rare finds appear; at 200+ the rarest (Max Revive class, Ice Stone,
+      Metal Alloy ...). A rare find cries TWICE, bounces and keeps its label up
+      longer. A 255-friendship Pokemon perks up and dashes visibly faster and
+      finds more often (about every 1.5 min vs 2.3 min at low friendship).
+- [ ] With National Dex Gen 3 installed and a fond (200+) Pokemon, its evolution
+      items (Dusk Stone, Razor Claw, Peat Block ...) turn up and really land in
+      the bag (check the Bag).
+- [ ] A full bag (or a full pocket for what it would find): it never sets out; it
+      tries again once there is room.
+- [ ] Stopping mid-trip still lets it finish; a map change cancels the trip but
+      keeps the timer (the next route can start a find right away).
 - [ ] Both styles; the Pet / Play / Talk menu is refused while it is away.
       CHECK the map types: caves (Granite Cave, Meteor Falls ...) count as
       allowed; if a route or cave never forages, the map-type numbers in
       `Config.FORAGE.allowedMapTypes` (3 route, 4 underground) are the thing to adjust.
+
+## Follower out of doors
+- [ ] Leave a Pokemon Center, a house, a cave, and take stairs / a ladder, in both sprite styles
+      (a big PMD one too, e.g. Rayquaza): while you are walked out of the door the follower is
+      NOT drawn on the door or over the roof; on your next step it fades in as it steps out of
+      the doorway and then follows as usual.
+- [ ] Walking across a route border, Fly, falling through a hole, Surf and loading a save show the
+      follower exactly as before (no fade, no blink).
+- [ ] Standing in the doorway after coming out, the follower cannot be talked to until it is out.
 
 ## Follower interaction
 

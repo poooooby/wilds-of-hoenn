@@ -56,7 +56,8 @@ fieldState.unlock = function(tag) fieldLocks[tag] = nil end
 fake["src.core.game3.field"] = fieldState
 local cryLog, cryDone = {}, false
 local currentMapType = 3
-fake["src.core.game3.map"] = { currentDef = function() if currentMapType == "none" then return nil end return { mapType = currentMapType } end }
+local currentWarps = { { x = 5, y = 8, destMap = "PETALBURG_CITY" }, { x = "12", y = "3" } }
+fake["src.core.game3.map"] = { currentDef = function() if currentMapType == "none" then return nil end return { mapType = currentMapType, warps = currentWarps } end }
 local seLog = {}
 fake["src.core.game3.audio"] = {
   playCry = function(species, mode) cryLog[#cryLog + 1] = { species, mode } return true end,
@@ -71,6 +72,7 @@ fake["src.core.game3.bag"] = {
     bagLog[#bagLog + 1] = { bag = bag, id = id, qty = qty }
     return true, qty
   end,
+  canAdd = function(bag, id, qty) return not bagFull and bag ~= nil and id ~= nil end,
 }
 local ITEM_INFO = {
   [4] = { name = "POKé BALL", pocket = "POKE_BALLS", price = 200 },
@@ -411,12 +413,27 @@ do
   check(EnginePatch.forageAllowed(allowed), "...and allowed again on land")
 end
 
+-- warp tiles: where a follower walks out of a doorway
+check(EnginePatch.isWarpCell(5, 8), "isWarpCell: a door listed in the map's warps")
+check(EnginePatch.isWarpCell(12, 3), "...even when the map data has the numbers as strings")
+check(not EnginePatch.isWarpCell(5, 9), "...not the tile in front of it")
+check(not EnginePatch.isWarpCell(nil, 8), "...not without a cell")
+do
+  local was = currentWarps
+  currentWarps = nil
+  check(not EnginePatch.isWarpCell(5, 8), "...not on a map without warps")
+  currentWarps = was
+end
+
 -- Forager helpers: bag, item catalog, sound, font, open cells
 check(EnginePatch.bagAdd(13, 1), "bagAdd puts an item in the session bag")
 eq(bagLog[1].id, 13, "...with the id it was given")
 bagFull = true
 check(not EnginePatch.bagAdd(13, 1), "a full bag reports false")
+check(not EnginePatch.bagCanAdd(13, 1), "bagCanAdd: a full bag has no room")
 bagFull = false
+check(EnginePatch.bagCanAdd(13, 1), "bagCanAdd: an item that fits")
+eq(#bagLog, 1, "...and asking adds nothing")
 local catalog = EnginePatch.itemCatalog({ content = { items = { each = function()
   local list = { { "DAWN_STONE", { id = "DAWN_STONE", name = "Dawn Stone", index = 900, price = 0 } },
                  { "POTION", { id = "POTION", name = "Potion", index = 13 } } }

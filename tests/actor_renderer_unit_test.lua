@@ -301,6 +301,13 @@ do
   eq(r:visualWidth(), nil, "...nil with no art installed")
 end
 
+-- ------- alphaOf: the opacity a renderer draws at (a follower fading out of a doorway)
+eq(ActorRenderer.alphaOf({}), 1, "no alpha: fully opaque")
+eq(ActorRenderer.alphaOf({ alpha = 0.5 }), 0.5, "an alpha is used")
+eq(ActorRenderer.alphaOf({ alpha = 2 }), 1, "...clamped to 1")
+eq(ActorRenderer.alphaOf({ alpha = -1 }), 0, "...and to 0")
+eq(ActorRenderer.alphaOf(nil), 1, "no renderer: opaque")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

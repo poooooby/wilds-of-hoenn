@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Foraging reworked: every trip finds something, and friendship matters.** The Forager no
+  longer makes idle trips or digs up nothing. Every 1-3 minutes of walking it catches a scent:
+  it stops and perks up, a glint appears on the ground 3-5 tiles away, it dashes over, digs and
+  always comes back with an item (it only sets out when the find will fit in your bag).
+  - The fonder it is, the sooner it finds things (about every 2.3 min at low friendship, 1.5 min
+    at max) and the more eager its tell and dash.
+  - Finds come in four rarity tiers. Rare finds (Ultra Balls, dear healing items, evolution
+    stones and National Dex Gen 3's evolution items) need friendship 130; the rarest (top
+    revives, the 3000-price evolution items) need 200; above that, higher friendship tilts the
+    odds further toward them. A rare find cries twice, bounces and keeps its label up longer.
+    The friendship idea is inspired by TTiN and Untamed Tohjo (credited in the README and
+    THIRD_PARTY_NOTICES.md).
+  - Confirmed against the real mod loader: with National Dex Gen 3 installed, all 36 of its
+    evolution items are in the Forager's pool (rare / very rare by price).
+
+### Fixes
+
+- **The follower no longer appears on the door, over the building, when you come out.** Leaving
+  a building, a cave or taking stairs, the game places the follower in the doorway while you are
+  walked out, so it was drawn on the door (a big sprite well over the roof). It now stays out of
+  sight in the doorway and fades in as it steps out behind you. Walking across a route border,
+  Fly, a fall and loading a save are unchanged.
+
 ## 1.6.2-beta.1 (2026-10-09)
 
 ### Added

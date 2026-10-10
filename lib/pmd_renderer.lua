@@ -239,13 +239,18 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     local flash = tonumber(act.flash) or 0
     if flash > 0 then tint = math.min(tint or 1, 1 - 0.6 * math.min(1, flash)) end
   end
+  -- fading in (a follower walking out of a doorway, lib/follower_adapter.lua)
+  local alpha = ActorRenderer.alphaOf(self)
+  if alpha <= 0 then return end
   if self.silhouette then
-    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.setColor(0, 0, 0, alpha)
   elseif tint then
-    love.graphics.setColor(1, tint, tint, 1)
+    love.graphics.setColor(1, tint, tint, alpha)
+  elseif alpha < 1 then
+    love.graphics.setColor(1, 1, 1, alpha)
   end
   love.graphics.draw(image, quad, dx, dy, 0, scale, scaleY)
-  if self.silhouette or tint then love.graphics.setColor(1, 1, 1, 1) end
+  if self.silhouette or tint or alpha < 1 then love.graphics.setColor(1, 1, 1, 1) end
 end
 
 return PmdRenderer
