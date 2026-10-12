@@ -749,14 +749,8 @@ check(nx == 6 and ny == 5 and st.surfing == false, "open floor: the step lands o
 GRID["7,5"] = "tile"
 check(move(6, 5, "right", { surfing = false, elev = 3 }) == nil, "a wall blocks")
 GRID["5,6"] = "water"
-nx, ny, st = move(5, 5, "down", { surfing = false, elev = 3 })
-check(nx == 5 and ny == 6 and st.surfing == true, "water from the shore is entered as surfing when Surf is usable")
-moveMon.SURF = nil
-check(move(5, 5, "down", { surfing = false, elev = 3 }) ~= nil, "(the mover decides Surf once, when built)")
-local noSurfMove = EnginePatch.reachMover({})
-check(noSurfMove(5, 5, "down", { surfing = false, elev = 3 }) == nil, "without Surf the water is a wall")
-moveMon.SURF = { name = "LAPRAS" }
-move = EnginePatch.reachMover({})
+check(move(5, 5, "down", { surfing = false, elev = 3 }) == nil,
+  "water is a wall to a walker, even with Surf usable (the area limits land spawns only)")
 nx, ny, st = move(5, 6, "up", { surfing = true, elev = 3 })
 check(nx == 5 and ny == 5 and st.surfing == false, "surfing onto the shore dismounts")
 
@@ -790,6 +784,42 @@ check(EnginePatch.reachMover({})(3, 3, "down", { surfing = true, elev = 3 }) ~= 
 col.canEnter, col.isWater, col.isWalkable, col.ledgeLanding = realCanEnter, realIsWater, realIsWalkable, realLedge
 package.loaded["src.core.game3.scripting.space"] = nil
 _G.require = realRequire
+
+-- ------- reachFingerprint: moves usable + where the trees / rocks / boulders stand
+do
+  _G.require = function(name)
+    if fake[name] ~= nil then return fake[name] end
+    return realRequire(name)
+  end
+  package.loaded["src.core.game3.scripting.space"] = { store = {} }
+  local objs = fake["src.core.game3.objects"]
+  check(EnginePatch.reachFingerprint() == nil, "no object list in the engine -> nil (the caller uses a timer)")
+  local boulder = { visible = true, graphicsId = 97, cellX = 4, cellY = 4 }
+  local npc = { visible = true, graphicsId = 5, cellX = 2, cellY = 2 }
+  objs._order, objs._byId = { 1, 2 }, { [1] = boulder, [2] = npc }
+  moveMon.STRENGTH = nil
+  local a = EnginePatch.reachFingerprint()
+  check(type(a) == "number", "a number with the object list")
+  npc.cellX = 3
+  eq(EnginePatch.reachFingerprint(), a, "an NPC walking about changes nothing")
+  boulder.cellX = 5
+  local b = EnginePatch.reachFingerprint()
+  check(b ~= a, "a pushed boulder changes it")
+  boulder.cellX = 4
+  eq(EnginePatch.reachFingerprint(), a, "...and pushing it back restores it")
+  boulder.hidden = true
+  check(EnginePatch.reachFingerprint() ~= a, "a smashed rock / cut tree (hidden) changes it")
+  boulder.hidden = nil
+  moveMon.STRENGTH = { name = "MACHOP" }
+  check(EnginePatch.reachFingerprint() ~= a, "Strength becoming usable changes it")
+  moveMon.STRENGTH = nil
+  local before = collectgarbage("count")
+  for _ = 1, 1000 do EnginePatch.reachFingerprint() end
+  check(collectgarbage("count") - before < 64, "taking it makes (almost) no garbage")
+  objs._order, objs._byId = nil, nil
+  package.loaded["src.core.game3.scripting.space"] = nil
+  _G.require = realRequire
+end
 
 -- ------- module cache (on by default): one require per module per mod load
 do

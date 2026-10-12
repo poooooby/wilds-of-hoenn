@@ -18,8 +18,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 - 🦌 **Wild Pokémon in the overworld:** Every area with wild encounters fills with visible
   Pokémon wandering the grass, swimming the water and roaming caves. Walk onto one to start the
   battle. They come straight from the game's own encounter tables, abilities, outbreaks and
-  roamers included, and only appear where you can actually reach them, plus the water you can
-  see from the shore, so lakes and the sea are alive before you have Surf.
+  roamers included. On land they only appear where you can actually walk to, while water
+  Pokémon fill every lake and sea, Surf or not.
 - 🤝 **A partner with a job:** Choose any Pokémon in your party menu and give it a role. It can
   **follow** you, **forage** for items as you walk, or **battle** the wild Pokémon around you,
   Scarlet and Violet style.

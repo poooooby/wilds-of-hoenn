@@ -383,7 +383,37 @@ do
   smR:_rebuildReach()
   local b2 = builds
   for _ = 1, Config.REACH_REBUILD_TICKS do smR:tick(R_GAME) end
-  check(builds > b2, "the area is re-measured on a timer")
+  check(builds > b2, "without a fingerprint, the area is re-measured on a timer")
+
+  -- with a fingerprint: re-measured only when the world changed, once it settles
+  local fp = 7
+  fakeEngine.reachFingerprint = function() return fp end
+  smR:_rebuildReach()
+  local b3 = builds
+  for _ = 1, Config.REACH_REBUILD_TICKS * 3 do smR:tick(R_GAME) end
+  eq(builds, b3, "nothing changed: never re-measured, however long the player stands there")
+  fp = 8 -- a tree cut
+  for _ = 1, Config.REACH_CHECK_TICKS + Config.REACH_SETTLE_TICKS - 1 do smR:tick(R_GAME) end
+  eq(builds, b3, "a change waits for the world to settle first")
+  for _ = 1, Config.REACH_CHECK_TICKS * 2 do smR:tick(R_GAME) end
+  eq(builds, b3 + 1, "...then re-measures exactly once")
+  -- a boulder puzzle: a push every 2 s for 20 s, then a pause
+  local b4 = builds
+  for push = 1, 10 do
+    fp = 100 + push
+    for _ = 1, 120 do smR:tick(R_GAME) end
+  end
+  eq(builds, b4, "no re-measure while the boulders keep moving")
+  for _ = 1, Config.REACH_CHECK_TICKS + Config.REACH_SETTLE_TICKS + Config.REACH_CHECK_TICKS do smR:tick(R_GAME) end
+  eq(builds, b4 + 1, "one re-measure for the whole run of pushes, after the pause")
+  -- pushed out and back again: nothing to do
+  local b5 = builds
+  fp = 999
+  for _ = 1, Config.REACH_CHECK_TICKS do smR:tick(R_GAME) end
+  fp = 110
+  for _ = 1, Config.REACH_SETTLE_TICKS * 3 do smR:tick(R_GAME) end
+  eq(builds, b5, "a change undone before it settled costs nothing")
+  fakeEngine.reachFingerprint = nil
 
   -- the option off: no restriction at all
   Config.REACHABLE_SPAWNS = false

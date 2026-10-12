@@ -116,17 +116,22 @@ do
   keep[Reach.key(all[2].x, all[2].y)] = true
   src:setReachable(keep)
   eq(#src:eligibleCells("land"), 2, "only the reachable land cells are eligible")
+  eq(src:eligibleCount("land"), 2, "eligibleCount follows the restriction (no copy)")
+  local picked = src:randomCell("land", function(_, n) return n end)
+  check(picked and keep[Reach.key(picked.x, picked.y)], "randomCell picks from the reachable cells only")
+  eq(src:randomCell("water", function() return 1 end) ~= nil, src:eligibleCount("water") > 0,
+    "randomCell answers nil only when no cell is eligible")
   src:setReachable(nil)
   eq(#src:eligibleCells("land"), #all, "lifting the restriction restores them all")
+  eq(src:eligibleCount("land"), #all, "...and the count with it")
   src:setReachable(keep)
   src:loadMap("ROUTE_1")
   eq(#src:eligibleCells("land"), #all, "a freshly loaded map starts unrestricted")
 end
 
--- ------- water seen from the shore spawns without Surf (Config.SHORE_WATER_RANGE)
+-- ------- water spawns everywhere, reachable or not (atmosphere; Surf plays no part)
 do
   local Reach = V.require("reachability")
-  local Config = V.require("config")
   -- one row: reachable land, six water cells, unreachable land, a cut-off pond cell
   local row = { "land", "water", "water", "water", "water", "water", "water", "land", "water" }
   local saveGrid, saveBounds = terrainGrid, fakeEngine.mapBounds
@@ -135,13 +140,10 @@ do
   fakeEngine.mapBounds = function() return #row, 1 end
   local src = EncounterSource.new({})
   src:loadMap("ROUTE_1")
-  eq(#src:eligibleCells("water"), 7, "unrestricted: every water cell")
   src:setReachable({ [Reach.key(0, 0)] = true })
-  local water = src:eligibleCells("water")
-  eq(#water, Config.SHORE_WATER_RANGE, "water within range of the reachable shore is eligible")
-  eq(water[#water].x, Config.SHORE_WATER_RANGE, "...counted out from the shore")
-  check(src:canStay(6, 0, "water"), "a water Pokemon may swim anywhere in that connected water")
-  check(not src:canStay(8, 0, "water"), "water not connected to the reachable shore is not kept")
+  eq(src:eligibleCount("water"), 7, "every water cell is eligible, even far from the reachable area")
+  eq(src:eligibleCount("land"), 1, "land is still limited to the reachable area")
+  check(src:canStay(8, 0, "water"), "a water Pokemon is kept anywhere, even in a cut-off pond")
   check(not src:canStay(7, 0, "land"), "unreachable land is not kept")
   check(src:canStay(0, 0, "land"), "reachable land is kept")
   terrainGrid, fakeEngine.mapBounds = saveGrid, saveBounds

@@ -82,7 +82,7 @@ return function(mod)
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.7.2"
+  mod.exports.version = "1.7.3-beta.1"
   mod.exports.engineReady = false
   -- Public extension points for consumers; defaults stay unchanged.
   mod.exports.spriteAtlas = SpriteAtlas

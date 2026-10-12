@@ -50,6 +50,13 @@ end
 local okRse, _ = pcall(EnginePatch.isRse)
 check(okRse, "EnginePatch.isRse() runs without error")
 
+-- The reachable area is re-measured only when its fingerprint changes; that reads
+-- the engine's object list. If an engine update hides it, spawning still works (a
+-- plain timer takes over), but this catches the change.
+local okFp, fp = pcall(EnginePatch.reachFingerprint)
+check(okFp and type(fp) == "number",
+  "reachFingerprint reads the engine's object list (Objects._order / _byId), got " .. tostring(fp))
+
 -- "Ready to evolve!" must never show for a Pokemon holding an Everstone: the label
 -- is only set when the REAL engine offers an evolution, and the engine's own
 -- rule (pokemon.c GetEvolutionTargetSpecies) refuses one for an Everstone holder.

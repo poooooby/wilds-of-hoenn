@@ -41,6 +41,9 @@ end
 --- behaves exactly as before.
 function SpawnManager:_rebuildReach()
   self.reach, self.reachCount, self.reachAge = nil, nil, 0
+  -- what the area depends on, as measured now (see _checkReach)
+  self.reachFp = EnginePatch.reachFingerprint and EnginePatch.reachFingerprint() or nil
+  self.reachFpPending = nil
   if Config.REACHABLE_SPAWNS and EnginePatch.reachStart and EnginePatch.reachMover then
     local start = EnginePatch.reachStart()
     local move = start and EnginePatch.reachMover(self.game)
@@ -73,17 +76,42 @@ function SpawnManager:_pruneUnreachable()
   for _, id in ipairs(doomed) do self:despawn(id) end
 end
 
+--- Whether the reachable area should be re-measured now, from what it depends on
+--- (EnginePatch.reachFingerprint: Cut / Rock Smash / Strength usable, where the
+--- trees, rocks and boulders are). Checked every REACH_CHECK_TICKS; a change is only
+--- acted on once nothing has changed for REACH_SETTLE_TICKS, so a boulder puzzle's run
+--- of pushes costs one re-measure when the player pauses, not one per push. Without a
+--- fingerprint (an engine that hides its object list) it falls back to a plain timer.
+function SpawnManager:_reachStale()
+  local age = self.reachAge
+  if self.reachFp == nil then return age >= Config.REACH_REBUILD_TICKS end
+  if age % Config.REACH_CHECK_TICKS ~= 0 then return false end
+  local fp = EnginePatch.reachFingerprint()
+  if fp == nil then return age >= Config.REACH_REBUILD_TICKS end
+  local pending = self.reachFpPending
+  if fp == self.reachFp then
+    self.reachFpPending = nil -- changed and changed back (a boulder pushed out and in)
+    return false
+  end
+  if not pending or pending.fp ~= fp then
+    self.reachFpPending = { fp = fp, since = age } -- (re)start the settle wait
+    return false
+  end
+  return age - pending.since >= Config.REACH_SETTLE_TICKS
+end
+
 --- Once per tick: keep the reachable area current. Re-measures when the
 --- player stands outside it (they warped, hopped a ledge, were carried
---- somewhere new) and on a slow timer (Surf learned, a tree cut ...), and
---- drops spawns that are no longer reachable.
+--- somewhere new) and when what it depends on changed and settled (a tree cut,
+--- a rock smashed, boulders pushed: _reachStale), and drops spawns that are no
+--- longer reachable.
 function SpawnManager:_checkReach()
   if not Config.REACHABLE_SPAWNS or not self.source:isEligible() then return end
   self.reachAge = (self.reachAge or 0) + 1
   local p = EnginePatch.playerCell and EnginePatch.playerCell()
   if p and p.moving then return end
   local outside = self.reach and p and not Reachability.has(self.reach, p.x, p.y)
-  if outside or (self.reachAge >= Config.REACH_REBUILD_TICKS) or (not self.reach and self.reachAge >= 60) then
+  if outside or (not self.reach and self.reachAge >= 60) or (self.reach and self:_reachStale()) then
     self:_rebuildReach()
     self:_pruneUnreachable()
   end
@@ -262,17 +290,21 @@ function SpawnManager:battleSpecies(species, level, opts)
   return true
 end
 
+--- Tops `terrain` up to its target count. Runs every tick, so it copies nothing: the
+--- usual full map returns after a count, and a spawn picks a cell straight from the
+--- source's filtered list.
 function SpawnManager:refill(terrain)
-  local eligible = self.source:eligibleCells(terrain)
-  if #eligible == 0 then return end
-  local want = targetCount(#eligible)
+  local count = self.source:eligibleCount(terrain)
+  if count == 0 then return end
+  local want = targetCount(count)
   local have = self:_activeCountFor(terrain)
+  if have >= want then return end
   local attempts = 0
   local maxAttempts = (want - have) * 8 + 8
   while have < want and attempts < maxAttempts do
     attempts = attempts + 1
-    local cell = eligible[math.random(1, #eligible)]
-    if self:_spawnOne(terrain, cell) then have = have + 1 end
+    local cell = self.source:randomCell(terrain)
+    if cell and self:_spawnOne(terrain, cell) then have = have + 1 end
   end
 end
 

@@ -204,19 +204,21 @@ Config.INTERACT = {
   petHealChance = 0.25, -- petting a Pokemon with a status condition: chance to cure it
 }
 
--- Reachable-only spawns (lib/reachability.lua): visible wild Pokemon appear
--- only on cells the player can actually get to from where they stand --
--- walking, hopping ledges, and surfing once Surf is usable; a Cut tree, rock
--- or boulder blocks until the matching move is usable. REACH_REBUILD_TICKS:
--- how often (while the player stands still) the area is re-measured, so
--- learning Surf or clearing a tree opens new ground (60 ticks = 1 s).
+-- Reachable-only spawns (lib/reachability.lua): visible wild Pokemon on LAND
+-- appear only on cells the player can walk to from where they stand (ledges
+-- hop one way; a Cut tree, rock or boulder blocks until the matching move is
+-- usable). Surf plays no part: water Pokemon spawn on every lake and sea for
+-- atmosphere, and land across the water fills in once the player is there.
+-- The area is re-measured only when what it depends on changes (a tree cut, a
+-- rock smashed, a boulder pushed, Cut / Rock Smash / Strength becoming usable):
+-- checked every REACH_CHECK_TICKS, acted on once unchanged for REACH_SETTLE_TICKS
+-- (a boulder puzzle's pushes cost one re-measure, after the player pauses).
+-- REACH_REBUILD_TICKS: the plain timer used only if the engine hides its object
+-- list (60 ticks = 1 s).
 Config.REACHABLE_SPAWNS = true
+Config.REACH_CHECK_TICKS = 60
+Config.REACH_SETTLE_TICKS = 180
 Config.REACH_REBUILD_TICKS = 900
--- Water seen from the shore: water within SHORE_WATER_RANGE cells (swimming
--- through water) of a reachable cell is open to water spawns even without
--- Surf, so lakes and the sea are alive while you walk past (a Battler swims
--- out to them). A water Pokemon is kept anywhere in that connected water.
-Config.SHORE_WATER_RANGE = 4
 
 -- PMDCollab follower while the player surfs (PMD has no swim art): it shrinks
 -- into the player like a recall, and grows back out once on land. Duration of

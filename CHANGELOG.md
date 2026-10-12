@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.3-beta.1 (2026-10-12)
+
+### Changed
+
+- **Water Pokemon fill every lake and sea**, Surf or not, for atmosphere. Before, they only appeared
+  up to 4 tiles from a shore you could reach (all water once you had Surf). Land Pokemon still only
+  appear where you can walk to, and Surf no longer changes that area: land across the water fills
+  in once you are there.
+
+- **No more periodic hitch.** Wilds used to re-check where you can walk every 15 seconds while you
+  stood still (about 12 ms on a big route like Route 119). Now it re-checks only when something
+  that matters changes: a tree cut, a rock smashed, boulders pushed, or Cut, Rock Smash or
+  Strength becoming usable. A boulder puzzle costs a single re-check once you pause, not one per
+  push.
+- **Much less work every frame.** Keeping wild Pokemon topped up no longer copies the map's whole
+  list of spawn spots every tick. On a large route that was about 0.3 ms and 18 MB of garbage a
+  second, now practically nothing: fewer garbage-collection stutters, most noticeable on Android
+  and other low-power devices.
+
 ## 1.7.2 (2026-10-11)
 
 ### Added

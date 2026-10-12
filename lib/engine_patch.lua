@@ -569,15 +569,16 @@ local OBSTACLE_MOVE = { CUT_TREE = "CUT", ROCK_SMASH_ROCK = "ROCK_SMASH", PUSHAB
 --- The `move` function for lib/reachability.lua: where does one step from
 --- (x, y) in `state` ({ surfing, elev }) take the player, per the engine's
 --- own rules. Walking uses Collision.canEnter with the player's elevation,
---- a ledge becomes the hop to its landing cell (one-way), water is entered
---- as surfing when Surf is usable, and an object in the way (NPC, item ball)
+--- a ledge becomes the hop to its landing cell (one-way), water is a wall to a
+--- walker (Surf plays no part: the area limits LAND spawns only, water Pokemon spawn
+--- everywhere; a player already surfing floods on through the water and its shores),
+--- and an object in the way (NPC, item ball)
 --- does not count as a wall -- except a Cut tree / smashable rock / boulder
 --- whose move the player cannot use yet. Returns nil when the engine's
 --- collision module is unavailable.
 function EnginePatch.reachMover(game)
   local Collision = EnginePatch.collision()
   if not Collision then return nil end
-  local surfUsable = EnginePatch.hmUsable("SURF")
   local obstacleGfx = {}
   local FieldMoves = loadModule(EnginePatch.READONLY.partyMoveUser.mod)
   if FieldMoves and FieldMoves.GFX_IDS then
@@ -630,10 +631,6 @@ function EnginePatch.reachMover(game)
     local tx, ty = x + delta[1], y + delta[2]
     local opts = { fromX = x, fromY = y, dir = dir, surfing = surfing, elevation = elev }
     local ok, why = EnginePatch.canEnterWhy(game, tx, ty, opts)
-    if not ok and why == "water" and not surfing and surfUsable then
-      opts.surfing = true -- the shore: hop on and surf
-      ok, why = EnginePatch.canEnterWhy(game, tx, ty, opts)
-    end
     if not ok and why == "entity" and not obstacleAt(tx, ty) and terrainOpen(tx, ty, opts.surfing) then
       ok = true
     end
@@ -642,6 +639,41 @@ function EnginePatch.reachMover(game)
     local okW, water = pcall(Collision.isWater, tx, ty)
     return tx, ty, { surfing = okW and water == true, elev = nextElevation(state, tx, ty, x, y) }
   end
+end
+
+local FINGERPRINT_MOVES = { CUT = 1, ROCK_SMASH = 2, STRENGTH = 4 }
+
+--- A number that changes whenever the reachable area could have (lib/spawn_manager.lua
+--- re-measures only then): which of Cut / Rock Smash / Strength are usable, and where
+--- every Cut tree, smashable rock and pushable boulder still on the map stands.
+--- Arithmetic only, no garbage, cheap enough to take every second. nil when the
+--- engine does not expose its object list (Objects._order / _byId) -- the caller then
+--- falls back to re-measuring on a timer.
+function EnginePatch.reachFingerprint()
+  local Objects = loadModule(EnginePatch.READONLY.objectAt.mod)
+  local order, byId = Objects and Objects._order, Objects and Objects._byId
+  if type(order) ~= "table" or type(byId) ~= "table" then return nil end
+  local h = 0
+  for move, bit in pairs(FINGERPRINT_MOVES) do
+    if EnginePatch.hmUsable(move) then h = h + bit end
+  end
+  local FieldMoves = loadModule(EnginePatch.READONLY.partyMoveUser.mod)
+  local ids = FieldMoves and FieldMoves.GFX_IDS
+  if type(ids) ~= "table" then return h end
+  local tree, rock, boulder = ids.CUT_TREE, ids.ROCK_SMASH_ROCK, ids.PUSHABLE_BOULDER
+  for i = 1, #order do
+    local eo = byId[order[i]]
+    if type(eo) == "table" and eo.visible and not eo.hidden then
+      local def = type(eo.def) == "table" and eo.def or nil
+      local gfx = eo.graphicsId or eo.gfx or (def and (def.graphicsId or def.gfx))
+      if gfx ~= nil and (gfx == tree or gfx == rock or gfx == boulder) then
+        local x = tonumber(eo.moving and eo.targetX or eo.cellX) or 0
+        local y = tonumber(eo.moving and eo.targetY or eo.cellY) or 0
+        h = (h * 31 + i * 1009 + x * 7919 + y * 104729) % 2147483647
+      end
+    end
+  end
+  return h
 end
 
 --- Whether nothing else owns the player right now, mirroring the checks at

@@ -1,7 +1,6 @@
 -- Per-map eligible-cell listing and wild table presence, read entirely from
 -- the engine (EnginePatch): no reimplemented terrain/encounter rules.
 local V = ...
-local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
 local Reachability = V.require("reachability")
 
@@ -16,6 +15,7 @@ function EncounterSource.new(mod)
     hasLand = false,
     hasWater = false,
     cells = { land = {}, water = {} },
+    view = { land = {}, water = {} }, -- cells after the reachable filter (_rebuildView)
   }, EncounterSource)
 end
 
@@ -31,8 +31,9 @@ end
 --- land/water area at all. Called on map.entered.
 function EncounterSource:loadMap(mapId)
   self.mapId = mapId
-  self.reachable, self.shore = nil, nil
+  self.reachable = nil
   self.cells = { land = {}, water = {} }
+  self.view = { land = {}, water = {} }
   self.hasLand, self.hasWater = false, false
 
   -- Battle Pike / Battle Pyramid: wild generation there is special-cased
@@ -68,6 +69,44 @@ function EncounterSource:loadMap(mapId)
       end
     end
   end
+  self:_rebuildView()
+end
+
+--- Re-filters the scanned cells into `self.view`, once per map load / reach change --
+--- not per tick: the spawn refill reads it every tick, and copying a few thousand cells
+--- each time was ~0.3 ms and ~18 MB of garbage a second on a big route. Land is limited
+--- to the reachable area; water never is: water Pokemon fill every lake and sea for
+--- atmosphere, Surf or not (a Battler swims out to them, a surfer can meet them).
+function EncounterSource:_rebuildView()
+  local reachable = self.reachable
+  local view = {}
+  for terrain, list in pairs(self.cells) do
+    if terrain == "water" or not reachable then
+      view[terrain] = list
+    else
+      local out = {}
+      for i = 1, #list do
+        local c = list[i]
+        if Reachability.has(reachable, c.x, c.y) then out[#out + 1] = c end
+      end
+      view[terrain] = out
+    end
+  end
+  self.view = view
+end
+--- How many cells of `terrain` are eligible right now (no copy).
+function EncounterSource:eligibleCount(terrain)
+  local list = self.view and self.view[terrain]
+  return list and #list or 0
+end
+
+--- One eligible cell of `terrain` picked with `rng(1, n)` (default math.random), or
+--- nil. The cell is shared: read it, never change it.
+function EncounterSource:randomCell(terrain, rng)
+  local list = self.view and self.view[terrain]
+  local n = list and #list or 0
+  if n == 0 then return nil end
+  return list[(rng or math.random)(1, n)]
 end
 
 --- The current map's eligible cells for `terrain` ("land" | "water"), a
@@ -75,74 +114,29 @@ end
 --- Gen1Recomp's own ow.entities facade -- callers must not mutate it
 --- across calls and expect the mutation to persist).
 function EncounterSource:eligibleCells(terrain)
-  local list = self.cells[terrain]
+  local list = self.view and self.view[terrain]
   if not list then return {} end
-  local reachable, shore = self.reachable, self.shore
-  local range = Config.SHORE_WATER_RANGE or 0
   local out = {}
   for i = 1, #list do
-    local c = list[i]
-    local d = shore and shore[Reachability.key(c.x, c.y)]
-    if not reachable or Reachability.has(reachable, c.x, c.y) or (d and d <= range) then
-      out[#out + 1] = { x = c.x, y = c.y }
-    end
+    out[i] = { x = list[i].x, y = list[i].y }
   end
   return out
 end
 
---- Whether a wild Pokemon of `terrain` may stay on (x, y): reachable, or (water)
---- anywhere in water connected to the reachable shore.
+--- Whether a wild Pokemon of `terrain` may stay on (x, y): water always, land while it
+--- is reachable.
 function EncounterSource:canStay(x, y, terrain)
-  if not self.reachable or Reachability.has(self.reachable, x, y) then return true end
-  return terrain == "water" and self.shore ~= nil and self.shore[Reachability.key(x, y)] ~= nil
+  if terrain == "water" or not self.reachable then return true end
+  return Reachability.has(self.reachable, x, y)
 end
 
-local NEIGHBOURS = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }
-
---- Water cells outside `set`, keyed like Reachability, valued by how many water
---- cells out from the reachable shore they lie (1 = beside a reachable cell).
-function EncounterSource:_shoreWater(set)
-  local key, has = Reachability.key, Reachability.has
-  local water = {}
-  for _, c in ipairs(self.cells.water) do water[key(c.x, c.y)] = c end
-  local depth, queue = {}, {}
-  for _, c in ipairs(self.cells.water) do
-    if not has(set, c.x, c.y) then
-      for _, n in ipairs(NEIGHBOURS) do
-        if has(set, c.x + n[1], c.y + n[2]) then
-          depth[key(c.x, c.y)] = 1
-          queue[#queue + 1] = c
-          break
-        end
-      end
-    end
-  end
-  local head = 1
-  while head <= #queue do
-    local c = queue[head]
-    head = head + 1
-    local d = depth[key(c.x, c.y)]
-    for _, n in ipairs(NEIGHBOURS) do
-      local k = key(c.x + n[1], c.y + n[2])
-      local w = water[k]
-      if w and not depth[k] and not has(set, w.x, w.y) then
-        depth[k] = d + 1
-        queue[#queue + 1] = w
-      end
-    end
-  end
-  return depth
-end
-
---- Restricts eligibleCells to a reachable set (lib/reachability.lua build()),
---- plus the water seen from its shore (Config.SHORE_WATER_RANGE), or lifts the
---- restriction with nil. Reachability is a view over the cells loadMap found,
---- so it can be swapped without rescanning the map.
+--- Restricts the land cells to a reachable set (lib/reachability.lua build()), or
+--- lifts the restriction with nil. Water is never restricted. Reachability is a view
+--- over the cells loadMap found, so it can be swapped without rescanning the map.
 function EncounterSource:setReachable(set)
   self.reachable = set
-  self.shore = set and self:_shoreWater(set) or nil
+  self:_rebuildView()
 end
-
 function EncounterSource:isEligible()
   return not self.skip and (self.hasLand or self.hasWater)
 end
