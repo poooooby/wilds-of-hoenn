@@ -32,15 +32,65 @@ SpriteAtlas.ROOT_INDEX = "assets/atlas/index.json"
 
 local state
 
+-- Optional memory bounds, set with SpriteAtlas.configure(). nil = unlimited,
+-- which is the default (every decoded shard and every sliced sheet is kept).
+local maxShards, maxImages
+
 local function newState()
   return {
     mod = nil,
     dirToFamily = {}, -- sprite directory -> family name
     familyMeta = {}, -- family name -> { index = rel }
     families = {}, -- family name -> loaded index (or false when unusable)
-    shardData = {}, -- "family#n" -> love ImageData (decoded once, kept for the session)
-    images = {}, -- sprite rel -> love Image
+    shardData = {}, -- "family#n" -> { data = love ImageData, tick = n }
+    shardCount = 0,
+    images = {}, -- sprite rel -> { img = love Image, tick = n }
+    imageCount = 0,
+    tick = 0, -- use counter: entries with the lowest tick are evicted first
+    decodes = 0,
+    evictedShards = 0,
+    evictedImages = 0,
   }
+end
+
+local function releaseData(data)
+  if data and type(data.release) == "function" then pcall(data.release, data) end
+end
+
+-- drop least-recently-used entries until `count` fits `cap`; returns the new count
+local function evictOldest(map, count, cap, onEvict)
+  while count > cap do
+    local oldKey, oldTick
+    for k, v in pairs(map) do
+      if oldTick == nil or v.tick < oldTick then oldKey, oldTick = k, v.tick end
+    end
+    if oldKey == nil then break end
+    onEvict(map[oldKey])
+    map[oldKey] = nil
+    count = count - 1
+  end
+  return count
+end
+
+local function trim()
+  if not state then return end
+  if maxShards then
+    local n = evictOldest(state.shardData, state.shardCount, maxShards,
+      function(entry) releaseData(entry.data) end)
+    state.evictedShards = state.evictedShards + (state.shardCount - n)
+    state.shardCount = n
+  end
+  if maxImages then
+    local n = evictOldest(state.images, state.imageCount, maxImages, function() end)
+    state.evictedImages = state.evictedImages + (state.imageCount - n)
+    state.imageCount = n
+  end
+end
+
+local function capOf(n)
+  n = tonumber(n)
+  if n and n >= 1 then return math.floor(n) end
+  return nil
 end
 
 local function readMod(mod, rel)
@@ -103,8 +153,12 @@ end
 
 local function shardImageData(fam, shardIndex)
   local key = fam.name .. "#" .. tostring(shardIndex)
+  state.tick = state.tick + 1
   local cached = state.shardData[key]
-  if cached then return cached end
+  if cached then
+    cached.tick = state.tick
+    return cached.data
+  end
   local meta = fam.shards[shardIndex + 1]
   if type(meta) ~= "table" or type(meta.file) ~= "string" then return nil end
   if not haveImageApi() then return nil end
@@ -112,7 +166,10 @@ local function shardImageData(fam, shardIndex)
     and state.mod.assets:path(meta.file) or meta.file
   local ok, data = pcall(love.image.newImageData, full)
   if not ok or not data then return nil end
-  state.shardData[key] = data
+  state.decodes = state.decodes + 1
+  state.shardData[key] = { data = data, tick = state.tick }
+  state.shardCount = state.shardCount + 1
+  trim()
   return data
 end
 
@@ -123,7 +180,11 @@ end
 function SpriteAtlas.image(mod, rel)
   if not (state and state.mod == mod) then return nil end
   local cached = state.images[rel]
-  if cached then return cached end
+  if cached then
+    state.tick = state.tick + 1
+    cached.tick = state.tick
+    return cached.img
+  end
   local fam, entry = lookup(rel)
   if not fam then return nil end
   local data = shardImageData(fam, entry[1])
@@ -138,8 +199,45 @@ function SpriteAtlas.image(mod, rel)
   if not okSlice or not sliced then return nil end
   local okImg, img = pcall(love.graphics.newImage, sliced)
   if not okImg or not img then return nil end
-  state.images[rel] = img
+  if maxShards or maxImages then releaseData(sliced) end -- bounded: the Image owns its pixels now, drop the temporary copy
+  state.tick = state.tick + 1
+  state.images[rel] = { img = img, tick = state.tick }
+  state.imageCount = state.imageCount + 1
+  trim()
   return img
+end
+
+--- Optional memory bounds: `{ maxShards = n, maxImages = n }`, the most
+--- decoded shards / sliced sheets kept at once (least recently used go
+--- first; an evicted shard is release()d, an evicted sheet is re-sliced on
+--- its next use). A missing, nil or 0 field means unlimited, which is the
+--- default; configure() / configure({}) restores that. Applies at once.
+--- A sheet already handed out stays valid; only the cache forgets it.
+function SpriteAtlas.configure(opts)
+  opts = type(opts) == "table" and opts or {}
+  maxShards = capOf(opts.maxShards)
+  maxImages = capOf(opts.maxImages)
+  trim()
+end
+
+--- Cache counters: shards / images currently held, how many were evicted
+--- and how many shard decodes happened since install().
+function SpriteAtlas.stats()
+  local s = state
+  if not s then return { shards = 0, images = 0, evictedShards = 0, evictedImages = 0, decodes = 0 } end
+  return { shards = s.shardCount, images = s.imageCount, evictedShards = s.evictedShards,
+    evictedImages = s.evictedImages, decodes = s.decodes }
+end
+
+--- Drop every cached shard, sheet and parsed family index (shards are
+--- release()d). The atlas stays installed; the next use reloads.
+function SpriteAtlas.release()
+  local s = state
+  if not s then return end
+  for _, entry in pairs(s.shardData) do releaseData(entry.data) end
+  s.shardData, s.shardCount = {}, 0
+  s.images, s.imageCount = {}, 0
+  s.families = {}
 end
 
 function SpriteAtlas.installed()

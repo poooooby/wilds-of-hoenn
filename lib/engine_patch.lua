@@ -224,9 +224,24 @@ EnginePatch.READONLY = {
   playerRunning = { mod = "src.core.game3.player", field = "running", kind = "data" },
 }
 
+-- Optional (EnginePatch.cacheModules): inside a mod, `require` is not free per
+-- call, and the lookups below run many times a tick. When enabled, a module
+-- that loaded once is reused; a failed lookup is never cached.
+local moduleCache, cacheModules = {}, false
+
+function EnginePatch.cacheModules(enabled)
+  cacheModules = enabled and true or false
+  if not cacheModules then moduleCache = {} end
+end
+
 local function loadModule(path)
+  if cacheModules then
+    local cached = moduleCache[path]
+    if cached then return cached end
+  end
   local ok, mod = pcall(require, path)
   if not ok then return nil, mod end
+  if cacheModules and mod then moduleCache[path] = mod end
   return mod
 end
 

@@ -84,6 +84,10 @@ return function(mod)
   mod.exports = mod.exports or {}
   mod.exports.version = "1.7.1"
   mod.exports.engineReady = false
+  -- Public extension points for consumers; defaults stay unchanged.
+  mod.exports.spriteAtlas = SpriteAtlas
+  mod.exports.enginePatch = EnginePatch
+  mod.exports.hdField = HdField
 
   local layout = EnginePatch.layoutName()
   if not layout then
