@@ -224,10 +224,17 @@ EnginePatch.READONLY = {
   playerRunning = { mod = "src.core.game3.player", field = "running", kind = "data" },
 }
 
--- Optional (EnginePatch.cacheModules): inside a mod, `require` is not free per
--- call, and the lookups below run many times a tick. When enabled, a module
--- that loaded once is reused; a failed lookup is never cached.
-local moduleCache, cacheModules = {}, false
+-- Module cache (EnginePatch.cacheModules, ON by default): inside a mod, `require`
+-- goes through Gen1Recomp's loader shim (permission and generation checks) on
+-- every call, and the lookups below run many times a tick -- measured ~0.74 us and
+-- ~78 bytes of garbage per lookup, against ~0.03 us and none from the cache. It
+-- cannot go stale: the engine drops every game3 module at session end
+-- (src/core/SessionLifecycle.lua), but every boot also builds a new mod Loader
+-- (src/core/Game3.lua), which runs main.lua again and loads this file afresh, so
+-- each session starts with an empty cache. (A mod has no `package` table, so the
+-- cache cannot check package.loaded itself.) A failed lookup is never cached.
+-- cacheModules(false) turns it off and clears it.
+local moduleCache, cacheModules = {}, true
 
 function EnginePatch.cacheModules(enabled)
   cacheModules = enabled and true or false
@@ -241,7 +248,7 @@ local function loadModule(path)
   end
   local ok, mod = pcall(require, path)
   if not ok then return nil, mod end
-  if cacheModules and mod then moduleCache[path] = mod end
+  if cacheModules then moduleCache[path] = mod or nil end
   return mod
 end
 

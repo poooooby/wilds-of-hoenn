@@ -219,6 +219,9 @@ _G.require = function(name)
 end
 
 local EnginePatch = assert(loadfile("lib/engine_patch.lua"))(nil)
+-- These tests swap fake engine modules mid-run (the real engine never does within a
+-- session), so the module cache is off here; its own test is at the end of the file.
+EnginePatch.cacheModules(false)
 
 -- ------- probe passes against the full fake set
 local ok, missing = EnginePatch.probe()
@@ -787,6 +790,35 @@ check(EnginePatch.reachMover({})(3, 3, "down", { surfing = true, elev = 3 }) ~= 
 col.canEnter, col.isWater, col.isWalkable, col.ledgeLanding = realCanEnter, realIsWater, realIsWalkable, realLedge
 package.loaded["src.core.game3.scripting.space"] = nil
 _G.require = realRequire
+
+-- ------- module cache (on by default): one require per module per mod load
+do
+  local name = "src.core.water_cache_probe"
+  local requires, failNext = 0, true
+  local mod = { isWater = function() return true end }
+  _G.require = function(n)
+    if n == name then
+      requires = requires + 1
+      if failNext then failNext = false; error("not there yet") end
+      return mod
+    end
+    if fake[n] ~= nil then return fake[n] end
+    return realRequire(n)
+  end
+  local EP = assert(loadfile("lib/engine_patch.lua"))(nil) -- a fresh load, as every game boot does
+  EP.READONLY.isWater.mod = name
+  check(EP.isWater(1, 1) == false, "a failed lookup answers nil")
+  EP.isWater(1, 1); EP.isWater(1, 1); EP.isWater(1, 1)
+  eq(requires, 2, "cache on (default): the failure was not cached, then one require is reused")
+  EP.cacheModules(false)
+  EP.isWater(1, 1); EP.isWater(1, 1)
+  eq(requires, 4, "cache off: required on every lookup")
+  local EP2 = assert(loadfile("lib/engine_patch.lua"))(nil)
+  EP2.READONLY.isWater.mod = name
+  EP2.isWater(1, 1)
+  eq(requires, 5, "a new load of the mod (the next session) starts with an empty cache")
+  _G.require = realRequire
+end
 
 print("")
 if failures > 0 then

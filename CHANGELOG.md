@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **For other mods** (thanks to HimioneGranger, PR #2): `mod.exports.spriteAtlas` (optional memory
+  limits: `configure`, `stats`, `release`), `mod.exports.enginePatch` (`cacheModules`) and
+  `mod.exports.hdField` (species sizing data), for alternate renderers. Nothing changes unless a mod
+  uses them.
+
+### Changed
+
+- **Smoother on weaker devices:** Wilds looks up the game's engine pieces once per session instead of
+  on every use. Each lookup went from about 0.7 µs and 78 bytes of garbage to about 0.03 µs and none,
+  which means fewer garbage-collection pauses.
+
 ## 1.7.1 (2026-10-11)
 
 ### Changed
