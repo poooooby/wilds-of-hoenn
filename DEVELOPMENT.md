@@ -56,6 +56,10 @@ python3 tools/check_modkitignore.py --write
 # Build both release ZIPs: -hgss (HGSS / PokeMMO art only) and -hgss-pmd (+ PMDCollab).
 # Sprites are packed into atlas shards first (--no-atlas for per-file sheets;
 # --variant hgss|pmd for one build; --no-pmd / --rebake-pmd for the PMD bake).
+# Shards hold colour NUMBERS (greyscale): a normal + shiny pair is stored once, its
+# real colours in <family>_pal.png, and lib/sprite_atlas.lua rebuilds the exact sheet
+# on first use (~1 ms). About a third of the full-colour size; the validator proves
+# every sheet byte-identical. `generate_sprite_atlases.py --rgba` = the old shards.
 python3 scripts/build-mod.py            # -> dist/ (every build goes there)
 python3 tools/validate_sprite_atlases.py
 ```

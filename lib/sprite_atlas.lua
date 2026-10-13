@@ -19,6 +19,10 @@
 -- `engine_internals` reach of its own (nothing here touches
 -- src/core/game3 -- this module is pure asset I/O).
 --
+-- Shards are full colour (family index version 1) or COLOUR NUMBERS (version
+-- 2, the default bake: a normal + shiny pair stored once, real colours in a
+-- palette image, rebuilt exactly on first use -- about a third of the size).
+--
 -- With no atlas present (a repo checkout, or any build before one is
 -- generated), install() returns false and every image load falls
 -- straight through to the real per-file sheets -- this mod behaves
@@ -173,10 +177,83 @@ local function shardImageData(fam, shardIndex)
   return data
 end
 
+-- ------- colour numbers (family index version 2) -----------------------------
+-- A "index" shard holds colour NUMBERS, not colours: a greyscale PNG, so the
+-- decoded RGBA has the number in red. The sheet's real colours are one row of
+-- the family's palette image (column = number); the normal and shiny sheets of
+-- a sprite share the numbers and differ only in their row. See
+-- tools/generate_sprite_atlases.py.
+
+--- The exact RGBA bytes of a `count`-pixel sheet from its decoded number
+--- pixels (`numbers`, RGBA bytes, number in red) and its palette row (`row`,
+--- 4 bytes per colour). Pure: no love.
+function SpriteAtlas._expand(numbers, count, row)
+  local byte, sub = string.byte, string.sub
+  local colours = {}
+  for i = 0, math.floor(#row / 4) - 1 do colours[i] = sub(row, i * 4 + 1, i * 4 + 4) end
+  local out = {}
+  local transparent = "\0\0\0\0"
+  for i = 1, count do
+    out[i] = colours[byte(numbers, i * 4 - 3)] or transparent
+  end
+  return table.concat(out)
+end
+
+-- the family's whole palette image as one byte string (kept with the family)
+local function paletteBytes(fam)
+  if fam.paletteBytes ~= nil then return fam.paletteBytes or nil end
+  fam.paletteBytes = false
+  local meta = fam.palette
+  if type(meta) ~= "table" or type(meta.file) ~= "string" or not haveImageApi() then return nil end
+  local full = state.mod.assets and state.mod.assets.path
+    and state.mod.assets:path(meta.file) or meta.file
+  local ok, bytes = pcall(function()
+    local data = love.image.newImageData(full)
+    local s = data:getString()
+    releaseData(data)
+    return s
+  end)
+  if ok and type(bytes) == "string" and #bytes >= meta.w * meta.h * 4 then fam.paletteBytes = bytes end
+  return fam.paletteBytes or nil
+end
+
+-- swaps a sliced number sheet for the real colours; nil when anything is missing
+local function colourIn(fam, sliced, w, h, row)
+  local pal = paletteBytes(fam)
+  if not pal or type(row) ~= "number" then return nil end
+  local rowLen = fam.palette.w * 4
+  local rowBytes = pal:sub(row * rowLen + 1, (row + 1) * rowLen)
+  local ok, out = pcall(function()
+    return love.image.newImageData(w, h, "rgba8", SpriteAtlas._expand(sliced:getString(), w * h, rowBytes))
+  end)
+  releaseData(sliced)
+  if ok then return out end
+  return nil
+end
+
 --- Cached love Image for an atlased relative path, sliced out of its
 --- shard the first time it's asked for, or nil when `rel` isn't covered
 --- or the shard fails to decode (the caller then falls back to its own
 --- real-file load).
+--- The sheet's pixels as a fresh love ImageData (uncached), or nil.
+function SpriteAtlas.sheetData(mod, rel)
+  if not (state and state.mod == mod) then return nil end
+  local fam, entry = lookup(rel)
+  if not fam then return nil end
+  local data = shardImageData(fam, entry[1])
+  if not data then return nil end
+  local x, y, w, h = entry[2], entry[3], entry[4], entry[5]
+  local okSlice, sliced = pcall(function()
+    local id = love.image.newImageData(w, h)
+    id:paste(data, 0, 0, x, y, w, h)
+    return id
+  end)
+  if not okSlice or not sliced then return nil end
+  local shard = fam.shards[entry[1] + 1]
+  if shard.mode == "index" then return colourIn(fam, sliced, w, h, entry[6]) end
+  return sliced
+end
+
 function SpriteAtlas.image(mod, rel)
   if not (state and state.mod == mod) then return nil end
   local cached = state.images[rel]
@@ -185,18 +262,9 @@ function SpriteAtlas.image(mod, rel)
     cached.tick = state.tick
     return cached.img
   end
-  local fam, entry = lookup(rel)
-  if not fam then return nil end
-  local data = shardImageData(fam, entry[1])
-  if not data then return nil end
   if not (love and love.graphics and love.graphics.newImage) then return nil end
-  local x, y, w, h = entry[2], entry[3], entry[4], entry[5]
-  local okSlice, sliced = pcall(function()
-    local id = love.image.newImageData(w, h)
-    id:paste(data, 0, 0, x, y, w, h)
-    return id
-  end)
-  if not okSlice or not sliced then return nil end
+  local sliced = SpriteAtlas.sheetData(mod, rel)
+  if not sliced then return nil end
   local okImg, img = pcall(love.graphics.newImage, sliced)
   if not okImg or not img then return nil end
   if maxShards or maxImages then releaseData(sliced) end -- bounded: the Image owns its pixels now, drop the temporary copy

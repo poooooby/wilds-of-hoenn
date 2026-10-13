@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.4-beta.1 (2026-10-13)
+
+### Changed
+
+- **Much smaller downloads, same sprites.** Sprites are now packed as colour numbers plus a small
+  colour list, with each Pokemon's normal and shiny sheets sharing one drawing. Every sheet comes
+  back pixel for pixel the same as before (checked for every sprite at build time), so quality,
+  colours and sizes are unchanged. The HGSS + PMDCollab build drops from about 85 MB to about
+  28 MB, and the HGSS Only build from about 11 MB to 3 MB.
+- **Sprites load faster.** The packed sprite files are a quarter of the size to unpack, so a fresh
+  session's first sprites appear about twice as fast (about 0.65 s instead of 1.5 s for 240 sheets
+  in testing).
+
 ## 1.7.3 (2026-10-13)
 
 ### Changed

@@ -132,6 +132,38 @@ local otherMod = { read = function() return nil end }
 eq(SpriteAtlas.image(otherMod, "assets/wilds_generated/true_size18/hgss/001-normal.png"),
   nil, "image() returns nil for an unrelated mod")
 
+-- ------- colour numbers: a number sheet + a palette row -> the exact RGBA bytes
+do
+  -- decoded greyscale: number in red (green/blue copy it, alpha 255)
+  local function px(n) return string.char(n, n, n, 255) end
+  local numbers = px(0) .. px(2) .. px(1) .. px(2)
+  local normal = "\0\0\0\0" .. "\255\0\0\255" .. "\9\8\7\128" -- 0 transparent, 1 red, 2 half-alpha
+  local shiny = "\1\2\3\0" .. "\0\0\255\255" .. "\9\8\7\128"  -- transparent keeps its own RGB
+  eq(SpriteAtlas._expand(numbers, 4, normal),
+    "\0\0\0\0" .. "\9\8\7\128" .. "\255\0\0\255" .. "\9\8\7\128", "_expand: normal row")
+  eq(SpriteAtlas._expand(numbers, 4, shiny),
+    "\1\2\3\0" .. "\9\8\7\128" .. "\0\0\255\255" .. "\9\8\7\128", "_expand: shiny row, same numbers")
+  eq(SpriteAtlas._expand(px(5), 1, normal), "\0\0\0\0", "_expand: a number past the row is transparent")
+end
+
+-- ------- a version 2 (colour number) family index installs and resolves
+files["assets/atlas/hgss18.json"] = encode({
+  version = 2, family = "hgss18",
+  shards = { { file = "assets/atlas/hgss18_0.png", w = 16, h = 16, mode = "index" } },
+  palette = { file = "assets/atlas/hgss18_pal.png", w = 3, h = 2 },
+  dirs = {
+    ["assets/wilds_generated/true_size18/hgss"] = {
+      ["002-normal.png"] = { 0, 0, 0, 16, 16, 0 },
+      ["002-shiny.png"] = { 0, 0, 0, 16, 16, 1 },
+    },
+  },
+})
+SpriteAtlas._reset()
+check(SpriteAtlas.install(mod) == true, "install() accepts a colour-number family")
+check(SpriteAtlas.has("assets/wilds_generated/true_size18/hgss/002-shiny.png"), "has() for a colour-number sprite")
+eq(SpriteAtlas.image(mod, "assets/wilds_generated/true_size18/hgss/002-shiny.png"), nil,
+  "image() still nil without love for a colour-number sprite")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

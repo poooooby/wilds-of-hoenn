@@ -85,7 +85,7 @@ someone else, and one partner is out at a time.
 1. Download a release from the [Releases](https://github.com/poooooby/wilds-of-hoenn/releases)
    page. Pick **one**:
    - **HGSS + PMDCollab**: the full experience, with animated PMDCollab sprites and portraits
-     (about 60 MB).
+     (about 30 MB).
    - **HGSS Only**: a much smaller download for lower-power devices (Anbernic, older Android).
 2. Import it with the Gen1Recomp Mod Manager, or drop it in your mods folder.
 3. Enable **Wilds of Hoenn**.
