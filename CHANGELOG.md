@@ -20,28 +20,11 @@
   with hearts floating over them, and wait for you for about a minute before wandering off. A
   battle with one starts with its evasion lowered one stage (75%), like the in-battle move. With
   Show Wild Mons off, Sweet Scent works as in the original game.
-- **Only the wild Pokemon near the screen are drawn.** Before, every wild Pokemon on the map was
-  drawn each frame, even far off screen. With Gen 3 HD Sprites each one used up one of its HD
-  layers (12 by default), so a busy route could use them all and leave some sprites at their
-  small size. On Route 110 a frame now needs 7 layers instead of 12 on Normal and 9 on High, and
-  every Pokemon on screen keeps its HD size. Less drawing on every setting.
+
+## 1.7.4 (2026-10-13)
 
 ### Fixed
 
-- **Several checks that never worked now do:** the reachable area respects the badges Cut, Rock
-  Smash and Strength need; your partner's menu doesn't open during a script; the party menu knows
-  when a battle is on; the menu's select sound plays. (They looked engine pieces up in a way a
-  mod cannot, and quietly got nothing.)
-- **Only one roaming legendary.** On the map where FireRed / LeafGreen's roaming Raikou, Entei or
-  Suicune (or Emerald's Latias / Latios) was, several of it could appear at once (a player saw 5
-  Suicune). It is one Pokemon: at most one shows up.
-- **The roaming legendary keeps its damage.** Battling it from the overworld started it at full
-  health again; it now has the HP and status it was left with, and if it has been caught or
-  defeated since it appeared, it simply leaves. Your partner's BATTLE role leaves it alone.
-- **With Modern Spawns, no second roaming legendary.** Modern Spawns' rare legendary spawns no
-  longer place the species that is still roaming, so there is only ever the one. Once you catch
-  it, Modern Spawns stops offering it as usual; if you defeat it instead, Modern Spawns can still
-  offer it as a second chance.
 - **Cutscenes no longer break when you're walked into a wild Pokemon.** A scene that moves your
   character (like Wally's catching lesson) started a battle if it walked you onto one, breaking the
   scene. No wild battle starts while a cutscene runs, and wild Pokemon no longer get in the way of
@@ -51,10 +34,24 @@
   wild battle starts while a trainer is coming over.
 - After either, a wild Pokemon left on your tile doesn't jump you the moment the scene ends: step
   off and back on to battle it.
+- **Only one roaming legendary.** On the map where FireRed / LeafGreen's roaming Raikou, Entei or
+  Suicune (or Emerald's Latias / Latios) was, several of it could appear at once (a player saw 5
+  Suicune). It is one Pokemon: at most one shows up.
+- **The roaming legendary keeps its damage.** Battling it from the overworld started it at full
+  health again; it now has the HP and status it was left with, and if it has been caught or
+  defeated since it appeared, it simply leaves. Your partner's BATTLE role leaves it alone.
+- **With Modern Spawns, no second roaming legendary.** Modern Spawns' rare legendary spawns no
+  longer place the species that is still roaming. Once you catch it, Modern Spawns stops offering
+  it as usual; if you defeat it instead, Modern Spawns can still offer it as a second chance.
 - **Wild Pokemon sink into the extra-tall grass of Routes 119 and 120** the way you do, instead of
   showing the short-grass tuft at their feet.
-
-## 1.7.4-beta.1 (2026-10-13)
+- **Every Pokemon on screen keeps its Gen 3 HD Sprites size.** Wild Pokemon far off screen were
+  drawn every frame too, and each used up one of Gen 3 HD Sprites' layers (12): on a busy route
+  some Pokemon you could see were left at their small size. Only the ones near the screen are
+  drawn now (less work on every device too).
+- **Several checks that never worked now do:** the reachable area respects the badges Cut, Rock
+  Smash and Strength need; your partner's menu doesn't open during a script; the party menu knows
+  when a battle is on; the menu's select sound plays.
 
 ### Changed
 
