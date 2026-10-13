@@ -142,6 +142,20 @@ do
   check(type(EnginePatch.fieldBusy()) == "boolean", "EnginePatch.fieldBusy runs on the real engine")
 end
 
+-- Sweet Scent calls visible Pokemon over (the optional Field.finishSweetScent wrap,
+-- EnginePatch.sweetScentFail, the evasion -1 on the battle's stage table)
+do
+  local okF, Field = pcall(require, "src.core.game3.field")
+  check(okF and type(Field.finishSweetScent) == "function", "engine: Field.finishSweetScent (Sweet Scent seam)")
+  local okT, RomText = pcall(require, "src.core.game3.rom_text")
+  check(okT and type(RomText.box) == "function", "engine: RomText.box (Sweet Scent fail text)")
+  local okS, State = pcall(require, "src.core.game3.battle.state")
+  local src = io.open("src/core/game3/battle/state.lua", "rb")
+  local text = src and src:read("*a") or ""
+  if src then src:close() end
+  check(okS and text:find("evasion = 0", 1, true) ~= nil, "engine: a battler's stages table has `evasion`")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

@@ -14,6 +14,7 @@ local SpriteSource = V.require("sprite_source")
 local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
 local ModernSpawns = V.require("modern_spawns_bridge")
+local SweetScentHearts = V.require("sweet_scent_hearts")
 
 local SpawnManager = {}
 SpawnManager.__index = SpawnManager
@@ -155,7 +156,7 @@ function SpawnManager:trimToAmount()
     local want = targetCount(self.source:eligibleCount(terrain), row)
     local list = {}
     for id, e in pairs(self.entities) do
-      if e.terrain == terrain and e.state == Config.STATE.AVAILABLE and not e.engaged then
+      if e.terrain == terrain and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.lured then
         local d = p and math.max(math.abs(e.cellX - p.x), math.abs(e.cellY - p.y)) or 0
         list[#list + 1] = { id = id, d = d }
       end
@@ -166,12 +167,71 @@ function SpawnManager:trimToAmount()
   end
 end
 
+--- How many of one terrain count toward the Spawn Amount target: Pokemon that Sweet
+--- Scent called over come on top of it while they are lured.
 function SpawnManager:_activeCountFor(terrain)
   local n = 0
   for _, e in pairs(self.entities) do
-    if e.terrain == terrain then n = n + 1 end
+    if e.terrain == terrain and not e.lured then n = n + 1 end
   end
   return n
+end
+
+-- the facing that looks from (x, y) toward (tx, ty)
+local function faceToward(x, y, tx, ty)
+  local dx, dy = tx - x, ty - y
+  if math.abs(dx) > math.abs(dy) then return dx < 0 and "left" or "right" end
+  return dy < 0 and "up" or "down"
+end
+
+--- Sweet Scent used in the field (engine_patch's `sweetScent` hook, in place of the
+--- engine's instant wild battle): calls Config.SWEET_SCENT.min..max wild Pokemon to free
+--- spawn cells minDist..maxDist tiles from the player, rolled the way the engine's Sweet
+--- Scent rolls (no Repel check, as the engine's has none), lured -- staying put, facing
+--- the player, hearts over them -- for lureTicks. Returns how many came, or nil when the
+--- visible spawns are not in charge here (option off, no encounters on this map, the
+--- Safari Zone): the engine's own Sweet Scent then runs.
+function SpawnManager:sweetScent()
+  if not Config.enabled(self.mod) or not self.source:isEligible() then return nil end
+  if EnginePatch.safariActive and EnginePatch.safariActive() then return nil end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if not p then return nil end
+  local cfg = Config.SWEET_SCENT
+  local cells = {}
+  for _, terrain in ipairs({ "land", "water" }) do
+    for _, c in ipairs(self.source:eligibleCells(terrain)) do
+      local d = math.max(math.abs(c.x - p.x), math.abs(c.y - p.y))
+      if d >= cfg.minDist and d <= cfg.maxDist and self:_cellFree(c.x, c.y) then
+        cells[#cells + 1] = { x = c.x, y = c.y, terrain = terrain }
+      end
+    end
+  end
+  for i = #cells, 2, -1 do -- shuffle
+    local j = math.random(1, i)
+    cells[i], cells[j] = cells[j], cells[i]
+  end
+  local want, came = math.random(cfg.min, cfg.max), 0
+  for _, c in ipairs(cells) do
+    if came >= want then break end
+    if self:_cellFree(c.x, c.y) then
+      local enc = EnginePatch.rollSweetScent(self.mapId, c.terrain)
+      if enc and not (enc.roamer and self:_roamerOut()) then
+        if enc.personality == nil then enc.personality = EnginePatch.randomPersonality() end
+        enc = ModernSpawns.apply(self.mapId, c.terrain, enc)
+        local id = self.nextId
+        if self:_place(c.terrain, c, enc) then
+          local e = self.entities[id]
+          if e then
+            e.lured = { ticks = cfg.lureTicks, age = 0 }
+            e.moving = false
+            e.facing = faceToward(c.x, c.y, p.x, p.y)
+          end
+          came = came + 1
+        end
+      end
+    end
+  end
+  return came
 end
 
 function SpawnManager:_cellFree(x, y)
@@ -203,6 +263,10 @@ function SpawnManager:_spawnOne(terrain, cell)
   if not self:_cellFree(cell.x, cell.y) then return false end
   local enc = EnginePatch.rollSweetScent(self.mapId, terrain)
   if not enc then return false end
+  -- The roaming legendary (Suicune / Entei / Raikou, Latias / Latios) is ONE Pokemon:
+  -- the roll returns it on every encounter it wins on the roamer's map (roamer.lua,
+  -- 1 in encounterOdds), so without this a busy map filled up with copies of it.
+  if enc.roamer and self:_roamerOut() then return false end
   -- FireRed / LeafGreen's rules roll no personality: draw it now so the sprite
   -- (shiny, gender) and the battle Pokemon are the same one
   if enc.personality == nil then enc.personality = EnginePatch.randomPersonality() end
@@ -212,13 +276,24 @@ function SpawnManager:_spawnOne(terrain, cell)
   return self:_place(terrain, cell, enc)
 end
 
+--- Whether the roaming legendary is already out on this map (live, or its battle starting).
+function SpawnManager:_roamerOut()
+  for _, e in pairs(self.entities) do
+    if e.roamer and e.state ~= Config.STATE.DESPAWNED then return true end
+  end
+  return false
+end
+
 -- Puts an already rolled encounter on `cell` as a visible wild Pokemon.
 -- `keepShiny` skips the shiny roll (the encounter's own `shiny` stands).
 function SpawnManager:_place(terrain, cell, enc, keepShiny)
   local dex = FormSource.artKeyFor(self.mod, enc.species)
   if not dex then return false end
-  -- the engine's own shiny, plus a shiny chain's bonus (Modern Spawns)
-  if not keepShiny then enc = Shiny.rollForEncounter(enc, ModernSpawns.chainBonus(enc.species)) end
+  -- the engine's own shiny, plus a shiny chain's bonus (Modern Spawns); never a bonus for
+  -- the roamer, whose personality is the engine's saved one
+  if not keepShiny then
+    enc = Shiny.rollForEncounter(enc, not enc.roamer and ModernSpawns.chainBonus(enc.species) or nil)
+  end
 
   local id = self.nextId
   self.nextId = id + 1
@@ -342,7 +417,16 @@ function SpawnManager:tick(game)
     -- (lib/overworld_battle.lua): it stands its ground and that module animates it
     if e and e.state == Config.STATE.AVAILABLE and not e.engaged then
       if e.floater and not e.moving then e.flapClock = e.flapClock + 1 end
-      Behavior.tick(e, self.game)
+      local lure = e.lured
+      if lure then
+        -- called over by Sweet Scent: it stays put (finishing a step it was on), hearts over
+        -- it, until the lure wears off; then it wanders like any other
+        lure.ticks, lure.age = lure.ticks - 1, lure.age + 1
+        if e.moving then Behavior._advanceMove(e) end
+        if lure.ticks <= 0 then e.lured = nil end
+      else
+        Behavior.tick(e, self.game)
+      end
       if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
     elseif e and e.engaged and e.moving then
       -- caught mid-step: it finishes the step (the Battler planned for the cell it
@@ -418,6 +502,12 @@ function SpawnManager:collectActors(actors, camX, camY)
       -- spawn's cell is never grass, so this is a no-op for those without
       -- needing its own terrain check here.
       GrassCover.append(actors, e.cellX, e.cellY, e.py, e.elevation, id)
+      if e.lured then
+        local r = e.renderer
+        local h = r and ((r.visualHeight and r:visualHeight()) or (r.frameHeight and r:frameHeight())) or 20
+        actors[#actors + 1] = SweetScentHearts.actor(e.px, e.py, math.max(14, math.min(48, h or 20)),
+          e.lured.age, e.lured.ticks, e.elevation, id)
+      end
     end
   end
 end
@@ -448,7 +538,8 @@ function SpawnManager:fightTargets()
   local out = {}
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight then
+    -- never the roaming legendary: it is met only in a real battle, which keeps its saved state
+    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer then
       out[#out + 1] = e
     end
   end

@@ -422,6 +422,20 @@ function EnginePatch.install(hooks, log)
     end
   end
 
+  -- field.lua:1508 Field.finishSweetScent(payload): Sweet Scent used from the party menu,
+  -- once its animation is over -- the engine rolls and starts a wild battle at once. The
+  -- hook runs first and returns true when it handled it (the visible spawns call wild
+  -- Pokemon over instead); anything else -- or an error -- runs the engine's own.
+  -- Not a probed target: without it Sweet Scent stays vanilla.
+  local FieldSS = loadModule(EnginePatch.TARGETS.interact.mod)
+  originals.finishSweetScent = FieldSS and FieldSS.finishSweetScent
+  if type(originals.finishSweetScent) == "function" then
+    FieldSS.finishSweetScent = function(payload, ...)
+      if hooks.sweetScent and safeCall(log, "sweetScent", hooks.sweetScent, payload) == true then return end
+      return originals.finishSweetScent(payload, ...)
+    end
+  end
+
   local FieldMoves = loadModule(EnginePatch.TARGETS.fieldMovesFromMenu.mod)
   originals.fromMenu = FieldMoves.fromMenu
   FieldMoves.fromMenu = function(label, ctx, ...)
@@ -469,6 +483,9 @@ function EnginePatch.uninstall()
   local Field = loadModule(EnginePatch.TARGETS.interact.mod)
   if Field and originals.interact then
     Field.interact = originals.interact
+  end
+  if Field and originals.finishSweetScent then
+    Field.finishSweetScent = originals.finishSweetScent
   end
 
   local PartyMenu = loadModule(EnginePatch.TARGETS.partyMenuUpdate.mod)
@@ -536,7 +553,7 @@ end
 function EnginePatch.hmUsable(key)
   local FieldMoves = loadModule(EnginePatch.READONLY.partyMoveUser.mod)
   if not FieldMoves then return true end
-  local Space = package.loaded["src.core.game3.scripting.space"]
+  local Space = loadModule("src.core.game3.scripting.space")
   if not (Space and Space.store) then return true end
   local okB, badge = pcall(FieldMoves.hasBadge, { store = Space.store }, key)
   if not okB then return true end
@@ -695,7 +712,7 @@ function EnginePatch.canStartInteraction()
     local ok, busy = pcall(Runtime.uiBusy)
     if not ok or busy then return false end
   end
-  local Space = package.loaded["src.core.game3.scripting.space"]
+  local Space = loadModule("src.core.game3.scripting.space")
   if Space and Space.vm and Space.vm.isRunning then
     local ok, running = pcall(Space.vm.isRunning, Space.vm)
     if not ok or running then return false end
@@ -703,6 +720,52 @@ function EnginePatch.canStartInteraction()
   local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
   if not Player or Player.moving or Player.boulderPush then return false end
   return true
+end
+
+--- Sweet Scent found nothing: the engine's own text, shown as field.lua:1536 does
+--- (Message.show(RomText.box(payload.failText))). Fail-soft.
+function EnginePatch.sweetScentFail(payload)
+  if type(payload) ~= "table" or not payload.failText then return false end
+  local ok = pcall(function()
+    local RomText = loadModule("src.core.game3.rom_text")
+    local Message = loadModule(EnginePatch.TARGETS.messageDraw.mod)
+    local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+    local session = Runtime and Runtime.getSession and Runtime.getSession()
+    Message.show(RomText.box(payload.failText), { session = session, done = function() Message.close() end })
+  end)
+  return ok
+end
+
+--- Sets the wild foe's stat stage `stat` (battle/state.lua stage table: attack, defense,
+--- spAtk, spDef, speed, accuracy, evasion) in the battle that is running. Used for the
+--- Sweet Scent lure's evasion -1. Returns whether it was set.
+function EnginePatch.setFoeStage(stat, stage)
+  local ok, set = pcall(function()
+    local Battle = loadModule("src.core.game3.battle")
+    local st = Battle and Battle.getState and Battle.getState()
+    local foe = st and st.enemy
+    if not (foe and type(foe.stages) == "table" and foe.stages[stat] ~= nil) then return false end
+    foe.stages[stat] = math.max(-6, math.min(6, stage))
+    return true
+  end)
+  return ok and set == true
+end
+
+--- The roaming legendary as the engine has it RIGHT NOW (roamer.lua Roamer.instance:
+--- species, level, personality, IVs, its current hp / status / sleep, roamer = true), or
+--- nil when there is none or it is no longer active (caught or defeated). A visible
+--- roamer must battle with this, not the copy rolled when it appeared: the battle reads
+--- hp / status from the encounter (battle/init.lua), so a stale copy would heal it.
+function EnginePatch.roamerNow()
+  local okR, Roamer = pcall(loadModule, "src.core.game3.roamer")
+  if not (okR and type(Roamer) == "table" and Roamer.instance) then return nil end
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local ok, inst = pcall(function()
+    local session = Runtime and Runtime.getSession and Runtime.getSession()
+    if not (session and type(session.roamer) == "table" and session.roamer.active) then return nil end
+    return Roamer.instance(session)
+  end)
+  return ok and type(inst) == "table" and inst or nil
 end
 
 --- True while something else owns the field: a script / cutscene running (Wally's
@@ -714,7 +777,7 @@ end
 function EnginePatch.fieldBusy()
   local Field = loadModule(EnginePatch.TARGETS.interact.mod)
   if not Field or not Field.running or Field.locked then return true end
-  local Space = package.loaded["src.core.game3.scripting.space"]
+  local Space = loadModule("src.core.game3.scripting.space")
   if Space and Space.vm and Space.vm.isRunning then
     local ok, running = pcall(Space.vm.isRunning, Space.vm)
     if not ok or running then return true end
@@ -724,7 +787,7 @@ function EnginePatch.fieldBusy()
     local ok, busy = pcall(Hud.busy)
     if not ok or busy then return true end
   end
-  local Warp = package.loaded["src.core.game3.warp"]
+  local Warp = loadModule("src.core.game3.warp")
   if Warp and Warp.isBusy then
     local ok, busy = pcall(Warp.isBusy)
     if ok and busy then return true end
@@ -1569,7 +1632,7 @@ end
 --- The menu cursor's click (SE_SELECT). No-op when the audio pieces are absent.
 function EnginePatch.playSelect()
   local Audio = loadModule(EnginePatch.READONLY.playSe.mod)
-  local Ids = package.loaded["src.core.game3.se_ids"]
+  local Ids = loadModule("src.core.game3.se_ids")
   if not (Audio and Audio.playSe and Ids and Ids.resolve) then return false end
   return (pcall(function() Audio.playSe(Ids.resolve("SE_SELECT")) end))
 end
@@ -1668,7 +1731,7 @@ end
 
 --- True while a battle owns the screen (the party menu's switch rows differ).
 function EnginePatch.battleActive()
-  local Battle = package.loaded["src.core.game3.battle"]
+  local Battle = loadModule("src.core.game3.battle")
   if not (Battle and Battle.isActive) then return false end
   local ok, active = pcall(Battle.isActive)
   return ok and active == true

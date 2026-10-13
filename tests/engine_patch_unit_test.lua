@@ -53,6 +53,8 @@ fieldState.interact = originalInteract
 local fieldLocks = {}
 fieldState.lock = function(tag) fieldLocks[tag] = true end
 fieldState.unlock = function(tag) fieldLocks[tag] = nil end
+local originalFinishSweetScent = function(_payload) return "engine sweet scent" end
+fieldState.finishSweetScent = originalFinishSweetScent
 fake["src.core.game3.field"] = fieldState
 local cryLog, cryDone = {}, false
 local currentMapType = 3
@@ -301,6 +303,7 @@ local installed = EnginePatch.install({
   partyMenuUpdate = function(menu) partyCalls = partyCalls + 1 calls.menuArg = menu end,
   partyMenuInput = function(menu, input) calls.inputArg = input return calls.takeInput end,
   fromMenu = function(label, _ctx) calls.fromMenuLabel = label return fromMenuAnswer end,
+  sweetScent = function(payload) calls.sweetScent = payload return calls.takeSweetScent end,
 }, { warn = function() end, info = function() end })
 check(installed, "install succeeds against the fake engine")
 
@@ -333,6 +336,15 @@ eq(calls.interact, 1, "the interact hook ran before the original")
 calls.takeInteract = true
 eq(fake["src.core.game3.field"].interact({}), true, "interact returns true when the hook takes the press")
 calls.takeInteract = nil
+
+-- Field.finishSweetScent hook: true = Wilds called Pokemon over, the engine's battle is skipped
+local ssPayload = { failText = "Text_FailSweetScent" }
+eq(fake["src.core.game3.field"].finishSweetScent(ssPayload), "engine sweet scent",
+  "Sweet Scent: the engine's own runs when the hook declines")
+eq(calls.sweetScent, ssPayload, "...and the hook got the payload first")
+calls.takeSweetScent = true
+eq(fake["src.core.game3.field"].finishSweetScent(ssPayload), nil, "the hook handled it: no engine battle")
+calls.takeSweetScent = nil
 
 -- party menu seam: the update hook runs after the original, with the menu module
 fake["src.ui.game3.party_menu"].update(1 / 60)
@@ -536,6 +548,7 @@ EnginePatch.uninstall()
 eq(fake["src.core.game3.objects"].blocks, originalBlocks, "uninstall restores the original blocks function")
 eq(fake["src.ui.game3.message"].draw, originalMessageDraw, "uninstall restores the original Message.draw")
 eq(fake["src.core.game3.field"].interact, originalInteract, "uninstall restores the original Field.interact")
+eq(fake["src.core.game3.field"].finishSweetScent, originalFinishSweetScent, "uninstall restores Field.finishSweetScent")
 eq(fake["src.ui.game3.party_menu"].update, originalPartyUpdate, "uninstall restores PartyMenu.update")
 eq(fake["src.ui.game3.party_menu"].handleInput, originalPartyInput, "uninstall restores PartyMenu.handleInput")
 eq(fake["src.core.game3.field_moves"].fromMenu, originalFromMenu, "uninstall restores FieldMoves.fromMenu")

@@ -147,6 +147,49 @@ eq(started, 1, "standing ON the mon's tile starts the battle")
 bt:checkContact()
 eq(started, 1, "no second battle while one is pending")
 
+-- ------- the roaming legendary battles with its CURRENT state, and is gone if caught meanwhile
+do
+  local got
+  fakeEngine.fieldBusy = nil
+  fakeEngine.startWild = function(_game, enc) got = enc return true end
+  local smR = fakeSpawnManager()
+  local e = smR.entities[1]
+  e.roamer, e.species, e.level, e.personality = true, 245, 50, 77
+  local despawned
+  smR.despawn = function(_, id) despawned = id end
+  local btR = BattleTrigger.new({}, smR, { warn = function() end })
+  fakeEngine.roamerNow = function()
+    return { species = 245, level = 51, personality = 77, roamer = true, hp = 12, status = "PAR" }
+  end
+  btR:onPlayerBumped(e)
+  check(got and got.hp == 12 and got.status == "PAR" and got.level == 51,
+    "the battle gets the roamer's live HP / status / level, not the copy from spawn time")
+  -- caught or defeated since it appeared: no battle, the sprite just goes
+  got, despawned = nil, nil
+  local btR2 = BattleTrigger.new({}, smR, { warn = function() end })
+  smR.entities[1].state = Config.STATE.AVAILABLE
+  fakeEngine.roamerNow = function() return nil end
+  btR2:onPlayerBumped(smR.entities[1])
+  check(got == nil and despawned == smR.entities[1].id, "a roamer no longer active is removed, no battle")
+  fakeEngine.roamerNow = nil
+end
+
+-- ------- a Pokemon Sweet Scent called over: its battle is flagged for the evasion drop
+do
+  fakeEngine.startWild = function() return true end
+  local smL = fakeSpawnManager()
+  smL.entities[1].lured = { ticks = 100, age = 0 }
+  local btL = BattleTrigger.new({}, smL, { warn = function() end })
+  btL:onPlayerBumped(smL.entities[1])
+  check(btL.pendingLured == true, "a lured Pokemon's battle is flagged (main.lua lowers its evasion)")
+  btL:_onBattleEnded(smL.entities[1].id, "win")
+  check(btL.pendingLured == false, "the flag clears when the battle ends")
+  local smN = fakeSpawnManager()
+  local btN = BattleTrigger.new({}, smN, { warn = function() end })
+  btN:onPlayerBumped(smN.entities[1])
+  check(btN.pendingLured == false, "an ordinary wild Pokemon's battle is not flagged")
+end
+
 -- ------- never while something else owns the field (a cutscene, a trainer's approach)
 do
   local busy = true

@@ -30,6 +30,14 @@ Config.SPAWN_AMOUNT = {
   high = { min = 2, max = 12, tilesPer = 13 },   -- about one and a half times
 }
 
+-- Sweet Scent used in the field while Show Wild Mons is on: instead of the engine's
+-- instant wild battle, `min`..`max` wild Pokemon are called to free spawn cells
+-- `minDist`..`maxDist` tiles from the player (the greater of the x / y distances). They
+-- stay put, with rising hearts, for `lureTicks` (60 per second), then wander as usual;
+-- a battle with one starts with the foe's evasion at `evasion` stages (-1 = 75%, like the
+-- in-battle move). They come on top of the Spawn Amount target.
+Config.SWEET_SCENT = { min = 2, max = 3, minDist = 1, maxDist = 4, lureTicks = 3600, evasion = -1 }
+
 -- Idle wing-flap for floating/flying species: logic ticks each pose of the
 -- walkA/stand/walkB/stand cycle is held (~1.3s per full cycle at 60 ticks/s).
 Config.IDLE_FLAP_TICKS = 20

@@ -58,6 +58,7 @@ tests/shiny_unit_test.lua
 tests/spawn_manager_unit_test.lua
 tests/sprite_atlas_unit_test.lua
 tests/sprite_source_unit_test.lua
+tests/sweet_scent_hearts_unit_test.lua
 
 # bake / validation / asset tools
 tools/check_modkitignore.py
@@ -128,3 +129,5 @@ dist/wilds-of-hoenn-v1.7.3-beta.1-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.7.3-beta.1-hgss.zip
 dist/wilds-of-hoenn-v1.7.3-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.7.3-hgss.zip
+dist/wilds-of-hoenn-v1.7.4-beta.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.4-beta.1-hgss.zip

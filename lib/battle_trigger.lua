@@ -84,13 +84,26 @@ end
 
 function BattleTrigger:onPlayerBumped(entity)
   if self:isPending() then return end
-  self.pendingId = entity.id
-  self.spawnManager:markEncounterStarting(entity.id)
-
   local enc = {
     species = entity.species, level = entity.level, personality = entity.personality,
     ivs = entity.ivs, roamer = entity.roamer, moves = entity.moves,
   }
+  if entity.roamer then
+    -- the roaming legendary battles as the engine has it NOW: its current HP and status
+    -- (the battle reads them from the encounter; the copy rolled at spawn time would heal
+    -- it), and if it has been caught or defeated meanwhile, it is simply gone
+    local now = EnginePatch.roamerNow and EnginePatch.roamerNow()
+    if not (now and now.species == entity.species) then
+      self.spawnManager:despawn(entity.id)
+      return
+    end
+    enc = now
+  end
+  self.pendingId = entity.id
+  -- called over by Sweet Scent: main.lua's battle.started lowers the foe's evasion
+  self.pendingLured = entity.lured ~= nil
+  self.spawnManager:markEncounterStarting(entity.id)
+
   local ok, err = EnginePatch.startWild(self.spawnManager.game, enc, {
     done = function(result) self:_onBattleEnded(entity.id, result) end,
   })
@@ -102,14 +115,14 @@ function BattleTrigger:onPlayerBumped(entity)
     if self.log then
       self.log:warn("[wilds_of_hoenn] wild battle did not start: %s", tostring(err))
     end
-    self.pendingId = nil
+    self.pendingId, self.pendingLured = nil, false
     local e = self.spawnManager.entities[entity.id]
     if e then e.state = Config.STATE.AVAILABLE end
   end
 end
 
 function BattleTrigger:_onBattleEnded(entityId, _result)
-  if self.pendingId == entityId then self.pendingId = nil end
+  if self.pendingId == entityId then self.pendingId, self.pendingLured = nil, false end
   -- Win, lose, flee, catch: the mon the player fought is gone from the
   -- overworld either way. SpawnManager's own refill() on the next tick
   -- puts a freshly rolled wild Pokemon somewhere else on the map.

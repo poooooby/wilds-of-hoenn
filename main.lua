@@ -231,6 +231,15 @@ return function(mod)
     fromMenu = function(label, ctx)
       return partyRoles:fromMenu(label, ctx)
     end,
+    -- Sweet Scent used in the field: with the visible spawns on, it calls wild Pokemon
+    -- over (SpawnManager:sweetScent) instead of the engine's instant battle; nothing
+    -- nearby -> the engine's own "nothing here" text. false -> the engine's Sweet Scent.
+    sweetScent = function(payload)
+      local came = spawnManager:sweetScent()
+      if came == nil then return false end
+      if came == 0 then EnginePatch.sweetScentFail(payload) end
+      return true
+    end,
     followerTick = function(game)
       spawnManager:tick(game)
       followerInteraction:tick(game)
@@ -274,6 +283,17 @@ return function(mod)
   mod.events:on("world.stepped", function(ev)
     pcall(function()
       battleTrigger:onPlayerStepped(ev and ev.x, ev and ev.y)
+    end)
+  end)
+
+  -- a battle with a wild Pokemon Sweet Scent called over: its evasion starts lowered
+  -- (Config.SWEET_SCENT.evasion, -1 = 75%), as the in-battle move would leave it
+  mod.events:on("battle.started", function(_ev)
+    pcall(function()
+      if battleTrigger.pendingLured then
+        battleTrigger.pendingLured = false
+        EnginePatch.setFoeStage("evasion", Config.SWEET_SCENT.evasion)
+      end
     end)
   end)
 

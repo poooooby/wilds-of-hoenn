@@ -10,6 +10,11 @@
 
 ### Changed
 
+- **Sweet Scent calls wild Pokemon to you.** Used outside battle, it no longer starts an instant
+  classic battle (it did even with Classic Enc off): 2-3 wild Pokemon come out 1-4 tiles away,
+  with hearts floating over them, and wait for you for about a minute before wandering off. A
+  battle with one starts with its evasion lowered one stage (75%), like the in-battle move. With
+  Show Wild Mons off, Sweet Scent works as in the original game.
 - **Only the wild Pokemon near the screen are drawn.** Before, every wild Pokemon on the map was
   drawn each frame, even far off screen. With Gen 3 HD Sprites each one used up one of its HD
   layers (12 by default), so a busy route could use them all and leave some sprites at their
@@ -18,6 +23,20 @@
 
 ### Fixed
 
+- **Several checks that never worked now do:** the reachable area respects the badges Cut, Rock
+  Smash and Strength need; your partner's menu doesn't open during a script; the party menu knows
+  when a battle is on; the menu's select sound plays. (They looked engine pieces up in a way a
+  mod cannot, and quietly got nothing.)
+- **Only one roaming legendary.** On the map where FireRed / LeafGreen's roaming Raikou, Entei or
+  Suicune (or Emerald's Latias / Latios) was, several of it could appear at once (a player saw 5
+  Suicune). It is one Pokemon: at most one shows up.
+- **The roaming legendary keeps its damage.** Battling it from the overworld started it at full
+  health again; it now has the HP and status it was left with, and if it has been caught or
+  defeated since it appeared, it simply leaves. Your partner's BATTLE role leaves it alone.
+- **With Modern Spawns, no second roaming legendary.** Modern Spawns' rare legendary spawns no
+  longer place the species that is still roaming, so there is only ever the one. Once you catch
+  it, Modern Spawns stops offering it as usual; if you defeat it instead, Modern Spawns can still
+  offer it as a second chance.
 - **Cutscenes no longer break when you're walked into a wild Pokemon.** A scene that moves your
   character (like Wally's catching lesson) started a battle if it walked you onto one, breaking the
   scene. No wild battle starts while a cutscene runs, and wild Pokemon no longer get in the way of

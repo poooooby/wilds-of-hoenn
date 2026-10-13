@@ -516,6 +516,80 @@ do
   check(bok == nil and why == "busy", "a battle that will not start says why")
 end
 
+-- ------- Sweet Scent calls 2-3 wild Pokemon over (instead of the engine's instant battle)
+do
+  local C = V.require("config")
+  local realBounds, realRepel, realCell = fakeEngine.mapBounds, fakeEngine.repelAllows, fakeEngine.playerCell
+  fakeEngine.mapBounds = function() return 40, 9 end
+  fakeEngine.playerCell = function() return { x = 20, y = 4, moving = false } end
+  local smS = SpawnManager.new(mod)
+  smS:onMapEntered("ROUTE_1", { world = { player = { cellX = 20, cellY = 4 } } })
+  local before = smS:count()
+  fakeEngine.repelAllows = function() return false end -- Sweet Scent ignores Repel
+  for trial = 1, 20 do
+    local came = smS:sweetScent()
+    check(came == nil or (came >= C.SWEET_SCENT.min and came <= C.SWEET_SCENT.max) or trial > 1,
+      "first use: 2 or 3 called over")
+    if trial == 1 then
+      local lured = 0
+      for _, e in pairs(smS.entities) do
+        if e.lured then
+          lured = lured + 1
+          local d = math.max(math.abs(e.cellX - 20), math.abs(e.cellY - 4))
+          check(d >= 1 and d <= 4, ("lured one 1-4 tiles from the player (%d)"):format(d))
+          check(e.lured.ticks == C.SWEET_SCENT.lureTicks, "lured for the full lure time")
+        end
+      end
+      check(lured == came, "every one that came is marked lured")
+      check(smS:count() == before + came, "they come on top of the ones already out")
+      check(smS:_activeCountFor("land") == before, "and do not count toward the Spawn Amount target")
+      local hearts = {}
+      smS:collectActors(hearts)
+      local n = 0
+      for _, a in ipairs(hearts) do if a.kind == "ow_sweet_scent_hearts" then n = n + 1 end end
+      check(n == came, "each lured one has hearts over it")
+      -- they stay put while lured, then wander like any other
+      local e
+      for _, x in pairs(smS.entities) do if x.lured then e = x break end end
+      local cx, cy = e.cellX, e.cellY
+      e.behavior, e.ticksUntilAction = "roam", 0
+      for _ = 1, 200 do smS:tick(smS.game) end
+      check(e.cellX == cx and e.cellY == cy and e.lured, "a lured one stays put")
+      e.lured.ticks = 1
+      smS:tick(smS.game)
+      check(e.lured == nil, "the lure wears off: a normal wanderer again")
+      break
+    end
+  end
+  fakeEngine.repelAllows = realRepel
+  -- nothing eligible close by: 0 (the engine's "nothing here" text, no battle)
+  fakeEngine.playerCell = function() return { x = 200, y = 200, moving = false } end
+  eq(smS:sweetScent(), 0, "no spawn cell within 4 tiles: none came (fail text)")
+  -- the visible spawns off: nil -> the engine's own Sweet Scent
+  optionStore.enabled = false
+  eq(smS:sweetScent(), nil, "Show Wild Mons off: the engine's own Sweet Scent")
+  optionStore.enabled = true
+  fakeEngine.mapBounds, fakeEngine.playerCell = realBounds, realCell
+end
+
+-- ------- the roaming legendary is one Pokemon: never more than one copy out
+do
+  local realRoll, realBounds = fakeEngine.rollSweetScent, fakeEngine.mapBounds
+  fakeEngine.mapBounds = function() return 40, 5 end -- room for 8
+  -- every roll wins the roamer (a FireRed player on Suicune's map got five of it)
+  fakeEngine.rollSweetScent = function()
+    return { species = 999, level = 50, personality = 77, roamer = true, hp = 40 }
+  end
+  local smR = SpawnManager.new(mod)
+  smR:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local roamers = 0
+  for _, e in pairs(smR.entities) do if e.roamer then roamers = roamers + 1 end end
+  eq(roamers, 1, "every roll wins the roamer: still only one out")
+  local targets = smR:fightTargets()
+  eq(#targets, 0, "the companion Battler never targets the roamer")
+  fakeEngine.rollSweetScent, fakeEngine.mapBounds = realRoll, realBounds
+end
+
 -- ------- off-screen wild Pokemon are not drawn (each draw takes a gen3-hd-sprites layer)
 do
   fakeEngine.viewSize = function() return 240, 160 end

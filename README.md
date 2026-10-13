@@ -25,6 +25,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   Scarlet and Violet style.
 - 🎲 **Classic encounters, your call:** Keep the original step-based grass and Surf encounters
   alongside the visible ones, or turn them off and only meet what you can see.
+- 💕 **Sweet Scent calls them to you:** used outside battle, it draws 2-3 wild Pokémon out
+  close by, with hearts floating over them. They wait for you for about a minute, and they're
+  easier to hit when you battle them.
 - ✨ **Shiny chains** (with [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns)): win
   or catch the same species again and again and it turns up more, is likelier to be shiny and
   has better stats. Shinies always show their colours on the overworld.
