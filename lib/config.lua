@@ -9,6 +9,7 @@ Config.DEFAULTS = {
   classic_enc = true,
   wild_silhouettes = "off",
   species_sizes = true,
+  spawn_amount = "normal",
 }
 
 Config.STATE = {
@@ -17,11 +18,17 @@ Config.STATE = {
   DESPAWNED = "despawned",
 }
 
--- Density: fixed in v1 (no "Spawn Amount" option -- see
--- docs/ARCHITECTURE.md's "what v1 deliberately leaves out").
+-- Density, per terrain (land and water each): MIN_VISIBLE plus one more Pokemon for
+-- every TILES_PER_ADDITIONAL eligible tiles, at most MAX_VISIBLE. These are the
+-- Normal values of the Spawn Amount option; SPAWN_AMOUNT holds Low and High.
 Config.MIN_VISIBLE = 1
 Config.MAX_VISIBLE = 8
 Config.TILES_PER_ADDITIONAL = 20
+Config.SPAWN_AMOUNT = {
+  low = { min = 1, max = 4, tilesPer = 40 },     -- about half
+  normal = { min = Config.MIN_VISIBLE, max = Config.MAX_VISIBLE, tilesPer = Config.TILES_PER_ADDITIONAL },
+  high = { min = 2, max = 12, tilesPer = 13 },   -- about one and a half times
+}
 
 -- Idle wing-flap for floating/flying species: logic ticks each pose of the
 -- walkA/stand/walkB/stand cycle is held (~1.3s per full cycle at 60 ticks/s).
@@ -324,6 +331,13 @@ end
 
 function Config.classicEncEnabled(mod)
   return optGet(mod, "classic_enc") == true
+end
+
+--- The Spawn Amount option's density row ({ min, max, tilesPer }); Normal for
+--- anything unknown.
+function Config.spawnAmount(mod)
+  local v = optGet(mod, "spawn_amount")
+  return Config.SPAWN_AMOUNT[v] or Config.SPAWN_AMOUNT.normal, Config.SPAWN_AMOUNT[v] and v or "normal"
 end
 
 local VALID_SILHOUETTE = { off = true, undiscovered = true, all = true }

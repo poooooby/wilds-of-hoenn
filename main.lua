@@ -173,8 +173,8 @@ return function(mod)
   mod.exports.battler = battler
 
   local installed = EnginePatch.install({
-    collectActors = function(actors)
-      spawnManager:collectActors(actors)
+    collectActors = function(actors, camX, camY)
+      spawnManager:collectActors(actors, camX, camY)
       followerAdapter:collectActors(actors)
     end,
     -- See lib/battle_trigger.lua's header: exceptLocalId == nil is the
@@ -199,6 +199,9 @@ return function(mod)
       if exceptLocalId == nil and not EnginePatch.isProbingCanEnter() then
         return false
       end
+      -- a cutscene / trainer approach moving its characters (exceptLocalId = theirs):
+      -- a wild Pokemon in the way must never hold the script up
+      if exceptLocalId ~= nil and EnginePatch.fieldBusy() then return false end
       return true
     end,
     messageDraw = function()
@@ -208,7 +211,7 @@ return function(mod)
     -- drawn just before the engine's own reflections of the player and NPCs
     drawBehind = function(camX, camY)
       local list = {}
-      spawnManager:reflections(list)
+      spawnManager:reflections(list, camX, camY)
       followerAdapter:reflections(list)
       if #list > 0 then Reflection.drawAll(list, camX, camY) end
     end,
@@ -319,6 +322,9 @@ return function(mod)
       elseif ev.value ~= true then
         spawnManager:onMapExited()
       end
+    elseif ev.key == "spawn_amount" then
+      -- raised: refill tops up on the next tick; lowered: the extras go now
+      pcall(function() spawnManager:trimToAmount() end)
     elseif ev.key == "species_sizes" then
       HdField.setSpeciesSizes(ev.value)
     elseif ev.key == "sprite_style" then

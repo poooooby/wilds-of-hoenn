@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Spawn Amount option: Low / Normal / High.** Normal is the same number of wild Pokemon as
+  before. Low is about half (up to 4 each in grass and water), High about one and a half times (up
+  to 12 each). Lowering it takes effect at once, the farthest Pokemon leaving first.
+
+### Changed
+
+- **Only the wild Pokemon near the screen are drawn.** Before, every wild Pokemon on the map was
+  drawn each frame, even far off screen. With Gen 3 HD Sprites each one used up one of its HD
+  layers (12 by default), so a busy route could use them all and leave some sprites at their
+  small size. On Route 110 a frame now needs 7 layers instead of 12 on Normal and 9 on High, and
+  every Pokemon on screen keeps its HD size. Less drawing on every setting.
+
+### Fixed
+
+- **Cutscenes no longer break when you're walked into a wild Pokemon.** A scene that moves your
+  character (like Wally's catching lesson) started a battle if it walked you onto one, breaking the
+  scene. No wild battle starts while a cutscene runs, and wild Pokemon no longer get in the way of
+  the characters a scene moves.
+- **Trainers no longer freeze when a wild Pokemon reaches you mid-challenge.** If a trainer had
+  spotted you and a wild Pokemon walked into you, a wild battle started and the trainer froze. No
+  wild battle starts while a trainer is coming over.
+- After either, a wild Pokemon left on your tile doesn't jump you the moment the scene ends: step
+  off and back on to battle it.
+- **Wild Pokemon sink into the extra-tall grass of Routes 119 and 120** the way you do, instead of
+  showing the short-grass tuft at their feet.
+
 ## 1.7.4-beta.1 (2026-10-13)
 
 ### Changed

@@ -123,6 +123,25 @@ do
   end
 end
 
+-- No wild battle while a cutscene / trainer approach owns the field, and long grass gets
+-- its own cover (EnginePatch.fieldBusy / grassCover): the engine pieces they read.
+do
+  local okF, Field = pcall(require, "src.core.game3.field")
+  check(okF and type(Field) == "table" and type(Field.lock) == "function", "engine: Field.lock / Field.locked")
+  local okW, Warp = pcall(require, "src.core.game3.warp")
+  check(okW and type(Warp.isBusy) == "function", "engine: Warp.isBusy")
+  local okS, Space = pcall(require, "src.core.game3.scripting.space")
+  check(okS and type(Space) == "table", "engine: scripting.space (Space.vm:isRunning)")
+  local okFx, FieldEffects = pcall(require, "src.core.game3.field_effects")
+  check(okFx and type(FieldEffects.manifestObject) == "function" and type(FieldEffects.loadSheet) == "function",
+    "engine: FieldEffects.manifestObject / loadSheet (long grass cover)")
+  local okC, Collision = pcall(require, "src.core.game3.collision")
+  check(okC and type(Collision.behavior) == "function", "engine: Collision.behavior")
+  local okR, R = pcall(require, "src.core.game3.field_effects_rse")
+  check(okR and type(R.B) == "table" and type(R.B.longGrass) == "function", "engine: FxRse.B.longGrass")
+  check(type(EnginePatch.fieldBusy()) == "boolean", "EnginePatch.fieldBusy runs on the real engine")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

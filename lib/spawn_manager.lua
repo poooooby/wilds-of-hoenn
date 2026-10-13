@@ -134,14 +134,37 @@ function SpawnManager:onMapExited()
   self:clearAll()
 end
 
-local function targetCount(eligibleCount)
+--- How many Pokemon one terrain keeps out: `row.min` plus one per `row.tilesPer` eligible
+--- tiles, at most `row.max` (row = a Config.SPAWN_AMOUNT level; Normal when omitted).
+local function targetCount(eligibleCount, row)
   if eligibleCount <= 0 then return 0 end
-  local n = Config.MIN_VISIBLE + math.floor(eligibleCount / Config.TILES_PER_ADDITIONAL)
-  if n > Config.MAX_VISIBLE then n = Config.MAX_VISIBLE end
-  if n < Config.MIN_VISIBLE then n = Config.MIN_VISIBLE end
+  row = row or Config.SPAWN_AMOUNT.normal
+  local n = row.min + math.floor(eligibleCount / row.tilesPer)
+  if n > row.max then n = row.max end
+  if n < row.min then n = row.min end
   return n
 end
 SpawnManager._targetCount = targetCount
+
+--- After the Spawn Amount option is lowered: despawns the Pokemon past the new target,
+--- farthest from the player first (never one in a battle or a skirmish).
+function SpawnManager:trimToAmount()
+  local row = Config.spawnAmount(self.mod)
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  for _, terrain in ipairs({ "land", "water" }) do
+    local want = targetCount(self.source:eligibleCount(terrain), row)
+    local list = {}
+    for id, e in pairs(self.entities) do
+      if e.terrain == terrain and e.state == Config.STATE.AVAILABLE and not e.engaged then
+        local d = p and math.max(math.abs(e.cellX - p.x), math.abs(e.cellY - p.y)) or 0
+        list[#list + 1] = { id = id, d = d }
+      end
+    end
+    local extra = self:_activeCountFor(terrain) - want
+    table.sort(list, function(a, b) if a.d ~= b.d then return a.d > b.d end return a.id < b.id end)
+    for i = 1, math.min(extra, #list) do self:despawn(list[i].id) end
+  end
+end
 
 function SpawnManager:_activeCountFor(terrain)
   local n = 0
@@ -296,7 +319,7 @@ end
 function SpawnManager:refill(terrain)
   local count = self.source:eligibleCount(terrain)
   if count == 0 then return end
-  local want = targetCount(count)
+  local want = targetCount(count, (Config.spawnAmount(self.mod)))
   local have = self:_activeCountFor(terrain)
   if have >= want then return end
   local attempts = 0
@@ -343,12 +366,27 @@ local function poseOf(e)
   return pose
 end
 
+--- Is the entity close enough to the view to be drawn? (camX, camY) = the view's
+--- top-left in world px; no camera = draw everything (an older engine). The margin
+--- covers the biggest sprites, which reach well past their 16 px tile. Drawing only
+--- these matters with gen3-hd-sprites: every tagged draw takes one of its field
+--- layers (12 by default), and off-screen ones used them up.
+local CULL_MARGIN = 128
+local function inView(e, camX, camY, vw, vh)
+  if camX == nil or camY == nil then return true end
+  return e.px > camX - CULL_MARGIN and e.px < camX + vw + CULL_MARGIN
+    and e.py > camY - CULL_MARGIN and e.py < camY + vh + CULL_MARGIN
+end
+SpawnManager._inView = inView
+
 --- Every live wild Pokemon's water reflection, for lib/reflection.lua (the
---- drawBehind hook).
-function SpawnManager:reflections(list)
+--- drawBehind hook). Off-screen ones are skipped when the camera is given.
+function SpawnManager:reflections(list, camX, camY)
+  local vw, vh = 240, 160
+  if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    local r = e and e.state ~= Config.STATE.DESPAWNED and e.renderer
+    local r = e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) and e.renderer
     if r and r.reflectionGeometry then
       local geo = r:reflectionGeometry(e.px, e.py, e.facing, poseOf(e))
       if geo then
@@ -363,10 +401,12 @@ function SpawnManager:reflections(list)
   end
 end
 
-function SpawnManager:collectActors(actors)
+function SpawnManager:collectActors(actors, camX, camY)
+  local vw, vh = 240, 160
+  if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    if e and e.state ~= Config.STATE.DESPAWNED then
+    if e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) then
       local pose = poseOf(e)
       actors[#actors + 1] = {
         kind = "wild_mon", i = id,

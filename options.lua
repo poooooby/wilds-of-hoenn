@@ -3,7 +3,7 @@
 --
 -- v1 is deliberately small -- see docs/ARCHITECTURE.md "What v1
 -- deliberately leaves out" for the Wilds-of-Kanto-style options this does
--- not (yet) have: Spawn Amount, Sprite Fade, Control Mode/Trainer Trail,
+-- not (yet) have: Sprite Fade, Control Mode/Trainer Trail,
 -- Water Mons presentation modes, Idle/Roam/Chase/Hidden toggles. Idle and
 -- Roam are the only behaviours; there is no Chase or Hidden in v1.
 
@@ -14,6 +14,18 @@ return {
     type = "toggle",
     default = true,
     description = "Spawn visible wild Pokemon in eligible grass/water encounter areas.",
+  },
+  {
+    key = "spawn_amount",
+    label = "Spawn Amount",
+    type = "choice",
+    default = "normal",
+    choices = {
+      { "Low", "low" },
+      { "Normal", "normal" },
+      { "High", "high" },
+    },
+    description = "How many wild Pokemon are out at once, for grass and water each, growing with the size of the area. Low: about half (up to 4). Normal: up to 8. High: about one and a half times (up to 12).",
   },
   {
     key = "sprite_style",

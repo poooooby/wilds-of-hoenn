@@ -70,10 +70,50 @@ local SpawnManager = V.require("spawn_manager")
 -- these tests are about the Walk <-> Idle switch itself: no grace period (see the linger tests in pmd_renderer_unit_test.lua)
 V.require("config").PMD_WALK_LINGER = 0
 
--- ------- targetCount: the fixed density curve
+-- ------- targetCount: the density curve (Normal unless a Spawn Amount row is given)
 eq(SpawnManager._targetCount(0), 0, "0 eligible cells -> 0 target")
 eq(SpawnManager._targetCount(1), 1, "a handful of cells -> the floor (1)")
 eq(SpawnManager._targetCount(1000), 8, "a huge area is capped at MAX_VISIBLE (8)")
+do
+  local C = V.require("config")
+  local L, N, H = C.SPAWN_AMOUNT.low, C.SPAWN_AMOUNT.normal, C.SPAWN_AMOUNT.high
+  -- Normal is exactly the curve before the option existed: 1 + one per 20 tiles, at most 8
+  for _, n in ipairs({ 1, 19, 20, 39, 40, 99, 140, 141, 1000 }) do
+    local old = math.min(8, math.max(1, 1 + math.floor(n / 20)))
+    eq(SpawnManager._targetCount(n, N), old, "Normal = the old curve at " .. n .. " tiles")
+  end
+  eq(SpawnManager._targetCount(0, H), 0, "High: no tiles -> none")
+  for _, n in ipairs({ 1, 20, 60, 100, 1000 }) do
+    local l, m, h = SpawnManager._targetCount(n, L), SpawnManager._targetCount(n, N), SpawnManager._targetCount(n, H)
+    check(l <= m and m <= h, ("Low <= Normal <= High at %d tiles (%d, %d, %d)"):format(n, l, m, h))
+  end
+  eq(SpawnManager._targetCount(1000, L), 4, "Low caps at 4")
+  eq(SpawnManager._targetCount(1000, H), 12, "High caps at 12")
+  eq(SpawnManager._targetCount(100, L), 3, "Low: 100 tiles -> 3 (Normal 6)")
+  eq(SpawnManager._targetCount(100, H), 9, "High: 100 tiles -> 9 (Normal 6)")
+  local _, name = C.spawnAmount({ options = { get = function() return "bogus" end } })
+  eq(name, "normal", "an unknown saved value reads as Normal")
+end
+
+-- ------- Spawn Amount in play: High fills more, lowering trims the extras at once
+do
+  local realBounds = fakeEngine.mapBounds
+  fakeEngine.mapBounds = function() return 40, 5 end -- 200 land tiles
+  optionStore.spawn_amount = "high"
+  local smA = SpawnManager.new(mod)
+  smA:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  eq(smA:count(), 12, "High on 200 tiles: 12 out")
+  optionStore.spawn_amount = "low"
+  smA:trimToAmount()
+  eq(smA:count(), 4, "lowered to Low: trimmed to 4 at once")
+  smA:tick(smA.game)
+  eq(smA:count(), 4, "and refill keeps it at 4")
+  optionStore.spawn_amount = "normal"
+  smA:tick(smA.game)
+  eq(smA:count(), 8, "raised to Normal: refill tops up to 8")
+  optionStore.spawn_amount = nil
+  fakeEngine.mapBounds = realBounds
+end
 
 -- ------- onMapEntered places visible wild Pokemon, converted to national dex
 local sm = SpawnManager.new(mod)
@@ -474,6 +514,37 @@ do
   fakeEngine.startWild = function() return nil, "busy" end
   local bok, why = smT:battleSpecies(999, 20)
   check(bok == nil and why == "busy", "a battle that will not start says why")
+end
+
+-- ------- off-screen wild Pokemon are not drawn (each draw takes a gen3-hd-sprites layer)
+do
+  fakeEngine.viewSize = function() return 240, 160 end
+  local smV = SpawnManager.new(mod)
+  smV:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local n = smV:count()
+  local all = {}
+  smV:collectActors(all)
+  local mons = 0
+  for _, a in ipairs(all) do if a.kind == "wild_mon" then mons = mons + 1 end end
+  eq(mons, n, "no camera: every wild Pokemon is drawn (older engine)")
+  local seen = {}
+  smV:collectActors(seen, 0, 0)
+  mons = 0
+  for _, a in ipairs(seen) do if a.kind == "wild_mon" then mons = mons + 1 end end
+  eq(mons, n, "camera on the strip: all of them are in view")
+  local far = {}
+  smV:collectActors(far, 5000, 5000)
+  mons = 0
+  for _, a in ipairs(far) do if a.kind == "wild_mon" then mons = mons + 1 end end
+  eq(mons, 0, "camera far away: none drawn")
+  local I = SpawnManager._inView
+  check(I({ px = 240 + 127, py = 0 }, 0, 0, 240, 160), "just inside the margin past the right edge: drawn")
+  check(not I({ px = 240 + 128, py = 0 }, 0, 0, 240, 160), "at the margin: not drawn")
+  check(I({ px = 0, py = -127 }, 0, 0, 240, 160), "a big sprite whose feet are just above the view: drawn")
+  local refl = {}
+  smV:reflections(refl, 5000, 5000)
+  eq(#refl, 0, "no reflections for Pokemon out of view")
+  fakeEngine.viewSize = nil
 end
 
 print("")

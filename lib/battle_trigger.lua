@@ -47,7 +47,20 @@ function BattleTrigger:onPlayerStepped(x, y)
   x, y = tonumber(x), tonumber(y)
   if not x or not y then return end
   local entity = self.spawnManager:entityAt(x, y)
+  if entity and self:_fieldBusy(x, y) then return end
   if entity then self:onPlayerBumped(entity) end
+end
+
+--- No wild battle while something else owns the field (EnginePatch.fieldBusy): a
+--- cutscene walking the player onto a wild Pokemon (Wally's tutorial), a trainer who
+--- spotted the player (the field is locked for the approach), a message or a warp.
+--- Starting one then broke the cutscene / froze the trainer. The cell the player is on
+--- is remembered as a grace cell: still standing there once the field is free again
+--- starts nothing; stepping off and back on does.
+function BattleTrigger:_fieldBusy(x, y)
+  if not (EnginePatch.fieldBusy and EnginePatch.fieldBusy()) then return false end
+  self.graceX, self.graceY = x, y
+  return true
 end
 
 --- Called every field tick: backstop for the standing-still case (nothing
@@ -59,8 +72,14 @@ function BattleTrigger:checkContact()
   if self:isPending() then return end
   local player = EnginePatch.playerCell()
   if not player or player.moving then return end
+  if self.graceX and (player.x ~= self.graceX or player.y ~= self.graceY) then
+    self.graceX, self.graceY = nil, nil -- left the cell a cutscene / trainer put them on
+  end
   local entity = self.spawnManager:entityAt(player.x, player.y)
-  if entity then self:onPlayerBumped(entity) end
+  if not entity then return end
+  if self:_fieldBusy(player.x, player.y) then return end
+  if self.graceX == player.x and self.graceY == player.y then return end
+  self:onPlayerBumped(entity)
 end
 
 function BattleTrigger:onPlayerBumped(entity)
