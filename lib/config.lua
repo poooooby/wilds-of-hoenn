@@ -16,7 +16,15 @@ Config.STATE = {
   AVAILABLE = "available",
   ENCOUNTER_STARTING = "encounter_starting",
   DESPAWNED = "despawned",
+  -- on its way out (SpawnManager:despawn with animate): still drawn, sinking back
+  -- into the grass / fading, but no longer met, counted or fought
+  LEAVING = "leaving",
 }
+
+-- How wild Pokemon arrive and leave (lib/spawn_fx.lua): rising out of the grass with a
+-- rustle, surfacing with a ripple on water, a fade anywhere else; the same reversed when
+-- one leaves. Ticks at 60 per second.
+Config.SPAWN_FX = { appearTicks = 26, leaveTicks = 22 }
 
 -- Density, per terrain (land and water each): MIN_VISIBLE plus one more Pokemon for
 -- every TILES_PER_ADDITIONAL eligible tiles, at most MAX_VISIBLE. These are the

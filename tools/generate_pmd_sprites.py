@@ -34,7 +34,8 @@ The index records, per animation, `cw`/`ch` (cell size), `cols`, `durations`
 inside a cell; the renderer puts that point on the tile's feet position) and
 `waterline` / `bowl` (where a swimming Pokemon's foam bowl ends and how deep it is) and
 `foot` (the art's median bottom edge; a non-flyer whose art hovers above its shadow point
-is grounded there, see lib/sprite_source.lua).
+is grounded there, see lib/sprite_source.lua) and `top` (the highest row any frame reaches:
+the Sweet Scent hearts float above it, PmdRenderer:headLift).
 
     python3 tools/generate_pmd_sprites.py
     python3 tools/generate_pmd_sprites.py --species 6,25,252 --force
@@ -325,6 +326,19 @@ def foot_of(sheet: Image.Image, entry: dict) -> float | None:
         if box:
             bottoms.append(box[3])
     return float(statistics.median(bottoms)) if bottoms else None
+
+
+def top_of(sheet: Image.Image, entry: dict) -> int | None:
+    """The highest the art ever reaches (cell pixels): the smallest top edge over every
+    frame and direction. Things floating over a Pokemon (the Sweet Scent hearts) start
+    above this, so no frame of the animation covers them. None for an empty sheet."""
+    cw, ch = entry["cw"], entry["ch"]
+    tops = []
+    for x, y in cells_of(entry):
+        box = sheet.crop((x, y, x + cw, y + ch)).getchannel("A").getbbox()
+        if box:
+            tops.append(box[1])
+    return min(tops) if tops else None
 
 
 def pixels(img: Image.Image):
@@ -649,6 +663,7 @@ def main() -> int:
                 break
             info, normal, shiny = result
             info["foot"] = foot_of(normal, info)
+            info["top"] = top_of(normal, info)
             bake_water(out, anim, dex, key, normal, shiny, info, args.water_keep, args.force)
             entry[anim] = dict(info, shiny=shiny is not None)
             if anim == "walk":
@@ -676,6 +691,7 @@ def main() -> int:
                     continue
                 info, normal, shiny = result
                 info["foot"] = foot_of(normal, info)
+                info["top"] = top_of(normal, info)
                 if shiny is None and walk_pair[1] is not None:
                     # no shiny fight art upstream, but a shiny Walk: recolour with its palette
                     shiny = recolor(normal, shiny_palette(*walk_pair))

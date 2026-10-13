@@ -10,6 +10,11 @@
 
 ### Changed
 
+- **Wild Pokemon arrive instead of popping in.** A new one rises out of the grass while the
+  grass rustles (the extra-tall grass of Routes 119 and 120 with its own rustle), surfaces from
+  the water inside three rings that spread outward, or fades in on bare ground, over about half a second. When one leaves
+  (lowering Spawn Amount, out of reach) it sinks back the same way. A route's first Pokemon,
+  ones you battled and map changes stay instant.
 - **Sweet Scent calls wild Pokemon to you.** Used outside battle, it no longer starts an instant
   classic battle (it did even with Classic Enc off): 2-3 wild Pokemon come out 1-4 tiles away,
   with hearts floating over them, and wait for you for about a minute before wandering off. A

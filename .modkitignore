@@ -55,6 +55,7 @@ tests/reflection_unit_test.lua
 tests/renderer_factory_unit_test.lua
 tests/shiny_chain_test.lua
 tests/shiny_unit_test.lua
+tests/spawn_fx_unit_test.lua
 tests/spawn_manager_unit_test.lua
 tests/sprite_atlas_unit_test.lua
 tests/sprite_source_unit_test.lua

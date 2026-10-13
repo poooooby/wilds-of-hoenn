@@ -1071,6 +1071,36 @@ function EnginePatch.grassCover(cx, cy)
   return nil
 end
 
+--- The grass on (cx, cy) rustling once, as the player's step makes it: `sheet, frames`
+--- with frames = { {frame, ticks}, ... }. RSE long grass: the `long_grass` sheet's own
+--- manifest sequence (field_effects.lua grass_sheet_for); other grass: the `tall_grass`
+--- rustle frames 1-4, 10 ticks each (field_effects.lua RUSTLE / FRAME_DUR). nil when no
+--- sheet is loaded. Used for a wild Pokemon rising out of the grass (lib/spawn_fx.lua).
+function EnginePatch.grassRustle(cx, cy)
+  local FieldEffects = loadModule(EnginePatch.READONLY.loadFieldEffectSheet.mod)
+  if not FieldEffects then return nil end
+  local okL, long = pcall(function()
+    local R = FieldEffects.rse and FieldEffects.rse()
+    local Collision = EnginePatch.collision()
+    local beh = Collision and Collision.behavior and Collision.behavior(cx, cy)
+    return beh ~= nil and R and R.B and R.B.longGrass and R.B.longGrass(beh) == true
+  end)
+  if okL and long then
+    local frames = {}
+    pcall(function()
+      local o = FieldEffects.manifestObject and FieldEffects.manifestObject("long_grass")
+      for _, cmd in ipairs(o and o.anims and o.anims[1] or {}) do
+        if cmd[1] == "frame" then frames[#frames + 1] = { tonumber(cmd[2]) or 0, math.max(1, tonumber(cmd[3]) or 1) } end
+      end
+    end)
+    local okS, sheet = pcall(FieldEffects.loadSheet, "long_grass")
+    if okS and sheet and #frames > 0 then return sheet, frames end
+  end
+  local sheet = EnginePatch.grassSheet()
+  if not (sheet and sheet.quadsFront) then return nil end
+  return sheet, { { 1, 10 }, { 2, 10 }, { 3, 10 }, { 4, 10 } }
+end
+
 -- ------------------------------------------------------------------ water
 -- Reflections and ripples, the engine's own rules (all fail soft: nil/false/0 when a
 -- piece is missing). RSE: field_effects_rse.lua (FieldEffects.rse()); FRLG:

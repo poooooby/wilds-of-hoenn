@@ -178,6 +178,33 @@ function PmdRenderer:visualHeight()
   return h
 end
 
+--- How far above the tile's bottom edge the art reaches at its highest over Walk and
+--- Idle (px, as drawn, gen3-hd-sprites' size included): where things floating over it
+--- (the Sweet Scent hearts) start, so no frame of either animation covers them. The
+--- anchor (ay, or the waterline while swimming) sits `groundY` below the tile's top,
+--- and the bake's `top` is the highest row any frame reaches. Falls back to the
+--- visible height for an index without `top`.
+function PmdRenderer:headLift()
+  local s = PmdRenderer.scaleOf(self.info) * self:hdScale()
+  local best
+  for _, anim in ipairs({ "walk", "idle" }) do
+    local entry = self.info and self.info[anim]
+    local top = entry and tonumber(entry.top)
+    if top then
+      local anchor, groundY = tonumber(entry.ay), Config.PMD_GROUND_Y or 12
+      if self.swimming then
+        local _, band = PmdRenderer.cropHeight(entry)
+        if band then anchor, groundY = band, Config.PMD_SWIM_Y or 18 end
+      end
+      if anchor then
+        local lift = CELL - groundY + (anchor - top) * s
+        if not best or lift > best then best = lift end
+      end
+    end
+  end
+  return best or self:visualHeight()
+end
+
 --- Rows of a cell drawn while swimming: `body` = the sheet's own rows down to the top
 --- of the foam bowl, `band` = the band sheet's rows down to the bowl's bottom (the baked
 --- waterline; everything below is under water), both clamped to the cell. nil when the

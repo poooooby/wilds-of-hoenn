@@ -156,6 +156,15 @@ do
   check(okS and text:find("evasion = 0", 1, true) ~= nil, "engine: a battler's stages table has `evasion`")
 end
 
+-- Arriving / leaving wild Pokemon (lib/spawn_fx.lua): the grass rustle and the ripple
+do
+  local okFx, FieldEffects = pcall(require, "src.core.game3.field_effects")
+  check(okFx and type(FieldEffects.loadSheet) == "function" and type(FieldEffects.startRipple) == "function",
+    "engine: FieldEffects.loadSheet / startRipple (spawn rustle and ripple)")
+  local okG = pcall(EnginePatch.grassRustle, 3, 3)
+  check(okG, "EnginePatch.grassRustle runs on the real engine (no sheet without a ROM: nil)")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

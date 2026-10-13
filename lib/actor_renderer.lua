@@ -274,6 +274,63 @@ function ActorRenderer:visualWidth()
   return w * HdField.scaleOfPath(self.mod, path)
 end
 
+--- The highest row (from a frame's top) that any frame of a sheet's art reaches, read
+--- from its pixels once and cached per sheet: `frameCount` frames stacked top to bottom.
+--- nil when the pixels cannot be read (no love context, missing sheet). Per-file sheet
+--- first, then the atlas (lib/sprite_atlas.lua), like loadImage.
+local artTopCache = {}
+function ActorRenderer.artTopOf(mod, path, frameCount)
+  local hit = artTopCache[path]
+  if hit ~= nil then return hit or nil end
+  artTopCache[path] = false
+  if not (love and love.image and love.image.newImageData) then return nil end
+  local data
+  local full = mod and mod.assets and type(mod.assets.path) == "function"
+    and select(2, pcall(mod.assets.path, mod.assets, path)) or path
+  local ok, d = pcall(love.image.newImageData, full)
+  if ok and d then data = d end
+  if not data and mod and SpriteAtlas.installed() then
+    local okA, a = pcall(SpriteAtlas.sheetData, mod, path)
+    if okA and a then data = a end
+  end
+  if not data then return nil end
+  local w, h = data:getDimensions()
+  local fh = math.floor(h / (frameCount or 18))
+  local bytes = data:getString()
+  local byte = string.byte
+  local best
+  for f = 0, (frameCount or 18) - 1 do
+    local limit = best or fh -- only rows above the best found so far can improve it
+    for y = 0, limit - 1 do
+      local row = ((f * fh + y) * w) * 4
+      local found = false
+      for x = 0, w - 1 do
+        if byte(bytes, row + x * 4 + 4) > 0 then found = true break end
+      end
+      if found then
+        if not best or y < best then best = y end
+        break
+      end
+    end
+  end
+  artTopCache[path] = best or false
+  return best
+end
+
+--- How far above the tile's bottom edge the art reaches at its highest over every frame
+--- (px, as drawn, gen3-hd-sprites' size included): where things floating over it (the
+--- Sweet Scent hearts) start, so no pose covers them. A frame stands on the tile's bottom
+--- (anchorOffset), lowered by its baked bottom pad and, swimming, SWIM_DROP; the size
+--- grows about the feet. Falls back to the frame height when the pixels are unreadable.
+function ActorRenderer:headLift()
+  local path = self:imagePath()
+  local fh = self:frameHeight()
+  if not (path and fh) then return fh end
+  local top = ActorRenderer.artTopOf(self.mod, path, self.frameCount or 18) or 0
+  local k = HdField.scaleOfPath(self.mod, path) or 1
+  return (fh - top) * k - (SpriteSource.bottomPadFor(path) or 0) - ActorRenderer.swimDropFor(path)
+end
+
 --- The frame this sprite would draw at world (x, y), for its water reflection
 --- (lib/reflection.lua): mirrored about its feet (the frame's bottom, above any baked
 --- water padding), at the size it is shown at (gen3-hd-sprites grows it about the same

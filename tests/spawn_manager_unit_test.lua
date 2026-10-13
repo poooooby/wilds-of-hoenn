@@ -105,9 +105,12 @@ do
   eq(smA:count(), 12, "High on 200 tiles: 12 out")
   optionStore.spawn_amount = "low"
   smA:trimToAmount()
-  eq(smA:count(), 4, "lowered to Low: trimmed to 4 at once")
-  smA:tick(smA.game)
-  eq(smA:count(), 4, "and refill keeps it at 4")
+  local leaving = 0
+  for _, e in pairs(smA.entities) do if e.state == "leaving" then leaving = leaving + 1 end end
+  eq(leaving, 8, "lowered to Low: the 8 extra start leaving at once")
+  eq(smA:_activeCountFor("land"), 4, "...and no longer count")
+  for _ = 1, V.require("config").SPAWN_FX.leaveTicks + 1 do smA:tick(smA.game) end
+  eq(smA:count(), 4, "once they have left: 4, and refill keeps it there")
   optionStore.spawn_amount = "normal"
   smA:tick(smA.game)
   eq(smA:count(), 8, "raised to Normal: refill tops up to 8")
@@ -407,6 +410,9 @@ do
   wallAt = 4 -- the player's new pocket is cells 5 only... and 0-3 are cut off from it
   smR:tick(R_GAME)
   eq(builds, 2, "a player standing outside the reachable area triggers a re-measure")
+  check(smR.entities[stranded.id] and smR.entities[stranded.id].state == "leaving",
+    "spawns now out of reach start leaving")
+  for _ = 1, V.require("config").SPAWN_FX.leaveTicks + 1 do smR:tick(R_GAME) end
   check(smR.entities[stranded.id] == nil, "spawns now out of reach are removed")
   for _, e in pairs(smR.entities) do check(e.cellX == 5, "what remains is on the player's new side") end
 
@@ -570,6 +576,94 @@ do
   eq(smS:sweetScent(), nil, "Show Wild Mons off: the engine's own Sweet Scent")
   optionStore.enabled = true
   fakeEngine.mapBounds, fakeEngine.playerCell = realBounds, realCell
+end
+
+-- ------- arriving / leaving (lib/spawn_fx.lua): rise out of the grass, surface, or fade
+do
+  local C = V.require("config")
+  local realBounds, realGrass, realWater = fakeEngine.mapBounds, fakeEngine.isGrass, fakeEngine.isWater
+  fakeEngine.mapBounds = function() return 40, 5 end
+  local smF = SpawnManager.new(mod)
+  smF:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local anyFx = false
+  for _, e in pairs(smF.entities) do if e.fx then anyFx = true end end
+  check(not anyFx and smF.filled, "the map's first fill is instant (no effect)")
+
+  -- after a battle a Pokemon is gone at once; its replacement fades in (no grass / water here)
+  local first
+  for id in pairs(smF.entities) do first = id break end
+  smF:despawn(first)
+  check(smF.entities[first] == nil, "despawn after a battle: gone at once")
+  smF:tick(smF.game)
+  local new
+  for _, e in pairs(smF.entities) do if e.fx then new = e end end
+  check(new and new.fx.kind == "appear" and new.fx.mode == "fade", "its replacement arrives (fade: not grass or water)")
+  check(new.renderer.alpha ~= nil and new.renderer.alpha < 0.2, "...starting nearly invisible")
+  check(smF:entityAt(new.cellX, new.cellY) == new, "an arriving Pokemon can already be met")
+  local found = false
+  for _, t in ipairs(smF:fightTargets()) do if t == new then found = true end end
+  check(not found, "but the Battler does not pick it until it has arrived")
+  local cx, cy = new.cellX, new.cellY
+  new.behavior, new.ticksUntilAction = "roam", 0
+  for _ = 1, C.SPAWN_FX.appearTicks do smF:tick(smF.game) end
+  check(new.fx == nil and new.renderer.alpha == nil, "it finishes and the renderer is left as normal")
+  check(new.cellX == cx and new.cellY == cy, "no wandering off while arriving")
+
+  -- grass: rises (sink) with the rustle drawn on its tile
+  fakeEngine.isGrass = function() return true end
+  local rustled = 0
+  fakeEngine.grassRustle = function() rustled = rustled + 1 return { quadsFront = { [1] = 1, [2] = 2, [3] = 3, [4] = 4 } }, { { 1, 10 }, { 2, 10 }, { 3, 10 }, { 4, 10 } } end
+  local g
+  for id in pairs(smF.entities) do g = id break end
+  smF:despawn(g)
+  smF:tick(smF.game)
+  local ge
+  for _, e in pairs(smF.entities) do if e.fx then ge = e end end
+  check(ge and ge.fx.mode == "grass" and rustled >= 1, "in grass it rises, and the grass rustles")
+  check(ge.renderer.act and ge.renderer.act.sink > 0.8, "...starting below the grass line")
+  local acts = {}
+  smF:collectActors(acts)
+  local r = 0
+  for _, a in ipairs(acts) do if a.kind == "ow_spawn_rustle" then r = r + 1 end end
+  check(r == 1, "the rustle is drawn on its tile")
+  for _ = 1, C.SPAWN_FX.appearTicks do smF:tick(smF.game) end
+  check(ge.renderer.act == nil, "standing again: the renderer's act is cleared")
+
+  -- water: surfaces with a ripple
+  fakeEngine.isGrass = realGrass
+  fakeEngine.isWater = function() return true end
+  local ripples = 0
+  fakeEngine.startRipple = function() ripples = ripples + 1 return true end
+  local w
+  for id in pairs(smF.entities) do w = id break end
+  smF:despawn(w)
+  smF:tick(smF.game)
+  local we
+  for _, e in pairs(smF.entities) do if e.fx then we = e end end
+  check(we and we.fx.mode == "water" and we.rings ~= nil, "on water it surfaces inside growing rings")
+  local wa = {}
+  smF:collectActors(wa)
+  local rings = 0
+  for _, a in ipairs(wa) do if a.kind == "ow_spawn_rings" then rings = rings + 1 end end
+  check(rings == 1, "the rings are drawn on its tile")
+  for _ = 1, V.require("spawn_fx").ringsTicks() do smF:tick(smF.game) end
+  check(we.rings == nil, "and are gone once all three have spread out")
+
+  -- leaving: no longer met or counted, removed once it has sunk away
+  for _ = 1, C.SPAWN_FX.appearTicks do smF:tick(smF.game) end
+  local l
+  for _, e in pairs(smF.entities) do l = e break end
+  local before = smF:_activeCountFor("land")
+  smF:despawn(l.id, { animate = true })
+  check(l.state == "leaving" and l.fx.kind == "leave", "an animated despawn starts leaving")
+  check(smF:entityAt(l.cellX, l.cellY) == nil, "a leaving Pokemon can no longer be met")
+  check(smF:_activeCountFor("land") == before - 1, "and no longer counts")
+  check(smF.entities[l.id] ~= nil, "it is still drawn while it goes")
+  for _ = 1, C.SPAWN_FX.leaveTicks + 1 do smF:tick(smF.game) end
+  check(smF.entities[l.id] == nil, "then it is gone")
+
+  fakeEngine.mapBounds, fakeEngine.isGrass, fakeEngine.isWater = realBounds, realGrass, realWater
+  fakeEngine.grassRustle, fakeEngine.startRipple = nil, nil
 end
 
 -- ------- the roaming legendary is one Pokemon: never more than one copy out

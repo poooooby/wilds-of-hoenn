@@ -20,6 +20,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   battle. They come straight from the game's own encounter tables, abilities, outbreaks and
   roamers included. On land they only appear where you can actually walk to, while water
   Pokémon fill every lake and sea, Surf or not.
+- 🌿 **They arrive, they don't pop in:** new Pokémon rise out of the grass as it rustles,
+  surface from the water inside three spreading rings, or fade in on bare ground, and sink back the same way
+  when they leave.
 - 🤝 **A partner with a job:** Choose any Pokémon in your party menu and give it a role. It can
   **follow** you, **forage** for items as you walk, or **battle** the wild Pokémon around you,
   Scarlet and Violet style.

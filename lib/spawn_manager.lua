@@ -15,6 +15,7 @@ local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
 local ModernSpawns = V.require("modern_spawns_bridge")
 local SweetScentHearts = V.require("sweet_scent_hearts")
+local SpawnFx = V.require("spawn_fx")
 
 local SpawnManager = {}
 SpawnManager.__index = SpawnManager
@@ -34,6 +35,7 @@ end
 function SpawnManager:clearAll()
   self.entities = {}
   self.order = {}
+  self.filled = false -- the map's first fill is instant; spawns after it arrive (lib/spawn_fx.lua)
 end
 
 --- Measures what the player can reach from where they stand (see
@@ -74,7 +76,7 @@ function SpawnManager:_pruneUnreachable()
       doomed[#doomed + 1] = id
     end
   end
-  for _, id in ipairs(doomed) do self:despawn(id) end
+  for _, id in ipairs(doomed) do self:despawn(id, { animate = true }) end
 end
 
 --- Whether the reachable area should be re-measured now, from what it depends on
@@ -129,6 +131,7 @@ function SpawnManager:onMapEntered(mapId, game)
   self:_rebuildReach()
   self:refill("land")
   self:refill("water")
+  self.filled = true
 end
 
 function SpawnManager:onMapExited()
@@ -163,7 +166,7 @@ function SpawnManager:trimToAmount()
     end
     local extra = self:_activeCountFor(terrain) - want
     table.sort(list, function(a, b) if a.d ~= b.d then return a.d > b.d end return a.id < b.id end)
-    for i = 1, math.min(extra, #list) do self:despawn(list[i].id) end
+    for i = 1, math.min(extra, #list) do self:despawn(list[i].id, { animate = true }) end
   end
 end
 
@@ -172,7 +175,7 @@ end
 function SpawnManager:_activeCountFor(terrain)
   local n = 0
   for _, e in pairs(self.entities) do
-    if e.terrain == terrain and not e.lured then n = n + 1 end
+    if e.terrain == terrain and not e.lured and e.state ~= Config.STATE.LEAVING then n = n + 1 end
   end
   return n
 end
@@ -326,6 +329,8 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
     state = Config.STATE.AVAILABLE,
   }
   self.order[#self.order + 1] = id
+  -- after the map's first fill, a new Pokemon rises out of the grass / surfaces / fades in
+  if self.filled then self:_startFx(self.entities[id], "appear") end
   return true
 end
 
@@ -411,11 +416,30 @@ end
 function SpawnManager:tick(game)
   self.game = game or self.game
   self:_checkReach()
+  local gone
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
+    if e and e.rings then -- they outlast the rise, so they keep their own clock
+      e.rings.age = e.rings.age + 1
+      if e.rings.age >= SpawnFx.ringsTicks() then e.rings = nil end
+    end
     -- an `engaged` Pokemon is in a skirmish with the player's Battler
     -- (lib/overworld_battle.lua): it stands its ground and that module animates it
-    if e and e.state == Config.STATE.AVAILABLE and not e.engaged then
+    if e and e.fx then
+      -- arriving / leaving (lib/spawn_fx.lua): it finishes a step it was on, nothing else
+      if e.moving then Behavior._advanceMove(e) end
+      if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
+      local done = SpawnFx.step(e.fx)
+      if done and e.fx.kind == "leave" then
+        gone = gone or {}
+        gone[#gone + 1] = id -- removed after the loop (despawn reshapes self.order)
+      elseif done then
+        e.fx = nil
+        self:_applyFx(e)
+      else
+        self:_applyFx(e)
+      end
+    elseif e and e.state == Config.STATE.AVAILABLE and not e.engaged then
       if e.floater and not e.moving then e.flapClock = e.flapClock + 1 end
       local lure = e.lured
       if lure then
@@ -434,6 +458,7 @@ function SpawnManager:tick(game)
       Behavior._advanceMove(e)
     end
   end
+  for _, id in ipairs(gone or {}) do self:despawn(id) end
   self:refill("land")
   self:refill("water")
 end
@@ -502,10 +527,22 @@ function SpawnManager:collectActors(actors, camX, camY)
       -- spawn's cell is never grass, so this is a no-op for those without
       -- needing its own terrain check here.
       GrassCover.append(actors, e.cellX, e.cellY, e.py, e.elevation, id)
+      if e.rings then
+        local a = SpawnFx.ringsActor(e.rings.age, e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
+        if a then actors[#actors + 1] = a end
+      end
+      if e.fx and e.fx.rustle then
+        local a = SpawnFx.rustleActor(e.fx.rustle.sheet, e.fx.rustle.frames, e.fx.t,
+          e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
+        if a then actors[#actors + 1] = a end
+      end
       if e.lured then
+        -- just above the highest point its art reaches in any frame (headLift), so the
+        -- idle / walk animation never covers the hearts, plus a 4 px gap
         local r = e.renderer
-        local h = r and ((r.visualHeight and r:visualHeight()) or (r.frameHeight and r:frameHeight())) or 20
-        actors[#actors + 1] = SweetScentHearts.actor(e.px, e.py, math.max(14, math.min(48, h or 20)),
+        local lift = r and r.headLift and r:headLift()
+          or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
+        actors[#actors + 1] = SweetScentHearts.actor(e.px, e.py, math.max(10, math.min(96, (lift or 20) + 4)),
           e.lured.age, e.lured.ticks, e.elevation, id)
       end
     end
@@ -539,7 +576,7 @@ function SpawnManager:fightTargets()
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     -- never the roaming legendary: it is met only in a real battle, which keeps its saved state
-    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer then
+    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer and not e.fx then
       out[#out + 1] = e
     end
   end
@@ -556,8 +593,56 @@ function SpawnManager:markEncounterStarting(id)
   if e then e.state = Config.STATE.ENCOUNTER_STARTING end
 end
 
-function SpawnManager:despawn(id)
-  if not self.entities[id] then return end
+--- How a Pokemon on this tile arrives / leaves: "water", "grass" or "fade".
+function SpawnManager:_fxMode(e)
+  if e.terrain == "water" or (EnginePatch.isWater and EnginePatch.isWater(e.cellX, e.cellY)) then return "water" end
+  if EnginePatch.isGrass and EnginePatch.isGrass(e.cellX, e.cellY) then return "grass" end
+  return "fade"
+end
+
+--- Starts entity `e` arriving ("appear") or leaving ("leave"): the renderer shows the first
+--- frame of it at once; grass rustles, water ripples (lib/spawn_fx.lua).
+function SpawnManager:_startFx(e, kind)
+  if not e then return end
+  local cfg = Config.SPAWN_FX or {}
+  local mode = self:_fxMode(e)
+  local fx = SpawnFx.new(kind, mode, kind == "leave" and cfg.leaveTicks or cfg.appearTicks)
+  if mode == "grass" and EnginePatch.grassRustle then
+    local sheet, frames = EnginePatch.grassRustle(e.cellX, e.cellY)
+    if sheet then fx.rustle = { sheet = sheet, frames = frames } end
+  elseif mode == "water" then
+    e.rings = { age = 0 } -- three rings growing outward (SpawnFx.ringsActor), on their own clock
+  end
+  e.fx = fx
+  self:_applyFx(e)
+end
+
+-- the effect's current look on the renderer (sink / alpha), or cleared when it is over
+function SpawnManager:_applyFx(e)
+  local r = e.renderer
+  if not r then return end
+  if not e.fx then
+    if r.act and r.act.spawnFx then r.act = nil end
+    r.alpha = nil
+    return
+  end
+  local v = SpawnFx.visual(e.fx)
+  if v.sink then r.act = { sink = v.sink, spawnFx = true } end
+  r.alpha = v.alpha
+end
+
+--- Removes a wild Pokemon. `opts.animate`: it sinks back into the grass / water or fades
+--- out first (state LEAVING: drawn, but no longer met, counted or fought), then goes.
+--- Without it -- after a battle, on a map change -- it is gone at once.
+function SpawnManager:despawn(id, opts)
+  local e = self.entities[id]
+  if not e then return end
+  if opts and opts.animate and e.state == Config.STATE.AVAILABLE then
+    e.state = Config.STATE.LEAVING
+    e.lured = nil
+    self:_startFx(e, "leave")
+    return
+  end
   self.entities[id] = nil
   for i = #self.order, 1, -1 do
     if self.order[i] == id then

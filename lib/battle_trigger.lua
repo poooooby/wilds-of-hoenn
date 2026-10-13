@@ -94,7 +94,7 @@ function BattleTrigger:onPlayerBumped(entity)
     -- it), and if it has been caught or defeated meanwhile, it is simply gone
     local now = EnginePatch.roamerNow and EnginePatch.roamerNow()
     if not (now and now.species == entity.species) then
-      self.spawnManager:despawn(entity.id)
+      self.spawnManager:despawn(entity.id, { animate = true })
       return
     end
     enc = now

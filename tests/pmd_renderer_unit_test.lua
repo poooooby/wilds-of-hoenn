@@ -318,6 +318,30 @@ check(PmdRenderer.new(V.mod, 7, false, { walk = {}, idle = {} }).swimming == fal
 -- ------- draw is a no-op (never an error) without art or love
 check(pcall(function() r:draw(0, 0, 0, 0, "down", "stand", false) end), "draw without art/love never throws")
 
+-- ------- headLift: just above the highest point the art reaches over Walk and Idle
+do
+  local Cfg = V.require("config")
+  local info = {
+    walk = { cols = 4, cw = 40, ch = 44, ax = 20, ay = 33.5, top = 2, waterline = 30, bowl = 3 },
+    idle = { cols = 3, cw = 34, ch = 41, ax = 17, ay = 34.5, top = 2, waterline = 29, bowl = 3 },
+  }
+  local h = PmdRenderer.new({}, 128, false, info)
+  h.hdScale = function() return 1 end
+  local s = PmdRenderer.scaleOf(info)
+  local want = 16 - (Cfg.PMD_GROUND_Y or 12) + (34.5 - 2) * s -- idle reaches higher above its anchor
+  check(math.abs(h:headLift() - want) < 1e-9, ("headLift = ground offset + (ay - top) x scale, the higher of walk / idle (%.2f)"):format(h:headLift()))
+  check(h:headLift() < h:visualHeight() + 16, "lower than the old full-cell lift")
+  h.hdScale = function() return 1.5 end
+  check(h:headLift() > want, "gen3-hd-sprites' bigger size lifts it with the art")
+  h.hdScale = function() return 1 end
+  h.swimming = true
+  local swimWant = 16 - (Cfg.PMD_SWIM_Y or 18) + (30 - 2) * s -- walk: waterline 30 is the anchor
+  check(math.abs(h:headLift() - swimWant) < 1e-9, "swimming: measured from the waterline anchor")
+  local old = PmdRenderer.new({}, 128, false, { walk = { cols = 4, cw = 40, ch = 44, ax = 20, ay = 33.5 } })
+  old.hdScale = function() return 1 end
+  check(old:headLift() == old:visualHeight(), "an index without `top` falls back to the visible height")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
