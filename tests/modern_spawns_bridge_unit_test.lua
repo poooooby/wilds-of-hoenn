@@ -108,6 +108,16 @@ check(Bridge.apply("ROUTE_999", "land", e) == e, "a map with no engine table pas
 -- legendary roll wins over the slot
 legendary = "SNORLAX"
 eq(Bridge.apply("ROUTE_101", "land", enc(261, 2)).species, 1143, "LEGENDARIES roll replaces the slot")
+-- ...but never with the roaming legendary's species while it is still out: it exists once
+fakeEngine.roamerNow = function() return { species = 1143, roamer = true } end
+check(Bridge.apply("ROUTE_101", "land", enc(261, 2)).species ~= 1143,
+  "the roamer's species is not placed by the LEGENDARIES roll while it roams")
+fakeEngine.roamerNow = function() return { species = 1245, roamer = true } end
+eq(Bridge.apply("ROUTE_101", "land", enc(261, 2)).species, 1143, "another species roaming: no effect")
+fakeEngine.roamerNow = function() return nil end
+eq(Bridge.apply("ROUTE_101", "land", enc(261, 2)).species, 1143,
+  "roamer defeated (no longer active): the species is on offer again")
+fakeEngine.roamerNow = nil
 legendary = nil
 
 -- inactive / wrong generation / absent / old api -> untouched

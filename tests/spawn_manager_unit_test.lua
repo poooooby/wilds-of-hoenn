@@ -74,7 +74,6 @@ V.require("config").PMD_WALK_LINGER = 0
 eq(SpawnManager._targetCount(0), 0, "0 eligible cells -> 0 target")
 eq(SpawnManager._targetCount(1), 1, "a handful of cells -> the floor (1)")
 eq(SpawnManager._targetCount(1000), 8, "a huge area is capped at MAX_VISIBLE (8)")
-
 -- ------- onMapEntered places visible wild Pokemon, converted to national dex
 local sm = SpawnManager.new(mod)
 sm:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
@@ -474,6 +473,55 @@ do
   fakeEngine.startWild = function() return nil, "busy" end
   local bok, why = smT:battleSpecies(999, 20)
   check(bok == nil and why == "busy", "a battle that will not start says why")
+end
+
+-- ------- the roaming legendary is one Pokemon: never more than one copy out
+do
+  local realRoll, realBounds = fakeEngine.rollSweetScent, fakeEngine.mapBounds
+  fakeEngine.mapBounds = function() return 40, 5 end -- room for 8
+  -- every roll wins the roamer (a FireRed player on Suicune's map got five of it)
+  fakeEngine.rollSweetScent = function()
+    return { species = 999, level = 50, personality = 77, roamer = true, hp = 40 }
+  end
+  local smR = SpawnManager.new(mod)
+  smR:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local roamers = 0
+  for _, e in pairs(smR.entities) do if e.roamer then roamers = roamers + 1 end end
+  eq(roamers, 1, "every roll wins the roamer: still only one out")
+  local targets = smR:fightTargets()
+  eq(#targets, 0, "the companion Battler never targets the roamer")
+  fakeEngine.rollSweetScent, fakeEngine.mapBounds = realRoll, realBounds
+end
+
+-- ------- off-screen wild Pokemon are not drawn (each draw takes a gen3-hd-sprites layer)
+do
+  fakeEngine.viewSize = function() return 240, 160 end
+  local smV = SpawnManager.new(mod)
+  smV:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local n = smV:count()
+  local all = {}
+  smV:collectActors(all)
+  local mons = 0
+  for _, a in ipairs(all) do if a.kind == "wild_mon" then mons = mons + 1 end end
+  eq(mons, n, "no camera: every wild Pokemon is drawn (older engine)")
+  local seen = {}
+  smV:collectActors(seen, 0, 0)
+  mons = 0
+  for _, a in ipairs(seen) do if a.kind == "wild_mon" then mons = mons + 1 end end
+  eq(mons, n, "camera on the strip: all of them are in view")
+  local far = {}
+  smV:collectActors(far, 5000, 5000)
+  mons = 0
+  for _, a in ipairs(far) do if a.kind == "wild_mon" then mons = mons + 1 end end
+  eq(mons, 0, "camera far away: none drawn")
+  local I = SpawnManager._inView
+  check(I({ px = 240 + 127, py = 0 }, 0, 0, 240, 160), "just inside the margin past the right edge: drawn")
+  check(not I({ px = 240 + 128, py = 0 }, 0, 0, 240, 160), "at the margin: not drawn")
+  check(I({ px = 0, py = -127 }, 0, 0, 240, 160), "a big sprite whose feet are just above the view: drawn")
+  local refl = {}
+  smV:reflections(refl, 5000, 5000)
+  eq(#refl, 0, "no reflections for Pokemon out of view")
+  fakeEngine.viewSize = nil
 end
 
 print("")

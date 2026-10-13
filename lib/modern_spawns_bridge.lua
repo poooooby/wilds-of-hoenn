@@ -84,6 +84,13 @@ local function withSpecies(enc, species)
   return copy
 end
 
+--- Whether engine species `species` is the roaming legendary while it is still out
+--- (EnginePatch.roamerNow: active, not caught or defeated). Never throws.
+function Bridge.isRoamingSpecies(species)
+  local ok, now = pcall(function() return EnginePatch.roamerNow and EnginePatch.roamerNow() end)
+  return ok and type(now) == "table" and tonumber(now.species) == tonumber(species)
+end
+
 --- `enc` (from EnginePatch.rollSweetScent) with its species replaced by the
 --- one Modern Spawns generated for that slot, or `enc` itself when there is
 --- nothing to change. Roamers are never touched. Never throws.
@@ -93,11 +100,14 @@ function Bridge.apply(mapId, terrain, enc)
   if not api then return enc end
   local kind = kindOf(terrain)
 
-  -- the LEGENDARIES roll: a rare hosted legendary/mythical in place of the slot
+  -- the LEGENDARIES roll: a rare hosted legendary/mythical in place of the slot --
+  -- except the species of a roaming legendary that is still out (Raikou / Entei / Suicune,
+  -- Latias / Latios): that one exists once, as the roamer. Caught, the Pokedex marks it
+  -- owned and Modern Spawns stops offering it; defeated, it stays on offer (a second chance)
   if type(api.legendaryFor) == "function" then
     local ok, id = pcall(api.legendaryFor, mapId, kind)
     local species = ok and internalFor(api, id) or nil
-    if species then return withSpecies(enc, species) end
+    if species and not Bridge.isRoamingSpecies(species) then return withSpecies(enc, species) end
   end
 
   -- a shiny chain: the chained species, when the chain makes this encounter it

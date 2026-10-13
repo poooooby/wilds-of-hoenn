@@ -17,6 +17,11 @@
 --      reimplements that exact geometry/visibility check for entities the
 --      engine's own loop (which only walks Objects.forDraw()) never sees.
 --
+-- One step past the engine: its NPC cover is always the tall-grass tuft, even in
+-- Ruby / Sapphire / Emerald's LONG grass (Routes 119 / 120), where the player gets the
+-- `long_grass` art. Ours uses EnginePatch.grassCover(x, y), which picks long grass's
+-- settled frame there, so a wild Pokemon sinks into long grass the way the player does.
+--
 -- Same sprite data the engine uses for its own effect
 -- (EnginePatch.grassSheet() -> FieldEffects.loadSheet("tall_grass", 16,
 -- 16, 5), frame 4 of 5 is the non-animated "sitting in grass" pose) --
@@ -29,6 +34,16 @@ local GrassCover = {}
 
 local CELL = 16
 local FEET_H = 8
+
+-- the cover for one tile: long grass's own art on Route 119 / 120 long grass
+-- (EnginePatch.grassCover), else the tall-grass tuft, frame 4
+local function coverFor(cx, cy)
+  if EnginePatch.grassCover then return EnginePatch.grassCover(cx, cy) end
+  local sheet = EnginePatch.grassSheet()
+  local q = sheet and sheet.quadsFront and sheet.quadsFront[4]
+  if q then return sheet, q end
+  return nil
+end
 
 --- Appends a grass-tuft overlay actor to `actors` if (cellX, cellY) is a
 --- grass tile AND the entity's feet (derived from `py`, its world-pixel Y)
@@ -45,9 +60,7 @@ local FEET_H = 8
 function GrassCover.append(actors, cellX, cellY, py, elevation, idBase)
   if type(cellX) ~= "number" or type(cellY) ~= "number" or type(py) ~= "number" then return end
   if not EnginePatch.isGrass(cellX, cellY) then return end
-  local sheet = EnginePatch.grassSheet()
-  if not (sheet and sheet.quadsFront) then return end
-  local qStatic = sheet.quadsFront[4]
+  local sheet, qStatic = coverFor(cellX, cellY)
   if not qStatic then return end
 
   local feetY = py + CELL
@@ -78,17 +91,15 @@ end
 --- stands in. For a sprite on its own tile this is exactly GrassCover.append.
 function GrassCover.appendFeet(actors, fx, fy, width, py, elevation, idBase)
   if type(fx) ~= "number" or type(fy) ~= "number" or type(py) ~= "number" then return end
-  local sheet = EnginePatch.grassSheet()
-  if not (sheet and sheet.quadsFront) then return end
-  local qStatic = sheet.quadsFront[4]
-  if not qStatic then return end
   local row = math.floor((fy - FEET_H) / CELL)
   if fy < row * CELL + FEET_H or fy > row * CELL + CELL + 2 then return end
   local half = math.max(1, (tonumber(width) or CELL) / 2)
   local first = math.floor((fx - half) / CELL)
   local last = math.floor((fx + half - 1) / CELL)
   for col = first, math.min(last, first + 2) do
-    if EnginePatch.isGrass(col, row) then
+    local sheet, qStatic
+    if EnginePatch.isGrass(col, row) then sheet, qStatic = coverFor(col, row) end
+    if qStatic then
       local gx, gy = col * CELL, row * CELL + (CELL - FEET_H)
       actors[#actors + 1] = {
         kind = "field_effect_wild_grass",

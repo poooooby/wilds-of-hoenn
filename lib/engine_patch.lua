@@ -339,10 +339,12 @@ function EnginePatch.install(hooks, log)
 
   local FieldEffects = loadModule(EnginePatch.TARGETS.collectActors.mod)
   originals.collectActors = FieldEffects.collectActors
-  FieldEffects.collectActors = function(actors)
-    originals.collectActors(actors)
+  -- field_view passes the camera (top-left, world px): handed on to the engine and to
+  -- our hook, which skips wild Pokemon outside the view (EnginePatch.viewSize)
+  FieldEffects.collectActors = function(actors, camX, camY, ...)
+    originals.collectActors(actors, camX, camY, ...)
     if hooks.collectActors then
-      safeCall(log, "collectActors", hooks.collectActors, actors)
+      safeCall(log, "collectActors", hooks.collectActors, actors, camX, camY)
     end
   end
 
@@ -534,7 +536,7 @@ end
 function EnginePatch.hmUsable(key)
   local FieldMoves = loadModule(EnginePatch.READONLY.partyMoveUser.mod)
   if not FieldMoves then return true end
-  local Space = package.loaded["src.core.game3.scripting.space"]
+  local Space = loadModule("src.core.game3.scripting.space")
   if not (Space and Space.store) then return true end
   local okB, badge = pcall(FieldMoves.hasBadge, { store = Space.store }, key)
   if not okB then return true end
@@ -693,7 +695,7 @@ function EnginePatch.canStartInteraction()
     local ok, busy = pcall(Runtime.uiBusy)
     if not ok or busy then return false end
   end
-  local Space = package.loaded["src.core.game3.scripting.space"]
+  local Space = loadModule("src.core.game3.scripting.space")
   if Space and Space.vm and Space.vm.isRunning then
     local ok, running = pcall(Space.vm.isRunning, Space.vm)
     if not ok or running then return false end
@@ -701,6 +703,50 @@ function EnginePatch.canStartInteraction()
   local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
   if not Player or Player.moving or Player.boulderPush then return false end
   return true
+end
+
+--- The roaming legendary as the engine has it RIGHT NOW (roamer.lua Roamer.instance:
+--- species, level, personality, IVs, its current hp / status / sleep, roamer = true), or
+--- nil when there is none or it is no longer active (caught or defeated). A visible
+--- roamer must battle with this, not the copy rolled when it appeared: the battle reads
+--- hp / status from the encounter (battle/init.lua), so a stale copy would heal it.
+function EnginePatch.roamerNow()
+  local okR, Roamer = pcall(loadModule, "src.core.game3.roamer")
+  if not (okR and type(Roamer) == "table" and Roamer.instance) then return nil end
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local ok, inst = pcall(function()
+    local session = Runtime and Runtime.getSession and Runtime.getSession()
+    if not (session and type(session.roamer) == "table" and session.roamer.active) then return nil end
+    return Roamer.instance(session)
+  end)
+  return ok and type(inst) == "table" and inst or nil
+end
+
+--- True while something else owns the field: a script / cutscene running (Wally's
+--- catching tutorial walks the player around), the field locked (a trainer who spotted
+--- the player locks it for the whole approach -- trainer_sight.lua engage), a message,
+--- menu or fade (Hud.busy), a warp, or the field not running at all. No wild battle may
+--- start then, and wild Pokemon must not hold up scripted movement. Unlike
+--- canStartInteraction it does not care whether the player is mid-step.
+function EnginePatch.fieldBusy()
+  local Field = loadModule(EnginePatch.TARGETS.interact.mod)
+  if not Field or not Field.running or Field.locked then return true end
+  local Space = loadModule("src.core.game3.scripting.space")
+  if Space and Space.vm and Space.vm.isRunning then
+    local ok, running = pcall(Space.vm.isRunning, Space.vm)
+    if not ok or running then return true end
+  end
+  local Hud = loadModule(EnginePatch.READONLY.hudBusy.mod)
+  if Hud then
+    local ok, busy = pcall(Hud.busy)
+    if not ok or busy then return true end
+  end
+  local Warp = loadModule("src.core.game3.warp")
+  if Warp and Warp.isBusy then
+    local ok, busy = pcall(Warp.isBusy)
+    if ok and busy then return true end
+  end
+  return false
 end
 
 --- True while the field is not running normally on its own: a battle, a menu,
@@ -939,6 +985,43 @@ function EnginePatch.grassSheet()
   if not FieldEffects then return nil end
   local ok, sheet = pcall(FieldEffects.loadSheet, "tall_grass", 16, 16, 5)
   if ok then return sheet end
+  return nil
+end
+
+--- The grass that covers a standing Pokemon's feet on (cx, cy): `sheet, quad`. Ruby /
+--- Sapphire / Emerald's LONG grass (Routes 119 and 120: FxRse.B.longGrass on the tile's
+--- behaviour) is the engine's `long_grass` sheet at the frame its animation settles on
+--- (the last "frame" command of its manifest sequence -- what the player shows standing
+--- in it, field_effects.lua grass_sheet_for / step); everything else the `tall_grass`
+--- tuft, frame 4 (the engine's own NPC cover). The engine's NPC cover always uses the
+--- tall tuft, so this is where we go past it. nil when no sheet is loaded.
+local longGrassFrame -- cached: the settled frame of long_grass (false = none)
+function EnginePatch.grassCover(cx, cy)
+  local FieldEffects = loadModule(EnginePatch.READONLY.loadFieldEffectSheet.mod)
+  if not FieldEffects then return nil end
+  local ok, long = pcall(function()
+    local R = FieldEffects.rse and FieldEffects.rse()
+    local Collision = EnginePatch.collision()
+    local beh = Collision and Collision.behavior and Collision.behavior(cx, cy)
+    return beh ~= nil and R and R.B and R.B.longGrass and R.B.longGrass(beh) == true
+  end)
+  if ok and long then
+    if longGrassFrame == nil then
+      longGrassFrame = false
+      pcall(function()
+        local o = FieldEffects.manifestObject and FieldEffects.manifestObject("long_grass")
+        for _, cmd in ipairs(o and o.anims and o.anims[1] or {}) do
+          if cmd[1] == "frame" then longGrassFrame = tonumber(cmd[2]) or longGrassFrame end
+        end
+      end)
+    end
+    local okS, sheet = pcall(FieldEffects.loadSheet, "long_grass")
+    local q = okS and sheet and sheet.quadsFront and longGrassFrame and sheet.quadsFront[longGrassFrame]
+    if q then return sheet, q end
+  end
+  local sheet = EnginePatch.grassSheet()
+  local q = sheet and sheet.quadsFront and sheet.quadsFront[4]
+  if q then return sheet, q end
   return nil
 end
 
@@ -1503,7 +1586,7 @@ end
 --- The menu cursor's click (SE_SELECT). No-op when the audio pieces are absent.
 function EnginePatch.playSelect()
   local Audio = loadModule(EnginePatch.READONLY.playSe.mod)
-  local Ids = package.loaded["src.core.game3.se_ids"]
+  local Ids = loadModule("src.core.game3.se_ids")
   if not (Audio and Audio.playSe and Ids and Ids.resolve) then return false end
   return (pcall(function() Audio.playSe(Ids.resolve("SE_SELECT")) end))
 end
@@ -1602,7 +1685,7 @@ end
 
 --- True while a battle owns the screen (the party menu's switch rows differ).
 function EnginePatch.battleActive()
-  local Battle = package.loaded["src.core.game3.battle"]
+  local Battle = loadModule("src.core.game3.battle")
   if not (Battle and Battle.isActive) then return false end
   local ok, active = pcall(Battle.isActive)
   return ok and active == true
@@ -1654,6 +1737,16 @@ function EnginePatch.playerIsRunning()
   local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
   if not Player then return false end
   return Player.running == true
+end
+
+--- The field view's size in world px (field_view.lua sets FieldView._viewW/_viewH each
+--- frame: the canvas it draws), or the GBA screen (240 x 160) when it is not known.
+--- Used with the camera that collectActors receives to skip off-screen wild Pokemon.
+function EnginePatch.viewSize()
+  local ok, FieldView = pcall(loadModule, "src.core.game3.field_view")
+  local w = ok and type(FieldView) == "table" and tonumber(FieldView._viewW)
+  local h = ok and type(FieldView) == "table" and tonumber(FieldView._viewH)
+  return w or 240, h or 160
 end
 
 --- The player's cell as { x, y, moving, targetX, targetY }, or nil when the

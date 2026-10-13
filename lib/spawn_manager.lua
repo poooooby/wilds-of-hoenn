@@ -180,6 +180,10 @@ function SpawnManager:_spawnOne(terrain, cell)
   if not self:_cellFree(cell.x, cell.y) then return false end
   local enc = EnginePatch.rollSweetScent(self.mapId, terrain)
   if not enc then return false end
+  -- The roaming legendary (Suicune / Entei / Raikou, Latias / Latios) is ONE Pokemon:
+  -- the roll returns it on every encounter it wins on the roamer's map (roamer.lua,
+  -- 1 in encounterOdds), so without this a busy map filled up with copies of it.
+  if enc.roamer and self:_roamerOut() then return false end
   -- FireRed / LeafGreen's rules roll no personality: draw it now so the sprite
   -- (shiny, gender) and the battle Pokemon are the same one
   if enc.personality == nil then enc.personality = EnginePatch.randomPersonality() end
@@ -189,13 +193,24 @@ function SpawnManager:_spawnOne(terrain, cell)
   return self:_place(terrain, cell, enc)
 end
 
+--- Whether the roaming legendary is already out on this map (live, or its battle starting).
+function SpawnManager:_roamerOut()
+  for _, e in pairs(self.entities) do
+    if e.roamer and e.state ~= Config.STATE.DESPAWNED then return true end
+  end
+  return false
+end
+
 -- Puts an already rolled encounter on `cell` as a visible wild Pokemon.
 -- `keepShiny` skips the shiny roll (the encounter's own `shiny` stands).
 function SpawnManager:_place(terrain, cell, enc, keepShiny)
   local dex = FormSource.artKeyFor(self.mod, enc.species)
   if not dex then return false end
-  -- the engine's own shiny, plus a shiny chain's bonus (Modern Spawns)
-  if not keepShiny then enc = Shiny.rollForEncounter(enc, ModernSpawns.chainBonus(enc.species)) end
+  -- the engine's own shiny, plus a shiny chain's bonus (Modern Spawns); never a bonus for
+  -- the roamer, whose personality is the engine's saved one
+  if not keepShiny then
+    enc = Shiny.rollForEncounter(enc, not enc.roamer and ModernSpawns.chainBonus(enc.species) or nil)
+  end
 
   local id = self.nextId
   self.nextId = id + 1
@@ -343,12 +358,27 @@ local function poseOf(e)
   return pose
 end
 
+--- Is the entity close enough to the view to be drawn? (camX, camY) = the view's
+--- top-left in world px; no camera = draw everything (an older engine). The margin
+--- covers the biggest sprites, which reach well past their 16 px tile. Drawing only
+--- these matters with gen3-hd-sprites: every tagged draw takes one of its field
+--- layers (12 by default), and off-screen ones used them up.
+local CULL_MARGIN = 128
+local function inView(e, camX, camY, vw, vh)
+  if camX == nil or camY == nil then return true end
+  return e.px > camX - CULL_MARGIN and e.px < camX + vw + CULL_MARGIN
+    and e.py > camY - CULL_MARGIN and e.py < camY + vh + CULL_MARGIN
+end
+SpawnManager._inView = inView
+
 --- Every live wild Pokemon's water reflection, for lib/reflection.lua (the
---- drawBehind hook).
-function SpawnManager:reflections(list)
+--- drawBehind hook). Off-screen ones are skipped when the camera is given.
+function SpawnManager:reflections(list, camX, camY)
+  local vw, vh = 240, 160
+  if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    local r = e and e.state ~= Config.STATE.DESPAWNED and e.renderer
+    local r = e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) and e.renderer
     if r and r.reflectionGeometry then
       local geo = r:reflectionGeometry(e.px, e.py, e.facing, poseOf(e))
       if geo then
@@ -363,10 +393,12 @@ function SpawnManager:reflections(list)
   end
 end
 
-function SpawnManager:collectActors(actors)
+function SpawnManager:collectActors(actors, camX, camY)
+  local vw, vh = 240, 160
+  if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    if e and e.state ~= Config.STATE.DESPAWNED then
+    if e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) then
       local pose = poseOf(e)
       actors[#actors + 1] = {
         kind = "wild_mon", i = id,
@@ -408,7 +440,8 @@ function SpawnManager:fightTargets()
   local out = {}
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight then
+    -- never the roaming legendary: it is met only in a real battle, which keeps its saved state
+    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer then
       out[#out + 1] = e
     end
   end

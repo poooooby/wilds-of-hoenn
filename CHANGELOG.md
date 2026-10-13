@@ -1,6 +1,36 @@
 # Changelog
 
-## 1.7.4-beta.1 (2026-10-13)
+## 1.7.4 (2026-10-13)
+
+### Fixed
+
+- **Cutscenes no longer break when you're walked into a wild Pokemon.** A scene that moves your
+  character (like Wally's catching lesson) started a battle if it walked you onto one, breaking the
+  scene. No wild battle starts while a cutscene runs, and wild Pokemon no longer get in the way of
+  the characters a scene moves.
+- **Trainers no longer freeze when a wild Pokemon reaches you mid-challenge.** If a trainer had
+  spotted you and a wild Pokemon walked into you, a wild battle started and the trainer froze. No
+  wild battle starts while a trainer is coming over.
+- After either, a wild Pokemon left on your tile doesn't jump you the moment the scene ends: step
+  off and back on to battle it.
+- **Only one roaming legendary.** On the map where FireRed / LeafGreen's roaming Raikou, Entei or
+  Suicune (or Emerald's Latias / Latios) was, several of it could appear at once (a player saw 5
+  Suicune). It is one Pokemon: at most one shows up.
+- **The roaming legendary keeps its damage.** Battling it from the overworld started it at full
+  health again; it now has the HP and status it was left with, and if it has been caught or
+  defeated since it appeared, it simply leaves. Your partner's BATTLE role leaves it alone.
+- **With Modern Spawns, no second roaming legendary.** Modern Spawns' rare legendary spawns no
+  longer place the species that is still roaming. Once you catch it, Modern Spawns stops offering
+  it as usual; if you defeat it instead, Modern Spawns can still offer it as a second chance.
+- **Wild Pokemon sink into the extra-tall grass of Routes 119 and 120** the way you do, instead of
+  showing the short-grass tuft at their feet.
+- **Every Pokemon on screen keeps its Gen 3 HD Sprites size.** Wild Pokemon far off screen were
+  drawn every frame too, and each used up one of Gen 3 HD Sprites' layers (12): on a busy route
+  some Pokemon you could see were left at their small size. Only the ones near the screen are
+  drawn now (less work on every device too).
+- **Several checks that never worked now do:** the reachable area respects the badges Cut, Rock
+  Smash and Strength need; your partner's menu doesn't open during a script; the party menu knows
+  when a battle is on; the menu's select sound plays.
 
 ### Changed
 
