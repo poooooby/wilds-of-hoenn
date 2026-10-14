@@ -426,6 +426,9 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
     end
     tint = 0.55 + 0.45 * mul
   end
+  -- a flying Pokemon high up is drawn bigger (lib/sky_draw.lua), grown about its feet
+  local grow = act and tonumber(act.scale)
+  if grow and grow > 0 then mul = mul * grow end
   local sink = act and tonumber(act.sink) or 0
   if sink >= 1 then return end
   local flash = act and tonumber(act.flash) or 0

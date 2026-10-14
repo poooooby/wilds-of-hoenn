@@ -79,6 +79,48 @@ do
   end
 end
 
+-- Flying Pokemon in the sky (lib/sky_flyers.lua, lib/perch_spots.lua): the engine pieces
+-- EnginePatch's sky helpers read. They fail soft (no answer = no birds / no perches), so
+-- this is what catches a rename.
+do
+  local okM, Map = pcall(require, "src.core.game3.map")
+  check(okM and type(Map.worldMidAt) == "function", "engine: Map.worldMidAt (perches: a cell's metatile)")
+  check(okM and type(Map.currentDef) == "function", "engine: Map.currentDef (sky: map type, cave flag, signs)")
+  check(okM and (Map.neighborList == nil or type(Map.neighborList) == "table"), "engine: Map.neighborList (town birds)")
+  check(okM and type(Map.loadNeighborsDepth1) == "function", "engine: Map.loadNeighborsDepth1 fills neighborList")
+  local okT, NT = pcall(require, "src.core.game3.tileset_native")
+  check(okT and type(NT.get) == "function" and type(NT.slotFor) == "function",
+    "engine: NativeTileset.get / slotFor (perches: does a metatile draw over actors)")
+  local okW, FW = pcall(require, "src.core.game3.field_weather")
+  check(okW and type(FW.getWeather) == "function", "engine: FieldWeather.getWeather (fewer birds in rain)")
+  local okP, P = pcall(require, "src.core.game3.pokemon")
+  check(okP and type(P.types) == "function", "engine: Pokemon.types (which species fly)")
+  local okD, D = pcall(require, "src.core.game3.dataset")
+  check(okD and type(D.isOutdoorMapType) == "function" and D.isOutdoorMapType(3) and not D.isOutdoorMapType(8),
+    "engine: map types 3 = route (outdoor), 8 = indoor, as EnginePatch.skyAllowed reads them")
+  -- tileset_native.lua's over-layer blob layout, which EnginePatch.coversActors reads
+  local src = io.open("src/core/game3/tileset_native.lua", "rb")
+  local text = src and src:read("*a") or ""
+  if src then src:close() end
+  check(text:find("local base = 13 + midCount * 2", 1, true) ~= nil and text:find("blob:byte(7) + blob:byte(8) * 256", 1, true) ~= nil,
+    "engine: the over-layer blob still has a 12-byte header + 2 bytes per metatile + 256 per slot")
+  local EP = loadEnginePatch()
+  check(type(EP.isFlying) == "function" and type(EP.coversActors) == "function", "mod: the sky helpers exist")
+  local okX, Dex = pcall(require, "src.core.game3.pokedex_data")
+  check(okX and type(Dex.init) == "function", "engine: PokedexData.init (bird rule: Pokedex height)")
+  local hG = EP.heightDm(130) -- internal id 130 = Gyarados (same number as its national one)
+  if hG then
+    check(hG == 65, "engine data: Gyarados is 6.5 m in the Pokedex (" .. tostring(hG) .. ")")
+  else
+    print("note: no Pokedex entries in this checkout -- the height rule is not checked")
+  end
+  -- Taillow (national 276) is Normal / Flying in the engine's own data
+  local okI, internal = pcall(P.speciesFromNational, 276)
+  if okI and internal then
+    check(EP.isFlying(internal), "engine data: Taillow is a Flying type")
+  end
+end
+
 -- Water reflections and ripples for wild Pokemon and the follower (lib/reflection.lua,
 -- EnginePatch.reflectionKind/reflectiveAt/reflectionWobble/coverReflections/
 -- ripplesAt/startRipple, and the optional drawBehind wrap): every engine piece they

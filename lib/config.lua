@@ -10,6 +10,7 @@ Config.DEFAULTS = {
   wild_silhouettes = "off",
   species_sizes = true,
   spawn_amount = "normal",
+  flyers = true,
 }
 
 Config.STATE = {
@@ -45,6 +46,51 @@ Config.SPAWN_AMOUNT = {
 -- a battle with one starts with the foe's evasion at `evasion` stages (-1 = 75%, like the
 -- in-battle move). They come on top of the Spawn Amount target.
 Config.SWEET_SCENT = { min = 2, max = 3, minDist = 1, maxDist = 4, lureTicks = 3600, evasion = -1 }
+
+-- Flying Pokemon in the sky (lib/sky_flyers.lua, lib/flight_path.lua, lib/sky_draw.lua),
+-- 60 Hz ticks / px. The camera looks straight down, so a bird higher up is CLOSER to it:
+-- bigger (`scale`), sliding faster across the ground (`parallax`, about the view's
+-- centre) and out of focus (`blur`, px of the drawn sprite), hazed toward the sky and
+-- see-through. `h` 0 = low (landing, perched), 0.5 = mid, 1 = high; between, interpolated.
+Config.FLYERS = {
+  layers = {
+    { h = 0,   scale = 1.0, parallax = 1.0,  blur = 0,   alpha = 1.0,  haze = 0,    shadow = 0.32 },
+    { h = 0.5, scale = 1.4, parallax = 1.25, blur = 1.0, alpha = 0.85, haze = 0.18, shadow = 0.12 },
+    { h = 1,   scale = 2.0, parallax = 1.6,  blur = 2.5, alpha = 0.55, haze = 0.35, shadow = 0 },
+  },
+  sharpBelow = 0.15, sharpAbove = 0.25, -- low birds draw sharp (gen3-hd-sprites sized); crossfade between
+  haze = { 0.86, 0.93, 1.0 },           -- the sky colour far birds fade toward
+  flapTicks = 6,                        -- HGSS wing beat (walkA / walkB)
+  -- the occasional bird overhead: one at a time, every 30-70 s, crossing the TOP of the screen
+  -- (its feet within the top `band` of the view) on a gentle arc of `arc` px, never straight
+  passer = { every = { 1800, 4200 }, max = 1, maxHigh = 1, ticks = { 300, 480 }, highTicks = { 240, 360 },
+             band = 0.22, arc = { 6, 16 } },
+  -- a swoop (landing, perching, diving, leaving) starts / ends off screen, mid or high up
+  -- (startH, in hundredths), from any side, curving so its path never comes within
+  -- `clearRadius` tiles of the player; a wild Pokemon that close arrives / leaves the usual way
+  swoop = { startH = { 55, 100 }, clearRadius = 3, arc = { 10, 28 } },
+  perch = { every = { 600, 1500 }, max = 2, stay = { 600, 2400 }, fidget = { 180, 480 },
+            flyTicks = { 80, 110 }, scatter = 2, scatterRunning = 3, cryChance = 0.2 },
+  dive = { every = { 900, 2400 }, under = { 120, 300 }, flyTicks = { 70, 90 }, sinkTicks = 14 },
+  -- a wild Flying-type Pokemon arriving / leaving by air instead of rising out of the grass
+  land = { flyTicks = { 80, 100 }, perchChance = 0.4, perchRange = 4, sit = { 180, 480 }, hopTicks = 22,
+           groundStay = { 2700, 7200 } },
+  hopHeight = 3, hopTicks = 12,         -- a perched bird's little hop
+  perchLift = { canopy = 6, sign = 10 },
+  stormSlowdown = 2,                    -- rain / sandstorm: everything comes this many times less often
+  -- which Flying types are birds (lib/sky_flyers.lua SkyFlyers.flies): none taller than
+  -- maxBirdHeightDm in the Pokedex (decimetres: Gyarados 65, Rayquaza 70), and none of
+  -- `notBirds` (national dex): the flightless Doduo, Dodrio, Delibird, and those the flyer
+  -- audit ruled out (no art that reads as flying; tools/generate_pmd_sprites.py FLY_SOURCE
+  -- holds what the others fly with)
+  notBirds = {
+    [6] = true, [36] = true, [84] = true, [85] = true, [163] = true, [178] = true, [225] = true,
+    [587] = true, [629] = true, [641] = true, [642] = true, [645] = true, [732] = true,
+    [733] = true, [905] = true, [993] = true,
+  },
+  maxBirdHeightDm = 30,
+  maxAmbientWidth = 56,                 -- px: bigger art stays out of the ambient sky (it would cover the view)
+}
 
 -- Idle wing-flap for floating/flying species: logic ticks each pose of the
 -- walkA/stand/walkB/stand cycle is held (~1.3s per full cycle at 60 ticks/s).
@@ -356,7 +402,13 @@ function Config.spawnAmount(mod)
   return Config.SPAWN_AMOUNT[v] or Config.SPAWN_AMOUNT.normal, Config.SPAWN_AMOUNT[v] and v or "normal"
 end
 
-local VALID_SILHOUETTE = { off = true, undiscovered = true, all = true }
+--- The Flying Mons option: birds in the sky, perching, and wild Flying-type Pokemon
+--- arriving / leaving by air. On unless switched off.
+function Config.flyersOn(mod)
+  return optGet(mod, "flyers") ~= false
+end
+
+local VALID_SILHOUETTE ={ off = true, undiscovered = true, all = true }
 function Config.silhouetteMode(mod)
   local v = optGet(mod, "wild_silhouettes")
   if VALID_SILHOUETTE[v] then return v end

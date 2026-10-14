@@ -16,7 +16,12 @@ python3 tools/copy_wilds_assets.py
 python3 tools/generate_true_size_18frame.py --report   # inspect detected column roles first
 python3 tools/generate_true_size_18frame.py
 
-# Optional: bake the PMDCollab sheets, portraits and swim bands (needs ../SpriteCollab)
+# Optional: bake the PMDCollab sheets, portraits and swim bands (needs ../SpriteCollab).
+# Also bakes the optional "fly" sheets birds in the sky fly with: a real Hover-Anim.png, or the
+# animation the flyer audit picked per species (FLY_SOURCE: FlapAround's wing beat, Attack,
+# Special0, Hop; "Walk" = none, the runtime falls back to Walk). An animation with no shiny
+# upstream is recoloured: from the species' own shiny Walk when the two Walk sheets line up,
+# else from its HGSS normal/shiny colours (shift in Lab, keeping the PMD shading).
 python3 tools/generate_pmd_sprites.py
 python3 tools/validate_pmd_sprites.py
 

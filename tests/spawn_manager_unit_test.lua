@@ -756,6 +756,155 @@ do
   MS.chainBonus = realBonus
 end
 
+-- ------- Flying types arrive and leave by air (lib/sky_flyers.lua)
+do
+  local C = V.require("config")
+  local SkyFlyers = V.require("sky_flyers")
+  fakeEngine.isFlying = function(s) return s == 999 end
+  fakeEngine.isWaterType = function() return false end
+  fakeEngine.skyAllowed = function() return true end
+  fakeEngine.mapType = function() return 3 end
+  fakeEngine.neighbourMapIds = function() return {} end
+  fakeEngine.weatherId = function() return 0 end
+  fakeEngine.isWall = function() return false end
+  fakeEngine.coversActors = function() return false end
+  fakeEngine.objectOn = function() return false end
+  fakeEngine.isWarpCell = function() return false end
+  fakeEngine.signCells = function() return {} end
+  fakeEngine.playerIsRunning = function() return false end
+  local realBounds = fakeEngine.mapBounds
+  fakeEngine.mapBounds = function() return 40, 5 end
+  local realPlayer = fakeEngine.playerCell
+  local player = { x = 200, y = 200, moving = false } -- far away: every spawn may fly
+  fakeEngine.playerCell = function() return player end
+
+  SkyFlyers._resetFlies() -- earlier sections asked with no isFlying in the fake engine
+  local smS = SpawnManager.new(mod)
+  local sky = SkyFlyers.new(mod)
+  smS.sky = sky
+  sky:onMapEntered("ROUTE_1")
+  smS:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local before = smS:count()
+  local anyFx = false
+  for _, e in pairs(smS.entities) do
+    if e.fx then anyFx = true end
+    check(e.isFlyer, "a Flying-type spawn is marked a flyer")
+  end
+  check(not anyFx, "the map's first fill is instant, nobody swoops")
+
+  -- one goes: the refill's new one comes down from the sky
+  local firstId = smS.order[1]
+  smS:despawn(firstId)
+  smS:tick(smS.game)
+  eq(smS:count(), before, "the refill replaces it at once (it counts while still in the air)")
+  local lander
+  for _, e in pairs(smS.entities) do if e.fx and e.fx.mode == "swoop" then lander = e end end
+  check(lander ~= nil and lander.fx.kind == "land", "the new Flying type swoops in instead of rising out of the grass")
+  if lander then
+    eq(smS:entityAt(lander.cellX, lander.cellY), nil, "in the air: it cannot be met (no contact, no block)")
+    local targets = 0
+    for _, t in ipairs(smS:fightTargets()) do if t == lander then targets = targets + 1 end end
+    eq(targets, 0, "...nor fought by the Battler")
+    local actors = {}
+    smS:collectActors(actors, 0, 0)
+    local skyActor = false
+    for _, a in ipairs(actors) do
+      if a.kind == "sky_mon" or a.kind == "sky_mon_far" or a.kind == "sky_shadow" then skyActor = true end
+      check(a.i ~= lander.id or a.kind ~= "wild_mon", "it is not drawn as a ground actor while flying")
+    end
+    check(skyActor, "it is drawn as a flyer")
+    for _ = 1, 400 do smS:tick(smS.game) if not lander.fx then break end end
+    eq(lander.fx, nil, "it lands")
+    eq(smS:entityAt(lander.cellX, lander.cellY), lander, "landed: it can be met")
+    eq(lander.state, "available", "...and is an ordinary wild Pokemon")
+  end
+
+  -- leaving: a Flying type takes off instead of sinking
+  local leaverId = smS.order[1]
+  smS:despawn(leaverId, { animate = true })
+  local leaver = smS.entities[leaverId]
+  check(leaver and leaver.state == "leaving" and leaver.fx and leaver.fx.mode == "swoop" and leaver.fx.kind == "leave",
+    "an animated despawn of a Flying type: it flies off")
+  for _ = 1, 400 do smS:tick(smS.game) if not smS.entities[leaverId] then break end end
+  eq(smS.entities[leaverId], nil, "...and is gone once out of sight")
+
+  -- churn: after its time on the ground a flyer takes off by itself
+  local stayer
+  for _, e in pairs(smS.entities) do if e.state == "available" and not e.fx then stayer = e break end end
+  if stayer then
+    stayer.groundStay, stayer.groundAge, stayer.moving = 1, 0, false
+    stayer.ticksUntilAction = 999
+    smS:tick(smS.game)
+    check(stayer.state == "leaving" and stayer.fx and stayer.fx.kind == "leave", "a flyer leaves after its ground stay")
+  end
+
+  -- the player walks onto its cell while it comes down: it takes straight off again
+  for _ = 1, 400 do smS:tick(smS.game) end
+  local victimId = smS.order[1]
+  smS:despawn(victimId)
+  smS:tick(smS.game)
+  local incoming
+  for _, e in pairs(smS.entities) do if e.fx and e.fx.kind == "land" then incoming = e end end
+  if incoming then
+    player.x, player.y = incoming.cellX, incoming.cellY
+    for _ = 1, 400 do smS:tick(smS.game) if incoming.state ~= "available" or not incoming.fx then break end end
+    eq(incoming.state, "leaving", "landing on the player: it takes off again instead")
+    check(not (incoming.fx and incoming.fx.mode == "swoop"), "...the usual way: right by the player, no swoop")
+    player.x, player.y = 200, 200
+  else
+    check(false, "a lander came for the player test")
+  end
+
+  -- a spawn within 3 tiles of the player arrives the usual way (no swoop up close)
+  do
+    for _ = 1, 400 do smS:tick(smS.game) end
+    local id = smS.order[1]
+    local cell = smS.entities[id]
+    player.x, player.y = cell.cellX + 1, cell.cellY
+    smS:despawn(id)
+    -- refill picks any free cell: count what arrives near the player
+    local near, swoopNear = 0, 0
+    for _ = 1, 30 do
+      local victim = smS.order[1]
+      smS:despawn(victim)
+      smS:tick(smS.game)
+      for _, e in pairs(smS.entities) do
+        if e.fx and (e.fx.kind == "land" or e.fx.kind == "appear") and e.fxSeen == nil then
+          e.fxSeen = true
+          if math.max(math.abs(e.cellX - player.x), math.abs(e.cellY - player.y)) <= 3 then
+            near = near + 1
+            if e.fx.mode == "swoop" then swoopNear = swoopNear + 1 end
+          end
+        end
+      end
+    end
+    check(near > 0, "some spawns came within 3 tiles of the player")
+    eq(swoopNear, 0, "...and none of them swooped in")
+    player.x, player.y = 200, 200
+    for _ = 1, 400 do smS:tick(smS.game) end
+  end
+
+  -- Flying Mons off: the usual rise / fade
+  optionStore.flyers = false
+  for _ = 1, 400 do smS:tick(smS.game) end
+  local plainId = smS.order[1]
+  smS:despawn(plainId)
+  smS:tick(smS.game)
+  local plain
+  for _, e in pairs(smS.entities) do if e.fx and e.fx.kind == "appear" then plain = e end end
+  check(plain ~= nil and plain.fx.mode ~= "swoop", "Flying Mons off: it arrives the usual way")
+  optionStore.flyers = nil
+
+  -- a map change mid-flight frees everything at once
+  smS:clearAll()
+  eq(smS:count(), 0, "a map change clears flyers too")
+
+  fakeEngine.isFlying = nil
+  fakeEngine.mapBounds = realBounds
+  fakeEngine.playerCell = realPlayer
+  check(C.FLYERS.land.groundStay[1] > 0, "a flyer stays a while on the ground")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

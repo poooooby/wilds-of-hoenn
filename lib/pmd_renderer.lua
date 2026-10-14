@@ -155,14 +155,27 @@ end
 --- One field tick of a named animation ("attack", "hurt", ...) instead of
 --- Walk / Idle -- the overworld fights. A species with no such sheet gets a
 --- rapid Idle in its place, so every Pokemon has something to show.
-function PmdRenderer:advanceAs(anim, speed)
-  local want = (self.info and self.info[anim]) and anim or "idle"
+--- `fallback` (default a rapid Idle): the animation shown when the species has no
+--- `anim` sheet, at `speed` (flying falls back to Walk, which for most birds is a flap).
+function PmdRenderer:advanceAs(anim, speed, fallback)
+  local want = (self.info and self.info[anim]) and anim or nil
   local rate = speed or 1
-  if want ~= anim then rate = rate * 3 end
+  if not want then
+    if fallback and self.info and self.info[fallback] then
+      want = fallback
+    else
+      want, rate = "idle", rate * 3
+    end
+  end
   if want ~= self.anim then
     self.anim, self.clock, self.idleHold = want, 0, 0
   end
   self.clock = self.clock + rate
+end
+
+--- Holds the first frame of Idle, not playing it (a perched bird with its wings folded).
+function PmdRenderer:holdIdle()
+  self.anim, self.clock, self.idleHold = "idle", 0, 0
 end
 
 --- The size gen3-hd-sprites draws this sprite at on top of its own (its Species
@@ -325,6 +338,9 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     scale = scale * mul
     tint = 0.55 + 0.45 * mul
   end
+  -- a flying Pokemon high up is drawn bigger (lib/sky_draw.lua), grown about its ground point
+  local grow = act and tonumber(act.scale)
+  if grow and grow > 0 then scale = scale * grow end
   local dx, dy
   if crop then
     dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_SWIM_Y or 18, x - camX, y - camY, bandCrop)

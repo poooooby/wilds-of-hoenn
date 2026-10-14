@@ -70,6 +70,7 @@ return function(mod)
   local Reflection = V.require("reflection")
   local ModernSpawns = V.require("modern_spawns_bridge")
   local Shiny = V.require("shiny")
+  local SkyFlyers = V.require("sky_flyers")
 
   Config.defineOptions(mod)
   HdField.setSpeciesSizes(Config.get(mod, "species_sizes"))
@@ -106,6 +107,11 @@ return function(mod)
   end
 
   local spawnManager = SpawnManager.new(mod)
+  -- flying Pokemon in the sky; wild Flying types arrive and leave through it
+  local skyFlyers = SkyFlyers.new(mod, {
+    occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
+  })
+  spawnManager.sky = skyFlyers
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
   local companion = Companion.new(mod)
   local partyRoles = PartyRoles.new(companion)
@@ -125,6 +131,7 @@ return function(mod)
   })
 
   mod.exports.spawnManager = spawnManager
+  mod.exports.skyFlyers = skyFlyers
   mod.exports.battleTrigger = battleTrigger
   mod.exports.followerAdapter = followerAdapter
   mod.exports.portraitUI = portraitUI
@@ -175,6 +182,7 @@ return function(mod)
   local installed = EnginePatch.install({
     collectActors = function(actors, camX, camY)
       spawnManager:collectActors(actors, camX, camY)
+      skyFlyers:collectActors(actors, camX, camY)
       followerAdapter:collectActors(actors)
     end,
     -- See lib/battle_trigger.lua's header: exceptLocalId == nil is the
@@ -242,6 +250,7 @@ return function(mod)
     end,
     followerTick = function(game)
       spawnManager:tick(game)
+      skyFlyers:tick()
       followerInteraction:tick(game)
       battleTrigger:checkContact()
       followerAdapter:tick()
@@ -257,6 +266,7 @@ return function(mod)
 
   mod.events:on("map.entered", function(ev)
     local ok2, err = pcall(function()
+      skyFlyers:onMapEntered(ev and ev.mapId)
       spawnManager:onMapEntered(ev and ev.mapId, mod.world and mod.world.game)
       followerAdapter:mapChanged()
     end)
@@ -299,6 +309,7 @@ return function(mod)
 
   mod.events:on("map.exited", function(_ev)
     pcall(function() spawnManager:onMapExited() end)
+    pcall(function() skyFlyers:onMapExited() end)
   end)
 
   -- Classic Encounters: suppresses the vanilla step-based land/water roll
@@ -345,12 +356,16 @@ return function(mod)
     elseif ev.key == "spawn_amount" then
       -- raised: refill tops up on the next tick; lowered: the extras go now
       pcall(function() spawnManager:trimToAmount() end)
+    elseif ev.key == "flyers" then
+      local current = mod.world and mod.world:current()
+      pcall(function() skyFlyers:onOptionChanged(current and current.mapId) end)
     elseif ev.key == "species_sizes" then
       HdField.setSpeciesSizes(ev.value)
     elseif ev.key == "sprite_style" then
       -- Re-point every already-spawned entity's renderer immediately,
       -- rather than waiting for the next map transition.
       spawnManager:refreshSpriteStyle()
+      skyFlyers:clear() -- the ambient birds come back in the new style
     end
   end)
 

@@ -1557,6 +1557,187 @@ function EnginePatch.mapType()
   return tonumber(def.mapType)
 end
 
+-- ------- flying Pokemon in the sky (lib/sky_flyers.lua) ----------------------
+-- None of these are probed: each fails soft (no answer -> no birds / no perch), so an
+-- engine change can only switch the sky off, never the mod.
+
+local TYPE_FLYING, TYPE_WATER = 2, 11 -- battle/types.lua
+
+--- pokemon.lua:303 Pokemon.types(species) -> its two type ids (0, 0 when unknown).
+function EnginePatch.speciesTypes(species)
+  local Pokemon = loadModule(EnginePatch.READONLY.speciesTypes.mod)
+  if not (Pokemon and Pokemon.types) then return 0, 0 end
+  local ok, t = pcall(Pokemon.types, species)
+  if not (ok and type(t) == "table") then return 0, 0 end
+  return tonumber(t[1]) or 0, tonumber(t[2]) or 0
+end
+
+--- pokedex_data.lua: a species' Pokedex height in decimetres, by the engine's INTERNAL
+--- species id (the entries are keyed by it: 304 = Taillow); nil when the Pokedex has no
+--- entry for it.
+function EnginePatch.heightDm(species)
+  species = tonumber(species)
+  if not species or species <= 0 then return nil end
+  local Dex = loadModule("src.core.game3.pokedex_data")
+  if not (Dex and Dex.init) then return nil end
+  local ok = pcall(Dex.init)
+  local raw = ok and type(Dex._entries) == "table" and Dex._entries[species]
+  local h = type(raw) == "table" and tonumber(raw.height)
+  return (h and h > 0) and h or nil
+end
+
+local flyingCache = {}
+--- Is the species Flying-type (either type)? Cached per species.
+function EnginePatch.isFlying(species)
+  species = tonumber(species)
+  if not species then return false end
+  local hit = flyingCache[species]
+  if hit == nil then
+    local a, b = EnginePatch.speciesTypes(species)
+    hit = a == TYPE_FLYING or b == TYPE_FLYING
+    -- 0 / 0 is also what an engine that has not loaded its type table yet answers: only a
+    -- real answer is kept
+    if a ~= 0 or b ~= 0 then flyingCache[species] = hit end
+  end
+  return hit
+end
+
+--- Is the species Water-type (either type)? (A sea bird dives for food.)
+function EnginePatch.isWaterType(species)
+  local a, b = EnginePatch.speciesTypes(species)
+  return a == TYPE_WATER or b == TYPE_WATER
+end
+
+local function currentDef()
+  local Map = loadModule(EnginePatch.READONLY.mapCurrentDef.mod)
+  if not (Map and Map.currentDef) then return nil end
+  local ok, def = pcall(Map.currentDef)
+  return ok and type(def) == "table" and def or nil
+end
+
+--- Is there open sky over this map: a town, city, route or ocean route (map_types.h 1,
+--- 2, 3, 6) that is not flagged a cave, nor a Battle Pike / Pyramid floor. False when
+--- unknown: no birds indoors, underground, under water.
+function EnginePatch.skyAllowed(mapId)
+  local def = currentDef()
+  local mt = def and tonumber(def.mapType)
+  if not (mt == 1 or mt == 2 or mt == 3 or mt == 6) then return false end
+  local cave = def.cave
+  if cave == true or (tonumber(cave) or 0) ~= 0 then return false end
+  if mapId ~= nil and EnginePatch.isSweetScentFacility(mapId) then return false end
+  return true
+end
+
+--- The ids of the maps joined to this one (map.lua:36 Map.neighborList, filled on every
+--- map load from the header's connections). Empty when unknown.
+function EnginePatch.neighbourMapIds()
+  local Map = loadModule(EnginePatch.READONLY.mapCurrentDef.mod)
+  local out = {}
+  if not (Map and type(Map.neighborList) == "table") then return out end
+  for _, n in ipairs(Map.neighborList) do
+    local id = type(n) == "table" and (n.mapId or n.map)
+    if id ~= nil then out[#out + 1] = id end
+  end
+  return out
+end
+
+--- The current weather id (weather.lua: 3 rain, 5 thunderstorm, 6 / 9 fog, 8 sandstorm,
+--- 13 downpour ...), or nil.
+function EnginePatch.weatherId()
+  local FieldWeather = loadModule("src.core.game3.field_weather")
+  if not (FieldWeather and FieldWeather.getWeather) then return nil end
+  local ok, id = pcall(FieldWeather.getWeather)
+  return ok and tonumber(id) or nil
+end
+
+-- (pair .. ":" .. mid) -> true / false: does that metatile draw anything over actors.
+-- Cached, because the tileset's over-layer bytes are dropped when it leaves memory.
+local coverCache = {}
+local function metatileCovers(ts, mid)
+  local NativeTileset = loadModule("src.core.game3.tileset_native")
+  if not (NativeTileset and NativeTileset.slotFor) then return nil end
+  local okS, slot = pcall(NativeTileset.slotFor, ts, mid)
+  if not okS or type(slot) ~= "number" then return nil end
+  -- tileset_native.lua scan_slot: a 12-byte header, two bytes per metatile, then 256
+  -- palette-index bytes (16 x 16 pixels) per atlas slot; 0 = transparent
+  local blob = ts.overBlob
+  if type(blob) == "string" and #blob > 12 then
+    local midCount = blob:byte(7) + blob:byte(8) * 256
+    local base = 13 + midCount * 2 + slot * 256
+    if base + 255 > #blob then return false end
+    for i = base, base + 255 do
+      if blob:byte(i) ~= 0 then return true end
+    end
+    return false
+  end
+  local data = ts.overImageData -- the same pixels as an image (blob already trimmed)
+  if data and data.getPixel and ts.cols then
+    local sx, sy = (slot % ts.cols) * 16, math.floor(slot / ts.cols) * 16
+    for y = sy, sy + 15 do
+      for x = sx, sx + 15 do
+        local ok, _, _, _, a = pcall(data.getPixel, data, x, y)
+        if ok and a and a > 0 then return true end
+      end
+    end
+    return false
+  end
+  return nil
+end
+
+--- Does the map's own metatile at (x, y) draw over actors -- a tree canopy, a roof (the
+--- upper map layer, field_view.lua drawNativeOverTiles)? Map tiles only: objects (a Cut
+--- tree) are not part of it. nil when it cannot be told.
+function EnginePatch.coversActors(x, y)
+  local Map = loadModule(EnginePatch.READONLY.mapCurrentDef.mod)
+  local NativeTileset = loadModule("src.core.game3.tileset_native")
+  if not (Map and Map.worldMidAt and NativeTileset and NativeTileset.get) then return nil end
+  local def = currentDef()
+  if not def then return nil end
+  local okM, mid, pair = pcall(Map.worldMidAt, x, y, def)
+  if not (okM and mid and pair) then return nil end
+  local key = tostring(pair) .. ":" .. tostring(mid)
+  local hit = coverCache[key]
+  if hit ~= nil then return hit end
+  local okT, ts = pcall(NativeTileset.get, pair)
+  if not (okT and type(ts) == "table") then return nil end
+  if not ts.layered then coverCache[key] = false return false end
+  local covers = metatileCovers(ts, mid)
+  if covers ~= nil then coverCache[key] = covers end
+  return covers
+end
+
+--- Is (x, y) an object's cell (an NPC, an item ball, a Cut tree, a boulder)?
+function EnginePatch.objectOn(x, y)
+  local Objects = loadModule(EnginePatch.READONLY.objectAt.mod)
+  if not (Objects and Objects.at) then return false end
+  local ok, obj = pcall(Objects.at, x, y)
+  return ok and obj ~= nil
+end
+
+--- The current map's signposts: { {x, y}, ... } from its background events
+--- (scripting/space.lua:200 def.bgEvents, type "sign"). Outdoors these are signs; the
+--- caller only asks outdoors. Empty when unknown.
+function EnginePatch.signCells()
+  local def = currentDef()
+  local out = {}
+  local list = def and def.bgEvents
+  if type(list) ~= "table" then return out end
+  for _, ev in ipairs(list) do
+    if type(ev) == "table" and ev.type == "sign" and tonumber(ev.x) and tonumber(ev.y) then
+      out[#out + 1] = { x = tonumber(ev.x), y = tonumber(ev.y) }
+    end
+  end
+  return out
+end
+
+--- Is (x, y) a cell nothing can walk onto (a wall, a tree trunk, a roof)?
+function EnginePatch.isWall(x, y)
+  local Collision = EnginePatch.collision()
+  if not (Collision and Collision.isWalkable) then return false end
+  local ok, walkable = pcall(Collision.isWalkable, x, y)
+  return ok and walkable == false
+end
+
 --- Is (x, y) one of the current map's warp tiles -- a door, a cave mouth, stairs,
 --- a ladder, an escalator (map.lua's def.warps, the same list warping reads)?
 --- False with no map loaded. The follower uses it to walk out of a doorway

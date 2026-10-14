@@ -56,6 +56,10 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
 - 🌊 **Water that feels like water:** Pokémon swim with a foam line on the water, leave ripples
   on ponds and puddles, and cast reflections like the player and NPCs do.
+- 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
+  softly out of focus the higher it flies. Birds perch on trees, roofs and signposts (and fly off
+  when you walk up), sea birds dive into the water for food, and wild Flying types swoop in from
+  off screen to land in the grass, or take off again, always curving around you.
 - 🌾 **Small touches:** Pokémon sink into tall grass, your partner fades in as you step out of a
   door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art.
 - 📏 **True-to-life sizes** (with [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites)):
@@ -69,6 +73,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 |---|---|---|---|
 | **Show Wild Mons** | On / Off | On | Visible wild Pokémon in areas with wild encounters. |
 | **Spawn Amount** | Low / Normal / High | Normal | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
+| **Flying Mons** | On / Off | On | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. |
 | **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
 | **Classic Enc** | On / Off | On | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
 | **Silhouette** | Off / Undiscovered / All | Off | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |

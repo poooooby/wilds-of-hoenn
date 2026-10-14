@@ -28,6 +28,13 @@ return {
     description = "How many wild Pokemon are out at once, for grass and water each, growing with the size of the area. Low: about half (up to 4). Normal: up to 8. High: about one and a half times (up to 12).",
   },
   {
+    key = "flyers",
+    label = "Flying Mons",
+    type = "toggle",
+    default = true,
+    description = "Flying Pokemon in the sky: birds of the area pass overhead, perch on trees, roofs and signposts, and sea birds dive for food. Wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Off: none of it, wild Pokemon all arrive the usual way.",
+  },
+  {
     key = "sprite_style",
     label = "Sprite Style",
     type = "choice",

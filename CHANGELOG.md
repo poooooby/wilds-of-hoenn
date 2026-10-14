@@ -4,11 +4,32 @@
 
 ### Added
 
+- **Flying Pokemon in the sky (Flying Mons option, on by default).** Now and then one of the
+  area's birds crosses the top of the screen in a gentle arc: the higher it flies, the bigger,
+  faster and more out of focus it looks, since it is closer to the camera. Birds land on tree tops,
+  roofs and signposts, sit with folded wings (turning or hopping now and then), and fly off after
+  a while or when you walk up. Sea birds dive into open water for food with a splash and come back
+  up. Wild Flying-type Pokemon swoop in from off screen to land in the grass or on the water
+  instead of rising out of it, sometimes stopping on a tree first, and take off again after a
+  while; their flight always curves around you, and one that appears right next to you (within 3
+  tiles) arrives the usual way. Only real fliers count: Flying types taller than 3 m (Gyarados,
+  Rayquaza), flightless ones (Doduo, Dodrio, Delibird) and a few whose art does not look like
+  flying (Charizard, Hoothoot, Xatu, Emolga and others) stay on the ground. In towns, birds from
+  the routes around them perch on the roofs. No birds in caves or indoors, fewer in rain.
+  PMDCollab birds fly with the animation picked for each one: their own hover loop,
+  a wing beat (Pidgey, Taillow), a glide (Dragonite), or their walk cycle.
+
 - **Spawn Amount option: Low / Normal / High.** Normal is the same number of wild Pokemon as
   before. Low is about half (up to 4 each in grass and water), High about one and a half times (up
   to 12 each). Lowering it takes effect at once, the farthest Pokemon leaving first.
 
 ### Changed
+
+- **Every PMDCollab Pokemon has a shiny look now.** 39 species (Tranquill, Flamigo, Bombirdier,
+  Squawkabilly, the Alcremie flavours, Ogerpon's masks and more) had no shiny PMDCollab art, so a
+  shiny one looked normal. Their shiny is now made from their HGSS shiny colours, keeping the
+  PMDCollab shading. A few others missing one animation's shiny (Archen, Marshadow ...) are filled
+  in the same way.
 
 - **Wild Pokemon arrive instead of popping in.** A new one rises out of the grass while the
   grass rustles (the extra-tall grass of Routes 119 and 120 with its own rustle), surfaces from
