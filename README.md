@@ -4,6 +4,9 @@
 
 # Wilds of Hoenn 🌿
 
+[![Total downloads](https://img.shields.io/github/downloads/poooooby/wilds-of-hoenn/total?label=downloads)](https://github.com/poooooby/wilds-of-hoenn/releases)
+[![Latest release](https://img.shields.io/github/v/release/poooooby/wilds-of-hoenn?label=latest)](https://github.com/poooooby/wilds-of-hoenn/releases/latest)
+
 *The tall grass is alive. Wild Pokémon roam the overworld of Ruby, Sapphire, Emerald, FireRed
 and LeafGreen. Walk up to one to battle it, and bring a partner along for the journey.*
 
