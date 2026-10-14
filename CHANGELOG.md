@@ -21,6 +21,8 @@
   battle with one starts with its evasion lowered one stage (75%), like the in-battle move. With
   Show Wild Mons off, Sweet Scent works as in the original game.
 
+## 1.7.5 (2026-10-13)
+
 ### Fixed
 
 - **Turning down a new move no longer leaves your partner stuck.** If you closed the Learn Move
