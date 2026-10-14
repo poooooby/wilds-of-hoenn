@@ -17,6 +17,8 @@ local ModernSpawns = V.require("modern_spawns_bridge")
 local SweetScentHearts = V.require("sweet_scent_hearts")
 local SpawnFx = V.require("spawn_fx")
 local SkyFlyers = V.require("sky_flyers")
+local WildReactions = V.require("wild_reactions")
+local WildEmote = V.require("wild_emote")
 
 local SpawnManager = {}
 SpawnManager.__index = SpawnManager
@@ -164,7 +166,8 @@ function SpawnManager:trimToAmount()
     local want = targetCount(self.source:eligibleCount(terrain), row)
     local list = {}
     for id, e in pairs(self.entities) do
-      if e.terrain == terrain and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.lured then
+      if e.terrain == terrain and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.lured
+        and not e.react then
         local d = p and math.max(math.abs(e.cellX - p.x), math.abs(e.cellY - p.y)) or 0
         list[#list + 1] = { id = id, d = d }
       end
@@ -434,9 +437,59 @@ end
 
 --- Advances every live entity one tick (engine_patch's `followerTick` hook,
 --- piggybacked on Follower.update so this mod needs no extra tick seam).
+--- What lib/wild_reactions.lua needs this tick (the player, the lead's strength, ways to
+--- take off / start a battle / tell an occupied cell), or nil when nobody may react now:
+--- the option off, the field busy (a cutscene, a trainer, a message), a battle, Safari.
+function SpawnManager:_reactContext()
+  if not Config.wildReacts(self.mod) then return nil end
+  if EnginePatch.fieldBusy and EnginePatch.fieldBusy() then return nil end
+  if EnginePatch.battleActive and EnginePatch.battleActive() then return nil end
+  if EnginePatch.safariActive and EnginePatch.safariActive() then return nil end
+  local lead = EnginePatch.leadPartyMon and EnginePatch.leadPartyMon()
+  local bst = EnginePatch.baseStatTotal
+  local ctx = self._reactCtx or {}
+  self._reactCtx = ctx
+  ctx.now, ctx.game, ctx.rng = self.ticks, self.game, math.random
+  ctx.player = EnginePatch.playerCell and EnginePatch.playerCell()
+  ctx.lead = lead and { level = tonumber(lead.level), bst = bst and bst(tonumber(lead.species or lead.speciesId)) } or nil
+  ctx.bst = bst
+  ctx.canFly = ctx.canFly or function(e)
+    return self.sky ~= nil and self.sky:canFly(e)
+  end
+  ctx.occupied = ctx.occupied or function(x, y, me)
+    for _, o in pairs(self.entities) do
+      if o ~= me and o.state ~= Config.STATE.DESPAWNED
+        and ((o.cellX == x and o.cellY == y) or (o.moving and o.targetX == x and o.targetY == y)) then
+        return true
+      end
+    end
+    return false
+  end
+  ctx.takeoff = ctx.takeoff or function(e) self:despawn(e.id, { animate = true, fly = true }) end
+  ctx.onContact = ctx.onContact or function(e) if self.onContact then self.onContact(e) end end
+  return ctx
+end
+
+--- The option was switched off: everyone reacting calms down at once.
+function SpawnManager:calmReactions()
+  for _, e in pairs(self.entities) do
+    if e.react then WildReactions.finish(e, self.ticks, 0) end
+  end
+end
+
 function SpawnManager:tick(game)
   self.game = game or self.game
+  self.ticks = (self.ticks or 0) + 1
   self:_checkReach()
+  -- a player running / biking close by startles them (lib/wild_reactions.lua)
+  local reactCtx = self:_reactContext()
+  if reactCtx then
+    local list = self._reactList or {}
+    self._reactList = list
+    for i = #list, 1, -1 do list[i] = nil end
+    for _, id in ipairs(self.order) do list[#list + 1] = self.entities[id] end
+    WildReactions.scan(list, reactCtx)
+  end
   local gone
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
@@ -483,13 +536,23 @@ function SpawnManager:tick(game)
         lure.ticks, lure.age = lure.ticks - 1, lure.age + 1
         if e.moving then Behavior._advanceMove(e) end
         if lure.ticks <= 0 then e.lured = nil end
+      elseif e.react then
+        -- startled / angry: fleeing, chasing, looking (lib/wild_reactions.lua); reacting
+        -- carries on through a busy field only as far as finishing a step
+        if reactCtx then
+          WildReactions.tick(e, reactCtx)
+        elseif e.moving then
+          Behavior._advanceMove(e)
+        else
+          WildReactions.finish(e, self.ticks, Config.REACT.cooldown)
+        end
       else
         Behavior.tick(e, self.game)
       end
       if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
       -- a Flying type that has been on the ground a while takes off (a fresh spawn,
       -- maybe another one swooping in, takes its place)
-      if e.groundStay and not lure then
+      if e.groundStay and not lure and not e.react then
         e.groundAge = e.groundAge + 1
         if e.groundAge >= e.groundStay and not e.moving and self.sky and self.sky:canFly(e)
           and self.sky:clearOfPlayer(e.cellX, e.cellY) then
@@ -601,6 +664,13 @@ function SpawnManager:collectActors(actors, camX, camY)
           e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end
       end
+      if e.react and e.react.emote then
+        local r = e.renderer
+        local lift = r and r.headLift and r:headLift()
+          or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
+        actors[#actors + 1] = WildEmote.actor(e.react.emote, e.react.emoteAge or 0, e.px, e.py,
+          math.max(10, math.min(96, (lift or 20) + 4)), e.elevation, id)
+      end
       if e.lured then
         -- just above the highest point its art reaches in any frame (headLift), so the
         -- idle / walk animation never covers the hearts, plus a 4 px gap
@@ -643,7 +713,9 @@ function SpawnManager:fightTargets()
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     -- never the roaming legendary: it is met only in a real battle, which keeps its saved state
-    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer and not e.fx then
+    -- nor one fleeing / chasing / looking at the player (lib/wild_reactions.lua)
+    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer and not e.fx
+      and not e.react then
       out[#out + 1] = e
     end
   end
@@ -740,8 +812,10 @@ function SpawnManager:despawn(id, opts)
       e.fx = nil
     end
     e.state = Config.STATE.LEAVING
-    e.lured = nil
-    if self.sky and self.sky:canFly(e) and not e.engaged and self.sky:clearOfPlayer(e.cellX, e.cellY) then
+    e.lured, e.react = nil, nil
+    -- (`opts.fly`: a startled bird takes off even right by the player, flying away from them)
+    if self.sky and self.sky:canFly(e) and not e.engaged
+      and (opts.fly or self.sky:clearOfPlayer(e.cellX, e.cellY)) then
       -- a Flying type takes off from its cell and flies away
       self:_liftEffects(e)
       e.fx = self.sky:planDeparture(e)

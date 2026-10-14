@@ -12,6 +12,7 @@ Config.DEFAULTS = {
   spawn_amount = "normal",
   flyers = true,
   smooth_follow = true,
+  wild_reacts = true,
 }
 
 Config.STATE = {
@@ -91,6 +92,28 @@ Config.FLYERS = {
   },
   maxBirdHeightDm = 30,
   maxAmbientWidth = 56,                 -- px: bigger art stays out of the ambient sky (it would cover the view)
+}
+
+-- Wild Pokemon reacting to a player who runs or bikes close by (the Wild Reacts option,
+-- lib/wild_reactions.lua). 60 Hz ticks; distances in tiles (the greater of the x / y
+-- distances). Strength is level x base-stat total against the lead Pokemon's: under
+-- `weakRatio` it is startled ("!") and flees (a bird takes off), over `strongRatio` it gets
+-- angry and chases; an even match in between is not bothered.
+Config.REACT = {
+  radius = 4, bikeRadius = 5,     -- how close the running / biking player has to come
+  aggroRadius = 2, bikeAggroRadius = 3, -- ...for a stronger one to get angry: much closer
+  weakRatio = 0.7, strongRatio = 1.3,
+  alertTicks = 24,                -- "!" before fleeing / taking off
+  turnTicks = 22,                 -- a stronger one's pause before it turns to the player
+  angerTicks = 36,                -- then the anger mark, then the chase
+  emoteTicks = 50,                -- how long an emote stays up
+  hopTicks = 12, hopPx = 3,       -- a startled little hop
+  flee = { steps = { 3, 6 }, frames = 8 },        -- running pace
+  chase = { frames = 7,           -- a touch faster than a running player (8)
+            leash = { 4, 10 },    -- tiles it follows before giving up: rolled every chase
+            secondsPerTile = 1.2, -- the matching time limit (leash x this)
+            noPathTicks = 60, returnSteps = { 2, 4 } },
+  cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
 }
 
 -- Idle wing-flap for floating/flying species: logic ticks each pose of the
@@ -396,6 +419,12 @@ end
 --- turns (on), or drawn exactly on its grid tile (off). On unless switched off.
 function Config.smoothFollow(mod)
   return optGet(mod, "smooth_follow") ~= false
+end
+
+--- The Wild Reacts option: wild Pokemon flee from / chase a player running or biking
+--- close by. On unless switched off.
+function Config.wildReacts(mod)
+  return optGet(mod, "wild_reacts") ~= false
 end
 
 function Config.classicEncEnabled(mod)

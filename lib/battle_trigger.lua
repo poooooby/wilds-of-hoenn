@@ -82,6 +82,16 @@ function BattleTrigger:checkContact()
   self:onPlayerBumped(entity)
 end
 
+--- A wild Pokemon chasing the player caught up with them (lib/wild_reactions.lua: on or
+--- next to their tile while they stand): the normal wild battle, with the same guards as
+--- the player stepping onto one (nothing while the field is busy).
+function BattleTrigger:onChaserContact(entity)
+  if self:isPending() or not entity then return end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p and self:_fieldBusy(p.x, p.y) then return end
+  self:onPlayerBumped(entity)
+end
+
 function BattleTrigger:onPlayerBumped(entity)
   if self:isPending() then return end
   local enc = {

@@ -64,6 +64,8 @@ tests/spawn_manager_unit_test.lua
 tests/sprite_atlas_unit_test.lua
 tests/sprite_source_unit_test.lua
 tests/sweet_scent_hearts_unit_test.lua
+tests/wild_emote_unit_test.lua
+tests/wild_reactions_unit_test.lua
 
 # bake / validation / asset tools
 tools/check_modkitignore.py

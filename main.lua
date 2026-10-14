@@ -113,6 +113,8 @@ return function(mod)
   })
   spawnManager.sky = skyFlyers
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
+  -- a wild Pokemon chasing the player catches up (lib/wild_reactions.lua): the battle
+  spawnManager.onContact = function(e) battleTrigger:onChaserContact(e) end
   local companion = Companion.new(mod)
   local partyRoles = PartyRoles.new(companion)
   local followerAdapter = FollowerAdapter.new(mod, companion)
@@ -359,6 +361,8 @@ return function(mod)
     elseif ev.key == "flyers" then
       local current = mod.world and mod.world:current()
       pcall(function() skyFlyers:onOptionChanged(current and current.mapId) end)
+    elseif ev.key == "wild_reacts" then
+      if ev.value == false then pcall(function() spawnManager:calmReactions() end) end
     elseif ev.key == "species_sizes" then
       HdField.setSpeciesSizes(ev.value)
     elseif ev.key == "sprite_style" then

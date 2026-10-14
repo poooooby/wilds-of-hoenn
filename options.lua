@@ -1,11 +1,9 @@
 -- Mod Manager option schema for wilds_of_hoenn.
 -- Labels are limited to 14 characters (tools/validate_option_labels.py).
 --
--- v1 is deliberately small -- see docs/ARCHITECTURE.md "What v1
--- deliberately leaves out" for the Wilds-of-Kanto-style options this does
--- not (yet) have: Sprite Fade, Control Mode/Trainer Trail,
--- Water Mons presentation modes, Idle/Roam/Chase/Hidden toggles. Idle and
--- Roam are the only behaviours; there is no Chase or Hidden in v1.
+-- Wandering is Idle or Roam; Wild Reacts adds fleeing / chasing when the player runs or
+-- bikes close by (lib/wild_reactions.lua). Not offered: Sprite Fade, Control Mode /
+-- Trainer Trail, Water Mons presentation modes, a Hidden behaviour.
 
 return {
   {
@@ -33,6 +31,13 @@ return {
     type = "toggle",
     default = true,
     description = "Flying Pokemon in the sky: birds of the area pass overhead, perch on trees, roofs and signposts, and sea birds dive for food. Wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Off: none of it, wild Pokemon all arrive the usual way.",
+  },
+  {
+    key = "wild_reacts",
+    label = "Wild Reacts",
+    type = "toggle",
+    default = true,
+    description = "Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs nobody. Off: they just wander.",
   },
   {
     key = "sprite_style",

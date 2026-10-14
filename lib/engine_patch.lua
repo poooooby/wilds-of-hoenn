@@ -1586,6 +1586,20 @@ function EnginePatch.heightDm(species)
   return (h and h > 0) and h or nil
 end
 
+--- pokemon.lua:313 Pokemon.stats(species): the species' base-stat total (hp + atk + def
+--- + spe + spa + spd), or nil when unknown.
+function EnginePatch.baseStatTotal(species)
+  local Pokemon = loadModule(EnginePatch.READONLY.speciesTypes.mod)
+  if not (Pokemon and Pokemon.stats) then return nil end
+  local ok, st = pcall(Pokemon.stats, species)
+  if not (ok and type(st) == "table") then return nil end
+  local sum = 0
+  for _, v in pairs(st) do
+    if type(v) == "number" then sum = sum + v end
+  end
+  return sum > 0 and sum or nil
+end
+
 local flyingCache = {}
 --- Is the species Flying-type (either type)? Cached per species.
 function EnginePatch.isFlying(species)

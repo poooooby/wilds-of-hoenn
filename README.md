@@ -58,6 +58,10 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
 - 🌊 **Water that feels like water:** Pokémon swim with a foam line on the water, leave ripples
   on ponds and puddles, and cast reflections like the player and NPCs do.
+- 🏃 **They notice you:** run or bike close by and wild Pokémon react. Ones weaker than your
+  lead Pokémon jump with a "!" and run off (small birds fly away); stronger ones, if you come
+  right up to them, turn on you angrily and give chase, and if they catch you, the battle starts. Each one gives up at its own distance.
+  An even match isn't bothered, and walking past calmly disturbs nobody.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
   softly out of focus the higher it flies. In towns, birds perch on roofs, trees and signposts (and
   fly off when you walk up); sea birds dive into the water for food; and wild Flying types swoop in
@@ -76,6 +80,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Show Wild Mons** | On / Off | On | Visible wild Pokémon in areas with wild encounters. |
 | **Spawn Amount** | Low / Normal / High | Normal | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
 | **Flying Mons** | On / Off | On | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. |
+| **Wild Reacts** | On / Off | On | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
 | **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
 | **Smooth Follow** | On / Off | On | On: your partner is spaced out behind you and glides round turns. Off: it walks exactly on the tile behind you, step for step like the original games. |
 | **Classic Enc** | On / Off | On | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |

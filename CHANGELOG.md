@@ -4,6 +4,13 @@
 
 ### Added
 
+- **Wild Pokemon react when you run or bike close by (Wild Reacts option, on by default).**
+  Ones weaker than your lead Pokemon are startled (a "!" over their head) and run off a few
+  tiles; small birds fly away. Stronger ones only mind you up close (2 tiles): they stop, turn
+  to you, show an anger mark and give chase, a little faster than you can run: if they catch you, the wild battle starts. Each chase gives up at its own
+  distance (4 to 10 tiles), and a bike or leaving the grass gets you away. Evenly matched ones
+  carry on as normal, and walking past disturbs nobody.
+
 - **Flying Pokemon in the sky (Flying Mons option, on by default).** Now and then one of the
   area's birds crosses the top of the screen in a gentle arc: the higher it flies, the bigger,
   faster and more out of focus it looks, since it is closer to the camera. In towns and cities,

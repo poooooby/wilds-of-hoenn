@@ -906,6 +906,34 @@ do
   check(C.FLYERS.land.groundStay[1] > 0, "a flyer stays a while on the ground")
 end
 
+-- ------- Wild Reacts: a running player close by startles them; one reacting is no Battler target
+do
+  local realCell, realBounds = fakeEngine.playerCell, fakeEngine.mapBounds
+  fakeEngine.mapBounds = function() return 40, 5 end
+  local smR = SpawnManager.new(mod)
+  smR:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local target
+  for _, e in pairs(smR.entities) do target = target or e end
+  local player = { x = target.cellX + 2, y = target.cellY, moving = true }
+  fakeEngine.playerCell = function() return player end
+  fakeEngine.playerIsRunning = function() return true end
+  fakeEngine.leadPartyMon = function() return { level = 50, species = 1 } end -- they are all weak
+  smR:tick(smR.game)
+  check(target.react ~= nil, "running close by: it reacts")
+  local isTarget = false
+  for _, t in ipairs(smR:fightTargets()) do if t == target then isTarget = true end end
+  check(not isTarget, "...and is no Battler target meanwhile")
+  smR:calmReactions()
+  eq(target.react, nil, "switching the option off calms everyone at once")
+  optionStore.wild_reacts = false
+  target.reactUntil = 0
+  smR:tick(smR.game)
+  eq(target.react, nil, "Wild Reacts off: nobody reacts")
+  optionStore.wild_reacts = nil
+  fakeEngine.playerCell, fakeEngine.mapBounds = realCell, realBounds
+  fakeEngine.playerIsRunning, fakeEngine.leadPartyMon = nil, nil
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)
