@@ -94,8 +94,8 @@ function FollowerAdapter:_tickReady()
   local lr = self.levelReady
   if not lr then return end
   self.readyClock = (self.readyClock or 0) + 1
-  if self.readyClock % READY_REFRESH == 1 or self.readyMon ~= self.mon then
-    self.readyMon = self.mon
+  if self.readyClock % READY_REFRESH == 1 or self.readyMon ~= self.mon or self.readyVersion ~= lr.version then
+    self.readyMon, self.readyVersion = self.mon, lr.version
     self.readyPending = self.mon and lr:pending(self.mon) or nil
   end
 end

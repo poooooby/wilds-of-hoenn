@@ -628,7 +628,9 @@ end
 -- ------- a companion waiting to learn / evolve: extra rows open the engine's screens
 do
   local waiting = nil
-  local lr = { pending = function() return waiting end }
+  local dismissed = {}
+  local lr = { pending = function() return waiting end,
+               dismiss = function(_, _m, kind) dismissed[#dismissed + 1] = kind end }
   local screens = {}
   E.evolutionTarget = function() return 278 end
   E.startEvolution = function(m, target, cb) screens[#screens + 1] = { "evolve", target, cb } return true end
@@ -660,7 +662,8 @@ do
   eq(E.closedStay, 1, "our message came down first")
   f1:tick({})
   eq(f1.state, "screen", "the interaction waits while the screen is open")
-  screens[#screens][3](true)
+  screens[#screens][3](false) -- closed without learning it
+  eq(dismissed[#dismissed], "move", "closing the screen turns the waiting moves down (no label stuck over it)")
   f1:tick({})
   eq(f1.state, nil, "...and ends when it closes")
 
@@ -675,6 +678,7 @@ do
   eq(screens[#screens][1], "evolve", "Evolve opens the evolution scene")
   eq(screens[#screens][2], 278, "...for the engine's target")
   screens[#screens][3]()
+  eq(dismissed[#dismissed], "evolve", "a stopped evolution is turned down too")
   f1:tick({})
   eq(f1.state, nil, "it ends when the scene closes")
 

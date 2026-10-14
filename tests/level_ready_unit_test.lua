@@ -163,6 +163,31 @@ do
   evoTarget = nil
 end
 
+-- ------- turning it down: the move / evolution stops waiting (it held the Pokemon hostage)
+do
+  local store = newStore()
+  local lr = LevelReady.new(store, deps())
+  local m = mon()
+  lr:record(m, 6, 8) -- three moves waiting
+  check(lr:pending(m) ~= nil, "moves waiting after the level-up")
+  lr:dismiss(m, "move") -- the Learn Move screen closed without learning them
+  eq(lr:pending(m), nil, "declined: nothing waits any more")
+  eq(lr:label(m, 0), nil, "...the label is gone")
+  eq(LevelReady.new(store, deps()):pending(m), nil, "...and it stays gone after a reload")
+
+  evoTarget = 99
+  local e = mon({ personality = 777 })
+  lr:record(e, 6, 7)
+  check(lr:pending(e) and lr:pending(e).evolve, "ready to evolve")
+  lr:dismiss(e, "evolve") -- the player stopped the evolution
+  local left = lr:pending(e)
+  check(left == nil or not left.evolve, "stopped: no longer asks to evolve")
+  check(left and #left.moves > 0, "...but a move still waiting stays")
+  lr:record(e, 7, 8)
+  check(lr:pending(e) and lr:pending(e).evolve, "the next level-up asks to evolve again")
+  evoTarget = nil
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

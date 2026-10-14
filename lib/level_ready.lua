@@ -26,7 +26,9 @@ LevelReady.MOVE_TEXT = "New move ready!"
 LevelReady.EVOLVE_TEXT = "Ready to evolve!"
 
 function LevelReady.new(mod, deps)
-  return setmetatable({ mod = mod, deps = deps or {}, state = nil }, LevelReady)
+  -- `version` goes up on every change, so a label shown from a cached answer
+  -- (lib/follower_adapter.lua) is refreshed at once instead of on its next poll
+  return setmetatable({ mod = mod, deps = deps or {}, state = nil, version = 0 }, LevelReady)
 end
 
 function LevelReady:_load()
@@ -49,12 +51,16 @@ function LevelReady:_load()
 end
 
 function LevelReady:_persist()
+  self.version = (self.version or 0) + 1
   local save = self.mod and self.mod.save
   if save then pcall(save.set, save, KEY, self.state) end
 end
 
 --- Forget the cached state (a save was loaded / a checkpoint restored).
-function LevelReady:reset() self.state = nil end
+function LevelReady:reset()
+  self.state = nil
+  self.version = (self.version or 0) + 1
+end
 
 local function keyOf(mon)
   if type(mon) ~= "table" or mon.personality == nil then return nil end
@@ -127,6 +133,26 @@ function LevelReady:pending(mon)
     and self.deps.evolutionTarget(mon) ~= nil
   if #entry.moves == 0 and not evolve then return nil end -- kept, but nothing to ask right now
   return { moves = entry.moves, evolve = evolve }
+end
+
+--- The player closed the screen for `kind` ("move" | "evolve") without taking it all:
+--- a move it did not learn there was turned down, a stopped evolution was declined. Both
+--- are dropped, so the label goes and EXP flows again (otherwise a refusal held the
+--- Pokemon waiting for good). A declined evolution is asked again at its next level-up,
+--- as in the games (record() sees the engine offer a target again).
+function LevelReady:dismiss(mon, kind)
+  local key = keyOf(mon)
+  if not key then return end
+  self:_load()
+  local entry = self.state[key]
+  if not entry then return end
+  if kind == "evolve" then
+    entry.evolveFrom = nil
+  else
+    entry.moves = {}
+  end
+  if #entry.moves == 0 and not entry.evolveFrom then self.state[key] = nil end
+  self:_persist()
 end
 
 --- The text floating over the Pokemon, or nil. With both waiting it alternates
