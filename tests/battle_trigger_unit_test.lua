@@ -111,8 +111,13 @@ do
   bt2:onPlayerStepped("x", 7)
   eq(started2, 0, "garbage coordinates are ignored")
   bt2:onPlayerStepped(5, 7)
-  eq(started2, 1, "a step that finishes ON the mon's tile starts the battle (even while walking on)")
+  eq(started2, 0, "a step that finishes ON the mon's tile notes the contact: never a battle mid-step")
+  check(bt2:holdsPlayer(), "...and holds the player on that tile")
+  bt2:tick()
+  eq(started2, 1, "the next field tick starts the battle (even while walking on)")
+  check(not bt2:holdsPlayer(), "...and lets go of the player")
   bt2:onPlayerStepped(5, 7)
+  bt2:tick()
   eq(started2, 1, "no second battle while one is pending")
   eq(sm2.entities[1].state, Config.STATE.ENCOUNTER_STARTING, "the entity is marked as starting")
 end
@@ -213,8 +218,61 @@ do
   pc = { x = 5, y = 8, moving = false }
   btB:checkContact()
   btB:onPlayerStepped(5, 7)
+  btB:tick()
   eq(n, 1, "stepping off and back on starts the battle as usual")
   fakeEngine.fieldBusy = nil
+end
+
+-- ------- an egg hatches on the very step that lands on a wild Pokemon: the battle waits
+-- for the hatch (its message, the scene, the "Nickname?" Yes / No) and comes right after.
+-- A battle started mid-step ran under the hatch scene and swallowed every button: softlock.
+do
+  local hatching, message = false, false
+  fakeEngine.gameFree = function() return not hatching and not message end
+  local n = 0
+  fakeEngine.startWild = function() n = n + 1 return true end
+  local smH = fakeSpawnManager()
+  smH.entityAt = function(self, x, y)
+    local e = self.entities[1]
+    if e and x == 5 and y == 7 then return e end
+  end
+  local btH = BattleTrigger.new({}, smH, { warn = function() end })
+  btH:onPlayerStepped(5, 7)   -- world.stepped: before the engine runs the step's events
+  hatching = true             -- ...which hatch the egg (StepEvents queues it)
+  for _ = 1, 300 do btH:tick() end
+  eq(n, 0, "no battle while the egg hatches")
+  check(btH:holdsPlayer(), "...the player waits on the wild Pokemon's tile")
+  hatching, message = false, true -- "Nickname?" answered; a last message still up
+  btH:tick()
+  eq(n, 0, "...nor while a message is open")
+  message = false
+  btH:tick()
+  eq(n, 1, "the hatch done, the battle with that same Pokemon starts")
+  eq(smH.entities[1].state, Config.STATE.ENCOUNTER_STARTING, "...it is the one the player stepped on")
+
+  -- the Pokemon went away meanwhile (despawned): the waiting contact is dropped
+  local smG = fakeSpawnManager()
+  smG.entityAt = smH.entityAt
+  local btG = BattleTrigger.new({}, smG, { warn = function() end })
+  hatching = true
+  btG:onPlayerStepped(5, 7)
+  smG.entities[1] = nil
+  btG:tick()
+  check(not btG:holdsPlayer(), "a Pokemon gone meanwhile: the contact is dropped, the player let go")
+
+  -- resting on one (checkContact) waits for a free game the same way
+  local smR = fakeSpawnManager()
+  smR.entityAt = smH.entityAt
+  local btR = BattleTrigger.new({}, smR, { warn = function() end })
+  local before = n
+  pc = { x = 5, y = 7, moving = false }
+  hatching = true
+  btR:checkContact()
+  eq(n, before, "standing on one while an egg hatches: no battle yet")
+  hatching = false
+  btR:checkContact()
+  eq(n, before + 1, "...then the battle, the moment the game is free")
+  fakeEngine.gameFree = nil
 end
 
 print("")

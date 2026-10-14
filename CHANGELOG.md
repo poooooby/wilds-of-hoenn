@@ -32,6 +32,13 @@
 
 ### Fixed
 
+- **No softlock when an egg hatches on the step that meets a wild Pokemon.** Stepping onto one
+  on the very step an egg hatched started the battle in the middle of the step, and the hatch
+  scene opened over it: the "Nickname?" Yes / No then never answered. The battle now waits until
+  the game is free (no hatch, poison or other step event, no message or menu) and starts right
+  after, with the same Pokemon -- as the original games never roll a wild encounter on a step
+  that hatched an egg.
+
 - **Your partner rides in its Poke Ball on a bike.** Getting on a bike sends it back into its
   ball, and it comes out again when you get off (its Forage / Battle role pauses meanwhile).
 - **A worn-out Battler no longer pops out on a new map.** One resting inside you at 1 HP came

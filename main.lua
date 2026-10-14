@@ -190,6 +190,11 @@ return function(mod)
     -- a battle on its own. Still answers "occupied" (returns true) either
     -- way, so the wild Pokemon correctly treats the player's tile as blocked.
     blocks = function(tx, ty, exceptLocalId, _elevation)
+      -- the player met a wild Pokemon at the end of the last step and its battle waits
+      -- for the game to be free (lib/battle_trigger.lua): they stay on its tile
+      if exceptLocalId == nil and battleTrigger:holdsPlayer() and not EnginePatch.isProbingCanEnter() then
+        return true
+      end
       local entity = spawnManager:entityAt(tx, ty)
       if not entity then return false end
       -- The player's OWN check: let them step onto the wild Pokemon. The
@@ -243,6 +248,7 @@ return function(mod)
     followerTick = function(game)
       spawnManager:tick(game)
       followerInteraction:tick(game)
+      battleTrigger:tick()
       battleTrigger:checkContact()
       followerAdapter:tick()
     end,

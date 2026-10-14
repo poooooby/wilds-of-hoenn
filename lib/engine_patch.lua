@@ -795,6 +795,32 @@ function EnginePatch.fieldBusy()
   return false
 end
 
+--- True while a step event is queued or running (step_events.lua StepEvents.busy: an egg
+--- hatching -- its "Huh?" message, the scene, the nickname prompt -- poison damage, a
+--- white-out ...) or the poison flash plays. The cart rolls no wild encounter on a step
+--- that set one off; a visible wild Pokemon's battle waits for it too.
+function EnginePatch.stepEventsBusy()
+  local StepEvents = loadModule("src.core.game3.step_events")
+  if not StepEvents then return false end
+  if StepEvents.busy then
+    local ok, busy = pcall(StepEvents.busy)
+    if not ok or busy then return true end
+  end
+  if StepEvents.poisonEffectActive then
+    local ok, busy = pcall(StepEvents.poisonEffectActive)
+    if ok and busy then return true end
+  end
+  return false
+end
+
+--- Is the game free for a wild battle to start right now: nothing owns the field
+--- (fieldBusy: a script, a lock, a message, a choice, a menu, a fade, a warp), no step
+--- event queued or running (stepEventsBusy: an egg hatching ...), no battle already on.
+function EnginePatch.gameFree()
+  if EnginePatch.fieldBusy() or EnginePatch.stepEventsBusy() then return false end
+  return not EnginePatch.battleActive()
+end
+
 --- True while the field is not running normally on its own: a battle, a menu,
 --- a message or a fade owns the screen. (Our own Field.lock does NOT count --
 --- that is what a follower scene holds.) Used to drop a scene that something
