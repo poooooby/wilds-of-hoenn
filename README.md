@@ -96,7 +96,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Local Scenes** | On / Off | On | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
 | **Wild Reacts** | On / Off | On | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
 | **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
-| **Smooth Follow** | On / Off | On | On: your partner is spaced out behind you and glides round turns. Off: it walks exactly on the tile behind you, step for step like the original games. |
+| **Smooth Follow** | On / Off | On | Your partner keeps its distance behind you either way. On: it glides round turns. Off: it snaps straight to its place, step for step like the original games. |
 | **Classic Enc** | On / Off | On | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
 | **Silhouette** | Off / Undiscovered / All | Off | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
 | **Species Sizes** | On / Off | On | Draws each species at its own relative size. Needs Gen 3 HD Sprites. |
@@ -105,8 +105,9 @@ Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option
 
 ### Your partner (party menu)
 
-Select a Pokémon in the party menu and choose its job. The party leader follows until you pick
-someone else, and one partner is out at a time.
+Select a Pokémon in the party menu and choose its job. Your party's leader follows you: put a
+different Pokémon first and it takes over as your follower. Pick someone else in the menu any
+time, and they stay out until you change your leader again. One partner is out at a time.
 
 | Row | What it does |
 |---|---|

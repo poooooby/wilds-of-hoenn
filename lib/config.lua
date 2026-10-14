@@ -481,8 +481,8 @@ function Config.spriteStyle(mod)
   return v
 end
 
---- The Smooth Follow option: the follower spaced out behind the player and gliding on
---- turns (on), or drawn exactly on its grid tile (off). On unless switched off.
+--- The Smooth Follow option: the follower is spaced out behind the player either way;
+--- on, it glides to its place on a turn, off it snaps there. On unless switched off.
 function Config.smoothFollow(mod)
   return optGet(mod, "smooth_follow") ~= false
 end

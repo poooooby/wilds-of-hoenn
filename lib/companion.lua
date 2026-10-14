@@ -12,6 +12,13 @@
 -- Pokemon's personality value (stable across party reordering, box moves and
 -- evolution). When nothing was chosen, or the chosen Pokemon is gone, fainted
 -- or an egg, the lead healthy Pokemon follows -- exactly the old behaviour.
+--
+-- A new lead takes over: when a different Pokemon is put first in the party, it becomes
+-- the follower (role follow), whatever was out before -- the way the lead walks behind
+-- you in the games. The player can still pick another one (or another job) in the party
+-- menu; that stands until the lead changes again. The lead is remembered in the save
+-- (`lead`, its personality), so loading a save or reordering the rest of the party
+-- changes nothing; moving the companion itself to the front keeps its job.
 -- Pure: the party is passed in, nothing here touches the engine.
 local Companion = {}
 Companion.__index = Companion
@@ -38,7 +45,7 @@ function Companion:_load()
   local ok, value = pcall(save.get, save, KEY)
   if ok and type(value) == "table" and VALID[value.role] and tonumber(value.personality) then
     self.state = { role = value.role, personality = tonumber(value.personality),
-                   species = tonumber(value.species) }
+                   species = tonumber(value.species), lead = tonumber(value.lead) }
   end
 end
 
@@ -57,10 +64,29 @@ end
 function Companion:set(mon, role)
   if not VALID[role] or type(mon) ~= "table" or mon.personality == nil then return false end
   self:_load()
+  local lead = self.state and self.state.lead
   self.state = { role = role, personality = tonumber(mon.personality) or 0,
-                 species = tonumber(mon.species) }
+                 species = tonumber(mon.species), lead = lead }
   self:_persist()
   return true
+end
+
+-- A different Pokemon was put first in the party: it becomes the follower (see the
+-- header). The first lead ever seen (an old save, a new game) is only remembered.
+function Companion:_followLead(party)
+  local lead = type(party) == "table" and party[1]
+  local p = type(lead) == "table" and tonumber(lead.personality)
+  if not p or not healthy(lead) then return end
+  local s = self.state
+  if s and s.lead == p then return end
+  if not s then
+    self.state = { role = "follow", personality = p, species = tonumber(lead.species), lead = p }
+  elseif s.lead == nil or s.personality == p then
+    s.lead = p -- first sight of a lead, or the companion itself moved to the front: its job stands
+  else
+    self.state = { role = "follow", personality = p, species = tonumber(lead.species), lead = p }
+  end
+  self:_persist()
 end
 
 --- The role the saved companion has (nil when none was ever chosen).
@@ -75,6 +101,7 @@ end
 --- healthy non-egg Pokemon on `follow`.
 function Companion:resolve(party)
   self:_load()
+  self:_followLead(party)
   local s = self.state
   if s and type(party) == "table" then
     for _, mon in ipairs(party) do

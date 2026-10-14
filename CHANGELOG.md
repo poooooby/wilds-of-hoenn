@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **A new party leader becomes your follower.** Putting a different Pokemon first in your party
+  makes it your follower, like the lead in the original games, even if you had sent another one
+  out. You can still pick any Pokemon and job in the party menu; that choice stays until you
+  change your leader again. Moving your current partner to the front keeps its job.
+- **Smooth Follow off keeps your partner's distance.** Off, a big Pokemon walked right on the tile
+  behind you and overlapped you. It now keeps its distance behind you either way; Off only means
+  it snaps straight to its place when you turn instead of gliding round.
+
 ## 1.8.0-beta.1 (2026-10-14)
 
 ### Added

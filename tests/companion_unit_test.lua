@@ -65,14 +65,56 @@ do
   local c = Companion.new(mod)
   local a, b, d = mon(10), mon(20), mon(30)
   c:set(b, "forage")
-  local m = c:resolve({ d, a, b })
-  eq(m, b, "found by personality after the party is reordered")
+  local m = c:resolve({ a, d, b })
+  eq(m, b, "found by personality after the party behind the lead is reordered")
   local fresh = Companion.new(mod) -- a new session over the same save
   m = fresh:resolve({ a, b, d })
   eq(m, b, "the choice persists in mod.save")
   eq(select(2, fresh:resolve({ a, b, d })), "forage", "...with its role")
   c:reset()
   eq(c:resolve({ a, b, d }), b, "reset re-reads the saved choice")
+end
+
+-- ------- a new lead takes over as the follower; the menu can still pick another
+do
+  local mod = newMod()
+  local c = Companion.new(mod)
+  local a, b, d = mon(10), mon(20), mon(30)
+  local m, role = c:resolve({ a, b, d })
+  eq(m, a, "the lead follows")
+  c:set(b, "battle")
+  m, role = c:resolve({ a, b, d })
+  check(m == b and role == "battle", "picked in the party menu: another one goes out with its job")
+  m, role = c:resolve({ a, d, b })
+  check(m == b and role == "battle", "...and stays out while the lead is the same")
+  m, role = c:resolve({ d, a, b })
+  check(m == d and role == "follow", "a different Pokemon put first becomes the follower")
+  eq(mod.store["companion/state"].personality, 30, "...saved")
+  c:set(a, "forage")
+  m, role = c:resolve({ d, a, b })
+  check(m == a and role == "forage", "the player can still choose another afterwards")
+  local fresh = Companion.new(mod)
+  m, role = fresh:resolve({ d, a, b })
+  check(m == a and role == "forage", "...and it lasts across a reload (same lead)")
+  -- the companion itself moved to the front keeps its job
+  m, role = c:resolve({ a, d, b })
+  check(m == a and role == "forage", "moving the companion itself to the front keeps its job")
+  -- a fainted / egg lead is not a new lead
+  m, role = c:resolve({ mon(40, { hp = 0 }), a, d, b })
+  check(m == a and role == "forage", "a fainted Pokemon put first changes nothing")
+  m, role = c:resolve({ mon(50, { isEgg = true }), a, d, b })
+  check(m == a and role == "forage", "nor does an egg")
+end
+
+-- ------- an old save (no lead remembered): the current lead is only noted, no switch
+do
+  local mod = newMod()
+  mod.store["companion/state"] = { role = "battle", personality = 20, species = 252 }
+  local c = Companion.new(mod)
+  local a, b = mon(10), mon(20)
+  local m, role = c:resolve({ a, b })
+  check(m == b and role == "battle", "loading an old save keeps its companion and job")
+  eq(mod.store["companion/state"].lead, 10, "...and starts remembering the lead")
 end
 
 -- ------- a companion that cannot be out falls back to the lead following
