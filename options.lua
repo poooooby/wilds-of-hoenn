@@ -2,7 +2,8 @@
 -- Labels are limited to 14 characters (tools/validate_option_labels.py).
 --
 -- Wandering is Idle or Roam; Wild Reacts adds fleeing / chasing when the player runs or
--- bikes close by (lib/wild_reactions.lua). Not offered: Sprite Fade, Control Mode /
+-- bikes close by (lib/wild_reactions.lua). Local Scenes are place-specific ambient moments
+-- (lib/local_scenes.lua). Not offered: Sprite Fade, Control Mode /
 -- Trainer Trail, Water Mons presentation modes, a Hidden behaviour.
 
 return {
@@ -38,6 +39,13 @@ return {
     type = "toggle",
     default = true,
     description = "Life in the water, just for the scenery: small fish of the area (Magikarp, Goldeen, Luvdisc ...) leap out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a spray, before sinking back under. Diving, fish swim by under the sea as dark shadows trailing bubbles. Never battled.",
+  },
+  {
+    key = "local_scenes",
+    label = "Local Scenes",
+    type = "toggle",
+    default = true,
+    description = "Little moments in a few special places: ghosts drift through Lavender Town, bug Pokemon dangle from the trees of Petalburg Woods where Slakoth naps and Vigoroth dances on the treetops, and a great Tropius rises out of Fortree's trees. Just for the scenery.",
   },
   {
     key = "wild_reacts",

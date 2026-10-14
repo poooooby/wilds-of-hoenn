@@ -2049,6 +2049,7 @@ function EnginePatch.playerCell()
   return {
     x = Player.cellX, y = Player.cellY, moving = Player.moving == true,
     targetX = Player.targetX, targetY = Player.targetY,
+    facing = type(Player.facing) == "string" and Player.facing or nil, -- player.lua:66
   }
 end
 

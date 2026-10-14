@@ -71,6 +71,12 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   spray from their blowhole before sinking back under. Dive down and fish glide by under the sea
   as dark shapes trailing bubbles, sometimes a little school of them; the wild Pokémon living
   down there arrive the same way, swimming in as a shadow before taking shape.
+- 👻 **Local scenes:** a few special places have moments of their own. Ghosts fade in around
+  Lavender Town and wander a little, straight through walls, before fading away; tell the girl there you don't believe in ghosts and you
+  may find one standing right behind you. In Petalburg Woods, Burmy and Silcoon / Cascoon dangle
+  from the trees on silk threads, Slakoth naps on the treetops, and once in a while Vigoroth
+  bounds in to dance up there. Over Fortree City, a great Tropius sometimes rises out of the treetops and wanders
+  across them, the leaves rustling around it.
 - 🌾 **Small touches:** Pokémon sink into tall grass, your partner fades in as you step out of a
   door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art.
 - 📏 **True-to-life sizes** (with [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites)):
@@ -86,6 +92,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Spawn Amount** | Low / Normal / High | Normal | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
 | **Flying Mons** | On / Off | On | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. |
 | **Water Life** | On / Off | On | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, and fish swimming by under the sea when you dive, just for the scenery. |
+| **Local Scenes** | On / Off | On | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
 | **Wild Reacts** | On / Off | On | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
 | **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
 | **Smooth Follow** | On / Off | On | On: your partner is spaced out behind you and glides round turns. Off: it walks exactly on the tile behind you, step for step like the original games. |

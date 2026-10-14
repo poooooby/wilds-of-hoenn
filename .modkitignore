@@ -40,6 +40,7 @@ tests/health_bar_unit_test.lua
 tests/hit_effect_unit_test.lua
 tests/interaction_limiter_unit_test.lua
 tests/level_ready_unit_test.lua
+tests/local_scenes_unit_test.lua
 tests/main_boot_unit_test.lua
 tests/modern_spawns_bridge_unit_test.lua
 tests/modkit_boot_test.lua

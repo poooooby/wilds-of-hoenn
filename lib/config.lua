@@ -14,6 +14,7 @@ Config.DEFAULTS = {
   smooth_follow = true,
   wild_reacts = true,
   water_life = true,
+  local_scenes = true,
 }
 
 Config.STATE = {
@@ -148,6 +149,37 @@ Config.WATER_LIFE = {
              { h = 0, scale = 0.85, parallax = 1.0, blur = 0,   alpha = 0.5,  haze = 0 },
              { h = 1, scale = 1.35, parallax = 1.2, blur = 1.5, alpha = 0.32, haze = 0 },
            } },
+}
+
+-- Local Scenes (the Local Scenes option, lib/local_scenes.lua): little moments tied to a
+-- place, ambient, never met. 60 Hz ticks / px. `every` = the wait before the next scene of
+-- each cadence (an "occasional" one about every 30 s, a "rare" one about every 2 min).
+Config.LOCAL_SCENES = {
+  every = { occasional = { 1500, 2100 }, rare = { 6000, 8400 } },
+  minPlayerDist = 2,                     -- tiles kept clear of the player
+  -- Lavender Town: a ghost fades in somewhere in view, wanders about a little (through
+  -- walls: `moves` drifts of `step` cells, `stepTicks` a cell, a `pause` between), fades out
+  ghost = { species = { 92, 92, 93 }, alpha = 0.55, fade = 60, shade = { 0.55, 0.45, 0.75 },
+            moves = { 3, 5 }, step = { 1, 2 }, stepTicks = 40, pause = { 20, 80 } },
+  -- ...and Gengar behind the player when the girl who asks about ghosts is told "No"
+  -- (her No line's text key: FireRed, LeafGreen)
+  gengar = { species = 94, chance = 25, behind = 2, alpha = 0.85, fade = 40, linger = 30,
+             noText = { ["g3:0817f568"] = true, ["g3:0817f544"] = true } },
+  -- Petalburg Woods: a bug lowered on a silk thread from under a tree's crown, hanging a
+  -- while, then reeled back up. `drop` px below the crown's bottom edge.
+  -- `scale`: drawn smaller than a wild Pokemon, so it hangs clear of the leaves
+  hang = { burmy = { species = { 412 }, scale = 0.65, drop = { 6, 12 }, down = 90, stay = { 240, 480 }, up = 120, sway = 2, swayTicks = 150 },
+           cocoon = { species = { 266, 268 }, scale = 0.65, drop = { 8, 14 }, down = 60, stay = { 300, 540 }, up = 90, sway = 4, swayTicks = 120 } },
+  -- ...Slakoth asleep on a tree top
+  sleeper = { species = 287, scale = 0.7, ticks = { 1200, 2400 }, fade = 30, zzzEvery = 40 },
+  -- ...Vigoroth leaping onto a tree top from off screen, dancing, leaping off
+  dancer = { species = 288, leapTicks = 50, leapHeight = 40, loops = 2, hgssTicks = 240 },
+  -- Fortree City: a big Tropius rises out of the trees, walks a little over them, sinks back
+  -- only the top `half` (70%) of it above the leaves (cut there), leaves rustling round it as it moves
+  -- (PMDCollab: only the Idle frames with its wings all the way down, `wingsDown`, `poseTicks`
+  -- each, walking too -- its Walk spreads them, the rest of its Idle raises them)
+  -- `southHalf`: facing south (PMDCollab) it is shorter (seen from the front), so more shows
+  tropius = { species = 357, scale = 1.5, half = 0.7, southHalf = 0.85, wingsDown = { 1, 4, 7, 10 }, poseTicks = 18, rise = 180, steps = { 2, 4 }, stepTicks = 48, rest = { 60, 150 } },
 }
 
 -- Idle wing-flap for floating/flying species: logic ticks each pose of the
@@ -465,6 +497,12 @@ end
 --- switched off.
 function Config.waterLife(mod)
   return optGet(mod, "water_life") ~= false
+end
+
+--- The Local Scenes option: little moments tied to a place (lib/local_scenes.lua). On
+--- unless switched off.
+function Config.localScenes(mod)
+  return optGet(mod, "local_scenes") ~= false
 end
 
 function Config.classicEncEnabled(mod)

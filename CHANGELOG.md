@@ -4,6 +4,18 @@
 
 ### Added
 
+- **Local Scenes (Local Scenes option, on by default).** A few special places get moments of
+  their own, just for the scenery. Lavender Town: ghosts (Gastly, sometimes Haunter) fade in
+  around town, wander a few steps, through walls and over roofs, dark and see-through, and fade away; answer "No"
+  when the girl asks whether you believe in ghosts and, 1 time in 4, a Gengar fades in right
+  behind you and stays until she has finished talking. Petalburg Woods: Burmy slides down from
+  the leaves on a silk thread and is reeled back up, Silcoon and Cascoon dangle and slowly spin,
+  Slakoth naps on the treetops with "z"s floating up, and once in a while Vigoroth leaps in from
+  off screen, dances on a treetop and leaps away. Fortree City: once in a while a big Tropius rises
+  out of the treetops (its top half showing, the leaves rustling round it), walks a few steps
+  across them and sinks back under. The bugs and Slakoth are drawn a little smaller, to fit the trees. PMDCollab art plays the
+  real Sleep, Dance and Rotate animations.
+
 - **Life in the water (Water Life option, on by default).** The small fish of the area's fishing
   and Surf Pokemon (Magikarp, Goldeen, Feebas, Luvdisc, Carvanha ...) now and then leap out of
   open water in an arc and splash back in, with ripples and a spray of droplets; PMDCollab ones
