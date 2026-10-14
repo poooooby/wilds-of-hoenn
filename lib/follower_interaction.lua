@@ -301,6 +301,11 @@ function FollowerInteraction:openScreen(kind, mon, name)
     return
   end
   local function done()
+    -- whatever the screen offered and the player did not take is turned down: no label,
+    -- no frozen EXP (pending() already drops a move learned or an evolution made)
+    if self.levelReady and self.levelReady.dismiss then
+      self.levelReady:dismiss(mon, kind == "evolve" and "evolve" or "move")
+    end
     if self.state == "screen" then self.screenDone = true end
   end
   EnginePatch.closeStayMessage()

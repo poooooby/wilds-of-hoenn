@@ -21,6 +21,14 @@
   battle with one starts with its evasion lowered one stage (75%), like the in-battle move. With
   Show Wild Mons off, Sweet Scent works as in the original game.
 
+### Fixed
+
+- **Turning down a new move no longer leaves your partner stuck.** If you closed the Learn Move
+  screen without learning the move (or stopped an evolution), "New move ready!" stayed over your
+  partner and it kept earning no EXP for good. Closing the screen now turns the offer down: the
+  label goes and EXP flows again. A stopped evolution is offered again at the next level-up, as in
+  the original games. A partner already stuck is freed the next time you open Learn Move and back out.
+
 ## 1.7.4 (2026-10-13)
 
 ### Fixed
