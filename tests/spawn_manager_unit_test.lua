@@ -684,6 +684,16 @@ do
   fakeEngine.rollSweetScent, fakeEngine.mapBounds = realRoll, realBounds
 end
 
+-- ------- the Safari Zone: wild Pokemon show, but the companion Battler never fights them
+do
+  fakeEngine.safariActive = function() return true end
+  local smS = SpawnManager.new(mod)
+  smS:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  check(smS:count() > 0, "Safari Zone: wild Pokemon spawn")
+  eq(#smS:fightTargets(), 0, "...but the Battler never targets them (Safari Balls only)")
+  fakeEngine.safariActive = function() return false end
+end
+
 -- ------- off-screen wild Pokemon are not drawn (each draw takes a gen3-hd-sprites layer)
 do
   fakeEngine.viewSize = function() return 240, 160 end

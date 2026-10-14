@@ -90,17 +90,15 @@ srcFacility:loadMap("WILD_ROOM")
 check(not srcFacility:isEligible(), "a sweet-scent-facility map is never eligible")
 eq(#srcFacility:eligibleCells("land"), 0, "facility map cell scan is skipped")
 
--- ------- Safari Zone: the engine runs those battles; nothing visible spawns there
+-- ------- Safari Zone: visible spawns there too (touching one starts the engine's Safari battle)
 do
   local safari = true
   fakeEngine.safariActive = function() return safari end
   local srcS = EncounterSource.new({})
   srcS:loadMap("ROUTE_1")
-  check(not srcS:isEligible(), "no spawns while a Safari Zone visit is active")
-  eq(#srcS:eligibleCells("land"), 0, "...and no eligible cells")
+  check(srcS:isEligible(), "visible spawns during a Safari Zone visit")
+  check(#srcS:eligibleCells("land") > 0, "...on its grass")
   safari = false
-  srcS:loadMap("ROUTE_1")
-  check(srcS:isEligible(), "the same map spawns normally outside the Safari Zone")
   fakeEngine.safariActive = function() return false end
 end
 

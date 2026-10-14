@@ -19,7 +19,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   Pokémon wandering the grass, swimming the water and roaming caves. Walk onto one to start the
   battle. They come straight from the game's own encounter tables, abilities, outbreaks and
   roamers included. On land they only appear where you can actually walk to, while water
-  Pokémon fill every lake and sea, Surf or not.
+  Pokémon fill every lake and sea, Surf or not. In the Safari Zone, walking onto one starts a
+  proper Safari battle, Safari Balls and bait included.
 - 🌿 **They arrive, they don't pop in:** new Pokémon rise out of the grass as it rustles,
   surface from the water inside three spreading rings, or fade in on bare ground, and sink back the same way
   when they leave.

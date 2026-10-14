@@ -14,6 +14,15 @@
 
 ### Changed
 
+- **Visible wild Pokemon in the Safari Zone.** The Safari Zone (Kanto and Hoenn) fills with
+  visible Pokemon like everywhere else; walking onto one starts a real Safari Zone battle, with
+  Safari Balls, bait and rocks. With Classic Enc off they are the only encounters there, as on
+  any route. Sweet Scent calls them over there too, and a partner on the Battle role leaves them
+  alone. Species Modern Spawns brings into the Safari Zone battle just the same, and in FireRed /
+  LeafGreen they run the way the game's own Safari Pokemon do: one the game gives no Safari flee
+  rate (anything that never lived there, National Dex species included) gets the rate its catch
+  rate's band has in the game's table (easy to catch 50, middling 75, rare 125) instead of
+  almost never running.
 - **Wild Pokemon arrive instead of popping in.** A new one rises out of the grass while the
   grass rustles (the extra-tall grass of Routes 119 and 120 with its own rustle), surfaces from
   the water inside three rings that spread outward, or fades in on bare ground, over about half a second. When one leaves

@@ -44,12 +44,10 @@ function EncounterSource:loadMap(mapId)
     self.skip = true
     return
   end
-  -- Safari Zone (Ruby / Sapphire / Emerald and FireRed / LeafGreen): the
-  -- engine runs those battles itself, with balls and bait.
-  if EnginePatch.safariActive() then
-    self.skip = true
-    return
-  end
+  -- The Safari Zone (Ruby / Sapphire / Emerald and FireRed / LeafGreen) gets visible
+  -- spawns like anywhere else: touching one starts the engine's own Safari battle (balls
+  -- and bait), since BattleBridge.startWild makes a plain wild battle a Safari one while a
+  -- visit runs (battle_bridge.lua safari_mode_active).
   self.skip = false
 
   EnginePatch.ensureEncountersLoaded()

@@ -53,6 +53,7 @@ tests/portrait_ui_unit_test.lua
 tests/reachability_unit_test.lua
 tests/reflection_unit_test.lua
 tests/renderer_factory_unit_test.lua
+tests/safari_flee_unit_test.lua
 tests/shiny_chain_test.lua
 tests/shiny_unit_test.lua
 tests/spawn_fx_unit_test.lua
@@ -134,3 +135,5 @@ dist/wilds-of-hoenn-v1.7.4-beta.1-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.7.4-beta.1-hgss.zip
 dist/wilds-of-hoenn-v1.7.4-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.7.4-hgss.zip
+dist/wilds-of-hoenn-v1.7.5-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.5-hgss.zip

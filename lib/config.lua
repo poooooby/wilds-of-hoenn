@@ -13,6 +13,10 @@ Config.DEFAULTS = {
   smooth_follow = true,
 }
 
+-- Safari Zone flee rate (FireRed / LeafGreen) for a species without its own (lib/safari_flee.lua):
+-- {lowest catch rate, flee rate}, first match -- the bands of the game's own table.
+Config.SAFARI_FLEE = { { 150, 50 }, { 60, 75 }, { 0, 125 } }
+
 Config.STATE = {
   AVAILABLE = "available",
   ENCOUNTER_STARTING = "encounter_starting",

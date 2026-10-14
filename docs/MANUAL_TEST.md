@@ -273,8 +273,9 @@ every 15 s).
       gender, shininess -- FRLG spawns get their personality from the engine's rng).
 - [ ] Surfing (Cinnabar / Seafoam), caves (Mt. Moon, Rock Tunnel), Pallet water:
       water and cave spawns work; unreachable ground gets none.
-- [ ] Safari Zone: NO visible spawns; the engine's own Safari battles (balls, bait)
-      work as before. Same check in the Hoenn Safari Zone.
+- [ ] Safari Zone: visible spawns; walking onto one starts a SAFARI battle (Safari Balls,
+      bait, rocks), never a normal one; Classic Enc off -> no step encounters there; a
+      Battle-role partner leaves them alone. Same check in the Hoenn Safari Zone.
 - [ ] Map names use the `FR_` / `LG_` convention: confirm spawns still appear and
       Modern Spawns (if installed) still redistributes species there.
 - [ ] Follower, portraits and PMDCollab behave as on Hoenn.
@@ -287,8 +288,8 @@ every 15 s).
       spawn where expected.
 - [ ] Sootopolis City: no visible water spawns (the engine's own water
       block applies, not reimplemented here).
-- [ ] Safari Zone: left fully vanilla in v1 -- confirm no visible spawns
-      and no interference with the Safari step/ball mechanic.
+- [ ] Safari Zone: visible spawns battle as Safari battles; the Safari step / ball count
+      and the visit's end work as before (with Modern Spawns' species there too).
 - [ ] Battle Pike (Emerald) / Battle Pyramid (Emerald): no visible spawns
       (`EnginePatch.isSweetScentFacility` should skip these maps).
 - [ ] A roamer (Latios/Latias): a roamer encounter still behaves like a
