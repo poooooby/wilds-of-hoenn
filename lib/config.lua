@@ -11,6 +11,7 @@ Config.DEFAULTS = {
   species_sizes = true,
   spawn_amount = "normal",
   flyers = true,
+  smooth_follow = true,
 }
 
 Config.STATE = {
@@ -389,6 +390,12 @@ function Config.spriteStyle(mod)
   -- a save made with the PMDCollab release, loaded in the HGSS-only one
   if v == "pmd" and not Config.hasPmdArt(mod) then return "pokemmo" end
   return v
+end
+
+--- The Smooth Follow option: the follower spaced out behind the player and gliding on
+--- turns (on), or drawn exactly on its grid tile (off). On unless switched off.
+function Config.smoothFollow(mod)
+  return optGet(mod, "smooth_follow") ~= false
 end
 
 function Config.classicEncEnabled(mod)

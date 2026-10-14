@@ -284,6 +284,20 @@ do
   check(not b.away, "no longer inside")
 end
 
+-- ------- a tired Battler stays in through a map change: the reset that comes with it does
+-- not let it pop out (it rests again on the very first tick)
+do
+  reset()
+  local b = newBattler()
+  local mon = newMon({ hp = 1, maxHp = 60 })
+  for _ = 1, 100 do b:step(env(mon)) end
+  eq(b.mode, "rest", "1 HP: resting inside the player")
+  b:reset() -- what a map change / save load does (follower_adapter mapChanged / resetBehaviors)
+  local s = b:step(env(mon))
+  check(s ~= nil and s.away, "the first tick after the reset: still inside (no pop out)")
+  eq(b.mode, "rest", "...resting again at once")
+end
+
 -- ------- a Pokemon that cannot fight (no PP) never starts one, and rests
 do
   reset()

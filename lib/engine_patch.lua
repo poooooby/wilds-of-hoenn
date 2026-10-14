@@ -1977,6 +1977,13 @@ function EnginePatch.playerSurfState()
   }
 end
 
+--- Is the player riding a bike (player.lua Player.biking, either bike)? The follower
+--- goes into its ball until they get off (lib/follower_adapter.lua).
+function EnginePatch.playerBiking()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  return Player ~= nil and Player.biking == true
+end
+
 --- The player's world pixel position (tile top-left, interpolated mid-step),
 --- or nil without a player.
 function EnginePatch.playerPixel()

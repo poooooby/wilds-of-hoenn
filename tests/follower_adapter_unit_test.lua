@@ -256,6 +256,17 @@ fa = FollowerAdapter.new(mod)
 fa:tick()
 check(fa.renderer.pushX == nil and fa.renderer.pushY == nil, "no pushback -> no eased offset (draw falls back)")
 
+-- Smooth Follow off: a wide True Size sprite stays exactly on its grid tile
+fakeImageWidth = 48
+optionStore.sprite_style = "pokemmo"
+optionStore.smooth_follow = false
+fa = FollowerAdapter.new(mod)
+npc.facing = "down"
+fa:tick()
+eq(fa.renderer.largePushback, 0, "Smooth Follow off: no pushback, even for a wide sprite")
+check(fa.renderer.pushX == nil and fa.renderer.pushY == nil, "...and no offset to glide")
+optionStore.smooth_follow = nil
+
 -- No art loaded yet (frameWidth nil) -> no pushback, never throws.
 fakeImageWidth = nil
 fa = FollowerAdapter.new(mod)
@@ -337,6 +348,21 @@ npc.facing = "left"
 for _ = 1, 40 do fa:tick() end
 eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) * Cfg.PMD_FOLLOWER_SIDE_OVERHANG + Cfg.PMD_FOLLOWER_GAP,
   "left/right uses the sprite's width, scaled by PMD_FOLLOWER_SIDE_OVERHANG")
+-- Smooth Follow off: exactly on its grid tile, at once (no spacing, no glide); back on, it
+-- glides out to its spaced place again
+optionStore.smooth_follow = false
+fa:tick()
+check(fa.renderer.pushX == 0 and fa.renderer.pushY == 0, "Smooth Follow off: the PMD follower sits on its grid tile")
+npc.facing = "up"
+fa:tick()
+check(fa.renderer.pushX == 0 and fa.renderer.pushY == 0, "...and a turn moves nothing")
+optionStore.smooth_follow = nil
+fa:tick()
+check(fa.renderer.pushY > 0 and fa.renderer.pushY < math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP,
+  "switched back on: it glides out to its spaced place")
+for _ = 1, 40 do fa:tick() end
+npc.facing = "left"
+for _ = 1, 40 do fa:tick() end
 local realSide = Cfg.PMD_FOLLOWER_SIDE_OVERHANG
 Cfg.PMD_FOLLOWER_SIDE_OVERHANG = 1
 for _ = 1, 40 do fa:tick() end
@@ -369,6 +395,35 @@ do
 end
 optionStore.sprite_style = "pokemmo"
 V.mod = mod
+
+-- ------- on a bike the follower rides in its ball, in both art styles, until the player gets off
+do
+  local biking = false
+  local realBike, realPixel = fakeEngine.playerBiking, fakeEngine.playerPixel
+  fakeEngine.playerBiking = function() return biking end
+  fakeEngine.playerPixel = function() return 40, 48 end
+  local T = V.require("config").PMD_RECALL_TICKS
+  for _, style in ipairs({ "pmd", "pokemmo" }) do
+    optionStore.sprite_style = style
+    V.mod = (style == "pmd") and pmdMod or V.mod
+    npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+    local fb = FollowerAdapter.new(V.mod)
+    fb:tick()
+    eq(fb.renderer.recall or 1, 1, style .. ": on foot it is out")
+    biking = true
+    fb:tick()
+    check((fb.renderer.recall or 1) < 1, style .. ": getting on the bike starts the recall (not a snap)")
+    for _ = 1, T do fb:tick() end
+    eq(fb.renderer.recall, 0, style .. ": inside its ball while riding")
+    check(fb:isRecalled(), style .. ": recalled (no menu, no role)")
+    check(fb.surfRecall, style .. ": its role pauses while riding")
+    biking = false
+    for _ = 1, T + 1 do fb:tick() end
+    eq(fb.renderer.recall, 1, style .. ": off the bike it comes back out")
+  end
+  fakeEngine.playerBiking, fakeEngine.playerPixel = realBike, realPixel
+  optionStore.sprite_style = nil
+end
 
 -- ------- PMDCollab recall: no swim art, so while the player surfs the follower
 -- shrinks into them and grows back out on land

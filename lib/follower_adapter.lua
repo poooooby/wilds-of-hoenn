@@ -290,6 +290,10 @@ function FollowerAdapter:_tickRecall(npc, r)
     end
   end
   self.wasRecalled = recalled
+  -- on a bike the companion rides in its ball (any art style) until the player gets off;
+  -- its role (Forage, Battle) pauses meanwhile, like while surfing
+  local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
+  if biking then recalled = true end
   self.surfRecall = recalled
   -- a Battler out of strength rests inside the player (any art style)
   if self.away then recalled = true end
@@ -497,6 +501,12 @@ function FollowerAdapter:tick()
     if npc.facing == "down" then overhang = overhang * Config.PMD_FOLLOWER_DOWN_OVERHANG end
     if not vertical then overhang = overhang * (Config.PMD_FOLLOWER_SIDE_OVERHANG or 1) end
     local push = overhang + gap
+    if not Config.smoothFollow(self.mod) then
+      -- Smooth Follow off: exactly on its grid tile, no spacing, no glide
+      r.pushX, r.pushY, r.pushPlaced = 0, 0, true
+      self:_tickRecall(npc, r)
+      return
+    end
     local tx, ty = ActorRenderer.behindOffset(npc.facing, push)
     -- a turn takes the same time for every sprite, which makes a big one's
     -- offset race across the screen: cap the speed so it glides instead
@@ -563,7 +573,8 @@ function FollowerAdapter:tick()
   -- Only a sprite wider than one tile needs it: a no-op for the species
   -- whose HGSS / PokeMMO art fits in 16px.
   local pushback = 0
-  if self.renderer.style == SpriteSource.STYLE_POKEMMO then
+  -- (Smooth Follow off: none, it stays exactly on its grid tile)
+  if self.renderer.style == SpriteSource.STYLE_POKEMMO and Config.smoothFollow(self.mod) then
     local fw = self.renderer:visualWidth()
     if fw and fw > CELL then
       pushback = (fw - CELL) / 2
