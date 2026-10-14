@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.8.0-beta.1 (2026-10-14)
 
 ### Added
 
