@@ -43,7 +43,7 @@ return {
     label = "Smooth Follow",
     type = "toggle",
     default = true,
-    description = "On: your partner is spaced out behind you by its size and glides round when you turn. Off: it walks exactly on the tile behind you, step for step like the original games (a big Pokemon can overlap you).",
+    description = "Your partner is always spaced out behind you by its size. On: it glides round when you turn. Off: it snaps straight to its place behind you, step for step like the original games.",
   },
   {
     key = "classic_enc",

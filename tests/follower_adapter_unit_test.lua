@@ -256,15 +256,22 @@ fa = FollowerAdapter.new(mod)
 fa:tick()
 check(fa.renderer.pushX == nil and fa.renderer.pushY == nil, "no pushback -> no eased offset (draw falls back)")
 
--- Smooth Follow off: a wide True Size sprite stays exactly on its grid tile
+-- Smooth Follow off: a wide True Size sprite is spaced out the same, but snaps to its
+-- place on a turn instead of gliding
 fakeImageWidth = 48
 optionStore.sprite_style = "pokemmo"
 optionStore.smooth_follow = false
 fa = FollowerAdapter.new(mod)
 npc.facing = "down"
 fa:tick()
-eq(fa.renderer.largePushback, 0, "Smooth Follow off: no pushback, even for a wide sprite")
-check(fa.renderer.pushX == nil and fa.renderer.pushY == nil, "...and no offset to glide")
+eq(fa.renderer.largePushback, 16, "Smooth Follow off: a wide sprite still keeps its spacing")
+local sx0, sy0 = ActorRenderer.behindOffset("down", 16)
+check(fa.renderer.pushX == sx0 and fa.renderer.pushY == sy0, "...placed behind the player at once")
+npc.facing = "left"
+fa:tick()
+local sx1, sy1 = ActorRenderer.behindOffset("left", 16)
+check(fa.renderer.pushX == sx1 and fa.renderer.pushY == sy1, "...and a turn snaps it to its new place (no glide)")
+npc.facing = "down"
 optionStore.smooth_follow = nil
 
 -- No art loaded yet (frameWidth nil) -> no pushback, never throws.
@@ -348,18 +355,20 @@ npc.facing = "left"
 for _ = 1, 40 do fa:tick() end
 eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) * Cfg.PMD_FOLLOWER_SIDE_OVERHANG + Cfg.PMD_FOLLOWER_GAP,
   "left/right uses the sprite's width, scaled by PMD_FOLLOWER_SIDE_OVERHANG")
--- Smooth Follow off: exactly on its grid tile, at once (no spacing, no glide); back on, it
--- glides out to its spaced place again
+-- Smooth Follow off: the same spacing, but a turn snaps it to its new place at once (no
+-- glide); back on, a turn glides again
 optionStore.smooth_follow = false
 fa:tick()
-check(fa.renderer.pushX == 0 and fa.renderer.pushY == 0, "Smooth Follow off: the PMD follower sits on its grid tile")
+local sideX = math.max(0, (26 - 16) / 2) * Cfg.PMD_FOLLOWER_SIDE_OVERHANG + Cfg.PMD_FOLLOWER_GAP
+eq(fa.renderer.pushX, sideX, "Smooth Follow off: the PMD follower keeps its spacing")
 npc.facing = "up"
 fa:tick()
-check(fa.renderer.pushX == 0 and fa.renderer.pushY == 0, "...and a turn moves nothing")
+local upY = math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP
+check(fa.renderer.pushX == 0 and fa.renderer.pushY == upY, "...and a turn snaps it straight to its new place")
 optionStore.smooth_follow = nil
+npc.facing = "left"
 fa:tick()
-check(fa.renderer.pushY > 0 and fa.renderer.pushY < math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP,
-  "switched back on: it glides out to its spaced place")
+check(fa.renderer.pushX > 0 and fa.renderer.pushX < sideX, "switched back on: a turn glides again")
 for _ = 1, 40 do fa:tick() end
 npc.facing = "left"
 for _ = 1, 40 do fa:tick() end

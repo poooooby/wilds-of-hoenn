@@ -4,15 +4,20 @@
 
 ### Added
 
-- **Smooth Follow option (on by default).** Off: your partner walks exactly on the tile behind
-  you, step for step like the original games, instead of being spaced out behind you and
-  gliding round turns.
+- **Smooth Follow option (on by default).** Off: your partner snaps straight to its place behind
+  you when you turn, step for step like the original games, instead of gliding round. It keeps
+  its distance behind you either way, so a big Pokemon never overlaps you.
 
 - **Spawn Amount option: Low / Normal / High.** Normal is the same number of wild Pokemon as
   before. Low is about half (up to 4 each in grass and water), High about one and a half times (up
   to 12 each). Lowering it takes effect at once, the farthest Pokemon leaving first.
 
 ### Changed
+
+- **A new party leader becomes your follower.** Putting a different Pokemon first in your party
+  makes it your follower, like the lead in the original games, even if you had sent another one
+  out. You can still pick any Pokemon and job in the party menu; that choice stays until you
+  change your leader again. Moving your current partner to the front keeps its job.
 
 - **Visible wild Pokemon in the Safari Zone.** The Safari Zone (Kanto and Hoenn) fills with
   visible Pokemon like everywhere else; walking onto one starts a real Safari Zone battle, with

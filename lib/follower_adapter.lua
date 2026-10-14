@@ -501,13 +501,14 @@ function FollowerAdapter:tick()
     if npc.facing == "down" then overhang = overhang * Config.PMD_FOLLOWER_DOWN_OVERHANG end
     if not vertical then overhang = overhang * (Config.PMD_FOLLOWER_SIDE_OVERHANG or 1) end
     local push = overhang + gap
+    local tx, ty = ActorRenderer.behindOffset(npc.facing, push)
     if not Config.smoothFollow(self.mod) then
-      -- Smooth Follow off: exactly on its grid tile, no spacing, no glide
-      r.pushX, r.pushY, r.pushPlaced = 0, 0, true
+      -- Smooth Follow off: spaced out the same, but no glide -- it snaps to its place
+      -- behind the player on a turn, step for step like the original games
+      r.pushX, r.pushY, r.pushPlaced = tx, ty, true
       self:_tickRecall(npc, r)
       return
     end
-    local tx, ty = ActorRenderer.behindOffset(npc.facing, push)
     -- a turn takes the same time for every sprite, which makes a big one's
     -- offset race across the screen: cap the speed so it glides instead
     -- (the speed goes by the larger of the new push and the offset it is leaving, never
@@ -573,8 +574,7 @@ function FollowerAdapter:tick()
   -- Only a sprite wider than one tile needs it: a no-op for the species
   -- whose HGSS / PokeMMO art fits in 16px.
   local pushback = 0
-  -- (Smooth Follow off: none, it stays exactly on its grid tile)
-  if self.renderer.style == SpriteSource.STYLE_POKEMMO and Config.smoothFollow(self.mod) then
+  if self.renderer.style == SpriteSource.STYLE_POKEMMO then
     local fw = self.renderer:visualWidth()
     if fw and fw > CELL then
       pushback = (fw - CELL) / 2
@@ -590,6 +590,8 @@ function FollowerAdapter:tick()
   local tx, ty = ActorRenderer.behindOffset(npc.facing, pushback)
   if pushback == 0 then
     r.pushX, r.pushY = nil, nil
+  elseif not Config.smoothFollow(self.mod) then
+    r.pushX, r.pushY = tx, ty -- Smooth Follow off: the same spacing, no glide on a turn
   else
     local maxStep = (pushback * 2) / FollowerAdapter.STEP_TICKS
     r.pushX = ActorRenderer.approach(r.pushX, tx, maxStep)
