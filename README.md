@@ -49,6 +49,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   dashes to a glint on the ground and always digs something up. The fonder it is, the sooner it
   finds things, and the rarer they get: evolution stones from friendship 130, the rarest finds
   from 200.
+- 🚲 **Bike rides:** hop on your bike and your partner rides along in its Poké Ball, popping
+  back out when you get off.
 
 ### A Living World
 
@@ -70,6 +72,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Show Wild Mons** | On / Off | On | Visible wild Pokémon in areas with wild encounters. |
 | **Spawn Amount** | Low / Normal / High | Normal | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
 | **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
+| **Smooth Follow** | On / Off | On | On: your partner is spaced out behind you and glides round turns. Off: it walks exactly on the tile behind you, step for step like the original games. |
 | **Classic Enc** | On / Off | On | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
 | **Silhouette** | Off / Undiscovered / All | Off | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
 | **Species Sizes** | On / Off | On | Draws each species at its own relative size. Needs Gen 3 HD Sprites. |

@@ -4,6 +4,10 @@
 
 ### Added
 
+- **Smooth Follow option (on by default).** Off: your partner walks exactly on the tile behind
+  you, step for step like the original games, instead of being spaced out behind you and
+  gliding round turns.
+
 - **Spawn Amount option: Low / Normal / High.** Normal is the same number of wild Pokemon as
   before. Low is about half (up to 4 each in grass and water), High about one and a half times (up
   to 12 each). Lowering it takes effect at once, the farthest Pokemon leaving first.
@@ -20,6 +24,13 @@
   with hearts floating over them, and wait for you for about a minute before wandering off. A
   battle with one starts with its evasion lowered one stage (75%), like the in-battle move. With
   Show Wild Mons off, Sweet Scent works as in the original game.
+
+### Fixed
+
+- **Your partner rides in its Poke Ball on a bike.** Getting on a bike sends it back into its
+  ball, and it comes out again when you get off (its Forage / Battle role pauses meanwhile).
+- **A worn-out Battler no longer pops out on a new map.** One resting inside you at 1 HP came
+  back out for a moment after every map change or save load before going back in.
 
 ## 1.7.5 (2026-10-13)
 

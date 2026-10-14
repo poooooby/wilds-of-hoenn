@@ -66,6 +66,10 @@ function OverworldBattle:reset()
   self.flash = 0
   self.away = false
   self.path, self.pathIdx = nil, 0
+  -- the first idle tick checks at once whether it is still too tired to come out (a map
+  -- change or save load resets this Battler): otherwise it popped out of the player and
+  -- went straight back in
+  self.checkRest = true
 end
 
 -- Frees the wild Pokemon this Battler had engaged (it goes back to wandering).
@@ -256,7 +260,9 @@ function OverworldBattle:_mode_idle(env)
   if self.cooldown > 0 then self.cooldown = self.cooldown - 1 end
   self.scan = self.scan + 1
   local looking = self.scan >= cfg.scanEvery
-  if looking and exhaustedNow(env.mon, self.combatDeps) then
+  local checkRest = self.checkRest
+  self.checkRest = false
+  if (looking or checkRest) and exhaustedNow(env.mon, self.combatDeps) then
     -- carried over a save / map change: it cannot fight, so it stays inside
     self.mode, self.t, self.away = "rest", 0, true
     return state(self, env, { moving = false })
