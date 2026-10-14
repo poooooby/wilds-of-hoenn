@@ -70,7 +70,6 @@ return function(mod)
   local Reflection = V.require("reflection")
   local ModernSpawns = V.require("modern_spawns_bridge")
   local Shiny = V.require("shiny")
-  local SafariFlee = V.require("safari_flee")
 
   Config.defineOptions(mod)
   HdField.setSpeciesSizes(Config.get(mod, "species_sizes"))
@@ -290,9 +289,6 @@ return function(mod)
   -- a battle with a wild Pokemon Sweet Scent called over: its evasion starts lowered
   -- (Config.SWEET_SCENT.evasion, -1 = 75%), as the in-battle move would leave it
   mod.events:on("battle.started", function(_ev)
-    -- a Safari battle with a species the Safari Zone never had: a flee rate fitted from the
-    -- game's own table (lib/safari_flee.lua), or it would almost never run
-    pcall(function() EnginePatch.fitSafariFlee(SafariFlee.fitted, SafariFlee.escapeFactor) end)
     pcall(function()
       if battleTrigger.pendingLured then
         battleTrigger.pendingLured = false

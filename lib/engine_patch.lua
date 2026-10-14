@@ -751,30 +751,6 @@ function EnginePatch.setFoeStage(stat, stage)
   return ok and set == true
 end
 
---- A FireRed / LeafGreen Safari battle against a species with no Safari flee rate of its
---- own (BaseStats safariZoneFleeRate 0 or missing: anything the Safari Zone never had --
---- Modern Spawns' species, National Dex ones): gives it `fit(ownRate, catchRate)`'s rate
---- instead (lib/safari_flee.lua) by rewriting the battle's safariState.escapeFactor, set by
---- battle/init.lua from that rate. Called at battle.started. Returns the rate given, or nil
---- (not a Safari battle, Ruby / Sapphire / Emerald's shared factor, its own rate kept).
-function EnginePatch.fitSafariFlee(fit, escapeFactor)
-  local ok, rate = pcall(function()
-    local Battle = loadModule("src.core.game3.battle")
-    local st = Battle and Battle.getState and Battle.getState()
-    local sf = st and st.safari and st.safariState
-    if not sf or sf.rse then return nil end
-    local foe = st.enemy
-    local species = foe and (foe.species or foe.speciesId)
-    local Pokemon = EnginePatch.pokemon()
-    local meta = species and Pokemon and Pokemon.speciesMeta and Pokemon.speciesMeta(species)
-    local r, fitted = fit(meta and meta.safariZoneFleeRate, meta and meta.catchRate)
-    if not fitted then return nil end
-    sf.escapeFactor = escapeFactor(r)
-    return r
-  end)
-  return ok and rate or nil
-end
-
 --- The roaming legendary as the engine has it RIGHT NOW (roamer.lua Roamer.instance:
 --- species, level, personality, IVs, its current hp / status / sleep, roamer = true), or
 --- nil when there is none or it is no longer active (caught or defeated). A visible
