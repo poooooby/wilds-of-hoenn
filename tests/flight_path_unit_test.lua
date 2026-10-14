@@ -176,6 +176,16 @@ end
 
 check(Config.FLYERS.sharpBelow < Config.FLYERS.sharpAbove, "the crossfade band is ordered")
 
+-- ------- a swimmer's wave: side to side along the way, still ending on its target
+do
+  local plan = FlightPath.plan({ { type = "fly", from = { x = 0, y = 0, h = 0 }, to = { x = 100, y = 0, h = 0 }, n = 40,
+    wave = { 3, 2 } } })
+  local maxOff, s = 0, nil
+  for _ = 1, 40 do s = FlightPath.step(plan) maxOff = math.max(maxOff, math.abs(s.y)) end
+  check(maxOff > 2 and maxOff <= 3.01, "it wiggles about 3 px off the line")
+  check(math.abs(s.x - 100) < 1e-6 and math.abs(s.y) < 1e-6, "...and still ends on its target")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

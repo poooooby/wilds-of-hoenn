@@ -35,10 +35,26 @@ function SpawnManager.new(mod)
   }, SpawnManager)
 end
 
+-- Is `e` coming or going by air (lib/sky_flyers.lua, mode "swoop") or swimming under the
+-- sea (lib/water_life.lua, mode "swim")? Either way it is not on its tile yet / any more.
+local function travelling(e)
+  return e.fx ~= nil and (e.fx.mode == "swoop" or e.fx.mode == "swim")
+end
+SpawnManager._travelling = travelling
+
+-- the module that moves a travelling entity: the sky for a swoop, Water Life for a swim
+function SpawnManager:_traveller(fx)
+  if fx and fx.mode == "swim" then return self.water end
+  return self.sky
+end
+
 function SpawnManager:clearAll()
-  -- a flight cut short gives back its perch and canvas (lib/sky_flyers.lua)
+  -- a flight / swim cut short gives back its perch and canvas
   for _, e in pairs(self.entities) do
-    if e.fx and e.fx.mode == "swoop" and self.sky then self.sky:endFlight(e.fx) end
+    if travelling(e) then
+      local h = self:_traveller(e.fx)
+      if h then h:endFlight(e.fx) end
+    end
   end
   self.entities = {}
   self.order = {}
@@ -131,6 +147,8 @@ function SpawnManager:onMapEntered(mapId, game)
   self:clearAll()
   self.mapId = mapId
   self.game = game
+  -- a Dive map: its wild Pokemon are drawn whole (not cut at a surface they are far below)
+  self.underwater = EnginePatch.mapType ~= nil and EnginePatch.mapType() == 5
   self.reach, self.reachCount, self.reachAge = nil, nil, 0
   if not Config.enabled(self.mod) then return end
   self.source:loadMap(mapId)
@@ -309,7 +327,8 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
   local id = self.nextId
   self.nextId = id + 1
 
-  local presentation = (terrain == "water") and SpriteSource.DEFAULT_WATER_PRESENTATION or SpriteSource.PRESENTATION_LAND
+  local presentation = (terrain == "water" and not self.underwater) and SpriteSource.DEFAULT_WATER_PRESENTATION
+    or SpriteSource.PRESENTATION_LAND
   local renderer = RendererFactory.new(self.mod, dex, enc.shiny, Config.spriteStyle(self.mod), presentation)
   -- PMDCollab: start each Pokemon at its own point in the Idle loop so a
   -- group of them doesn't breathe in unison.
@@ -351,6 +370,9 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
   if self.filled then
     if self.sky and self.sky:canFly(e) and self.sky:clearOfPlayer(e.cellX, e.cellY) then
       e.fx = self.sky:planArrival(e)
+    elseif self.underwater and self.water and self.water:canSwim(e) then
+      -- under the sea a fish swims in as a shadow and takes shape (lib/water_life.lua)
+      e.fx = self.water:planArrival(e)
     else
       self:_startFx(e, "appear")
     end
@@ -503,10 +525,11 @@ function SpawnManager:tick(game)
     end
     -- an `engaged` Pokemon is in a skirmish with the player's Battler
     -- (lib/overworld_battle.lua): it stands its ground and that module animates it
-    if e and e.fx and e.fx.mode == "swoop" then
-      -- arriving / leaving by air (lib/sky_flyers.lua)
+    if e and travelling(e) then
+      -- arriving / leaving by air (lib/sky_flyers.lua) or swimming (lib/water_life.lua)
       if e.moving then Behavior._advanceMove(e) end
-      local done = not self.sky or self.sky:stepFlight(e.fx)
+      local h = self:_traveller(e.fx)
+      local done = not h or h:stepFlight(e.fx)
       if done and e.fx.kind == "leave" then
         gone = gone or {}
         gone[#gone + 1] = id
@@ -605,7 +628,7 @@ function SpawnManager:reflections(list, camX, camY)
   if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    local r = e and e.state ~= Config.STATE.DESPAWNED and not (e.fx and e.fx.mode == "swoop")
+    local r = e and e.state ~= Config.STATE.DESPAWNED and not travelling(e)
       and inView(e, camX, camY, vw, vh) and e.renderer
     if r and r.reflectionGeometry then
       local geo = r:reflectionGeometry(e.px, e.py, e.facing, poseOf(e))
@@ -626,9 +649,10 @@ function SpawnManager:collectActors(actors, camX, camY)
   if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    if e and e.fx and e.fx.mode == "swoop" then
-      -- in the air: drawn by lib/sky_draw.lua (above roofs, sized and blurred by height)
-      if self.sky then self.sky:pushFlight(e.fx, actors, camX, camY) end
+    if e and travelling(e) then
+      -- in the air / under the water: drawn by lib/sky_draw.lua (sized and blurred by depth)
+      local h = self:_traveller(e.fx)
+      if h then h:pushFlight(e.fx, actors, camX, camY) end
       if e.rings then
         local a = SpawnFx.ringsActor(e.rings.age, e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end
@@ -691,7 +715,7 @@ function SpawnManager:entityAt(tx, ty)
     local e = self.entities[id]
     -- one still in the air (arriving by sky) is not there yet
     if e and e.state == Config.STATE.AVAILABLE and e.cellX == tx and e.cellY == ty
-      and not (e.fx and e.fx.mode == "swoop") then
+      and not travelling(e) then
       return e
     end
   end
@@ -734,6 +758,7 @@ end
 
 --- How a Pokemon on this tile arrives / leaves: "water", "grass" or "fade".
 function SpawnManager:_fxMode(e)
+  if self.underwater then return "fade" end -- no surface to break, no grass, under the sea
   if e.terrain == "water" or (EnginePatch.isWater and EnginePatch.isWater(e.cellX, e.cellY)) then return "water" end
   if EnginePatch.isGrass and EnginePatch.isGrass(e.cellX, e.cellY) then return "grass" end
   return "fade"
@@ -789,7 +814,10 @@ end
 function SpawnManager:_touchDown(e)
   local fx = e.fx
   e.fx = nil
-  if fx and fx.view then SkyFlyers.restore(fx.view) end
+  local h = fx and self:_traveller(fx)
+  if fx and fx.view then
+    if h and h.restore then h.restore(fx.view) else SkyFlyers.restore(fx.view) end
+  end
   e.groundAge = 0
   self:_liftEffects(e)
   local p = EnginePatch.playerCell and EnginePatch.playerCell()
@@ -805,16 +833,22 @@ function SpawnManager:despawn(id, opts)
   local e = self.entities[id]
   if not e then return end
   if opts and opts.animate and e.state == Config.STATE.AVAILABLE then
-    if e.fx and e.fx.mode == "swoop" then
-      -- still arriving: it turns round and flies off
-      if self.sky then self.sky:endFlight(e.fx) end
-      if e.fx.view then SkyFlyers.restore(e.fx.view) end
+    if travelling(e) then
+      -- still arriving: it turns round and leaves
+      local h = self:_traveller(e.fx)
+      if h then h:endFlight(e.fx) end
+      if e.fx.view then
+        if h and h.restore then h.restore(e.fx.view) else SkyFlyers.restore(e.fx.view) end
+      end
       e.fx = nil
     end
     e.state = Config.STATE.LEAVING
     e.lured, e.react = nil, nil
     -- (`opts.fly`: a startled bird takes off even right by the player, flying away from them)
-    if self.sky and self.sky:canFly(e) and not e.engaged
+    if self.underwater and self.water and self.water:canSwim(e) and not e.engaged then
+      -- under the sea a fish fades back to a shadow and swims off
+      e.fx = self.water:planDeparture(e)
+    elseif self.sky and self.sky:canFly(e) and not e.engaged
       and (opts.fly or self.sky:clearOfPlayer(e.cellX, e.cellY)) then
       -- a Flying type takes off from its cell and flies away
       self:_liftEffects(e)
@@ -824,7 +858,10 @@ function SpawnManager:despawn(id, opts)
     end
     return
   end
-  if e.fx and e.fx.mode == "swoop" and self.sky then self.sky:endFlight(e.fx) end
+  if travelling(e) then
+    local h = self:_traveller(e.fx)
+    if h then h:endFlight(e.fx) end
+  end
   self.entities[id] = nil
   for i = #self.order, 1, -1 do
     if self.order[i] == id then
@@ -845,7 +882,7 @@ function SpawnManager:refreshSpriteStyle()
   local style = Config.spriteStyle(self.mod)
   for _, e in pairs(self.entities) do
     if e.renderer then
-      local presentation = (e.terrain == "water") and SpriteSource.DEFAULT_WATER_PRESENTATION
+      local presentation = (e.terrain == "water" and not self.underwater) and SpriteSource.DEFAULT_WATER_PRESENTATION
         or SpriteSource.PRESENTATION_LAND
       local fresh = RendererFactory.new(self.mod, e.dex, e.shiny, style, presentation)
       fresh.silhouette = e.renderer.silhouette

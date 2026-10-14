@@ -934,6 +934,59 @@ do
   fakeEngine.playerIsRunning, fakeEngine.leadPartyMon = nil, nil
 end
 
+-- ------- under the sea (a Dive map): fish swim in as a shadow; everything is drawn whole
+do
+  local WaterLife = V.require("water_life")
+  local saved = {}
+  for _, k in ipairs({ "mapType", "terrainAt", "isWater", "mapBounds", "eggGroups", "heightDm", "playerCell", "tableFor" }) do
+    saved[k] = fakeEngine[k]
+  end
+  fakeEngine.mapType = function() return 5 end
+  fakeEngine.terrainAt = function() return "water" end
+  fakeEngine.isWater = function() return true end
+  fakeEngine.mapBounds = function() return 40, 5 end
+  fakeEngine.tableFor = function() return { water = { rate = 4, slots = {} } } end
+  local fish = true
+  fakeEngine.eggGroups = function() if fish then return 12, 12 end return 2, 2 end
+  fakeEngine.heightDm = function() return 5 end
+  local player = { x = 200, y = 200, moving = false }
+  fakeEngine.playerCell = function() return player end
+
+  local smU = SpawnManager.new(mod)
+  local wl = WaterLife.new(mod)
+  smU.water = wl
+  wl:onMapEntered("UNDERWATER_ROUTE124")
+  smU:onMapEntered("UNDERWATER_ROUTE124", { world = { player = { cellX = -1, cellY = -1 } } })
+  check(smU.underwater, "a Dive map")
+  local any
+  for _, e in pairs(smU.entities) do any = e break end
+  check(any and any.renderer.presentation ~= "swimming", "an underwater Pokemon is drawn whole, not cut at a surface")
+
+  smU:despawn(smU.order[1])
+  smU:tick(smU.game)
+  local newcomer
+  for _, e in pairs(smU.entities) do if e.fx then newcomer = e end end
+  check(newcomer and newcomer.fx.mode == "swim" and newcomer.fx.kind == "land", "a fish swims in under the sea")
+  if newcomer then
+    eq(smU:entityAt(newcomer.cellX, newcomer.cellY), nil, "...and cannot be met before it has arrived")
+    for _ = 1, 400 do smU:tick(smU.game) if not newcomer.fx then break end end
+    eq(newcomer.fx, nil, "it arrives")
+    eq(smU:entityAt(newcomer.cellX, newcomer.cellY), newcomer, "...and can be met")
+    smU:despawn(newcomer.id, { animate = true })
+    check(newcomer.fx and newcomer.fx.mode == "swim" and newcomer.fx.kind == "leave", "leaving, it swims off")
+  end
+
+  fish = false
+  for _ = 1, 400 do smU:tick(smU.game) end
+  smU:despawn(smU.order[1])
+  smU:tick(smU.game)
+  local other
+  for _, e in pairs(smU.entities) do if e.fx and e.fx.kind == "appear" then other = e end end
+  check(other ~= nil and other.fx.mode == "fade", "a non-fish fades in under the sea (no surface to break)")
+
+  for k, v in pairs(saved) do fakeEngine[k] = v end
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

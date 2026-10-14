@@ -37,7 +37,7 @@ return {
     label = "Water Life",
     type = "toggle",
     default = true,
-    description = "Life in the water, just for the scenery: small fish of the area (Magikarp, Goldeen, Luvdisc ...) leap out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a spray, before sinking back under. Never battled.",
+    description = "Life in the water, just for the scenery: small fish of the area (Magikarp, Goldeen, Luvdisc ...) leap out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a spray, before sinking back under. Diving, fish swim by under the sea as dark shadows trailing bubbles. Never battled.",
   },
   {
     key = "wild_reacts",

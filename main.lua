@@ -117,6 +117,7 @@ return function(mod)
   local waterLife = WaterLife.new(mod, {
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
   })
+  spawnManager.water = waterLife -- wild fish swim in / out under the sea
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
   -- a wild Pokemon chasing the player catches up (lib/wild_reactions.lua): the battle
   spawnManager.onContact = function(e) battleTrigger:onChaserContact(e) end

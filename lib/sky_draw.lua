@@ -114,10 +114,11 @@ function SkyDraw.prepare(bird)
     local r = bird.renderer
     local act = r.act
     r.act = nil -- drawn plain here; height, lift and fade are applied when the canvas is drawn
-    local alpha = r.alpha
+    local alpha, sil = r.alpha, r.silhouette
     r.alpha = nil
+    if bird.silhouette ~= nil then r.silhouette = bird.silhouette end -- a fish's shadow under water
     local okDraw = pcall(r.draw, r, TILE_X, TILE_Y, 0, 0, bird.facing or "down", bird.pose)
-    r.act, r.alpha = act, alpha
+    r.act, r.alpha, r.silhouette = act, alpha, sil
     g.pop()
     return okDraw
   end)
@@ -129,11 +130,12 @@ end
 
 --- Appends the actors for one bird: `bird` = { id, renderer, x, y (world px of its
 --- ground point's tile), h, lift (px up: a perch), hop (px up), sink, facing, pose,
---- alpha (extra fade) }.
+--- alpha (extra fade), silhouette (true / false: drawn as a dark shape or not, whatever
+--- the renderer's own setting; nil = its own), layers (a swimmer's depth layers) }.
 --- (camX, camY, vw, vh) = the view. Nothing when it is hidden.
 function SkyDraw.push(actors, bird, camX, camY, vw, vh)
   if bird.hidden then return end
-  local look = FlightPath.look(bird.h)
+  local look = FlightPath.look(bird.h, bird.layers) -- (a swimmer brings its own depth layers)
   local id = tonumber(bird.id) or 0
   local sharp, soft = SkyDraw.mix(bird.h)
   local sub = math.max(0, 40 - math.floor(look.parallax * 20)) -- higher birds draw later
@@ -141,17 +143,20 @@ function SkyDraw.push(actors, bird, camX, camY, vw, vh)
   -- world point the renderer can be handed with the real camera
   local sx, sy = FlightPath.toScreen(bird.x, bird.y, look.parallax, camX or 0, camY or 0, vw, vh)
   local up = (bird.lift or 0) + (bird.hop or 0)
+  local swayX, swayY = bird.swayX or 0, bird.swayY or 0 -- a swimming fish's wiggle
   if sharp > 0 then
     local r = bird.renderer
     actors[#actors + 1] = {
       kind = "sky_mon", x = sx + (camX or 0), y = sy + (camY or 0), sortY = sy + (camY or 0), elevation = 3,
       i = 93500 + id, fixedPriority = true, priority = 1, subpriority = sub,
       draw = function(_, cX, cY)
-        local act, alpha = r.act, r.alpha
-        r.act = { scale = look.scale, dy = -up, sink = bird.sink, facing = bird.facing }
-        r.alpha = sharp * (bird.alpha or 1)
+        local act, alpha, sil = r.act, r.alpha, r.silhouette
+        r.act = { scale = look.scale, dx = swayX, dy = swayY - up, sink = bird.sink, facing = bird.facing }
+        -- the layer's own transparency too (1 for a low bird; a fish's shadow is see-through)
+        r.alpha = sharp * (bird.alpha or 1) * look.alpha
+        if bird.silhouette ~= nil then r.silhouette = bird.silhouette end
         r:draw(sx + cX, sy + cY, cX, cY, bird.facing or "down", bird.pose)
-        r.act, r.alpha = act, alpha
+        r.act, r.alpha, r.silhouette = act, alpha, sil
       end,
     }
   end
@@ -178,7 +183,7 @@ function SkyDraw.push(actors, bird, camX, camY, vw, vh)
         g.setBlendMode("alpha", "premultiplied")
         g.setColor(alpha, alpha, alpha, alpha)
         -- the canvas's feet point on the bird's tile feet point, grown about it
-        g.draw(c, sx + 8, sy + 16 - up * look.scale, 0, look.scale, look.scale, FOOT_X, FOOT_Y)
+        g.draw(c, sx + 8 + swayX * look.scale, sy + 16 + (swayY - up) * look.scale, 0, look.scale, look.scale, FOOT_X, FOOT_Y)
         if sh then g.setShader() end
         g.setBlendMode(bm, am)
         g.setColor(pr, pg, pb, pa)

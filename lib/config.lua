@@ -133,6 +133,21 @@ Config.WATER_LIFE = {
   whale = { every = { 1500, 3300 }, max = 1, riseTicks = 50, stay = { 240, 480 }, drift = { 0, 1 },
             sprays = { 1, 2 }, sprayTicks = 48 },
   minPlayerDist = 2,                                           -- tiles kept clear of the player
+  -- under the sea (Dive maps): every fish the game knows, National Dex included (Water 2 egg group, no
+  -- legendary -- the Undiscovered group -- nothing over swim.maxHeightDm) swim across as dark
+  -- shadows of themselves, wiggling, trailing bubbles; small ones sometimes in a school.
+  -- Like the birds, depth is distance from the camera: near the surface (h 1) bigger,
+  -- sliding faster, softer and fainter; down by the seabed (h 0) smaller and sharper.
+  swim = { every = { 240, 600 }, max = 3, ticks = { 360, 600 }, maxHeightDm = 20,
+           schoolChance = 40, school = { 3, 4 }, schoolMaxHeightDm = 6, schoolSpread = 14,
+           wave = { amp = 6, cycles = { 3, 5 } }, curve = 30, bubbleEvery = { 18, 36 }, bubbleTicks = 50,
+           -- the body's own wiggle while it swims: a quick side to side sway across its way,
+           -- `px` either side, a full beat every `ticks`
+           wiggle = { px = 2, ticks = 14 },
+           layers = {
+             { h = 0, scale = 0.85, parallax = 1.0, blur = 0,   alpha = 0.5,  haze = 0 },
+             { h = 1, scale = 1.35, parallax = 1.2, blur = 1.5, alpha = 0.32, haze = 0 },
+           } },
 }
 
 -- Idle wing-flap for floating/flying species: logic ticks each pose of the

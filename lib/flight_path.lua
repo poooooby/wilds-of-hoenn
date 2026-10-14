@@ -146,6 +146,11 @@ function FlightPath.step(plan)
       local bow = math.sin(math.pi * e) * ph.curve
       x, y = x - dy / len * bow, y + dx / len * bow
     end
+    -- a swimmer's wiggle: a small side to side wave along the way (`wave` = { amp, cycles })
+    if len > 0 and ph.wave then
+      local w = math.sin(p * math.pi * 2 * ph.wave[2]) * ph.wave[1]
+      x, y = x - dy / len * w, y + dx / len * w
+    end
     s.x, s.y = x, y
     s.h = lerp(a.h or 0, b.h or 0, e)
     s.lift = lerp(a.lift or 0, b.lift or 0, e)

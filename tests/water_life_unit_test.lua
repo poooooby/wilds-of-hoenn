@@ -139,6 +139,63 @@ do
   optionStore.water_life = nil
 end
 
+-- ------- under the sea (a Dive map): every eligible fish of the dex swims by as a shadow
+do
+  -- 8 Kyogre (legendary: Undiscovered egg group), 9 Sharpedo-sized but 2.4 m (too big)
+  NAT[8], EGG[8], HEIGHT[8] = 382, { 15, 15 }, 45
+  NAT[9], EGG[9], HEIGHT[9] = 900, { 12, 12 }, 24
+  local byNat = {}
+  for s, n in pairs(NAT) do byNat[n] = s end
+  fake.speciesForNational = function(n) return byNat[n] end
+  WL._resetSwimmers()
+  local all = WL.allSwimmers()
+  local set = {}
+  for _, s in ipairs(all) do set[s] = true end
+  check(set[1] and set[2] and set[6], "the dex's fish swim under the sea (not just this map's table)")
+  check(not set[8], "never a legendary")
+  check(not set[9], "nothing massive")
+  check(not set[3] and not set[4] and not set[5], "no Horsea, no non-fish, no whale")
+
+  fake.mapType = function() return 5 end
+  local wl = WL.new(mod)
+  wl:onMapEntered("UNDERWATER_ROUTE124")
+  check(wl.allowed and wl.underwater, "a Dive map: life under the sea")
+  wl:collectActors({}, 0, 0)
+  local seenSchool, maxSwim, bubbles, silhouettes = false, 0, false, true
+  for _ = 1, 60 * 90 do
+    wl:tick()
+    maxSwim = math.max(maxSwim, wl:count("swim"))
+    for _, c in ipairs(wl.creatures) do
+      if c.kind ~= "swim" then silhouettes = false end
+      if not c.renderer.silhouette then silhouettes = false end
+      if #c.bubbles > 0 then bubbles = true end
+    end
+    if wl:count("swim") >= 3 then seenSchool = true end
+  end
+  check(maxSwim > 0, "fish swim by")
+  check(silhouettes, "...as dark shadows, and nothing leaps or surfaces down here")
+  check(bubbles, "...trailing bubbles")
+  check(seenSchool, "small fish sometimes come as a school")
+  local actors = {}
+  wl:collectActors(actors, 0, 0)
+  local dx, dy, al = WL.bubble(10, 1)
+  check(dy < 0 and al < 1, "a bubble rises and fades")
+  fake.mapType = function() return 3 end
+end
+
+-- ------- the body wiggle: across the way it swims, only while swimming
+do
+  local w = Config.WATER_LIFE.swim.wiggle
+  local v = { facing = "right", flapClock = math.floor(w.ticks / 4) }
+  WL._sway(v, true)
+  check(v.swayX == 0 and math.abs(v.swayY) > 1.5, "swimming right, it sways up and down")
+  v.facing = "up"
+  WL._sway(v, true)
+  check(v.swayY == 0 and math.abs(v.swayX) > 1.5, "swimming up, it sways side to side")
+  WL._sway(v, false)
+  check(v.swayX == 0 and v.swayY == 0, "resting: no wiggle")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

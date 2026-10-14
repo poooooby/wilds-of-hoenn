@@ -8,7 +8,14 @@
   and Surf Pokemon (Magikarp, Goldeen, Feebas, Luvdisc, Carvanha ...) now and then leap out of
   open water in an arc and splash back in, with ripples and a spray of droplets; PMDCollab ones
   play their own hop. Wailmer and Wailord rise to the surface, lie there or drift a little, blow
-  a spout from their blowhole and sink back under. Just scenery: never battled.
+  a spout from their blowhole and sink back under. Diving, the sea's fish (any non-legendary fish
+  of the National Dex under 2 m) swim by as dark shadows trailing bubbles, curving and wiggling,
+  nearer the surface bigger and softer, sometimes in a small school. Just scenery: never battled.
+- **Visible wild Pokemon under the sea.** Dive maps get their own visible wild Pokemon from the
+  underwater table, drawn whole (not cut off at a surface they are far below). A fish among them
+  swims in from off screen as a shadow, curving round you, and takes shape on its spot; leaving,
+  it fades back to a shadow and swims away. Others fade in and out. Swimming onto one starts the
+  battle, as on land.
 
 - **Wild Pokemon react when you run or bike close by (Wild Reacts option, on by default).**
   Ones weaker than your lead Pokemon are startled (a "!" over their head) and run off a few

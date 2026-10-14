@@ -20,6 +20,9 @@ local SpriteSource = V.require("sprite_source")
 local FormSource = V.require("form_source")
 local RendererFactory = V.require("renderer_factory")
 local RecallMath = V.require("recall_math")
+local FlightPath = V.require("flight_path")
+local SkyDraw = V.require("sky_draw")
+local ActorRenderer = V.require("actor_renderer")
 
 local WaterLife = {}
 WaterLife.__index = WaterLife
@@ -42,6 +45,21 @@ end
 
 local function between(rng, r) return rng(r[1], r[2]) end
 
+-- a swimming fish's body wiggle this tick: a sway across the way it faces (sideways for
+-- one swimming left / right, up and down for one swimming up / down)
+local function sway(view, swimming)
+  if not swimming then view.swayX, view.swayY = 0, 0 return end
+  local w = Config.WATER_LIFE.swim.wiggle
+  local d = math.sin((view.flapClock or 0) / w.ticks * math.pi * 2) * w.px
+  if view.facing == "left" or view.facing == "right" then
+    view.swayX, view.swayY = 0, d
+  else
+    view.swayX, view.swayY = d, 0
+  end
+end
+WaterLife._sway = sway
+
+
 --- Is this species one of the small fish that leap? Pure given the engine answers.
 function WaterLife.isFish(species)
   local cfg = Config.WATER_LIFE
@@ -54,6 +72,40 @@ function WaterLife.isFish(species)
   local h = EnginePatch.heightDm and EnginePatch.heightDm(species)
   return h == nil or h < cfg.maxFishHeightDm
 end
+
+--- One of the fish that swim by under the sea (Dive maps)? The Water 2 egg group, no
+--- legendary (egg group 15, Undiscovered), nothing massive (Config.WATER_LIFE.swim).
+function WaterLife.isSwimmer(species)
+  if WaterLife.isWhale(species) then return false end
+  local nat = EnginePatch.nationalFor and EnginePatch.nationalFor(species)
+  local cfg = Config.WATER_LIFE
+  if nat and cfg.notFish[nat] then return false end
+  local g1, g2 = nil, nil
+  if EnginePatch.eggGroups then g1, g2 = EnginePatch.eggGroups(species) end
+  if g1 == 15 or g2 == 15 then return false end
+  if not (g1 == 12 or g2 == 12 or (nat and cfg.fishExtra[nat])) then return false end
+  local h = EnginePatch.heightDm and EnginePatch.heightDm(species)
+  return h == nil or h <= cfg.swim.maxHeightDm
+end
+
+-- every species that may swim by under the sea, worked out once: each national dex number
+-- the game knows a species for (National Dex Gen 3 adds the later generations) that passes
+-- isSwimmer. Rebuilt when it came out empty (the species data was not loaded yet).
+local swimmerCache
+function WaterLife.allSwimmers(maxNational)
+  if swimmerCache and #swimmerCache > 0 then return swimmerCache end
+  local out, seen = {}, {}
+  for nat = 1, maxNational or 1025 do
+    local s = EnginePatch.speciesForNational and EnginePatch.speciesForNational(nat)
+    if s and not seen[s] then
+      seen[s] = true
+      if WaterLife.isSwimmer(s) then out[#out + 1] = s end
+    end
+  end
+  swimmerCache = out
+  return out
+end
+function WaterLife._resetSwimmers() swimmerCache = nil end
 
 --- Wailmer / Wailord?
 function WaterLife.isWhale(species)
@@ -92,10 +144,18 @@ end
 
 function WaterLife:_refreshPool()
   self.poolAge = 0
-  self.fish, self.whales = WaterLife.poolFor(self.mapId)
+  self.swimmers = {}
+  if self.underwater then
+    -- every sea fish the game knows (National Dex included), not just this map's table
+    self.swimmers = WaterLife.allSwimmers()
+    self.fish, self.whales = {}, {}
+  else
+    self.fish, self.whales = WaterLife.poolFor(self.mapId)
+  end
 end
 
 function WaterLife:clear()
+  for _, c in ipairs(self.creatures or {}) do if c.kind == "swim" then SkyDraw.release(c) end end
   self.creatures = {}
 end
 
@@ -104,10 +164,15 @@ function WaterLife:onMapEntered(mapId)
   self.mapId = mapId
   local mt = EnginePatch.mapType and EnginePatch.mapType()
   self.allowed = Config.waterLife(self.mod) and mt ~= 8 and mt ~= 9 -- not indoors
+  self.underwater = mt == 5 -- a Dive map: fish swim by under the sea
   if not self.allowed then return end
   self:_refreshPool()
   local cfg, rng = Config.WATER_LIFE, self.rng
-  self.timers = { leap = math.floor(between(rng, cfg.leap.every) / 3), whale = math.floor(between(rng, cfg.whale.every) / 3) }
+  if self.underwater then
+    self.timers = { swim = math.floor(between(rng, cfg.swim.every) / 4) }
+  else
+    self.timers = { leap = math.floor(between(rng, cfg.leap.every) / 3), whale = math.floor(between(rng, cfg.whale.every) / 3) }
+  end
 end
 
 function WaterLife:onMapExited()
@@ -266,6 +331,264 @@ function WaterLife:_spawnWhale()
   return true
 end
 
+-- ------- under the sea: fish swimming by as shadows -------------------------------
+
+--- Starts a fish (or a small school of them) swimming across the view under the sea: from
+--- off screen on one side to off screen on the other, curving and wiggling, at a depth.
+function WaterLife:_spawnSwimmer()
+  local cfg, rng = Config.WATER_LIFE.swim, self.rng
+  if not self.cam or #self.swimmers == 0 or self:count("swim") >= cfg.max then return false end
+  local species = self.swimmers[rng(1, #self.swimmers)]
+  local h = rng(0, 100) / 100
+  local look = FlightPath.look(h, cfg.layers)
+  local vw, vh = self.viewSize()
+  local ax, ay, side = FlightPath.edgePoint(vw, vh, 48, rng)
+  local bx, by = FlightPath.edgePoint(vw, vh, 48, rng, FlightPath.OPPOSITE[side])
+  local fx, fy = FlightPath.fromScreen(ax, ay, look.parallax, self.cam.x, self.cam.y, vw, vh)
+  local tx, ty = FlightPath.fromScreen(bx, by, look.parallax, self.cam.x, self.cam.y, vw, vh)
+  local n = between(rng, cfg.ticks)
+  local curve = rng(-cfg.curve, cfg.curve)
+  local wave = { cfg.wave.amp, between(rng, cfg.wave.cycles) }
+  local members = 1
+  local hd = EnginePatch.heightDm and EnginePatch.heightDm(species)
+  if (hd == nil or hd <= cfg.schoolMaxHeightDm) and rng(1, 100) <= cfg.schoolChance then
+    members = between(rng, cfg.school)
+  end
+  local made = 0
+  for k = 1, members do
+    local r = self:_renderer(species, SpriteSource.PRESENTATION_LAND)
+    if r then
+      r.silhouette = true -- a dark shape under the water
+      if r.isPmd then r.swimming = false end
+      local ox = k == 1 and 0 or rng(-cfg.schoolSpread, cfg.schoolSpread)
+      local oy = k == 1 and 0 or rng(-cfg.schoolSpread, cfg.schoolSpread)
+      local delay = k == 1 and 0 or rng(0, 20)
+      local c = {
+        kind = "swim", id = self.nextId, renderer = r, layers = cfg.layers, h = h, x = fx + ox, y = fy + oy,
+        cx = 0, cy = 0, flapClock = rng(0, 10),
+        plan = FlightPath.plan({
+          { type = "sit", at = { x = fx + ox, y = fy + oy }, n = delay + 1 }, -- a school spreads out a little
+          { type = "fly", from = { x = fx + ox, y = fy + oy, h = h }, to = { x = tx + ox, y = ty + oy, h = h },
+            n = n, curve = curve, wave = wave },
+        }, rng),
+        bubbles = {}, nextBubble = between(rng, cfg.bubbleEvery),
+      }
+      self.nextId = self.nextId + 1
+      self.creatures[#self.creatures + 1] = c
+      made = made + 1
+    end
+  end
+  return made > 0
+end
+
+function WaterLife:_tickSwimmer(c)
+  local cfg = Config.WATER_LIFE.swim
+  local s = FlightPath.step(c.plan)
+  if not s then return false end
+  c.x, c.y, c.h, c.facing = s.x or c.x, s.y or c.y, c.h, s.facing
+  c.lift, c.hop = 0, 0
+  local r = c.renderer
+  c.flapClock = c.flapClock + 1
+  if r.isPmd then
+    if r.advance then r:advance(true) end
+    c.pose = ActorRenderer.POSE_STAND
+  else
+    c.pose = (math.floor(c.flapClock / 8) % 2 == 0) and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
+  end
+  sway(c, true)
+  if SkyDraw.blurred(c.h) then SkyDraw.prepare(c) end
+  -- bubbles rising from it now and then
+  c.nextBubble = c.nextBubble - 1
+  if c.nextBubble <= 0 then
+    c.bubbles[#c.bubbles + 1] = { x = c.x + 8 + self.rng(-3, 3), y = c.y + 6, age = 0, seed = self.rng(0, 99) }
+    c.nextBubble = between(self.rng, cfg.bubbleEvery)
+  end
+  local keep = {}
+  for _, b in ipairs(c.bubbles) do
+    b.age = b.age + 1
+    if b.age < cfg.bubbleTicks then keep[#keep + 1] = b end
+  end
+  c.bubbles = keep
+  return true
+end
+
+--- A bubble `age` ticks after it left a fish: dx, dy, alpha (rising, wobbling, fading).
+--- Pure (tested).
+function WaterLife.bubble(age, seed)
+  local life = Config.WATER_LIFE.swim.bubbleTicks
+  return math.floor(math.sin(age / 6 + (seed or 0)) * 1.5 + 0.5), -math.floor(age * 0.45), math.max(0, 1 - age / life)
+end
+
+local function bubbleActor(list, id)
+  return {
+    kind = "ow_bubbles", elevation = 3, sortY = 1e9, x = 0, y = 0, i = 97000 + id,
+    fixedPriority = true, priority = 1, subpriority = 0,
+    draw = function(_, camX, camY)
+      local g = love and love.graphics
+      if not (g and g.rectangle) then return end
+      local r, gg, b, a = g.getColor()
+      for _, bub in ipairs(list) do
+        local dx, dy, alpha = WaterLife.bubble(bub.age, bub.seed)
+        local bx, by = math.floor(bub.x + dx - camX), math.floor(bub.y + dy - camY)
+        g.setColor(0.85, 0.95, 1.0, alpha * 0.9)
+        g.rectangle("fill", bx, by - 1, 1, 1)
+        g.rectangle("fill", bx - 1, by, 1, 1)
+        g.rectangle("fill", bx + 1, by, 1, 1)
+        g.rectangle("fill", bx, by + 1, 1, 1)
+      end
+      g.setColor(r, gg, b, a)
+    end,
+  }
+end
+
+-- ------- under the sea: wild fish spawns arriving / leaving by swimming --------------
+-- The same interface lib/sky_flyers.lua gives the birds (planArrival / planDeparture /
+-- stepFlight / pushFlight / endFlight / restore), driven by lib/spawn_manager.lua for an
+-- fx of mode "swim": a fish glides in under the water as a dark shape from off screen,
+-- wiggling and curving round the player, then takes shape on its tile; leaving, it fades
+-- back to a shadow and swims off.
+
+--- May wild Pokemon `e` arrive / leave by swimming here: a Dive map, Water Life on, one of
+--- the fish (isSwimmer), more than Config.FLYERS.swoop.clearRadius tiles from the player.
+function WaterLife:canSwim(e)
+  if not (self.allowed and self.underwater and Config.waterLife(self.mod) and e and not e.roamer) then return false end
+  if not WaterLife.isSwimmer(e.species) then return false end
+  local p = self.playerCell and self.playerCell()
+  return not p or math.max(math.abs(p.x - e.cellX), math.abs(p.y - e.cellY)) > Config.FLYERS.swoop.clearRadius
+end
+
+-- a point off screen for a swim onto / off (tx, ty) at depth h, on the side away from the
+-- player, with a curve bending away from them
+function WaterLife:_swimEnd(tx, ty, h)
+  local cfg, rng = Config.WATER_LIFE.swim, self.rng
+  local cam = self.cam
+  local vw, vh = self.viewSize()
+  local look = FlightPath.look(h, cfg.layers)
+  local p = self.playerCell and self.playerCell()
+  local plx, ply = p and p.x * 16 or tx, p and p.y * 16 or ty
+  local base = (math.atan2 or math.atan)(ty - ply, tx - plx)
+  if tx == plx and ty == ply then base = rng(0, 359) * math.pi / 180 end
+  for _ = 1, 12 do
+    local th = base + rng(-70, 70) * math.pi / 180
+    local cx, cy = math.cos(th), math.sin(th)
+    for d = 48, 1200, 16 do
+      local px, py = tx + cx * d, ty + cy * d
+      local off = true
+      if cam then
+        local qx, qy = FlightPath.toScreen(px, py, look.parallax, cam.x, cam.y, vw, vh)
+        off = qx < -40 or qx > vw + 40 or qy < -40 or qy > vh + 40
+      elseif d < 200 then
+        off = false
+      end
+      if off then
+        local a, b = { x = px, y = py }, { x = tx, y = ty }
+        local c = rng(10, 30)
+        local SkyFlyers = V.require("sky_flyers")
+        if SkyFlyers._closestTo(a, b, -c, plx, ply) > SkyFlyers._closestTo(a, b, c, plx, ply) then c = -c end
+        return { x = px, y = py, h = h }, c
+      end
+    end
+  end
+  return { x = tx + 200, y = ty, h = h }, 20
+end
+
+local function swimView(e, mod)
+  return { id = e.id, renderer = e.renderer, layers = Config.WATER_LIFE.swim.layers, x = e.px, y = e.py, h = 0,
+           silhouette = true, flapClock = 0, baseSilhouette = e.renderer and e.renderer.silhouette }
+end
+
+--- Wild fish `e` (just placed on its cell) swims in under the water and takes shape.
+function WaterLife:planArrival(e)
+  local cfg, rng = Config.WATER_LIFE.swim, self.rng
+  local h = rng(30, 70) / 100
+  local tx, ty = e.cellX * 16, e.cellY * 16
+  local start, curve = self:_swimEnd(tx, ty, h)
+  local phases = {
+    { type = "fly", from = start, to = { x = tx, y = ty, h = 0 }, n = between(rng, { 150, 240 }), curve = curve,
+      wave = { cfg.wave.amp, between(rng, cfg.wave.cycles) } },
+    { type = "sit", at = { x = tx, y = ty }, n = 24, solid = "in", fidget = { 999, 999 } },
+  }
+  return { kind = "land", mode = "swim", plan = FlightPath.plan(phases, rng), view = swimView(e, self.mod) }
+end
+
+--- Wild fish `e` fades back to a shadow and swims off.
+function WaterLife:planDeparture(e)
+  local cfg, rng = Config.WATER_LIFE.swim, self.rng
+  local h = rng(30, 70) / 100
+  local x, y = e.cellX * 16, e.cellY * 16
+  local stop, curve = self:_swimEnd(x, y, h)
+  local phases = {
+    { type = "sit", at = { x = x, y = y }, n = 24, solid = "out", fidget = { 999, 999 } },
+    { type = "fly", from = { x = x, y = y, h = 0 }, to = stop, n = between(rng, { 150, 240 }), curve = -curve,
+      wave = { cfg.wave.amp, between(rng, cfg.wave.cycles) }, fadeOut = true },
+  }
+  local view = swimView(e, self.mod)
+  view.solid = 1
+  return { kind = "leave", mode = "swim", plan = FlightPath.plan(phases, rng), view = view }
+end
+
+--- One tick of a fish swimming in / out. True once it is over.
+function WaterLife:stepFlight(fx)
+  local view = fx.view
+  local ph = FlightPath.current(fx.plan)
+  local s = FlightPath.step(fx.plan)
+  if not s then return true end
+  view.x, view.y, view.h, view.facing = s.x or view.x, s.y or view.y, s.h or 0, s.facing
+  view.alpha = s.alpha
+  view.lift, view.hop = 0, 0
+  if ph and ph.solid then
+    local p = math.min(1, fx.plan.t == 0 and 1 or fx.plan.t / ph.n)
+    view.solid = ph.solid == "in" and p or (1 - p)
+  elseif ph and ph.type == "fly" then
+    view.solid = nil
+  end
+  local r = view.renderer
+  view.flapClock = view.flapClock + 1
+  if r then
+    if r.isPmd then
+      r.swimming = false
+      if r.advance then r:advance(ph and ph.type == "fly") end
+      view.pose = ActorRenderer.POSE_STAND
+    else
+      view.pose = (ph and ph.type == "fly")
+        and ((math.floor(view.flapClock / 8) % 2 == 0) and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B)
+        or ActorRenderer.POSE_STAND
+    end
+  end
+  sway(view, ph and ph.type == "fly")
+  if SkyDraw.blurred(view.h) then SkyDraw.prepare(view) end
+  return false
+end
+
+--- Appends the actors of a fish swimming in / out: its shadow, and while it takes shape
+--- (or fades) the solid sprite over it.
+function WaterLife:pushFlight(fx, actors, camX, camY)
+  local view = fx.view
+  local vw, vh = self.viewSize()
+  if view.solid then
+    local shadow = setmetatable({ alpha = (1 - view.solid) * (view.alpha or 1), silhouette = true }, { __index = view })
+    local solid = setmetatable({ id = view.id + 50000, alpha = view.solid * (view.alpha or 1), silhouette = false },
+      { __index = view })
+    if shadow.alpha > 0.01 then SkyDraw.push(actors, shadow, camX or 0, camY or 0, vw, vh) end
+    if solid.alpha > 0.01 then SkyDraw.push(actors, solid, camX or 0, camY or 0, vw, vh) end
+  else
+    SkyDraw.push(actors, view, camX or 0, camY or 0, vw, vh)
+  end
+end
+
+function WaterLife:endFlight(fx)
+  if fx and fx.view then SkyDraw.release(fx.view) end
+end
+
+--- Puts a renderer back the way it draws on its tile.
+function WaterLife.restore(view)
+  local r = view and view.renderer
+  if r then
+    if r.isPmd and r.advance then r:advance(false) end
+  end
+  SkyDraw.release(view)
+end
+
 --- How many of `kind` are out.
 function WaterLife:count(kind)
   local n = 0
@@ -307,13 +630,19 @@ function WaterLife:tick()
   for kind, t in pairs(self.timers) do
     t = t - 1
     if t <= 0 then
-      if kind == "leap" then self:_spawnLeaper() else self:_spawnWhale() end
+      if kind == "leap" then self:_spawnLeaper()
+      elseif kind == "whale" then self:_spawnWhale()
+      else self:_spawnSwimmer() end
       t = between(self.rng, cfg[kind].every)
     end
     self.timers[kind] = t
   end
   local keep = {}
   for _, c in ipairs(self.creatures) do
+    if c.kind == "swim" then
+      if self:_tickSwimmer(c) then keep[#keep + 1] = c else SkyDraw.release(c) end
+      goto continue
+    end
     c.t = c.t + 1
     local r = c.renderer
     if c.kind == "leap" then
@@ -333,6 +662,7 @@ function WaterLife:tick()
     end
     local alive = c.t < c.n + 40 -- (the last splash plays out)
     if alive then keep[#keep + 1] = c end
+    ::continue::
   end
   self.creatures = keep
 end
@@ -341,7 +671,13 @@ end
 function WaterLife:collectActors(actors, camX, camY)
   if camX ~= nil and camY ~= nil then self.cam = { x = camX, y = camY } end
   local cfg = Config.WATER_LIFE
+  local vw, vh = self.viewSize()
   for _, c in ipairs(self.creatures) do
+    if c.kind == "swim" then
+      SkyDraw.push(actors, c, camX or 0, camY or 0, vw, vh)
+      if #c.bubbles > 0 then actors[#actors + 1] = bubbleActor(c.bubbles, c.id) end
+      goto continue
+    end
     local x, y, act
     if c.kind == "leap" then x, y, act = leapState(c, cfg.leap) else x, y, act = whaleState(c, cfg.whale) end
     if c.t <= c.n and act.sink < 0.98 then
@@ -373,6 +709,7 @@ function WaterLife:collectActors(actors, camX, camY)
         if #d > 0 then actors[#actors + 1] = dropletActor(d, x + 8, y + 16 - lift + 2, y + 2, c.id) end
       end
     end
+    ::continue::
   end
 end
 
