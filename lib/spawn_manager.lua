@@ -218,11 +218,10 @@ end
 --- spawn cells minDist..maxDist tiles from the player, rolled the way the engine's Sweet
 --- Scent rolls (no Repel check, as the engine's has none), lured -- staying put, facing
 --- the player, hearts over them -- for lureTicks. Returns how many came, or nil when the
---- visible spawns are not in charge here (option off, no encounters on this map, the
---- Safari Zone): the engine's own Sweet Scent then runs.
+--- visible spawns are not in charge here (option off, no encounters on this map): the
+--- engine's own Sweet Scent then runs.
 function SpawnManager:sweetScent()
   if not Config.enabled(self.mod) or not self.source:isEligible() then return nil end
-  if EnginePatch.safariActive and EnginePatch.safariActive() then return nil end
   local p = EnginePatch.playerCell and EnginePatch.playerCell()
   if not p then return nil end
   local cfg = Config.SWEET_SCENT
@@ -734,6 +733,8 @@ end
 --- skirmish, and not one it already failed to build a fighter for.
 function SpawnManager:fightTargets()
   local out = {}
+  -- the Safari Zone's Pokemon are caught with Safari Balls, never fought: the Battler leaves them be
+  if EnginePatch.safariActive and EnginePatch.safariActive() then return out end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     -- never the roaming legendary: it is met only in a real battle, which keeps its saved state

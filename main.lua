@@ -269,6 +269,7 @@ return function(mod)
       waterLife:tick()
       localScenes:tick()
       followerInteraction:tick(game)
+      battleTrigger:tick()
       battleTrigger:checkContact()
       followerAdapter:tick()
     end,

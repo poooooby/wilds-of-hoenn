@@ -67,6 +67,11 @@
   PMDCollab shading. A few others missing one animation's shiny (Archen, Marshadow ...) are filled
   in the same way.
 
+- **Visible wild Pokemon in the Safari Zone.** The Safari Zone (Kanto and Hoenn) fills with
+  visible Pokemon like everywhere else; walking onto one starts a real Safari Zone battle, with
+  Safari Balls, bait and rocks. With Classic Enc off they are the only encounters there, as on
+  any route. Sweet Scent calls them over there too, and a partner on the Battle role leaves them
+  alone. Species Modern Spawns brings into the Safari Zone battle just the same.
 - **Wild Pokemon arrive instead of popping in.** A new one rises out of the grass while the
   grass rustles (the extra-tall grass of Routes 119 and 120 with its own rustle), surfaces from
   the water inside three rings that spread outward, or fades in on bare ground, over about half a second. When one leaves
@@ -79,6 +84,14 @@
   Show Wild Mons off, Sweet Scent works as in the original game.
 
 ### Fixed
+
+- **No softlock when an egg hatches on the step that meets a wild Pokemon.** Stepping onto one
+  on the very step an egg hatched started the battle in the middle of the step, and the hatch
+  scene opened over it: the "Nickname?" Yes / No then never answered. The battle now waits until
+  the game is free (no hatch, poison or other step event, no message or menu) and starts right
+  after, with the same Pokemon -- as the original games never roll a wild encounter on a step
+  that hatched an egg. Meanwhile you stay on its tile (a held direction or a ledge no longer
+  carries you past it before the battle opens).
 
 - **Your partner rides in its Poke Ball on a bike.** Getting on a bike sends it back into its
   ball, and it comes out again when you get off (its Forage / Battle role pauses meanwhile).
