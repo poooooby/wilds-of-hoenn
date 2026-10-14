@@ -115,7 +115,7 @@ do
   check(bt2:holdsPlayer(), "...and holds the player on that tile")
   bt2:tick()
   eq(started2, 1, "the next field tick starts the battle (even while walking on)")
-  check(not bt2:holdsPlayer(), "...and lets go of the player")
+  check(bt2:holdsPlayer(), "...still holding the player while the battle opens")
   bt2:onPlayerStepped(5, 7)
   bt2:tick()
   eq(started2, 1, "no second battle while one is pending")

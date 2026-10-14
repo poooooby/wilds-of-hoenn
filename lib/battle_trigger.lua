@@ -6,7 +6,14 @@
 -- Pokemon's tile -- the engine's `world.stepped` event at the end of every step
 -- (BattleTrigger:onPlayerStepped), so walking straight through one counts --
 -- or is resting on it (BattleTrigger:checkContact, every field tick). Never from
--- an adjacent bump.
+-- an adjacent bump. engine_patch's `blocks` wrap fires for every
+-- caller of Objects.blocks (player movement, NPC movement, trainer sight --
+-- see lib/engine_patch.lua's comment on that target); only the PLAYER's own
+-- collision check calls it with no `exceptLocalId` (collision.lua:1003
+-- entityBlocks -> Objects.blocks(tx, ty, nil, elevation); every NPC/trainer-
+-- sight caller passes its own localId). main.lua's `blocks` callback answers
+-- "not blocked" for that player check so the player can step onto the mon,
+-- while still blocking NPCs, trainer sight and other wild Pokemon.
 --
 -- Never in the middle of the step: `world.stepped` fires BEFORE the engine runs that
 -- step's own events (player.lua finishStep: trainer sight, coord events, then
@@ -18,20 +25,20 @@
 -- no step event queued or running, no message, menu or scene). Something happening ->
 -- it waits and tries again the next tick. The player still meets that Pokemon -- right
 -- after the hatch, the way the cart never rolls a wild encounter on a step that hatched
--- an egg -- and is held on its tile meanwhile (holdsPlayer, main.lua's `blocks`). engine_patch's `blocks` wrap fires for every
--- caller of Objects.blocks (player movement, NPC movement, trainer sight --
--- see lib/engine_patch.lua's comment on that target); only the PLAYER's own
--- collision check calls it with no `exceptLocalId` (collision.lua:1003
--- entityBlocks -> Objects.blocks(tx, ty, nil, elevation); every NPC/trainer-
--- sight caller passes its own localId). main.lua's `blocks` callback answers
--- "not blocked" for that player check so the player can step onto the mon,
--- while still blocking NPCs, trainer sight and other wild Pokemon.
+-- an egg -- and is held on its tile meanwhile: the contact takes a field lock of its own
+-- (HOLD), since a held direction starts the next step -- or a ledge jump -- in the same
+-- update that finished the last, and the engine's step events are pumped after the field
+-- tick, so a hatch ending could otherwise let the player walk off before the battle. The
+-- lock is let go while the game is checked (it would count as busy itself) and once the
+-- battle is on.
 local V = ...
 local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
 
 local BattleTrigger = {}
 BattleTrigger.__index = BattleTrigger
+
+local HOLD = "wilds_of_hoenn_contact" -- our Field.lock tag while a contact waits for its battle
 
 function BattleTrigger.new(mod, spawnManager, log)
   return setmetatable({
@@ -62,13 +69,29 @@ function BattleTrigger:onPlayerStepped(x, y)
   if not entity then return end
   if self:_fieldBusy(x, y) then return end
   -- noted, not started: this step's own events have not run yet (see the header)
-  self.contact = { id = entity.id, x = x, y = y }
+  self:_noteContact(entity, x, y)
 end
 
---- A contact is waiting for the game to be free: the player stays on its tile (main.lua's
---- `blocks` answers "occupied" for the player's own next step meanwhile).
+-- a contact waiting for its battle: the player held on the tile (see the header)
+function BattleTrigger:_noteContact(entity, x, y)
+  self.contact = { id = entity.id, x = x, y = y }
+  self:_hold(true)
+end
+
+function BattleTrigger:_hold(on)
+  if on and not self.holding then
+    if EnginePatch.lockField then EnginePatch.lockField(HOLD) end
+    self.holding = true
+  elseif not on and self.holding then
+    if EnginePatch.unlockField then EnginePatch.unlockField(HOLD) end
+    self.holding = false
+  end
+end
+
+--- The player is held on the tile of a wild Pokemon they met: its battle is waiting for
+--- the game to be free, or opening.
 function BattleTrigger:holdsPlayer()
-  return self.contact ~= nil
+  return self.holding == true
 end
 
 -- the game is free for a wild battle (no step event, message, menu, scene ...)
@@ -81,13 +104,26 @@ end
 --- game is free; until then it waits. Dropped if that Pokemon is gone meanwhile.
 function BattleTrigger:tick()
   local c = self.contact
-  if not c then return end
-  if self:isPending() then self.contact = nil return end
+  if not c then
+    -- the battle is on (or never came): let go of the player
+    if self.holding and (not self:isPending() or (EnginePatch.battleActive and EnginePatch.battleActive())) then
+      self:_hold(false)
+    end
+    return
+  end
   local e = self.spawnManager.entities and self.spawnManager.entities[c.id]
-  if not e or e.state ~= Config.STATE.AVAILABLE then self.contact = nil return end
-  if not gameFree() then return end -- an egg hatching, poison, a message, a menu: wait
+  if self:isPending() or not e or e.state ~= Config.STATE.AVAILABLE then
+    self.contact = nil -- gone meanwhile (or already battling)
+    self:_hold(false)
+    return
+  end
+  -- our own hold would count as the field being busy: let go of it while checking
+  self:_hold(false)
+  if not gameFree() then self:_hold(true) return end -- an egg hatching, poison, a message: wait
   self.contact = nil
   self:onPlayerBumped(e)
+  -- the player stays put until the battle is on (its intro does not stop a held direction)
+  if self:isPending() then self:_hold(true) end
 end
 
 --- No wild battle while something else owns the field (EnginePatch.fieldBusy): a
@@ -162,6 +198,7 @@ function BattleTrigger:onPlayerBumped(entity)
 end
 
 function BattleTrigger:_onBattleEnded(entityId, _result)
+  self:_hold(false)
   if self.pendingId == entityId then self.pendingId, self.pendingLured = nil, false end
   -- Win, lose, flee, catch: the mon the player fought is gone from the
   -- overworld either way. SpawnManager's own refill() on the next tick
