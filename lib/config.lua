@@ -54,9 +54,9 @@ Config.SWEET_SCENT = { min = 2, max = 3, minDist = 1, maxDist = 4, lureTicks = 3
 -- see-through. `h` 0 = low (landing, perched), 0.5 = mid, 1 = high; between, interpolated.
 Config.FLYERS = {
   layers = {
-    { h = 0,   scale = 1.0, parallax = 1.0,  blur = 0,   alpha = 1.0,  haze = 0,    shadow = 0.32 },
-    { h = 0.5, scale = 1.4, parallax = 1.25, blur = 1.0, alpha = 0.85, haze = 0.18, shadow = 0.12 },
-    { h = 1,   scale = 2.0, parallax = 1.6,  blur = 2.5, alpha = 0.55, haze = 0.35, shadow = 0 },
+    { h = 0,   scale = 1.0, parallax = 1.0,  blur = 0,   alpha = 1.0,  haze = 0 },
+    { h = 0.5, scale = 1.4, parallax = 1.25, blur = 1.0, alpha = 0.95, haze = 0.12 },
+    { h = 1,   scale = 2.0, parallax = 1.6,  blur = 2.5, alpha = 0.85, haze = 0.25 },
   },
   sharpBelow = 0.15, sharpAbove = 0.25, -- low birds draw sharp (gen3-hd-sprites sized); crossfade between
   haze = { 0.86, 0.93, 1.0 },           -- the sky colour far birds fade toward

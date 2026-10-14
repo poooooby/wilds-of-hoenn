@@ -57,9 +57,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 - 🌊 **Water that feels like water:** Pokémon swim with a foam line on the water, leave ripples
   on ponds and puddles, and cast reflections like the player and NPCs do.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
-  softly out of focus the higher it flies. Birds perch on trees, roofs and signposts (and fly off
-  when you walk up), sea birds dive into the water for food, and wild Flying types swoop in from
-  off screen to land in the grass, or take off again, always curving around you.
+  softly out of focus the higher it flies. In towns, birds perch on roofs, trees and signposts (and
+  fly off when you walk up); sea birds dive into the water for food; and wild Flying types swoop in
+  from off screen to land in the grass, or take off again, always curving around you.
 - 🌾 **Small touches:** Pokémon sink into tall grass, your partner fades in as you step out of a
   door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art.
 - 📏 **True-to-life sizes** (with [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites)):

@@ -39,7 +39,6 @@ do
   check(high.parallax > mid.parallax and mid.parallax > 1, "higher slides faster than the ground")
   check(high.blur > mid.blur and mid.blur > 0, "higher is more out of focus")
   check(high.alpha < mid.alpha and mid.alpha < 1, "higher is fainter")
-  eq(high.shadow, 0, "high: no ground shadow")
   near(FlightPath.look(0.25).scale, (low.scale + mid.scale) / 2, "between layers: interpolated")
   eq(FlightPath.look(5).scale, high.scale, "above 1: clamped to high")
   eq(FlightPath.look(-1).scale, low.scale, "below 0: clamped to low")

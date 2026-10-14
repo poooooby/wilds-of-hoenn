@@ -11,8 +11,8 @@
 -- No shader / canvas (an old GPU): the blur is left out, the haze and fade stay.
 --
 -- Every sky actor is drawn after the map's upper layer (roofs, tree crowns): oamPriority
--- 1 (field_view.lua actorPriority), with a fixed subpriority, higher birds last. Ground
--- shadows go under every actor (priority 2, drawn first).
+-- 1 (field_view.lua actorPriority), with a fixed subpriority, higher birds last. Birds cast
+-- no ground shadow.
 local V = ...
 local Config = V.require("config")
 local FlightPath = V.require("flight_path")
@@ -127,37 +127,14 @@ end
 
 -- ------- actors ------------------------------------------------------------
 
-local function shadowActor(gx, gy, alpha, width, id)
-  return {
-    kind = "sky_shadow", x = gx, y = gy, sortY = gy - 999, elevation = 3, i = 93000 + id,
-    fixedPriority = true, priority = 2, subpriority = 255,
-    draw = function(_, camX, camY)
-      local g = love and love.graphics
-      if not (g and g.ellipse) then return end
-      local r, gg, b, a = g.getColor()
-      local cx, cy = gx + 8 - camX, gy + 14 - camY
-      local rx = math.max(3, width * 0.32)
-      g.setColor(0, 0, 0, alpha * 0.55)
-      g.ellipse("fill", cx, cy, rx * 1.25, rx * 0.5)
-      g.setColor(0, 0, 0, alpha)
-      g.ellipse("fill", cx, cy, rx, rx * 0.38)
-      g.setColor(r, gg, b, a)
-    end,
-  }
-end
-
 --- Appends the actors for one bird: `bird` = { id, renderer, x, y (world px of its
 --- ground point's tile), h, lift (px up: a perch), hop (px up), sink, facing, pose,
---- alpha (extra fade), shadow (false = none), width (px, for the shadow) }.
+--- alpha (extra fade) }.
 --- (camX, camY, vw, vh) = the view. Nothing when it is hidden.
 function SkyDraw.push(actors, bird, camX, camY, vw, vh)
   if bird.hidden then return end
   local look = FlightPath.look(bird.h)
   local id = tonumber(bird.id) or 0
-  -- ground shadow under it, darker the lower it flies
-  if bird.shadow ~= false and look.shadow > 0.01 and (bird.lift or 0) <= 0 and (bird.sink or 0) < 1 then
-    actors[#actors + 1] = shadowActor(bird.x, bird.y, look.shadow * (bird.alpha or 1), bird.width or 16, id)
-  end
   local sharp, soft = SkyDraw.mix(bird.h)
   local sub = math.max(0, 40 - math.floor(look.parallax * 20)) -- higher birds draw later
   -- where it is seen: perspective about the view's centre (FlightPath.toScreen), as a

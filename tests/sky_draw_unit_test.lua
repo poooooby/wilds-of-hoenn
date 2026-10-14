@@ -57,7 +57,7 @@ do
   check(sky ~= nil, "a low bird: one sharp sprite")
   eq(sky and sky.priority, 1, "...drawn after the map's upper layer (roofs, tree crowns)")
   check(sky and sky.fixedPriority, "...at a fixed priority")
-  check(shadow ~= nil and shadow.priority == 2, "...and a shadow under every actor")
+  eq(shadow, nil, "...and no ground shadow")
   sky:draw(0, 0)
   eq(drawn, 1, "the sharp sprite draws through the bird's own renderer (gen3-hd-sprites sizes it)")
   eq(renderer.act, nil, "...and leaves the renderer's act as it found it")
@@ -68,18 +68,12 @@ do
   local kinds = {}
   for _, a in ipairs(actors) do kinds[a.kind] = true end
   check(not kinds.sky_mon, "a high bird: no sharp sprite")
-  check(not kinds.sky_shadow, "...and no shadow")
   check(not kinds.sky_mon_far, "...and no blurred one before its canvas is prepared")
 
   actors = {}
   SkyDraw.push(actors, { id = 3, renderer = renderer, x = 0, y = 0, h = 0, hidden = true }, 0, 0, 240, 160)
   eq(#actors, 0, "a hidden bird (under water) draws nothing")
 
-  actors = {}
-  SkyDraw.push(actors, { id = 4, renderer = renderer, x = 0, y = 0, h = 0, lift = 6 }, 0, 0, 240, 160)
-  local hasShadow = false
-  for _, a in ipairs(actors) do if a.kind == "sky_shadow" then hasShadow = true end end
-  check(not hasShadow, "a perched bird (lifted onto a roof) casts no ground shadow")
 end
 
 if failures > 0 then

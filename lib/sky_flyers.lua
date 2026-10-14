@@ -140,7 +140,10 @@ function SkyFlyers:onMapEntered(mapId)
   self.pool, self.seaPool, self.perches = {}, {}, nil
   if not self.allowed then return end
   self:_refreshPool()
-  self.perches = PerchSpots.build()
+  -- perching is a town thing (roofs, trees, signposts): in the wild a bird only lands where
+  -- the player can reach it, i.e. a real spawn swooping onto its own spawn cell
+  local mt = EnginePatch.mapType and EnginePatch.mapType()
+  self.perches = (mt == 1 or mt == 2) and PerchSpots.build() or nil
   local cfg, rng = Config.FLYERS, self.rng
   -- the first ones come soon after arriving, not at once
   self.timers = {
@@ -484,7 +487,10 @@ function SkyFlyers:_spawnPasser()
   local vw, vh = self.viewSize()
   -- across the top band of the screen, side to side, in screen px (its feet; the sprite
   -- reaches up from them): a gentle arc, never straight, never over the middle or bottom
-  local top, bottom = 10, math.max(12, math.floor(vh * cfg.band - cfg.arc[2]))
+  -- its feet at least a body's height down (the sprite is drawn upward from them, `scale`
+  -- times its size), so the whole bird shows inside the band rather than past the top edge
+  local top = math.floor(24 * look.scale)
+  local bottom = math.max(top + 4, math.floor(vh * cfg.band - cfg.arc[2]))
   local fromLeft = rng(0, 1) == 0
   local margin = 48 * look.scale
   local x0 = fromLeft and -margin or vw + margin

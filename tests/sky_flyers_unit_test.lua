@@ -111,7 +111,11 @@ do
   mapType = 3
   sky:onMapEntered("ROUTE_104")
   check(sky.allowed, "a route: birds")
-  check(sky.perches:count() > 0, "...with the tree crowns as perches")
+  eq(sky.perches, nil, "...but no perching in the wild")
+  mapType, neighbours = 1, { "ROUTE_104" }
+  sky:onMapEntered("TOWN")
+  check(sky.perches and sky.perches:count() > 0, "a town: roofs, trees and signs to perch on")
+  mapType, neighbours = 3, {}
   optionStore.flyers = false
   sky:onOptionChanged("ROUTE_104")
   check(not sky.allowed and sky:count() == 0, "Flying Mons off: none")
@@ -132,7 +136,7 @@ do
     maxAt = math.max(maxAt, sky:count("passer"))
   end
   check(seen.passer, "birds pass overhead")
-  check(seen.perch, "birds come to perch")
+  check(not seen.perch, "no ambient perching on a route")
   check(seen.dive, "sea birds dive")
   check(maxAt <= Config.FLYERS.passer.max, "never more passers than the cap")
   check(ripples > 0, "a dive splashes (engine ripple)")
@@ -147,10 +151,11 @@ do
   eq(sky:count(), 0, "leaving the map clears the sky")
 end
 
--- ------- a perched bird flies off when the player walks up
+-- ------- in a town birds come to perch; a perched bird flies off when the player walks up
 do
   local sky = SkyFlyers.new(mod)
-  sky:onMapEntered("ROUTE_104")
+  mapType, neighbours = 1, { "ROUTE_104" }
+  sky:onMapEntered("TOWN")
   sky:collectActors({}, 0, 0)
   player.x, player.y = 0, 19
   local bird
@@ -170,6 +175,7 @@ do
     check(sky.taken[spot] == nil, "...and frees the perch")
   end
   player.x, player.y = 0, 19
+  mapType, neighbours = 3, {}
 end
 
 -- ------- a wild Flying-type Pokemon arriving by air
@@ -193,10 +199,15 @@ do
   SkyFlyers.restore(fx.view)
   eq(renderer.presentation, "land", "its ground art is back")
 
-  -- by way of a perch: forced
+  -- by way of a perch: forced -- never in the wild, only where there are town perches
   local saved = Config.FLYERS.land.perchChance
   Config.FLYERS.land.perchChance = 1
   local e2 = { id = 6, cellX = 5, cellY = 4, dex = 276, renderer = renderer, isFlyer = true }
+  local wild = sky:planArrival(e2)
+  eq(#wild.plan.phases, 1, "on a route it swoops straight onto its own (reachable) cell")
+  mapType, neighbours = 1, { "ROUTE_104" }
+  sky:onMapEntered("TOWN")
+  mapType, neighbours = 3, {}
   local fx2 = sky:planArrival(e2)
   local types = {}
   for _, ph in ipairs(fx2.plan.phases) do types[#types + 1] = ph.type end

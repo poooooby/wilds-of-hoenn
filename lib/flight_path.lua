@@ -28,7 +28,7 @@ local FlightPath = {}
 local function lerp(a, b, t) return a + (b - a) * t end
 
 --- Every look value for height `h` (clamped to 0..1), interpolated between the layers:
---- { scale, parallax, blur, alpha, haze, shadow }.
+--- { scale, parallax, blur, alpha, haze }.
 function FlightPath.look(h, layers)
   layers = layers or Config.FLYERS.layers
   h = math.max(0, math.min(1, tonumber(h) or 0))
@@ -41,7 +41,7 @@ function FlightPath.look(h, layers)
   return {
     scale = lerp(lo.scale, hi.scale, t), parallax = lerp(lo.parallax, hi.parallax, t),
     blur = lerp(lo.blur, hi.blur, t), alpha = lerp(lo.alpha, hi.alpha, t),
-    haze = lerp(lo.haze, hi.haze, t), shadow = lerp(lo.shadow, hi.shadow, t),
+    haze = lerp(lo.haze, hi.haze, t),
   }
 end
 

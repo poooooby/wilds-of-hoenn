@@ -6,16 +6,17 @@
 
 - **Flying Pokemon in the sky (Flying Mons option, on by default).** Now and then one of the
   area's birds crosses the top of the screen in a gentle arc: the higher it flies, the bigger,
-  faster and more out of focus it looks, since it is closer to the camera. Birds land on tree tops,
-  roofs and signposts, sit with folded wings (turning or hopping now and then), and fly off after
-  a while or when you walk up. Sea birds dive into open water for food with a splash and come back
+  faster and more out of focus it looks, since it is closer to the camera. In towns and cities,
+  birds from the routes around them perch on roofs, trees and signposts, sit with folded wings
+  (turning or hopping now and then), and fly off after a while or when you walk up. Sea birds dive into open water for food with a splash and come back
   up. Wild Flying-type Pokemon swoop in from off screen to land in the grass or on the water
-  instead of rising out of it, sometimes stopping on a tree first, and take off again after a
+  instead of rising out of it (in the wild a bird only ever lands where you can reach it), and
+  take off again after a
   while; their flight always curves around you, and one that appears right next to you (within 3
   tiles) arrives the usual way. Only real fliers count: Flying types taller than 3 m (Gyarados,
   Rayquaza), flightless ones (Doduo, Dodrio, Delibird) and a few whose art does not look like
-  flying (Charizard, Hoothoot, Xatu, Emolga and others) stay on the ground. In towns, birds from
-  the routes around them perch on the roofs. No birds in caves or indoors, fewer in rain.
+  flying (Charizard, Hoothoot, Xatu, Emolga and others) stay on the ground. No birds in caves
+  or indoors, fewer in rain.
   PMDCollab birds fly with the animation picked for each one: their own hover loop,
   a wing beat (Pidgey, Taillow), a glide (Dragonite), or their walk cycle.
 

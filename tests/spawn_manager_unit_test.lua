@@ -809,7 +809,7 @@ do
     smS:collectActors(actors, 0, 0)
     local skyActor = false
     for _, a in ipairs(actors) do
-      if a.kind == "sky_mon" or a.kind == "sky_mon_far" or a.kind == "sky_shadow" then skyActor = true end
+      if a.kind == "sky_mon" or a.kind == "sky_mon_far" then skyActor = true end
       check(a.i ~= lander.id or a.kind ~= "wild_mon", "it is not drawn as a ground actor while flying")
     end
     check(skyActor, "it is drawn as a flyer")
@@ -864,7 +864,8 @@ do
     smS:despawn(id)
     -- refill picks any free cell: count what arrives near the player
     local near, swoopNear = 0, 0
-    for _ = 1, 30 do
+    for _ = 1, 400 do
+      if near >= 5 then break end -- refills pick random cells: run until a few came near
       local victim = smS.order[1]
       smS:despawn(victim)
       smS:tick(smS.game)
