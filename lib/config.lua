@@ -13,6 +13,7 @@ Config.DEFAULTS = {
   flyers = true,
   smooth_follow = true,
   wild_reacts = true,
+  water_life = true,
 }
 
 Config.STATE = {
@@ -114,6 +115,24 @@ Config.REACT = {
             secondsPerTile = 1.2, -- the matching time limit (leash x this)
             noPathTicks = 60, returnSteps = { 2, 4 } },
   cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
+}
+
+-- Life in the water (the Water Life option, lib/water_life.lua): ambient, never met or
+-- fought, drawn from the map's own fishing and Surf tables. 60 Hz ticks / px.
+--   leapers -- small fish (the Water 2 egg group -- the fish -- under `maxFishHeightDm`,
+--              plus `fishExtra`, minus `notFish`, national dex) jump out of the water and
+--              back in with a splash;
+--   whales  -- `whales` (Wailmer, Wailord) rise to the surface, drift or lie still a while,
+--              blow a spray from their blowhole, and sink back under.
+Config.WATER_LIFE = {
+  maxFishHeightDm = 10,
+  fishExtra = { [349] = true },                                -- Feebas (Water 1 / Dragon egg groups)
+  notFish = { [116] = true, [224] = true, [686] = true },      -- Horsea, Octillery, Inkay
+  whales = { [320] = true, [321] = true },                     -- Wailmer, Wailord
+  leap = { every = { 420, 1200 }, max = 2, ticks = { 34, 44 }, height = 18, pmdHeight = 8, drift = 12 },
+  whale = { every = { 1500, 3300 }, max = 1, riseTicks = 50, stay = { 240, 480 }, drift = { 0, 1 },
+            sprays = { 1, 2 }, sprayTicks = 48 },
+  minPlayerDist = 2,                                           -- tiles kept clear of the player
 }
 
 -- Idle wing-flap for floating/flying species: logic ticks each pose of the
@@ -425,6 +444,12 @@ end
 --- close by. On unless switched off.
 function Config.wildReacts(mod)
   return optGet(mod, "wild_reacts") ~= false
+end
+
+--- The Water Life option: fish leaping, whales surfacing (lib/water_life.lua). On unless
+--- switched off.
+function Config.waterLife(mod)
+  return optGet(mod, "water_life") ~= false
 end
 
 function Config.classicEncEnabled(mod)

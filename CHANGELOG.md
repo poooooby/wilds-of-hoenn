@@ -4,6 +4,12 @@
 
 ### Added
 
+- **Life in the water (Water Life option, on by default).** The small fish of the area's fishing
+  and Surf Pokemon (Magikarp, Goldeen, Feebas, Luvdisc, Carvanha ...) now and then leap out of
+  open water in an arc and splash back in, with ripples and a spray of droplets; PMDCollab ones
+  play their own hop. Wailmer and Wailord rise to the surface, lie there or drift a little, blow
+  a spout from their blowhole and sink back under. Just scenery: never battled.
+
 - **Wild Pokemon react when you run or bike close by (Wild Reacts option, on by default).**
   Ones weaker than your lead Pokemon are startled (a "!" over their head) and run off a few
   tiles; small birds fly away. Stronger ones only mind you up close (2 tiles): they stop, turn

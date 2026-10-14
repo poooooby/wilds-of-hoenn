@@ -1600,6 +1600,16 @@ function EnginePatch.baseStatTotal(species)
   return sum > 0 and sum or nil
 end
 
+--- pokemon.lua Pokemon.speciesMeta(species): its two egg groups (Gen 3 numbering: 2 Water 1,
+--- 9 Water 3, 12 Water 2 -- the fish -- 14 Dragon ...), or nil when unknown.
+function EnginePatch.eggGroups(species)
+  local Pokemon = loadModule(EnginePatch.READONLY.speciesMeta.mod)
+  if not (Pokemon and Pokemon.speciesMeta) then return nil end
+  local ok, m = pcall(Pokemon.speciesMeta, species)
+  if not (ok and type(m) == "table") then return nil end
+  return tonumber(m.eggGroup1), tonumber(m.eggGroup2)
+end
+
 local flyingCache = {}
 --- Is the species Flying-type (either type)? Cached per species.
 function EnginePatch.isFlying(species)

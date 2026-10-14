@@ -68,7 +68,7 @@ GUTTER = 2
 ANIMS = ("walk", "idle")  # output names; SpriteCollab names are Walk / Idle
 # Used by the overworld fights (the Battler's blows and a struck Pokemon's flinch);
 # a species without one simply plays a rapid Idle instead, so they never fail a bake.
-OPTIONAL_ANIMS = ("attack", "hurt", "fly")  # SpriteCollab: Attack (else Strike) / Hurt / Hover
+OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop")  # SpriteCollab: Attack (else Strike) / Hurt / Hover / Hop
 # Output name -> SpriteCollab animation name when they differ.
 SOURCE_ANIM = {"fly": "Hover"}
 # "fly" (a flying Pokemon in the sky, lib/sky_flyers.lua): a REAL Hover-Anim.png only (an
@@ -107,7 +107,11 @@ def fly_meta(dex: int, anims: dict) -> dict | None:
         meta = dict(meta, pick=FLAP_PICK, pickDurations=[FLAP_TICKS] * len(FLAP_PICK))
     return meta
 # Animations never drawn swimming: no foam band is baked for them.
-NO_WATER_ANIMS = {"fly"}
+NO_WATER_ANIMS = {"fly", "hop"}
+# "hop" is only baked for the small fish that leap out of the water (lib/water_life.lua,
+# Config.WATER_LIFE: the Water 2 egg group under 1 m, plus Feebas, minus Horsea / Octillery /
+# Inkay), not for every species (it is a tall sheet, and nothing else uses it).
+HOP_SPECIES = {118, 129, 170, 211, 223, 318, 339, 340, 349, 370, 456, 746, 779, 846, 978}
 ALL_ANIMS = ANIMS + OPTIONAL_ANIMS
 WALK_FROM_IDLE_MAX_TICKS = 10  # see the Idle-stands-in-for-Walk case in main()
 
@@ -823,7 +827,12 @@ def main() -> int:
         if ok:
             for anim in OPTIONAL_ANIMS:
                 source = SOURCE_ANIM.get(anim, anim.capitalize())
-                meta = fly_meta(dex, anims) if anim == "fly" else anims.get(source)
+                if anim == "fly":
+                    meta = fly_meta(dex, anims)
+                elif anim == "hop":
+                    meta = anims.get("Hop") if dex in HOP_SPECIES else None
+                else:
+                    meta = anims.get(source)
                 if meta is None and anim == "attack":
                     meta = anims.get("Strike")
                 result = bake_anim(folder, shiny_dir, source, meta) if meta else None

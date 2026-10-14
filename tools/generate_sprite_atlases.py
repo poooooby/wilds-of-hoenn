@@ -82,6 +82,8 @@ FAMILIES: dict[str, list[str]] = {
     "pmd_hurt": ["assets/pmd/hurt"],
     # a flying Pokemon's wing-beat in the sky (SpriteCollab Hover): optional per species
     "pmd_fly": ["assets/pmd/fly"],
+    # a small fish's leap out of the water (SpriteCollab Hop): only the leaping fish
+    "pmd_hop": ["assets/pmd/hop"],
     # the foam overlays a swimming Pokemon is drawn with (mostly transparent, tiny)
     "pmd_foam": ["assets/pmd/foamwalk", "assets/pmd/foamidle", "assets/pmd/foamattack", "assets/pmd/foamhurt"],
     "pmd_portraits": ["assets/pmd/portraits"],

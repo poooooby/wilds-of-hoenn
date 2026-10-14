@@ -23,7 +23,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 PMD = ROOT / "assets" / "pmd"
 ANIMS = ("walk", "idle")
-OPTIONAL_ANIMS = ("attack", "hurt", "fly")  # present for some species, never required
+OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop")  # present for some species, never required
 DIRECTIONS = 4
 
 

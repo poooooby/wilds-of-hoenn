@@ -66,6 +66,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   softly out of focus the higher it flies. In towns, birds perch on roofs, trees and signposts (and
   fly off when you walk up); sea birds dive into the water for food; and wild Flying types swoop in
   from off screen to land in the grass, or take off again, always curving around you.
+- 🐟 **Life in the water:** the area's small fish (Magikarp, Goldeen, Luvdisc and friends) leap
+  out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a
+  spray from their blowhole before sinking back under.
 - 🌾 **Small touches:** Pokémon sink into tall grass, your partner fades in as you step out of a
   door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art.
 - 📏 **True-to-life sizes** (with [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites)):
@@ -80,6 +83,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Show Wild Mons** | On / Off | On | Visible wild Pokémon in areas with wild encounters. |
 | **Spawn Amount** | Low / Normal / High | Normal | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
 | **Flying Mons** | On / Off | On | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. |
+| **Water Life** | On / Off | On | Fish leaping out of the water and Wailmer / Wailord surfacing to blow a spray, just for the scenery. |
 | **Wild Reacts** | On / Off | On | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
 | **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
 | **Smooth Follow** | On / Off | On | On: your partner is spaced out behind you and glides round turns. Off: it walks exactly on the tile behind you, step for step like the original games. |
