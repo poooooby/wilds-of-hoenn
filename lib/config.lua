@@ -120,6 +120,10 @@ Config.REACT = {
   radius = 4, bikeRadius = 5,     -- how close the running / biking player has to come
   aggroRadius = 2, bikeAggroRadius = 3, -- ...for a stronger one to get angry: much closer
   weakRatio = 0.7, strongRatio = 1.3,
+  -- how likely it reacts at all, by how far past its threshold the ratio is: `minChance` %
+  -- just past it, rising evenly to 100% at `weakSure` (fleeing) / `strongSure` (chasing).
+  -- One roll as the player comes in range; a miss rests `missCooldown` ticks
+  minChance = 25, weakSure = 0.4, strongSure = 2.0, missCooldown = 300,
   alertTicks = 24,                -- "!" before fleeing / taking off
   turnTicks = 22,                 -- a stronger one's pause before it turns to the player
   angerTicks = 36,                -- then the anger mark, then the chase

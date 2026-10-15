@@ -71,7 +71,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   lead Pokémon jump with a "!" and run off (small birds fly away), and sometimes vanish at the end
   of their run, ducking down into the grass or slipping away into a cave's dark; stronger ones, if
   you come right up to them, turn on you angrily and charge (in PMDCollab style, attacking as they
-  come), and if they catch you, the battle starts. Each one gives up at its own distance.
+  come), and if they catch you, the battle starts. Each one gives up at its own distance. The
+  bigger the gap in strength, the likelier they react: a near match often lets you pass.
   An even match isn't bothered, and walking past calmly disturbs nobody.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
   softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on

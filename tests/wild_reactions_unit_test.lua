@@ -53,6 +53,19 @@ do
   eq(WR.classify(10, 300, nil, 300), "neutral", "no lead: neutral")
 end
 
+-- ------- how likely it reacts scales with the ratio
+do
+  eq(WR.chance("neutral", 1.0), 0, "an even match never reacts")
+  eq(WR.chance("weak", cfg.weakRatio), cfg.minChance, "just under the weak line: minChance %")
+  eq(WR.chance("weak", cfg.weakSure), 100, "far weaker: always flees")
+  eq(WR.chance("weak", 0.1), 100, "...and beyond")
+  local mid = WR.chance("weak", (cfg.weakRatio + cfg.weakSure) / 2)
+  check(mid > cfg.minChance and mid < 100, "in between: in between (" .. mid .. "%)")
+  eq(WR.chance("strong", cfg.strongRatio), cfg.minChance, "just over the strong line: minChance %")
+  eq(WR.chance("strong", cfg.strongSure), 100, "far stronger: always chases")
+  check(WR.chance("strong", 1.5) < WR.chance("strong", 1.8), "a bigger gap chases more often")
+end
+
 -- ------- fleeing picks a way that gets farther
 do
   eq(WR.fleeDir(5, 5, 3, 5), "right", "player to the left: run right")
@@ -85,6 +98,18 @@ local function run(e, ctx, n)
     WR.tick(e, ctx)
     ctx.now = ctx.now + 1
   end
+end
+
+-- ------- one roll as the player comes in range; a miss rests instead of re-rolling each tick
+do
+  local e = entity(10, 10, 10) -- level 10 vs a level 15 lead: ratio 0.67, barely weak
+  local ctx = ctxFor({ x = 12, y = 10, moving = true }, 15)
+  ctx.rng = function(a, b) if a == 1 and b == 100 then return 100 end return a end
+  eq(WR.scan({ e }, ctx), 0, "a near-weak one that misses its roll: no reaction")
+  check(e.reactUntil and e.reactUntil > ctx.now, "...and it is left be for a while")
+  e.reactUntil = nil
+  ctx.rng = function(a, b) if a == 1 and b == 100 then return 1 end return a end
+  eq(WR.scan({ e }, ctx), 1, "...one that hits it flees")
 end
 
 -- ------- only running / biking players startle, and only close by

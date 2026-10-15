@@ -14,6 +14,9 @@
 --                                 past that many tiles, after leash x secondsPerTile, or
 --                                 with no way through for a moment, shows "?" and walks
 --                                 back a few steps.
+-- Whether it reacts at all is one roll as the player comes in range (chance()): a near
+-- match only sometimes (Config.REACT.minChance), a lopsided one always (past weakSure /
+-- strongSure); a miss leaves it be for missCooldown ticks.
 -- A Pokemon then rests (cooldown) before it can react again. Nothing reacts while the
 -- field is busy (a cutscene, a trainer, a message), in a battle, or in the Safari Zone,
 -- and Sweet Scent's lured Pokemon, ones in a Battler skirmish, arriving / leaving ones and
@@ -56,6 +59,23 @@ function WildReactions.classify(level, bst, leadLevel, leadBst, cfg)
   return "neutral", ratio
 end
 
+--- The % chance a Pokemon of class `cls` at `ratio` reacts: `minChance` just past its
+--- threshold, rising evenly to 100 at `weakSure` / `strongSure`. Neutral -> 0. Pure (tested).
+function WildReactions.chance(cls, ratio, cfg)
+  cfg = cfg or Config.REACT
+  ratio = tonumber(ratio)
+  if not ratio or cls == "neutral" then return 0 end
+  local min = cfg.minChance or 100
+  local t
+  if cls == "weak" then
+    t = (cfg.weakRatio - ratio) / math.max(1e-6, cfg.weakRatio - (cfg.weakSure or 0))
+  else
+    t = (ratio - cfg.strongRatio) / math.max(1e-6, (cfg.strongSure or cfg.strongRatio) - cfg.strongRatio)
+  end
+  t = math.max(0, math.min(1, t))
+  return min + (100 - min) * t
+end
+
 local ORDER = { "up", "down", "left", "right" }
 
 local function sign(v) return v > 0 and 1 or v < 0 and -1 or 0 end
@@ -94,10 +114,15 @@ end
 --- `ctx` = { now, rng, lead = {level, bst}, bst(species), canFly(e) }.
 function WildReactions.start(e, px, py, ctx, dist, aggroAt)
   local cfg, rng = Config.REACT, ctx.rng or math.random
-  local cls = WildReactions.classify(e.level, ctx.bst and ctx.bst(e.species), ctx.lead and ctx.lead.level,
+  local cls, ratio = WildReactions.classify(e.level, ctx.bst and ctx.bst(e.species), ctx.lead and ctx.lead.level,
     ctx.lead and ctx.lead.bst, cfg)
   if cls == "neutral" then return nil end -- an even match is not bothered
   if cls == "strong" and dist and dist > (aggroAt or cfg.aggroRadius) then return nil end -- not close enough yet
+  -- the closer the match, the likelier it shrugs the player off; one roll, then a rest
+  if rng(1, 100) > WildReactions.chance(cls, ratio, cfg) then
+    e.reactUntil = (ctx.now or 0) + (cfg.missCooldown or cfg.cooldown)
+    return nil
+  end
   local r = { t = 0, emoteAge = 0 }
   if cls == "weak" then
     e.facing = faceToward(e.cellX, e.cellY, px, py) or e.facing
