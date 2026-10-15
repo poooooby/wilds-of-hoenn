@@ -110,7 +110,7 @@ return function(mod)
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.8.0-beta.1"
+  mod.exports.version = "1.8.0"
   mod.exports.engineReady = false
   -- Public extension points for consumers; defaults stay unchanged.
   mod.exports.spriteAtlas = SpriteAtlas
@@ -167,6 +167,8 @@ return function(mod)
     companion = companion,
     levelReady = levelReady,
   })
+
+  followerAdapter.interaction = followerInteraction -- its mood effects while you talk (lib/mood_fx.lua)
 
   mod.exports.spawnManager = spawnManager
   mod.exports.skyFlyers = skyFlyers
@@ -418,6 +420,21 @@ return function(mod)
     end)
     mod.events:on("script.ended", function(_ev)
       pcall(function() localScenes:onScriptEnded() end)
+    end)
+  end
+
+  -- a script that walks anyone is a cutscene: the companion goes into its ball until it
+  -- ends (lib/follower_adapter.lua inCutscene); plain dialogue walks nobody. Gen 3 only:
+  -- Gen 1/2 scripts have no applymovement command (a GB cutscene signal is a future seam)
+  if not gb then
+    mod.hooks:wrap("script.command", function(next, _ctx, op, row)
+      if (op == "applymovement" or op == "applymovementat") and type(row) == "table" then
+        pcall(function() followerAdapter:onScriptMovement(row.localId or row[1]) end)
+      end
+      return next()
+    end)
+    mod.events:on("script.ended", function(_ev)
+      pcall(function() followerAdapter:onScriptEnded() end)
     end)
   end
 

@@ -116,9 +116,15 @@ do
   HdField.tag(pmod, idle, "assets/pmd/idle/150-shiny.png")
   HdField.tag(pmod, hgss, HGSS:format("150"))
   local function specOf(img) for i = #tagged, 1, -1 do if tagged[i].img == img then return tagged[i].spec end end end
-  check(specOf(walk).lowPivot and specOf(walk).lowPivot[1] == 19.5 and specOf(walk).lowPivot[2] == 35.5, "a PMD walk sheet pivots on its baked ground point")
-  check(specOf(idle).lowPivot and specOf(idle).lowPivot[2] == 36.5, "...each animation on its own")
+  check(specOf(walk).lowPivot and specOf(walk).lowPivot[1] == 19.5 and specOf(walk).lowPivot[2] == 36.5, "a PMD walk sheet pivots on the point it stands on: 1 px under its ground point")
+  check(specOf(idle).lowPivot and specOf(idle).lowPivot[2] == 37.5, "...each animation on its own")
   check(specOf(walk).anchor == nil, "...not on the bottom of its cell")
+  local footJson = '{"version":1,"directions":["down","right","up","left"],"gutter":2,"dex":{"78":{"walk":{"cw":40,"ch":44,"cols":4,"ax":19.5,"ay":35.5,"foot":39.5,"durations":[4],"shiny":true},"idle":{"cw":40,"ch":44,"cols":1,"ax":19.5,"ay":35.5,"foot":39.5,"durations":[4],"shiny":true}}}}'
+  local fmod = { find = mod.find, read = function(_, rel) if rel == "assets/pmd/index.json" then return footJson end end }
+  local hooves = {}
+  HdField.tag(fmod, hooves, PMD:format("078"))
+  check(specOf(hooves) and specOf(hooves).lowPivot and specOf(hooves).lowPivot[2] == 39.5,
+    "art reaching below its shadow (a walker's hooves) pivots on its foot line")
   check(specOf(hgss).anchor == "feet" and specOf(hgss).lowPivot == nil, "an HGSS sheet still scales about its feet")
   check(HdField.tag(pmod, portrait, "assets/pmd/portraits/150-normal.png") == false and specOf(portrait) == nil,
     "a portrait sheet is never tagged")
@@ -132,7 +138,7 @@ do
     "a foam overlay parses as its animation")
   local foam = {}
   HdField.tag(pmod, foam, "assets/pmd/foamwalk/150-normal.png")
-  check(specOf(foam) and specOf(foam).lowPivot and specOf(foam).lowPivot[1] == 19.5 and specOf(foam).lowPivot[2] == 35.5,
+  check(specOf(foam) and specOf(foam).lowPivot and specOf(foam).lowPivot[1] == 19.5 and specOf(foam).lowPivot[2] == 36.5,
     "...so it pivots on its sprite's ground point")
   check(specOf(foam).scale == specOf(walk).scale, "...and is drawn at the sprite's size")
   -- a swimming draw's own quad pivots on the waterline; the rest keep the ground point
@@ -140,7 +146,7 @@ do
   check(HdField.quadPivot(walk, swimQuad, 19.5, 30), "a quad of a tagged sheet gets its own pivot")
   local qp = specOf(walk).quadPivots[swimQuad]
   check(qp and qp[1] == 19.5 and qp[2] == 30, "...stored on the sheet's spec, where the library reads it")
-  check(specOf(walk).lowPivot[2] == 35.5, "...and the sheet's own pivot is unchanged")
+  check(specOf(walk).lowPivot[2] == 36.5, "...and the sheet's own pivot is unchanged")
   check(HdField.quadPivot({}, swimQuad, 1, 2) == false, "an untagged image is left alone")
 end
 
@@ -163,7 +169,7 @@ for dex = 1, 1025 do
   if type(s) == "number" then n = n + 1 lo, hi = math.min(lo, s), math.max(hi, s) end
 end
 check(n == 1025, "all 1025 species have a size")
-check(lo >= 0.4 and hi <= 1.2 + 1e-9, "sizes stay within 0.4x to 1.2x (" .. lo .. " to " .. hi .. ")")
+check(lo >= 0.5 - 1e-9 and hi <= 2 + 1e-9, "sizes stay within 0.5x to 2x, the scale tool's limits (" .. lo .. " to " .. hi .. ")")
 
 PMD_TABLE[143], PMD_TABLE[150] = pinned[143], pinned[150]
 if failures > 0 then io.stderr:write(failures .. " failure(s)\n") os.exit(1) end

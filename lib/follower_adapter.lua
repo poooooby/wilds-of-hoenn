@@ -23,7 +23,11 @@ local SpriteSource = V.require("sprite_source")
 local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
 local FollowerActions = V.require("follower_actions")
+local EaveDuck = V.require("eave_duck")
+local SweatDrop = V.require("sweat_drop")
+local MoodFx = V.require("mood_fx")
 local PopupText = V.require("popup_text")
+local ShinySparkle = V.require("shiny_sparkle")
 local FollowerSwap = V.require("follower_swap")
 
 local FollowerAdapter = {}
@@ -251,6 +255,13 @@ function FollowerAdapter:isRecalled()
   return r ~= nil and (r.recall or 1) < 0.5
 end
 
+--- Is the follower squished under a roof's edge (crouched enough to sweat,
+--- `_tickDuck`)? Its interaction then says it's cramped (lib/follower_interaction.lua).
+function FollowerAdapter:isCramped()
+  local r = self.renderer
+  return r ~= nil and (r.duck or 0) > Config.FOLLOWER_DUCK.sweatFrom
+end
+
 --- Is the follower DRAWN over water this tick? Its own tile, or -- while a role
 --- behaviour or scene moves it away from that tile (the Battler swimming out to a wild
 --- Pokemon) -- the tile it is drawn on.
@@ -294,6 +305,11 @@ function FollowerAdapter:_tickRecall(npc, r)
   -- its role (Forage, Battle) pauses meanwhile, like while surfing
   local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
   if biking then recalled = true end
+  -- at the nurse's counter it goes into its ball for the heal machine, and comes back out
+  if EnginePatch.healingActive and EnginePatch.healingActive() then recalled = true end
+  -- a cutscene (a script moving anyone: the player, an NPC, both -- or Gen 2's `follow`),
+  -- it stays out of the way inside its ball; plain dialogue moves nobody and leaves it out
+  if self:inCutscene() then recalled = true end
   self.surfRecall = recalled
   -- a Battler out of strength rests inside the player (any art style)
   if self.away then recalled = true end
@@ -315,6 +331,89 @@ function FollowerAdapter:_tickRecall(npc, r)
   local px, py = nil, nil
   if EnginePatch.playerPixel then px, py = EnginePatch.playerPixel() end
   r.recallX, r.recallY = px, py
+  self:_tickDuck(npc, r)
+end
+
+-- the art's width as drawn (px), for which columns of tiles it spans
+local function drawnWidth(r)
+  if r.isPmd then
+    local PmdRenderer = V.require("pmd_renderer")
+    local w = PmdRenderer.contentSize(r.info, r.hdScale and r:hdScale() or 1)
+    return (w and w > 0) and w or CELL
+  end
+  return (r.visualWidth and r:visualWidth()) or CELL
+end
+
+--- A tall follower in front of a house ducks under the eave the map draws over characters
+--- (lib/eave_duck.lua): `r.duckDy` px down, `r.duck` squashed toward its feet, eased in and
+--- out. Gen 3's covering tiles only (EnginePatch.coversActors); nothing while recalled.
+--- The map is only asked again when the tiles the art spans change (a new tile window, or
+--- a new map: the engine makes a new npc on every map change); otherwise a few sums.
+local function coversTile(x, y) return EnginePatch.coversActors(x, y) == true end
+local function solidTile(x, y) return EnginePatch.isWall(x, y) == true end
+
+function FollowerAdapter:_tickDuck(npc, r)
+  local cfg = Config.FOLLOWER_DUCK
+  local wantDy, wantDuck = 0, 0
+  if EnginePatch.coversActors and EnginePatch.isWall and (r.recall or 1) >= 1 and npc.px and npc.py then
+    local height = r.headLift and r:headLift() or nil
+    if height and height > CELL then
+      local cx = npc.px + CELL / 2 + (r.pushX or 0)
+      local half = drawnWidth(r) / 2
+      local feetY = npc.py + CELL + (r.pushY or 0)
+      local feetRow = math.floor((feetY - 1) / CELL)
+      local top = feetY - height
+      local c0, c1, r0 = EaveDuck.window(cx - half, cx + half, top)
+      local s = self.duckScan
+      if not (s and s.npc == npc and s.c0 == c0 and s.c1 == c1 and s.r0 == r0 and s.feetRow == feetRow) then
+        s = s or {}
+        s.npc, s.c0, s.c1, s.r0, s.feetRow = npc, c0, c1, r0, feetRow
+        s.row = EaveDuck.lowestRow(c0, c1, r0, feetRow, coversTile, solidTile)
+        self.duckScan = s
+      end
+      wantDy, wantDuck = EaveDuck.split(EaveDuck.need(s.row, top), height, cfg)
+    end
+  end
+  local k = cfg.ease
+  r.duckDy = (r.duckDy or 0) + (wantDy - (r.duckDy or 0)) * k
+  r.duck = (r.duck or 0) + (wantDuck - (r.duck or 0)) * k
+  if math.abs(r.duckDy - wantDy) < 0.05 then r.duckDy = wantDy end
+  if math.abs(r.duck - wantDuck) < 0.002 then r.duck = wantDuck end
+  -- crouching (not just dipping): a sweat drop by its head (collectActors)
+  if r.duck > Config.FOLLOWER_DUCK.sweatFrom then
+    self.sweatAge = (self.sweatAge or 0) + 1
+  else
+    self.sweatAge = nil
+  end
+end
+
+--- Gen 3 cutscenes: main.lua's `script.command` wrap reports every `applymovement` target
+--- (local id; 0xFF = the player). A script that moves anyone -- the player, an NPC, the
+--- player walking with someone -- is a cutscene, so the companion goes into its ball until
+--- the script ends (`onScriptEnded`, or the field being free again). Talking to someone
+--- (text, `faceplayer`) moves nobody: it stays out.
+FollowerAdapter.LOCALID_PLAYER = 0xFF
+
+function FollowerAdapter:onScriptMovement(localId)
+  if tonumber(localId) then self.cutscene = true end
+end
+
+function FollowerAdapter:onScriptEnded()
+  self.cutscene = false
+end
+
+--- Is a cutscene running (or a character following the player), so the companion keeps
+--- out of the way in its ball?
+function FollowerAdapter:inCutscene()
+  if self.cutscene then
+    -- no script running any more (an end we did not hear): let go
+    if EnginePatch.fieldBusy and not EnginePatch.fieldBusy() then
+      self:onScriptEnded()
+      return false
+    end
+    return true
+  end
+  return EnginePatch.leadingNpc ~= nil and EnginePatch.leadingNpc() == true
 end
 
 --- The callback passed to mod.hooks:wrap("world.follower.spawn", ...).
@@ -421,6 +520,13 @@ function FollowerAdapter:tick()
     if self.actState then self:resetBehaviors() end
     return
   end
+  -- while you Pet / Play / Talk with it: the effect matching its face (lib/mood_fx.lua)
+  local moodKind = self.interaction and self.interaction.moodKind and self.interaction:moodKind() or nil
+  if moodKind ~= self.moodKind then
+    self.moodKind, self.moodAge = moodKind, 0
+  elseif moodKind then
+    self.moodAge = self.moodAge + 1
+  end
   local mon, role
   if self.companion then
     mon, role = self.companion:resolve(EnginePatch.partyMons())
@@ -428,7 +534,18 @@ function FollowerAdapter:tick()
     local sp = EnginePatch.leadPartySpecies()
     mon, role = sp and { species = sp } or nil, "follow"
   end
-  local target = dispOf(mon, role)
+  -- the same Pokemon as last tick (same table, personality, species, role): its record
+  -- again instead of a new one (and a shiny check) every tick
+  local last = self._lastTarget
+  local target
+  if last and last.mon == mon and last.role == role and mon and last.pid == mon.personality
+      and last.sp == mon.species then
+    target = last.target
+  else
+    target = dispOf(mon, role)
+    self._lastTarget = { mon = mon, role = role, pid = mon and mon.personality, sp = mon and mon.species,
+                         target = target }
+  end
   if not self.disp then
     self.disp = target
   elseif self.swap then
@@ -541,6 +658,7 @@ function FollowerAdapter:tick()
   -- not-moving -> moving edge -- not every tick -- mirroring
   -- lib/behavior.lua's own entity.stepParity toggle for wild Pokemon.
   local moving = npc.moving or false
+  local standHalf = false -- moving, in the stand-frame half of a step
   if scene then
     -- a scene walks in place: alternate the A/B walk pose every half step
     moving = scene.moving == true
@@ -549,14 +667,23 @@ function FollowerAdapter:tick()
   else
     if moving and not self.wasMoving then
       self.stepParity = not self.stepParity
+      self.stepClock = 0
     end
     self.wasMoving = moving
+    -- the Gen 3 walk cycle: the step's walk frame for its first half, the stand frame for
+    -- the second (walkA, stand, walkB, stand ...). The engine's follower is "not moving" for
+    -- a tick between one step and the next; that tick falls in the stand half.
+    if moving then
+      self.stepClock = (self.stepClock or 0) + 1
+      local half = (EnginePatch.playerIsRunning() and FollowerAdapter.STEP_TICKS / 2 or FollowerAdapter.STEP_TICKS) / 2
+      standHalf = self.stepClock > half
+    end
   end
 
   local pose = ActorRenderer.POSE_STAND
   if scene and scene.bounce then
     pose = ActorRenderer.idleFlapPose(self.actClock, scene.flapTicks or Config.IDLE_FLAP_TICKS)
-  elseif moving then
+  elseif moving and not standHalf then
     if EnginePatch.playerIsRunning() then
       pose = self.stepParity and ActorRenderer.POSE_RUN_A or ActorRenderer.POSE_RUN_B
     else
@@ -678,6 +805,52 @@ function FollowerAdapter:collectActors(actors)
       npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or state.dy or 0), npc.elevation, 22, popup and 0 or 1)
     if a then actors[#actors + 1] = a end
   end
+  -- a shiny partner twinkles now and then (not while recalled into the player, nor while it
+  -- stands on the player's own spot -- just after a map change -- hidden behind them)
+  local sr = self.renderer
+  local ppx, ppy
+  if EnginePatch.playerPixel then ppx, ppy = EnginePatch.playerPixel() end -- (both values: `a and f()` keeps one)
+  local underPlayer = ppx ~= nil and ppy ~= nil and npc.px ~= nil and math.abs(npc.px - ppx) < 1
+    and math.abs(npc.py - ppy) < 1
+  if self.leadShiny and sr and npc.px and npc.py and (sr.recall or 1) >= 1 and sr.headLift and not npc.hidden
+      and not underPlayer then
+    self.sparkleAge = (self.sparkleAge or 0) + 1
+    local act = sr.act
+    local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
+    local lift = (sr:headLift() or CELL) * (1 - (sr.duck or 0))
+    local a = ShinySparkle.actor(self.sparkleAge, 0, npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0),
+      feetY - lift, lift * 0.85, ShinySparkle.bodyWidth(sr) * 0.5 * 0.8, feetY + 1, npc.elevation)
+    if a then actors[#actors + 1] = a end
+  end
+  -- crouching under a roof's edge: a sweat drop at the top corner of its (squashed) head
+  -- talking with it: hearts, notes, a rain cloud ... over the top of its head
+  if self.moodKind and sr and (sr.recall or 1) >= 0.5 and sr.headLift then
+    local act = sr.act
+    local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
+    local top = feetY - (sr:headLift() or CELL) * (1 - (sr.duck or 0))
+    local x = npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0)
+    -- (headLift is its highest frame, an idle hop or raised ears included: a little lower
+    -- sits just over the head as it usually stands)
+    actors[#actors + 1] = MoodFx.actor(self.moodKind, self.moodAge or 0, x, top + 3, feetY + 1, math.min(1, (self.moodAge or 0) / 10))
+  end
+  if self.sweatAge and sr and (sr.recall or 1) >= 0.5 and sr.headLift then
+    local height = sr:headLift() or CELL
+    local squashed = height * (1 - (sr.duck or 0))
+    local half = drawnWidth(sr) / 2
+    -- on the side it faces (its head), touching the top of it
+    local facing = (sr.act and sr.act.facing) or npc.facing
+    local side = facing == "left" and -1 or 1
+    local x = npc.px + CELL / 2 + (sr.pushX or 0) + side * math.floor(half * 0.35) - (side < 0 and 5 or 0)
+    local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0)
+    local cfg = Config.FOLLOWER_DUCK
+    local fade = math.min(1, ((sr.duck or 0) - cfg.sweatFrom) / 0.08)
+    -- the harder it is squashed, the more it sweats (1 .. sweatMax drops, faster)
+    local intensity = ((sr.duck or 0) - cfg.sweatFrom) / math.max(0.01, (1 - cfg.minScale) - cfg.sweatFrom)
+    -- the other drops on the other side of its head (toward its middle when it faces away)
+    local span = side * -math.max(8, math.floor(math.min(half, 24) * 0.7))
+    local drops = SweatDrop.drops(self.sweatAge, intensity, cfg.sweatMax, span)
+    actors[#actors + 1] = SweatDrop.actor(drops, x, feetY - squashed + 3, feetY + 1, 1, fade)
+  end
   -- the grass goes on the tiles under the sprite's real feet: it is spaced away
   -- from its own tile (and a scene may slide it), and a big one is wider than a tile
   local r = self.renderer
@@ -687,8 +860,9 @@ function FollowerAdapter:collectActors(actors)
   local offY = (r and r.pushY or 0) + (act and act.dy or 0)
   local width, ground = CELL, CELL -- the ground point's depth in the tile
   if r and r.isPmd then
-    width = V.require("pmd_renderer").contentSize(r.info, r:hdScale())
-    ground = Config.PMD_GROUND_Y or 12
+    local PmdRenderer = V.require("pmd_renderer")
+    width = PmdRenderer.contentSize(r.info, r:hdScale())
+    ground = PmdRenderer.groundOf(r.info and r.info.walk, PmdRenderer.scaleOf(r.info))
   elseif r and r.frameWidth then
     width = r:visualWidth() or CELL
   end

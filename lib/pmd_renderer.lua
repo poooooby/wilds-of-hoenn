@@ -59,6 +59,20 @@ function PmdRenderer.placement(entry, scale, groundY, sx, sy, anchorY)
   return math.floor(gx - entry.ax * scale + 0.5), math.floor(gy - (anchorY or entry.ay) * scale + 0.5)
 end
 
+--- How far below the tile's top edge an animation's anchor (ay) is placed, at `scale`, so
+--- its art stands on the ground like HGSS art and the player: the tile's bottom edge
+--- (Config.PMD_FEET_Y, the player's feet) under the art's feet (the bake's `foot`: the
+--- bottom edge it rests on most of the time).
+--- Art that reaches below its shadow point -- a walker's front hooves -- puts that foot
+--- line on the edge; anything else (feet on the shadow, or a flyer hovering above it)
+--- puts the shadow point 1 px above it, so a hover is kept. Pure; for testing.
+function PmdRenderer.groundOf(entry, scale)
+  local feetY = Config.PMD_FEET_Y or 15
+  local ay, foot = tonumber(entry and entry.ay), tonumber(entry and entry.foot)
+  if not (ay and foot) then return feetY - 1 end
+  return feetY - math.max(1, foot - ay) * (scale or 1)
+end
+
 --- The species' scale as drawn: global PMD_SCALE, x the baked true-size scale
 --- only when Config.PMD_TRUE_SIZE is on (off by default).
 function PmdRenderer.scaleOf(info)
@@ -206,7 +220,7 @@ function PmdRenderer:headLift(anims)
     local entry = self.info and self.info[anim]
     local top = entry and tonumber(entry.top)
     if top then
-      local anchor, groundY = tonumber(entry.ay), Config.PMD_GROUND_Y or 12
+      local anchor, groundY = tonumber(entry.ay), PmdRenderer.groundOf(entry, s)
       if self.swimming then
         local _, band = PmdRenderer.cropHeight(entry)
         if band then anchor, groundY = band, Config.PMD_SWIM_Y or 18 end
@@ -292,7 +306,7 @@ function PmdRenderer:reflectionGeometry(x, y, facing)
   if band then
     dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_SWIM_Y or 18, x, y, band)
   else
-    dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x, y)
+    dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x, y)
   end
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
   if act then dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5) end
@@ -379,18 +393,28 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   if crop then
     dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_SWIM_Y or 18, x - camX, y - camY, bandCrop)
   else
-    dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x - camX, y - camY)
+    dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x - camX, y - camY)
   end
-  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
-  local scaleY = scale
+  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) + 0.5)
+  local scaleY, scaleX = scale, scale
+  -- ducking under an eave (a follower, lib/eave_duck.lua): squashed toward its ground
+  -- point and a little wider about its anchor
+  local duck = tonumber(self.duck) or 0
+  if duck > 0 and not crop then
+    scaleY = scale * (1 - duck)
+    dy = dy + math.floor(entry.ay * (scale - scaleY) + 0.5)
+    scaleX = scale * (1 + duck * (Config.FOLLOWER_DUCK and Config.FOLLOWER_DUCK.widen or 0))
+    dx = dx - math.floor(entry.ax * (scaleX - scale) + 0.5)
+  end
   if act then
     dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5)
     -- sinking into the ground: squash toward the feet (the ground point stays put)
     local sink = tonumber(act.sink) or 0
     if sink > 0 then
       if sink >= 1 then return end
-      scaleY = scale * (1 - sink)
-      dy = dy + math.floor(entry.ay * (scale - scaleY) + 0.5)
+      local before = scaleY
+      scaleY = scaleY * (1 - sink)
+      dy = dy + math.floor(entry.ay * (before - scaleY) + 0.5)
     end
     -- a hit flushes the sprite red
     local flash = tonumber(act.flash) or 0
@@ -412,13 +436,13 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   if part then
     -- its cut edge on the ground point (moved like the whole sprite would be)
     local gx = (x - camX) + CELL / 2 + math.floor(self.pushX + 0.5) + math.floor(((act and act.dx) or 0) + 0.5)
-    local gy = (y - camY) + (Config.PMD_GROUND_Y or 12) + math.floor(self.pushY + 0.5) + math.floor(((act and act.dy) or 0) + 0.5)
+    local gy = (y - camY) + PmdRenderer.groundOf(entry, scale) + math.floor(self.pushY + 0.5) + math.floor(((act and act.dy) or 0) + 0.5)
     love.graphics.draw(image, part, gx, gy, 0, scale, scale, partOx, partOy)
   else
-    love.graphics.draw(image, quad, dx, dy, 0, scale, scaleY)
+    love.graphics.draw(image, quad, dx, dy, 0, scaleX, scaleY)
   end
   if foamQuad then
-    love.graphics.draw(foamImage, foamQuad, dx, dy, 0, scale, scaleY)
+    love.graphics.draw(foamImage, foamQuad, dx, dy, 0, scaleX, scaleY)
   end
   if self.silhouette or shade or tint or alpha < 1 then love.graphics.setColor(1, 1, 1, 1) end
 end

@@ -10,8 +10,9 @@ Config.DEFAULTS = {
   wild_silhouettes = "off",
   species_sizes = true,
   spawn_amount = "normal",
-  flyers = true,
+  flyers = "full",
   smooth_follow = true,
+  portraits = true,
   wild_reacts = true,
   water_life = true,
   local_scenes = true,
@@ -67,7 +68,8 @@ Config.FLYERS = {
   flapTicks = 6,                        -- HGSS wing beat (walkA / walkB)
   -- the occasional bird overhead: one at a time, every 30-70 s, crossing the TOP of the screen
   -- (its feet within the top `band` of the view) on a gentle arc of `arc` px, never straight
-  -- (the high one bobs up and down as it goes, `bob` px either way, a beat every `bobTicks`)
+  -- (the high one bobs up and down as it goes, `bob` px either way, a beat every `bobTicks`).
+  -- It starts in the band, then moves in perspective as the view scrolls (not held there).
   passer = { every = { 1800, 4200 }, max = 1, maxHigh = 1, ticks = { 300, 480 }, highTicks = { 240, 360 },
              band = 0.22, arc = { 6, 16 }, bob = { 2, 4 }, bobTicks = { 40, 56 } },
   -- a swoop (landing, perching, diving, leaving) starts / ends off screen, mid or high up
@@ -118,6 +120,10 @@ Config.REACT = {
   radius = 4, bikeRadius = 5,     -- how close the running / biking player has to come
   aggroRadius = 2, bikeAggroRadius = 3, -- ...for a stronger one to get angry: much closer
   weakRatio = 0.7, strongRatio = 1.3,
+  -- how likely it reacts at all, by how far past its threshold the ratio is: `minChance` %
+  -- just past it, rising evenly to 100% at `weakSure` (fleeing) / `strongSure` (chasing).
+  -- One roll as the player comes in range; a miss rests `missCooldown` ticks
+  minChance = 25, weakSure = 0.4, strongSure = 2.0, missCooldown = 300,
   alertTicks = 24,                -- "!" before fleeing / taking off
   turnTicks = 22,                 -- a stronger one's pause before it turns to the player
   angerTicks = 36,                -- then the anger mark, then the chase
@@ -321,10 +327,11 @@ Config.FORAGE = {
   blocklist = {},        -- extra item names to never find
 }
 
--- PMDCollab style (lib/pmd_renderer.lua). The ground point of a PMD frame
--- (the shadow marker) is placed at the tile's horizontal centre and
--- PMD_GROUND_Y pixels below the tile's top edge (a 16px tile; 12 puts the
--- feet just above its bottom edge, a little behind the player's). A non-flyer
+-- PMDCollab style (lib/pmd_renderer.lua). A PMD frame stands on the ground like
+-- the player: centred on the 16px tile, its feet (the bake's `foot` line: where the
+-- art rests most of the time) PMD_FEET_Y px below the tile's top edge -- 15, the
+-- player's own feet, 1 px above the tile's bottom edge
+-- (PmdRenderer.groundOf: a flyer hovering above its shadow keeps the hover). A non-flyer
 -- whose art hovers over its shadow point is grounded on its art first
 -- (SpriteSource.groundPmd). PMD_SCALE multiplies the art, and
 -- PMD_WALK_SPEED multiplies the Walk animation clock (1 = the durations in
@@ -334,7 +341,7 @@ Config.PMD_SCALE = 1
 -- index.json. It made big species look oversized, so it is OFF: every PMD
 -- sprite draws at PMD_SCALE x 1. Set true to apply the baked scales again.
 Config.PMD_TRUE_SIZE = false
-Config.PMD_GROUND_Y = 12
+Config.PMD_FEET_Y = 15
 -- A swimming PMD sprite (lib/pmd_renderer.lua) stands on its WATERLINE, the bottom of
 -- its foam bowl, instead of its feet: this many px below the tile's top edge.
 Config.PMD_SWIM_Y = 18
@@ -373,6 +380,13 @@ Config.PMD_FOLLOWER_SIDE_OVERHANG = 0.6
 Config.PMD_FOLLOWER_TURN_SPEED = 1
 Config.PMD_FOLLOWER_GAP_DOWN = 0 -- the gap while facing down (trailing above the player)
 Config.PMD_FOLLOWER_GAP = 4
+-- A tall follower in front of a house ducks under its eave (lib/eave_duck.lua): down by up
+-- to `nudge` px first, then squashed toward its feet for the rest, never below `minScale`
+-- of its height (anything still over is cut by the eave as before); a little wider while
+-- squashed (`widen` x the squash), easing in and out by `ease` of the way each tick.
+-- While it crouches more than `sweatFrom` it sweats (lib/sweat_drop.lua): one drop for a light
+-- crouch, up to `sweatMax` drops, cycling faster, the harder it is squashed.
+Config.FOLLOWER_DUCK = { nudge = 4, minScale = 0.5, widen = 0.15, ease = 0.2, sweatFrom = 0.03, sweatMax = 3 }
 Config.PMD_FOLLOWER_IDLE_DELAY = 300
 Config.PMD_FOLLOWER_IDLE_SPEED = 0.5
 Config.PMD_WILD_IDLE_SPEED = 0.75
@@ -443,7 +457,8 @@ function Config.defineOptions(mod)
   local schema = chunk()
   -- The HGSS-only release ships no PMDCollab art: don't offer a style that
   -- would silently draw HGSS anyway.
-  if not Config.hasPmdArt(mod) then Config.withoutPmdStyle(schema) end
+  -- (nor portraits: they are PMDCollab art too)
+  if not Config.hasPmdArt(mod) then Config.withoutPmdStyle(schema) Config.withoutRow(schema, "portraits") end
   if Config.gbBoot then Config.withoutGen3Only(schema) end
   mod.options:define(schema)
 end
@@ -545,6 +560,19 @@ end
 
 --- The Smooth Follow option: the follower is spaced out behind the player either way;
 --- on, it glides to its place on a turn, off it snaps there. On unless switched off.
+--- Removes the row `key` from an option schema (in place).
+function Config.withoutRow(schema, key)
+  for i = #schema, 1, -1 do
+    if schema[i].key == key then table.remove(schema, i) end
+  end
+  return schema
+end
+
+--- The Portraits option: the partner's portrait above its messages (lib/portrait_ui.lua).
+function Config.portraitsEnabled(mod)
+  return optGet(mod, "portraits") ~= false
+end
+
 function Config.smoothFollow(mod)
   return optGet(mod, "smooth_follow") ~= false
 end
@@ -580,8 +608,23 @@ end
 
 --- The Flying Mons option: birds in the sky, perching, and wild Flying-type Pokemon
 --- arriving / leaving by air. On unless switched off.
+--- The Flying Mons option: "full" (everything, the high birds too), "ambient" (no high
+--- birds) or "off". A save from when it was an on / off toggle reads true -> full, false -> off.
+function Config.flyersMode(mod)
+  local v = optGet(mod, "flyers")
+  if v == true then return "full" end
+  if v == false then return "off" end
+  if v == "full" or v == "ambient" or v == "off" then return v end
+  return "full"
+end
+
 function Config.flyersOn(mod)
-  return optGet(mod, "flyers") ~= false
+  return Config.flyersMode(mod) ~= "off"
+end
+
+--- The big blurred passers high overhead (lib/sky_flyers.lua): Flying Mons on Full only.
+function Config.highBirdsOn(mod)
+  return Config.flyersMode(mod) == "full"
 end
 
 local VALID_SILHOUETTE ={ off = true, undiscovered = true, all = true }

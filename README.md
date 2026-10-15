@@ -4,6 +4,9 @@
 
 # Wilds of Hoenn 🌿
 
+[![Total downloads](https://img.shields.io/github/downloads/poooooby/wilds-of-hoenn/total?label=downloads)](https://github.com/poooooby/wilds-of-hoenn/releases)
+[![Latest release](https://img.shields.io/github/v/release/poooooby/wilds-of-hoenn?label=latest)](https://github.com/poooooby/wilds-of-hoenn/releases/latest)
+
 *The tall grass is alive. Wild Pokémon roam the overworld of Red, Blue, Yellow, Gold, Silver,
 Crystal, Ruby, Sapphire, Emerald, FireRed and LeafGreen. Walk up to one to battle it, and bring a
 partner along for the journey.*
@@ -36,13 +39,16 @@ games.
   easier to hit when you battle them.
 - ✨ **Shiny chains** (with [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns)): win
   or catch the same species again and again and it turns up more, is likelier to be shiny and
-  has better stats. Shinies always show their colours on the overworld.
+  has better stats. Shinies always show their colours on the overworld, and twinkle now and
+  then with a little sparkle, your shiny partner too.
 
 ### Your Companion
 
 - 🫂 **Friendship you can see:** Face your partner and press A to **Pet**, **Play** fetch or
   **Talk**. Each one raises its friendship, and its portrait shows how it really feels from
-  its HP, status and bond with you. Petting can even cure a status.
+  its HP, status and bond with you, with a little effect over its head to match: hearts,
+  music notes, a rain cloud, an anger mark, sleepy Zs and more. Petting can even cure a
+  status. Squeezed under a roof's edge, it lets you know it's cramped.
 - ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. It fights with
   its real moves, stats and PP, on land or swimming out over water, and earns EXP. Health bars
   and hit effects show on both sides. When it levels up, it tells you a new move or evolution
@@ -53,7 +59,9 @@ games.
   finds things, and the rarer they get: evolution stones from friendship 130, the rarest finds
   from 200.
 - 🚲 **Bike rides:** hop on your bike and your partner rides along in its Poké Ball, popping
-  back out when you get off.
+  back out when you get off. It also slips into its ball at the Pokémon Center while the nurse
+  heals your team, and during story scenes where people move about, keeping out of the way
+  (just talking to someone leaves it out).
 
 ### A Living World
 
@@ -65,7 +73,8 @@ games.
   lead Pokémon jump with a "!" and run off (small birds fly away), and sometimes vanish at the end
   of their run, ducking down into the grass or slipping away into a cave's dark; stronger ones, if
   you come right up to them, turn on you angrily and charge (in PMDCollab style, attacking as they
-  come), and if they catch you, the battle starts. Each one gives up at its own distance.
+  come), and if they catch you, the battle starts. Each one gives up at its own distance. The
+  bigger the gap in strength, the likelier they react: a near match often lets you pass.
   An even match isn't bothered, and walking past calmly disturbs nobody.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
   softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on
@@ -96,17 +105,18 @@ games.
 
 | Option | Choices | Default | What it does |
 |---|---|---|---|
-| **Show Wild Mons** | On / Off | On | Visible wild Pokémon in areas with wild encounters. |
-| **Spawn Amount** | Low / Normal / High | Normal | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
-| **Flying Mons** | On / Off | On | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. |
-| **Water Life** | On / Off | On | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, Finizen porpoising out at sea (sometimes a whole pod at play), and fish swimming by under the sea when you dive, just for the scenery. |
-| **Local Scenes** | On / Off | On | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
-| **Wild Reacts** | On / Off | On | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
-| **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
-| **Smooth Follow** | On / Off | On | Your partner keeps its distance behind you either way. On: it glides round turns. Off: it snaps straight to its place, step for step like the original games. |
-| **Classic Enc** | On / Off | On | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
-| **Silhouette** | Off / Undiscovered / All | Off | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
-| **Species Sizes** | On / Off | On | Draws each species at its own relative size. Needs Gen 3 HD Sprites. |
+| **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon in areas with wild encounters. |
+| **Spawn Amount** | LOW / NORMAL / HIGH | NORMAL | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
+| **Flying Mons** | FULL / AMBIENT / OFF | FULL | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. Full adds big birds flying high overhead, softly out of focus; Ambient leaves those out. |
+| **Water Life** | ON / OFF | ON | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, Finizen porpoising out at sea (sometimes a whole pod at play), and fish swimming by under the sea when you dive, just for the scenery. |
+| **Local Scenes** | ON / OFF | ON | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
+| **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
+| **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
+| **Smooth Follow** | ON / OFF | ON | Your partner keeps its distance behind you either way. On: it glides round turns. Off: it snaps straight to its place, step for step like the original games. |
+| **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
+| **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
+| **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs Gen 3 HD Sprites. |
+| **Portraits** | ON / OFF | ON | Your partner's portrait above its messages when you Pet, Play or Talk with it. (HGSS + PMDCollab build only.) |
 
 Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option.
 

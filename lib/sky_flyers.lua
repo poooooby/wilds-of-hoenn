@@ -136,6 +136,7 @@ end
 function SkyFlyers:onMapEntered(mapId)
   self:clear()
   self.mapId = mapId
+  self.mode = Config.flyersMode(self.mod)
   self.allowed = Config.flyersOn(self.mod) and EnginePatch.skyAllowed(mapId) or false
   self.pool, self.seaPool, self.perches = {}, {}, nil
   if not self.allowed then return end
@@ -177,9 +178,28 @@ function SkyFlyers:onMapExited()
   self.allowed = false
 end
 
---- The option changed: off drops every ambient bird now; on starts them on this map.
+--- The Flying Mons option changed: off drops every ambient bird now; on (from off) starts
+--- them on this map; Full <-> Ambient only adds / takes away the high birds.
 function SkyFlyers:onOptionChanged(mapId)
-  if Config.flyersOn(self.mod) then self:onMapEntered(mapId or self.mapId) else self:onMapExited() end
+  local mode, was = Config.flyersMode(self.mod), self.mode
+  self.mode = mode
+  if mode == "off" then
+    self:onMapExited()
+  elseif was == nil or was == "off" or not self.allowed then
+    self:onMapEntered(mapId or self.mapId)
+  else
+    self:_dropHighBirds()
+  end
+end
+
+--- Without the high birds (Flying Mons on Ambient): any flying high overhead go now.
+function SkyFlyers:_dropHighBirds()
+  if Config.highBirdsOn(self.mod) then return end
+  local keep = {}
+  for _, b in ipairs(self.birds) do
+    if b.kind == "passer" and b.high then SkyDraw.release(b) else keep[#keep + 1] = b end
+  end
+  self.birds = keep
 end
 
 --- Can a wild Pokemon arrive / leave by air here? (The option on, open sky, a Flying type,
@@ -200,11 +220,11 @@ local function widthOf(r)
 end
 
 --- A view of one flying sprite, the table lib/sky_draw.lua draws: its renderer, and
---- what it needs to switch art while flying (HGSS floaters fly with their levitating
---- sheet; a PMD swimmer is drawn whole in the air).
+--- what it needs to switch art while flying (HGSS: its land sheet in the air, never the
+--- waterline-cut swimming / levitating one; a PMD swimmer is drawn whole in the air).
 function SkyFlyers.newView(id, renderer, dex, mod)
   return {
-    id = id, renderer = renderer, floater = SpriteSource.isFloater(mod, dex),
+    id = id, renderer = renderer,
     basePresentation = renderer and renderer.presentation, baseSwimming = renderer and renderer.swimming,
     flapClock = 0, width = widthOf(renderer), x = 0, y = 0, h = 0,
   }
@@ -226,7 +246,9 @@ local function animate(view, s)
     view.pose = ActorRenderer.POSE_STAND
   else
     if s.flapping then
-      if view.floater then r.presentation = SpriteSource.PRESENTATION_LEVITATES end
+      -- in the air every bird flies with its land sheet (wings out, the whole body): the
+      -- levitating and swimming sheets are cut off at the waterline -- art for over water
+      r.presentation = SpriteSource.PRESENTATION_LAND
       local beat = math.floor(view.flapClock / Config.FLYERS.flapTicks) % 2
       view.pose = beat == 0 and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
     else
@@ -487,7 +509,8 @@ function SkyFlyers:_spawnPasser()
   local entry = pickWeighted(self.pool, rng)
   if not entry then return false end
   local fog = FOG[(EnginePatch.weatherId and EnginePatch.weatherId()) or -1]
-  local high = not fog and self:_count("passer", true) < cfg.maxHigh and rng(1, 100) <= 40
+  local high = not fog and Config.highBirdsOn(self.mod) and self:_count("passer", true) < cfg.maxHigh
+    and rng(1, 100) <= 40
   local h = high and 1 or (0.45 + rng(0, 15) / 100)
   local look = FlightPath.look(h)
   local vw, vh = self.viewSize()
@@ -517,7 +540,6 @@ function SkyFlyers:_spawnPasser()
     bird.high, bird.screenSpace = high, true
     bird.sx, bird.sy = x0, y0
     bird.cam0 = { x = self.cam.x, y = self.cam.y }
-    bird.band = { top = -margin, bottom = vh * cfg.band }
   end
   return bird ~= nil
 end
@@ -629,8 +651,10 @@ function SkyFlyers:tick()
     end
     self.timers[kind] = t
   end
-  local keep = {}
-  for _, b in ipairs(self.birds) do
+  -- birds still flying are kept in place (the list is compacted, not rebuilt)
+  local birds, n = self.birds, 0
+  for i = 1, #birds do
+    local b = birds[i]
     if b.sitting and b.perch and self:_playerNear(b.perch.x, b.perch.y, scatterRadius()) then
       self:_scatter(b)
     end
@@ -648,35 +672,42 @@ function SkyFlyers:tick()
         b.perch = nil
       end
       b.wasSitting = s.sitting
-      keep[#keep + 1] = b
+      n = n + 1
+      birds[n] = b
     else
       if b.perch then self.taken[b.perch] = nil end
       SkyDraw.release(b)
     end
     if b.rings then
-      local left = {}
-      for _, age in ipairs(b.rings) do
-        if age + 1 < SpawnFx.ringsTicks() then left[#left + 1] = age + 1 end
+      local rings, m = b.rings, 0
+      for j = 1, #rings do
+        local age = rings[j] + 1
+        if age < SpawnFx.ringsTicks() then m = m + 1 rings[m] = age end
       end
-      b.rings = #left > 0 and left or nil
+      for j = #rings, m + 1, -1 do rings[j] = nil end
+      if m == 0 then b.rings = nil end
     end
   end
-  self.birds = keep
+  for i = #birds, n + 1, -1 do birds[i] = nil end
 end
 
 --- Appends every ambient bird's actors; remembers the camera for placing new ones.
 function SkyFlyers:collectActors(actors, camX, camY)
-  if camX ~= nil and camY ~= nil then self.cam = { x = camX, y = camY } end
+  if camX ~= nil and camY ~= nil then
+    local cam = self.cam
+    if not cam then cam = {} self.cam = cam end
+    cam.x, cam.y = camX, camY
+  end
   if #self.birds == 0 then return end
   local vw, vh = self.viewSize()
   for _, b in ipairs(self.birds) do
     if b.screenSpace and b.sx and camX ~= nil then
-      -- a passer: its screen path, slid by the view's scrolling at its own parallax, but kept
-      -- in the top band (feet at most band.bottom down the screen)
-      local p = FlightPath.look(b.h).parallax
+      -- a passer: its screen path, slid by the view's scrolling at its own parallax -- it
+      -- moves in perspective with the player (off the top as they walk down, lower down the
+      -- screen as they walk up), not held in the top band
+      local p = FlightPath.parallaxAt(b.h)
       local sx = b.sx - (camX - b.cam0.x) * p
       local sy = b.sy - (camY - b.cam0.y) * p
-      sy = math.max(b.band.top, math.min(b.band.bottom, sy))
       b.x, b.y = FlightPath.fromScreen(sx - 8, sy - 16, p, camX, camY, vw, vh)
     end
     SkyDraw.push(actors, b, camX or 0, camY or 0, vw, vh)

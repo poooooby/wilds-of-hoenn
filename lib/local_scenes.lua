@@ -624,7 +624,13 @@ local LEAF = { { 0.16, 0.36, 0.14 }, { 0.30, 0.56, 0.22 }, { 0.56, 0.78, 0.32 } 
 -- it stirs up, drawn over it
 local function leavesActor(c)
   local r, cfg = c.renderer, Config.LOCAL_SCENES.tropius
-  local groundY = r.isPmd and (Config.PMD_GROUND_Y or 12) or 16
+  -- the cut edge of its reveal: PMD's ground line for the animation it shows
+  -- (lib/pmd_renderer.lua groundOf, where the cut part is drawn), else the tile's bottom
+  local groundY = 16
+  if r.isPmd then
+    local PmdRenderer = V.require("pmd_renderer")
+    groundY = PmdRenderer.groundOf(r.info and r.info[r.anim or "walk"], PmdRenderer.scaleOf(r.info))
+  end
   local cx = c.x + 8
   local cy = c.y + groundY + math.floor(((c.act and c.act.dy) or 0) + 0.5)
   local hd = (r.hdScale and r:hdScale()) or 1
@@ -752,7 +758,11 @@ end
 
 --- Appends every scene's actors; remembers the camera for placing new ones.
 function LocalScenes:collectActors(actors, camX, camY)
-  if camX ~= nil and camY ~= nil then self.cam = { x = camX, y = camY } end
+  if camX ~= nil and camY ~= nil then -- (kept in place: no table per frame)
+    local cam = self.cam
+    if not cam then cam = {} self.cam = cam end
+    cam.x, cam.y = camX, camY
+  end
   for _, c in ipairs(self.scenes) do
     if not c.hidden and (c.alpha or 1) > 0.01 then
       if c.kind == "burmy" or c.kind == "cocoon" then actors[#actors + 1] = threadActor(c) end

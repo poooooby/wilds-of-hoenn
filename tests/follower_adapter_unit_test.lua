@@ -1047,6 +1047,54 @@ do
   fakeEngine.isWater = realIsWater
 end
 
+-- ------- into its ball for the nurse's heal machine, and while the player walks with someone
+do
+  local healing, leading, busy = false, false, true
+  local saved = { fakeEngine.healingActive, fakeEngine.leadingNpc, fakeEngine.fieldBusy, fakeEngine.playerPixel }
+  fakeEngine.healingActive = function() return healing end
+  fakeEngine.leadingNpc = function() return leading end
+  fakeEngine.fieldBusy = function() return busy end
+  fakeEngine.playerPixel = function() return 40, 48 end
+  local T = V.require("config").PMD_RECALL_TICKS
+  for _, style in ipairs({ "pmd", "pokemmo" }) do
+    optionStore.sprite_style = style
+    V.mod = (style == "pmd") and pmdMod or V.mod
+    npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+    local fh = FollowerAdapter.new(V.mod)
+    fh:tick()
+    healing = true
+    for _ = 1, T + 1 do fh:tick() end
+    eq(fh.renderer.recall, 0, style .. ": the heal machine runs: inside its ball")
+    healing = false
+    for _ = 1, T + 1 do fh:tick() end
+    eq(fh.renderer.recall, 1, style .. ": healed: back out")
+    check(not fh:inCutscene(), style .. ": talking to someone (no one moved): it stays out")
+    fh:onScriptMovement(3)
+    check(fh:inCutscene(), style .. ": a script walking an NPC is a cutscene")
+    fh:onScriptEnded()
+    fh:onScriptMovement(0xFF)
+    check(fh:inCutscene(), style .. ": ...so is one walking only the player")
+    fh:onScriptMovement(3)
+    for _ = 1, T + 1 do fh:tick() end
+    eq(fh.renderer.recall, 0, style .. ": during the cutscene it keeps out of the way, in its ball")
+    fh:onScriptEnded()
+    for _ = 1, T + 1 do fh:tick() end
+    eq(fh.renderer.recall, 1, style .. ": the script over: back out")
+    fh:onScriptMovement(4)
+    busy = false
+    check(not fh:inCutscene(), style .. ": no script running any more (an end not heard): it lets go")
+    busy = true
+    leading = true
+    for _ = 1, T + 1 do fh:tick() end
+    eq(fh.renderer.recall, 0, style .. ": a character following the player (Gen 2 follow): inside its ball")
+    leading = false
+    for _ = 1, T + 1 do fh:tick() end
+    eq(fh.renderer.recall, 1, style .. ": ...and out again after")
+  end
+  fakeEngine.healingActive, fakeEngine.leadingNpc, fakeEngine.fieldBusy, fakeEngine.playerPixel = saved[1], saved[2], saved[3], saved[4]
+  optionStore.sprite_style = nil
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

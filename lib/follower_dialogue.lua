@@ -25,6 +25,16 @@ Dialogue.REPORT = {
   inspired = { "{name} is brimming with\nenergy and bonds!", "{name} is full of life.\nIt loves you dearly!" },
 }
 
+-- Squished under a roof's edge (lib/eave_duck.lua): shown in place of a healthy mood's
+-- line, one after the other each time you talk to it there.
+Dialogue.CRAMPED = {
+  "{name} is hunched over.\nIt's a bit cramped here.",
+  "{name} shuffles about.\nThis spot is too tight!",
+  "{name} eyes the roof.\nIt wants more room.",
+  "{name} nudges you.\nIt'd like to move on.",
+}
+Dialogue.CRAMPED_EMOTION = "Worried"
+
 -- Results of an action that worked.
 Dialogue.ACTION = {
   pet = { "You pet {name}.\nIt leans into your hand!", "You stroke {name}.\nIt closes its eyes happily." },
@@ -92,6 +102,12 @@ end
 function Dialogue.report(reason, name, rng)
   local list = Dialogue.REPORT[reason] or Dialogue.REPORT.normal
   return fill(pick(list, rng), name)
+end
+
+--- The `turn`-th cramped line (1, 2, ... rotating through Dialogue.CRAMPED).
+function Dialogue.cramped(turn, name)
+  local list = Dialogue.CRAMPED
+  return fill(list[((math.floor(tonumber(turn) or 1) - 1) % #list) + 1], name)
 end
 
 --- The line after a successful Pet/Play/Talk. `hurting` picks the softer

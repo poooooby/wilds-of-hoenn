@@ -935,7 +935,11 @@ end
 
 --- Appends every creature's actors; remembers the camera for placing new ones.
 function WaterLife:collectActors(actors, camX, camY)
-  if camX ~= nil and camY ~= nil then self.cam = { x = camX, y = camY } end
+  if camX ~= nil and camY ~= nil then -- (kept in place: no table per frame)
+    local cam = self.cam
+    if not cam then cam = {} self.cam = cam end
+    cam.x, cam.y = camX, camY
+  end
   local cfg = Config.WATER_LIFE
   local vw, vh = self.viewSize()
   for _, c in ipairs(self.creatures) do

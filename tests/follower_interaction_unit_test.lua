@@ -153,6 +153,50 @@ do
   E.messageOpen = false
 end
 
+-- ------- squished under a roof's edge: it says it's cramped, a new line each time
+do
+  local cramped = true
+  local adapter = { isCramped = function() return cramped end }
+  local fiC = FollowerInteraction.new(mod, P, { clock = function() return clock end, rng = rng, adapter = adapter })
+  E.lead = mon()
+  fiC:tryStart({})
+  local first = lastSay()
+  check(first.text:find("cramped", 1, true), "squished: it says it's cramped")
+  eq(first.opts.emotion, "Worried", "...with a worried face")
+  fiC:abort() E.messageOpen = false
+  fiC:tryStart({})
+  check(lastSay().text ~= first.text and lastSay().text:find("BLAZE", 1, true), "talking again there: the next line")
+  fiC:abort() E.messageOpen = false
+  E.lead = mon({ hp = 5 })
+  fiC:tryStart({})
+  check(not lastSay().text:find("cramped", 1, true) and lastSay().opts.emotion == nil,
+    "badly hurt: that comes first, not the cramped line")
+  fiC:abort() E.messageOpen = false
+  cramped = false
+  E.lead = mon()
+  fiC:tryStart({})
+  check(lastSay().opts.emotion == nil and not lastSay().text:find("cramped", 1, true), "standing tall: its usual mood line")
+  fiC:abort() E.messageOpen = false
+end
+
+-- ------- the drawn effect over it while its portrait is up (lib/mood_fx.lua)
+do
+  local fiM = newInteraction()
+  eq(fiM:moodKind(), nil, "no interaction: no effect")
+  E.lead = mon({ friendship = 255 })
+  fiM:tryStart({})
+  P.emotion = "Inspired"
+  eq(fiM:moodKind(), "love", "its portrait loves you: hearts and sparkles")
+  P.emotion = "Pain"
+  E.lead.status = "PSN"
+  eq(fiM:moodKind(), "bubbles", "poisoned and in pain: bubbles")
+  fiM.state = "anim"
+  eq(fiM:moodKind(), nil, "not while it acts a scene out")
+  fiM:abort() E.messageOpen = false
+  P.emotion = nil
+  E.lead = mon()
+end
+
 -- ------- the report waits for its text, then the menu opens
 fi = newInteraction()
 E.lead = mon()

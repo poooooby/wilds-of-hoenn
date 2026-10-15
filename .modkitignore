@@ -19,6 +19,7 @@ tests/cell_path_unit_test.lua
 tests/classic_encounters_test.lua
 tests/companion_unit_test.lua
 tests/config_unit_test.lua
+tests/eave_duck_unit_test.lua
 tests/encounter_source_unit_test.lua
 tests/engine_gb_unit_test.lua
 tests/engine_patch_probe_test.lua
@@ -47,6 +48,7 @@ tests/main_boot_unit_test.lua
 tests/modern_spawns_bridge_unit_test.lua
 tests/modkit_boot_test.lua
 tests/mon_mood_unit_test.lua
+tests/mood_fx_unit_test.lua
 tests/overworld_battle_unit_test.lua
 tests/ow_combat_unit_test.lua
 tests/party_roles_unit_test.lua
@@ -59,6 +61,7 @@ tests/reachability_unit_test.lua
 tests/reflection_unit_test.lua
 tests/renderer_factory_unit_test.lua
 tests/shiny_chain_test.lua
+tests/shiny_sparkle_unit_test.lua
 tests/shiny_unit_test.lua
 tests/sky_draw_unit_test.lua
 tests/sky_flyers_unit_test.lua
@@ -66,6 +69,7 @@ tests/spawn_fx_unit_test.lua
 tests/spawn_manager_unit_test.lua
 tests/sprite_atlas_unit_test.lua
 tests/sprite_source_unit_test.lua
+tests/sweat_drop_unit_test.lua
 tests/sweet_scent_hearts_unit_test.lua
 tests/voxel_sheets_unit_test.lua
 tests/voxel_sprite_billboards_adapter_unit_test.lua

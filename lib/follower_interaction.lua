@@ -29,6 +29,7 @@ local V = ...
 local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
 local MonMood = V.require("mon_mood")
+local MoodFx = V.require("mood_fx")
 local Dialogue = V.require("follower_dialogue")
 local Limiter = V.require("interaction_limiter")
 local PartyRoles = V.require("party_roles")
@@ -118,6 +119,16 @@ function FollowerInteraction:isActive()
   return self.state ~= nil
 end
 
+-- the steps where its portrait is up (not while it acts a scene out or a screen is open)
+local MOOD_STATES = { report = true, menu = true, result = true }
+
+--- The drawn effect over the partner right now (lib/mood_fx.lua), matching the face its
+--- portrait shows, or nil.
+function FollowerInteraction:moodKind()
+  if not (MOOD_STATES[self.state] and self.mon and self.portraitUI) then return nil end
+  return MoodFx.kindFor(self.portraitUI.emotion, MonMood.statusOf(self.mon))
+end
+
 function FollowerInteraction:reset()
   if self.locked then
     EnginePatch.unlockField(LOCK_TAG)
@@ -191,8 +202,14 @@ function FollowerInteraction:tryStart(game)
   end
 
   local _, reason = MonMood.read(mon)
-  local shown = self.portraitUI:say(Dialogue.report(reason, name, self.rng), {
-    mon = mon, stay = true,
+  local text, emotion = Dialogue.report(reason, name, self.rng), nil
+  -- squished under a roof's edge: it says so (unless something is really wrong)
+  if not HURTING[reason] and self.adapter and self.adapter.isCramped and self.adapter:isCramped() then
+    self.crampedTurn = (self.crampedTurn or 0) + 1
+    text, emotion = Dialogue.cramped(self.crampedTurn, name), Dialogue.CRAMPED_EMOTION
+  end
+  local shown = self.portraitUI:say(text, {
+    mon = mon, stay = true, emotion = emotion,
   })
   if not shown then
     self:reset()
