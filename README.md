@@ -160,9 +160,11 @@ time, and they stay out until you change your leader again. One partner is out a
   your party's leader following you, and both sprite styles. Red, Blue and Yellow also get the
   ambient world: birds passing overhead and perching on town signposts, wild Flying types
   swooping in and out, fish leaping from the water, wild Pokémon reacting when you bike close
-  by, and Lavender Town's ghosts. The rest (the partner's Battler and Forager jobs,
-  Pet / Play / Talk, Sweet Scent) is for Ruby, Sapphire, Emerald, FireRed and LeafGreen for
-  now, as is everything on Gold, Silver and Crystal beyond the heart.
+  by, and Lavender Town's ghosts — and Pet / Play / Talk with your partner, portraits and
+  moods included (those games keep no friendship, so the mod keeps its own; Yellow's starter
+  Pikachu keeps the game's real happiness and its own talk scenes). The rest (the partner's
+  Battler and Forager jobs, Sweet Scent) is for Ruby, Sapphire, Emerald, FireRed and LeafGreen
+  for now, as is everything on Gold, Silver and Crystal beyond the heart.
 - 🌈 **Red, Blue and Yellow colours:** in the game's palette colour modes, the Pokémon take on
   the area's colours like every other sprite. In ADVANCED colours they keep their full colours.
 - 🔀 **Wilds of Kanto Revival** is the same idea for Red, Blue, Yellow and Gold: use one or the

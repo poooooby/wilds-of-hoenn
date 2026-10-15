@@ -370,6 +370,50 @@ function EngineGb.install(hooks, log)
   originals.input = InputMod[inputField]
   InputMod[inputField] = a.inputWrapper(originals.input, held)
 
+  -- the A press: the mod's follower menu goes first (hooks.interact true = consumed).
+  -- Yellow's own Pikachu talk (a.nativeTalk) passes through untouched.
+  if a.TARGETS.interact and hooks.interact then
+    local Mod = loadModule(a.TARGETS.interact.mod)
+    local field = a.TARGETS.interact.field
+    originals.interact = Mod[field]
+    Mod[field] = function(world, ...)
+      EngineGb._world = world
+      local native = a.nativeTalk and select(2, pcall(a.nativeTalk, world)) == true
+      if not native then
+        local consumed = safeCall(log, "interact", hooks.interact, a.game and a.game() or nil)
+        if consumed then return end
+      end
+      return originals.interact(world, ...)
+    end
+  end
+
+  -- a dialogue box pauses the overworld state under it (Gen 1 routes update to the top
+  -- state only): the mod's tick rides the box's update too, so the interaction's state
+  -- machine, the spawns and the ambient life keep moving mid-conversation -- exactly what
+  -- Gen 3 does under a Message
+  if a.TARGETS.messageTick and hooks.followerTick then
+    local Mod = loadModule(a.TARGETS.messageTick.mod)
+    local field = a.TARGETS.messageTick.field
+    originals.messageTick = Mod[field]
+    Mod[field] = function(box, ...)
+      local r1, r2 = originals.messageTick(box, ...)
+      safeCall(log, "followerTick", hooks.followerTick, a.game and a.game() or nil)
+      return r1, r2
+    end
+  end
+
+  -- the portrait over the dialogue box: after every box draw (TextBox:draw(self))
+  if a.TARGETS.messageDraw and hooks.messageDraw then
+    local Mod = loadModule(a.TARGETS.messageDraw.mod)
+    local field = a.TARGETS.messageDraw.field
+    originals.messageDraw = Mod[field]
+    Mod[field] = function(box, ...)
+      local r1, r2 = originals.messageDraw(box, ...)
+      safeCall(log, "messageDraw", hooks.messageDraw)
+      return r1, r2
+    end
+  end
+
   EngineGb._originals = originals
   EngineGb._installed = true
   return true
@@ -458,11 +502,25 @@ end
 --- A character walking with the player by script: Gen 2's `follow` (World:startFollow:
 --- world.followState = { leader, follower }) with the player one of the pair. Gen 1 has no
 --- such command.
+--- A character walking with the player, or a cutscene moving someone: the companion keeps
+--- out of the way in its ball (lib/follower_adapter.lua inCutscene reads this). Gen 2 =
+--- the engine's follow; Gen 1 = scripted moves / the script runner (plain dialogue is
+--- neither, so talking to someone leaves the companion out).
 function EngineGb.leadingNpc()
   local w = EngineGb._world
-  local st = w and w.followState
-  if not (st and w.player) then return false end
-  return st.leader == w.player or st.follower == w.player
+  if not w then return false end
+  local st = w.followState
+  if st and w.player and (st.leader == w.player or st.follower == w.player) then return true end
+  local a = A()
+  if a and a.generation == 1 then
+    if w.scriptMoves and #w.scriptMoves > 0 then return true end
+    local runner = w.runner
+    if runner and runner.isRunning then
+      local ok, running = pcall(runner.isRunning, runner)
+      if ok and running then return true end
+    end
+  end
+  return false
 end
 
 -- ------------------------------------------------------------------ the player
@@ -853,6 +911,123 @@ function EngineGb.followerSprite(renderer, npc)
   return s
 end
 
+-- ------------------------------------------------------------------ talk / UI
+
+local function adapterCall(name, ...)
+  local a = A()
+  local fn = a and a[name]
+  if not fn then return nil end
+  local ok, r1, r2, r3, r4 = pcall(fn, ...)
+  if not ok then return nil end
+  return r1, r2, r3, r4
+end
+
+function EngineGb.isMessageOpen() return adapterCall("isMessageOpen") == true end
+function EngineGb.showMessage(text, opts) return adapterCall("showMessage", text, opts) == true end
+function EngineGb.messageOnLastPage() return adapterCall("messageOnLastPage") == true end
+function EngineGb.closeStayMessage() return adapterCall("closeStayMessage") == true end
+function EngineGb.showChoice(options, defaultIdx, cb, _layout)
+  return adapterCall("showChoice", options, defaultIdx, cb) == true
+end
+function EngineGb.choiceActive() return adapterCall("choiceActive") == true end
+
+--- The dialogue box's place in 8 px tiles (the portrait sits above it).
+function EngineGb.dialogueWindow()
+  local win = adapterCall("dialogueWindow")
+  return type(win) == "table" and win or nil
+end
+
+function EngineGb.screenBusy()
+  local a = A()
+  if not (a and a.screenBusy) then return true end
+  local ok, busy = pcall(a.screenBusy, EngineGb._world)
+  return not ok or busy == true
+end
+
+function EngineGb.canStartInteraction()
+  local a = A()
+  if not (a and a.canStartInteraction) then return false end
+  local ok, yes = pcall(a.canStartInteraction, EngineGb._world)
+  return ok and yes == true
+end
+
+local FACING_DELTA = { up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 } }
+
+--- The follower npc standing still on the cell the player faces, else nil.
+function EngineGb.followerInFacingCell()
+  local npc = EngineGb.followerCurrent()
+  local p = EngineGb.playerCell()
+  local d = p and FACING_DELTA[p.facing]
+  if not (npc and d) then return nil end
+  if npc.moving or npc.hidden then return nil end
+  if npc.cellX == p.x + d[1] and npc.cellY == p.y + d[2] then return npc end
+  return nil
+end
+
+--- Dry walkable empty cells in a row from (cx, cy) heading `dir` (a thrown ball).
+function EngineGb.freeCellsAhead(cx, cy, dir, max)
+  local d = FACING_DELTA[dir]
+  if not d then return 0 end
+  local n = 0
+  for i = 1, max or 3 do
+    local tx, ty = cx + d[1] * i, cy + d[2] * i
+    if not EngineGb.cellFree(tx, ty) then break end
+    n = n + 1
+  end
+  return n
+end
+
+function EngineGb.displayName(mon)
+  local name = adapterCall("displayName", mon)
+  return type(name) == "string" and name or "POKeMON"
+end
+
+--- Cures the status the way the engine's medicine does. Gen 1 keeps no separate sleep
+--- counter outside `status`.
+function EngineGb.clearStatus(mon)
+  if type(mon) ~= "table" then return false end
+  local had = mon.status ~= nil and mon.status ~= "" and mon.status ~= 0
+  mon.status = nil
+  if mon.sleep ~= nil then mon.sleep = 0 end
+  return had
+end
+
+-- the mod-kept friendship (lib/gb_friendship.lua), handed over by main.lua on a GB boot
+function EngineGb.setFriendshipStore(store) EngineGb._friendship = store end
+
+function EngineGb.friendshipOf(mon)
+  local store = EngineGb._friendship
+  if store then
+    local ok, v = pcall(store.valueOf, store, mon)
+    if ok and tonumber(v) then return tonumber(v) end
+  end
+  return tonumber(type(mon) == "table" and (mon.friendship or mon.happiness)) or 0
+end
+
+function EngineGb.setFriendship(mon, value)
+  local store = EngineGb._friendship
+  if store then
+    local ok, v = pcall(store.set, store, mon, value)
+    if ok and tonumber(v) then return tonumber(v) end
+  end
+  return EngineGb.friendshipOf(mon)
+end
+
+--- A stable number standing in for Gen 3's personality (none exists here): the species'
+--- national dex and the DVs. lib/companion.lua and lib/level_ready.lua key mons by it.
+function EngineGb.monIdentity(mon)
+  if type(mon) ~= "table" then return nil end
+  local dex = EngineGb.nationalFor(mon.species) or 0
+  local d, dv = mon.dvs, 0
+  if type(d) == "table" then
+    dv = (tonumber(d.attack) or 0) * 4096 + (tonumber(d.defense) or 0) * 256
+      + (tonumber(d.speed) or 0) * 16 + (tonumber(d.special) or 0)
+  elseif tonumber(d) then
+    dv = tonumber(d) % 65536
+  end
+  return dex * 65536 + dv
+end
+
 --- Species facts for the ambient systems (string key or national dex number in).
 function EngineGb.isWaterType(species)
   local a = A()
@@ -896,16 +1071,14 @@ end
 -- (yet): each answers "nothing" (nil). The systems that need them are not built here
 -- (EngineGb.supports), so these only keep a stray call harmless.
 local STUBS = {
-  "isMessageOpen", "showMessage", "dialogueWindow", "hmUsable", "sweetScentFail", "setFoeStage",
-  "followerInFacingCell", "showChoice", "choiceActive", "messageOnLastPage", "closeStayMessage",
-  "displayName", "friendshipOf", "setFriendship", "clearStatus", "encounters", "collision", "pokemon",
-  "trainerIds", "isShiny", "genderOf", "grassSheet", "reflectionKind", "reflectiveAt", "reflectionWobble",
-  "coverReflections", "startRipple", "buildWildFighter", "battlerOf", "moveRow",
-  "moveDamage", "moveDisplayName", "expGain", "expApply", "movesLearnedAt", "knowsMove", "evolutionTarget",
-  "startEvolution", "startMoveLearn", "speciesTypes", "eggGroups",
-  "forageAllowed", "bagAdd", "bagCanAdd", "itemCatalog", "playSuccess",
-  "playSelect", "drawText", "partyMenu", "cryFinished", "playerPose", "freeCellsAhead",
-  "moveNumber", "grassRustle",
+  "hmUsable", "sweetScentFail", "setFoeStage", "encounters", "collision", "pokemon",
+  "trainerIds", "isShiny", "genderOf", "grassSheet", "reflectionKind", "reflectiveAt",
+  "reflectionWobble", "coverReflections", "startRipple", "fieldEffectSheet", "buildWildFighter",
+  "battlerOf", "moveRow", "moveDamage", "moveDisplayName", "expGain", "expApply",
+  "movesLearnedAt", "knowsMove", "evolutionTarget", "startEvolution", "startMoveLearn",
+  "speciesTypes", "eggGroups", "forageAllowed", "bagAdd", "bagCanAdd", "itemCatalog",
+  "playSuccess", "playSelect", "drawText", "partyMenu", "playerPose", "moveNumber",
+  "grassRustle",
 }
 for _, name in ipairs(STUBS) do
   if EngineGb[name] == nil then EngineGb[name] = function() return nil end end

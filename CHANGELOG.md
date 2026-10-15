@@ -4,6 +4,13 @@
 
 ### Added
 
+- **Pet, Play and Talk come to Red, Blue and Yellow.** Face your follower and press A: its
+  portrait and report open over the game's own text box, with the Pet / Play / Talk rows in a
+  windowed menu, the mood effects over its head, and the same anti-fuss limits as on Gen 3.
+  Those games keep no friendship stat, so the mod keeps its own per Pokemon (seeded at 70,
+  raised by Pet / Play / Talk and slowly by walking together). Yellow's starter Pikachu is
+  special twice over: the game's own happiness drives it, and talking to it plays Yellow's
+  own Pikachu scenes, faces and all, untouched.
 - **The ambient world comes to Red, Blue and Yellow.** The Game Boy games get Flying Mons
   (birds passing overhead, perching on town signposts, wild Flying types swooping in to land
   and taking off again), Water Life (the area's fish leaping out of ponds and sea), Wild

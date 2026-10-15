@@ -3,8 +3,9 @@
 -- call is guarded by the caller; nothing here keeps state.
 local Gen1 = { generation = 1, layout = "gen1" }
 
--- the ambient systems main.lua may build on this generation (EnginePatch.supports)
-Gen1.FEATURES = { sky = true, water_life = true, local_scenes = true, wild_reacts = true }
+-- the optional systems main.lua may build on this generation (EnginePatch.supports)
+Gen1.FEATURES = { sky = true, water_life = true, local_scenes = true, wild_reacts = true,
+                  interaction = true, portraits = true }
 
 local load = function() return nil end
 function Gen1.init(loadModule) load = loadModule end
@@ -16,6 +17,12 @@ Gen1.TARGETS = {
   draw = { mod = OW, field = "drawWorld" },   -- draws ow.entities y-sorted (OverworldController.lua:6473)
   tick = { mod = OW, field = "update" },      -- the overworld's frame (OverworldController.lua:1408)
   input = { mod = OW, field = "handleInput" }, -- where a held direction starts a step (:1791)
+  interact = { mod = OW, field = "interact" }, -- the A press (:2651): the follower menu goes first
+  messageDraw = { mod = "src.render.TextBox", field = "draw" }, -- the portrait paints after the box
+  -- a box on the stack PAUSES the overworld's update (Game routes to the top state only),
+  -- which would freeze the mod's tick mid-conversation: tick from the box too (only one
+  -- of the two is ever the running state, so never twice a frame)
+  messageTick = { mod = "src.render.TextBox", field = "update" },
 }
 -- read, never wrapped
 Gen1.READONLY = {
@@ -432,6 +439,171 @@ end
 function Gen1.party()
   local save = Gen1.save()
   return save and save.party
+end
+
+-- ------------------------------------------------------------------ talk / UI
+-- The dialogue box is src/render/TextBox.lua, a state on Game.stack. The mod's own boxes
+-- are tracked here so isMessageOpen sees a "stay" box under a menu, the way Gen 3's
+-- Message does.
+
+local openBoxes = setmetatable({}, { __mode = "k" }) -- our TextBoxes still open
+local stayBox -- the one "stay" box up (the interaction's report)
+local choiceMenu -- the one ListMenu up (the interaction's rows)
+
+local function stackTop()
+  local Game = Gen1.game()
+  local stack = Game and Game.stack
+  if not (stack and stack.top) then return nil end
+  local ok, top = pcall(stack.top, stack)
+  return ok and top or nil
+end
+
+--- Any dialogue box up: the stack's top, or the mod's own "stay" box under a menu.
+function Gen1.isMessageOpen()
+  local top = stackTop()
+  if type(top) == "table" and top.isTextBox then return true end
+  return stayBox ~= nil and openBoxes[stayBox] == true
+end
+
+--- The engine's own dialogue box. `opts`: `stay` keeps it up (the caller closes it with
+--- closeStayMessage), `done` runs when it closes itself. Returns true when it opened.
+function Gen1.showMessage(text, opts)
+  local Game = Gen1.game()
+  local TextBox = load("src.render.TextBox")
+  if not (Game and Game.stack and TextBox and TextBox.new) then return false end
+  local box
+  local function onDone()
+    if box then openBoxes[box] = nil end
+    if box == stayBox then stayBox = nil end
+    if opts and opts.done then pcall(opts.done) end
+  end
+  local tbOpts = nil
+  if opts and opts.stay then tbOpts = { stay = {} } end
+  local ok, b = pcall(TextBox.new, Game, tostring(text or ""), onDone, tbOpts)
+  if not (ok and b) then return false end
+  box = b
+  openBoxes[box] = true
+  if opts and opts.stay then stayBox = box end
+  local okP = pcall(Game.stack.push, Game.stack, box)
+  if not okP then openBoxes[box] = nil if box == stayBox then stayBox = nil end return false end
+  return true
+end
+
+--- Has the open box typed out its last page (a menu can open over it now)?
+function Gen1.messageOnLastPage()
+  local top = stackTop()
+  local box = (type(top) == "table" and top.isTextBox) and top or stayBox
+  if not (type(box) == "table" and box.pages) then return false end
+  return box.done == true and box.pageIndex ~= nil and box.pageIndex >= #box.pages
+end
+
+--- Closes the "stay" box, wherever it sits on the stack.
+function Gen1.closeStayMessage()
+  local box = stayBox
+  if not box then return false end
+  stayBox = nil
+  openBoxes[box] = nil
+  local Game = Gen1.game()
+  local stack = Game and Game.stack
+  if not stack then return false end
+  if stackTop() == box then
+    pcall(stack.pop, stack)
+    return true
+  end
+  -- under something else (should not happen: the menu closes first): drop it from the list
+  local list = stack.stack or stack.states
+  if type(list) == "table" then
+    for i = #list, 1, -1 do
+      if list[i] == box then table.remove(list, i) return true end
+    end
+  end
+  return false
+end
+
+--- The engine's list menu as Gen 3's Choice.multi: `cb(index)` 0-based, B -> cb(127).
+function Gen1.showChoice(options, defaultIdx, cb)
+  local Game = Gen1.game()
+  local ListMenu = load("src.ui.ListMenu")
+  if not (Game and Game.stack and ListMenu and ListMenu.new) then return false end
+  local items = {}
+  for i, label in ipairs(options or {}) do
+    items[i] = { label = tostring(label) }
+  end
+  if #items == 0 then return false end
+  -- itemBox: the small windowed list (the PC's), not the full-screen menu -- the report
+  -- box and the world stay visible under it
+  local ok, menu = pcall(ListMenu.new, Game, "", items, {
+    itemBox = true,
+    onChoose = function(item, m)
+      choiceMenu = nil
+      if m and m.close then pcall(m.close, m) end
+      local idx = 0
+      for i, it in ipairs(items) do if it == item then idx = i - 1 break end end
+      if cb then pcall(cb, idx) end
+    end,
+    onCancel = function()
+      choiceMenu = nil
+      if cb then pcall(cb, 127) end
+    end,
+  })
+  if not (ok and menu) then return false end
+  if tonumber(defaultIdx) and defaultIdx >= 1 and defaultIdx < #items then menu.index = defaultIdx + 1 end
+  local okP = pcall(Game.stack.push, Game.stack, menu)
+  if not okP then return false end
+  choiceMenu = menu
+  return true
+end
+
+function Gen1.choiceActive()
+  return choiceMenu ~= nil and stackTop() == choiceMenu
+end
+
+--- The dialogue box's place in 8 px tiles ({ left, top, width, height }): the Gen 1 box
+--- fills the screen's bottom six tile rows (0,12 .. 19,17 on 160x144).
+function Gen1.dialogueWindow()
+  return { left = 0, top = 12, width = 20, height = 6 }
+end
+
+--- Something owns the whole screen (a menu, a battle, a box): the overworld is not on top.
+function Gen1.screenBusy(ow)
+  local top = stackTop()
+  return top ~= nil and top ~= ow
+end
+
+--- Mirrors the top of the engine's own interact: the overworld on top, nothing scripted,
+--- the player standing still.
+function Gen1.canStartInteraction(ow)
+  if not ow or Gen1.busy(ow) then return false end
+  if stackTop() ~= ow then return false end
+  local p = ow.player
+  return p ~= nil and not p.moving and not p.inputLocked
+end
+
+--- Yellow's own Pikachu talk (happiness faces) answers when the companion IS the starter
+--- Pikachu: the A press passes through to the engine untouched.
+function Gen1.nativeTalk(ow)
+  local GV = load("src.core.GameVersion")
+  local okY, yellow = pcall(GV and GV.isYellow)
+  if not (okY and yellow) then return false end
+  local save = Gen1.save()
+  local lead = save and save.party and save.party[1]
+  if not (lead and lead.species == "PIKACHU") then return false end
+  local p = ow and ow.player
+  local DELTA = { up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 } }
+  local d = p and DELTA[p.facing]
+  if not d then return false end
+  local npc = Gen1.follower(ow)
+  return npc ~= nil and npc.cellX == p.cellX + d[1] and npc.cellY == p.cellY + d[2]
+end
+
+--- The mon's display name: its nickname, else the species name.
+function Gen1.displayName(mon)
+  if type(mon) ~= "table" then return "POKeMON" end
+  if type(mon.nickname) == "string" and mon.nickname ~= "" then return mon.nickname end
+  local def = Gen1.speciesDef(mon.species)
+  local name = def and def.name
+  if type(name) == "string" and name ~= "" then return name end
+  return type(mon.species) == "string" and mon.species or "POKeMON"
 end
 
 return Gen1

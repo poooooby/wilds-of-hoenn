@@ -37,7 +37,9 @@ require = function(path)
 end
 
 local generation = 1
-fake["src.core.GameVersion"] = { generation = function() return generation end }
+local isYellow = false
+fake["src.core.GameVersion"] = { generation = function() return generation end,
+  isYellow = function() return isYellow end }
 
 local function newEnv()
   local modules = {}
@@ -82,6 +84,7 @@ function OverworldState.drawWorld(ow)
 end
 function OverworldState.update(_ow) drawn.updated = (drawn.updated or 0) + 1 end
 function OverworldState.handleInput(_ow) drawn.input = (drawn.input or 0) + 1 end
+function OverworldState.interact(_ow) drawn.interacted = (drawn.interacted or 0) + 1 end
 function OverworldState.rollsIndoorEncounters(def) return def.indoor == true end
 fake["src.world.OverworldController"] = OverworldState
 fake["src.battle.BattleState"] = { newWild = function(_g, sp, lv) return { species = sp, level = lv } end }
@@ -119,10 +122,39 @@ local Game1 = {
     field = { indoorEncounters = {}, superRod = { SEASIDE = { { species = "GOLDEEN", level = 10 } } } },
   },
   save = { party = { { species = "PIKACHU", level = 9 } }, pokedex = { owned = { PIDGEY = true } }, repelSteps = 0 },
-  stack = { top = function(self) return self._top end },
+  stack = (function()
+    local st = { list = {} }
+    -- _top doubles as the test's own poke-hole: reads prefer it, pushes stack over it
+    function st.top(self) return self.list[#self.list] or self._top end
+    function st.push(self, state) self.list[#self.list + 1] = state end
+    function st.pop(self) local t = self.list[#self.list] self.list[#self.list] = nil return t end
+    return st
+  end)(),
 }
 fake["src.core.Game"] = Game1
 fake["src.render.PaletteFX"] = { honorsTrueColor = function() return false end, markTrueColor = function() end }
+-- the dialogue box and the list menu (the talk seams). A fake box types out instantly.
+local TextBox = {}
+TextBox.__index = TextBox
+function TextBox.new(game, text, onDone, opts)
+  return setmetatable({ isTextBox = true, game = game, text = text, onDone = onDone, opts = opts,
+                        pages = { text }, pageIndex = 1, done = true }, TextBox)
+end
+function TextBox.draw() drawn.boxDrawn = (drawn.boxDrawn or 0) + 1 end
+function TextBox.update() drawn.boxTicked = (drawn.boxTicked or 0) + 1 end
+TextBox.__call = nil
+fake["src.render.TextBox"] = TextBox
+local ListMenu = {}
+ListMenu.__index = ListMenu
+function ListMenu.new(game, title, items, opts)
+  return setmetatable({ game = game, items = items, onChoose = opts.onChoose, onCancel = opts.onCancel,
+                        index = 1 }, ListMenu)
+end
+function ListMenu:close()
+  local stack = self.game.stack
+  if stack:top() == self then stack:pop() end
+end
+fake["src.ui.ListMenu"] = ListMenu
 fake["src.render.Pipelines"] = { worldPipeline = function() return drawn.pipeline end }
 
 generation = 1
@@ -158,6 +190,8 @@ local hooks = {
     actors[#actors + 1] = { kind = "fx", x = 0, y = 40, sortY = 40.5, draw = function() actorDraws = actorDraws + 1 end }
   end,
   followerTick = function(game) drawn.ticked = game end,
+  interact = function(game) drawn.interactGame = game return drawn.consumeInteract == true end,
+  messageDraw = function() drawn.portraits = (drawn.portraits or 0) + 1 end,
 }
 -- a map entered before any wrapped frame ran (a boot, a save loaded): the world is adopted
 EP.noteMap(Game1, ow.map)
@@ -276,6 +310,105 @@ eq(EP.collisionVerdict(false, { mover = player, toX = 4, toY = 2 }, wildAt), fal
 ow.scriptMoves = { {} }
 eq(verdict({ cellX = 5, cellY = 2 }), true, "a scripted character walks through while the field is busy")
 ow.scriptMoves = {}
+
+-- ------- the talk seams (Tier 2: the follower menu, the portrait, friendship)
+do
+  -- the A press: our hook first; consumed = the engine's own interact never runs
+  drawn.interacted, drawn.consumeInteract = 0, true
+  OverworldState.interact(ow)
+  eq(drawn.interacted, 0, "a consumed A press never reaches the engine's interact")
+  check(drawn.interactGame == Game1, "...and the hook got the game")
+  drawn.consumeInteract = false
+  OverworldState.interact(ow)
+  eq(drawn.interacted, 1, "an unconsumed one falls through")
+  -- Yellow's own Pikachu talk passes through untouched
+  isYellow = true
+  Game1.save.pikachuHappiness = 90
+  Game1.save.party = { { species = "PIKACHU", level = 9 } }
+  ow.npcs = { { pikachuFollower = true, cellX = player.cellX, cellY = player.cellY + 1 } }
+  player.facing = "down"
+  drawn.consumeInteract = true
+  OverworldState.interact(ow)
+  eq(drawn.interacted, 2, "Yellow facing its starter Pikachu: the native talk runs, not our menu")
+  Game1.save.pikachuHappiness = nil
+  isYellow = false
+  ow.npcs = {}
+
+  -- messages: a stay box stays "open" under a menu, closeStay pops it
+  eq(EP.isMessageOpen(), false, "no box: no message")
+  check(EP.showMessage("HELLO", { stay = true }), "a stay message opens")
+  check(EP.isMessageOpen(), "...and reads as open")
+  check(EP.messageOnLastPage(), "...typed out (the fake types instantly)")
+  local picked
+  check(EP.showChoice({ "PET", "PLAY", "TALK" }, 0, function(i) picked = i end), "a choice menu opens over it")
+  check(EP.choiceActive(), "...and reads as active")
+  check(EP.isMessageOpen(), "...while the stay box under it still counts as open")
+  local menu = Game1.stack:top()
+  menu.onChoose(menu.items[2], menu)
+  eq(picked, 1, "picking the second row answers 1 (0-based, like Gen 3's Choice)")
+  eq(EP.choiceActive(), false, "...and the menu is gone")
+  check(EP.closeStayMessage(), "the stay box closes on demand")
+  eq(EP.isMessageOpen(), false, "...and nothing reads as open")
+  local doneRan = false
+  check(EP.showMessage("BYE", { done = function() doneRan = true end }), "a plain message opens")
+  local box = Game1.stack:top()
+  box.onDone()
+  Game1.stack:pop()
+  check(doneRan, "...and its done callback runs when it closes")
+
+  -- the portrait hook rides the box draw
+  drawn.portraits = 0
+  fake["src.render.TextBox"].draw({})
+  eq(drawn.portraits, 1, "the portrait hook runs after every box draw")
+
+  -- the window, names, friendship, identity
+  local win = EP.dialogueWindow()
+  check(win and win.left == 0 and win.top == 12 and win.width == 20 and win.height == 6,
+    "the dialogue window is the Gen 1 box (tiles 0,12 20x6)")
+  eq(EP.displayName({ species = "PIKACHU" }), "PIKACHU", "no nickname: the species name")
+  eq(EP.displayName({ species = "PIKACHU", nickname = "SPARKY" }), "SPARKY", "a nickname wins")
+  local mon = { species = "PIKACHU", dvs = { attack = 15, defense = 10, speed = 9, special = 3 } }
+  local FriendStore = (function()
+    local V2 = { require = function(name) return assert(loadfile("lib/" .. name .. ".lua"))(V2) end }
+    local G = assert(loadfile("lib/gb_friendship.lua"))(V2)
+    local saved = {}
+    local modFake = { save = { get = function(_, k) return saved[k] end, set = function(_, k, v) saved[k] = v end } }
+    return G.new(modFake, function() return Game1.save end)
+  end)()
+  EP.setFriendshipStore(FriendStore)
+  eq(EP.friendshipOf(mon), 70, "friendship seeds at 70")
+  eq(EP.setFriendship(mon, 73), 73, "...and set writes through")
+  eq(EP.friendshipOf(mon), 73, "...persisted")
+  eq(mon.happiness, 73, "...and mirrored onto the mon for the moods")
+  Game1.save.pikachuHappiness = 88
+  local starter = { species = "PIKACHU" }
+  eq(EP.friendshipOf(starter), 88, "Yellow's starter Pikachu reads the game's own happiness")
+  EP.setFriendship(starter, 95)
+  eq(Game1.save.pikachuHappiness, 95, "...and writes it back")
+  Game1.save.pikachuHappiness = nil
+  EP.setFriendshipStore(nil)
+  local idA = EP.monIdentity(mon)
+  local idB = EP.monIdentity({ species = "PIKACHU", dvs = { attack = 15, defense = 10, speed = 9, special = 4 } })
+  check(idA and idB and idA ~= idB, "two mons with different DVs get different identities")
+  eq(EP.monIdentity(mon), idA, "...and the same mon always the same one")
+
+  -- the follower in the faced cell, free cells ahead
+  ow.npcs = { { pikachuFollower = true, cellX = player.cellX - 1, cellY = player.cellY } }
+  player.facing = "left"
+  check(EP.followerInFacingCell() ~= nil, "the follower on the faced cell is found")
+  player.facing = "right"
+  eq(EP.followerInFacingCell(), nil, "...facing away, it is not")
+  ow.npcs = {}
+  check(EP.freeCellsAhead(2, 1, "right", 3) >= 1, "open ground ahead counts")
+  eq(EP.freeCellsAhead(2, 3, "right", 3), 0, "water ahead does not")
+  player.facing = "down"
+
+  -- a Gen 1 cutscene (scripted moves) reads as leadingNpc: the companion steps aside
+  eq(EP.leadingNpc(), false, "no script: no cutscene")
+  ow.scriptMoves = { {} }
+  eq(EP.leadingNpc(), true, "scripted moves read as a cutscene")
+  ow.scriptMoves = {}
+end
 
 -- busy / holding the player
 eq(EP.fieldBusy(), false, "the field is free")

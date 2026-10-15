@@ -65,6 +65,7 @@ return function(mod)
   local FollowerAdapter = V.require("follower_adapter")
   local PortraitUI = V.require("portrait_ui")
   local FollowerInteraction = V.require("follower_interaction")
+  local GbFriendship = V.require("gb_friendship")
   local Companion = V.require("companion")
   local LevelReady = V.require("level_ready")
   local Forager = V.require("forager")
@@ -309,7 +310,7 @@ return function(mod)
       skyFlyers:tick()
       waterLife:tick()
       localScenes:tick()
-      if not gb then followerInteraction:tick(game) end
+      if supported("interaction") then followerInteraction:tick(game) end
       battleTrigger:tick()
       battleTrigger:checkContact()
       followerAdapter:tick()
@@ -382,11 +383,24 @@ return function(mod)
     end
   end)
 
+  -- The Game Boy games keep no friendship stat: the mod keeps its own per-mon value
+  -- (lib/gb_friendship.lua; Yellow's starter Pikachu uses the game's own happiness byte),
+  -- served through EnginePatch.friendshipOf / setFriendship, raised slowly by walking.
+  local gbFriendship
+  if gb and EnginePatch.setFriendshipStore then
+    gbFriendship = GbFriendship.new(mod, function()
+      local a = EnginePatch.adapter and EnginePatch.adapter()
+      return a and a.save and a.save()
+    end)
+    EnginePatch.setFriendshipStore(gbFriendship)
+  end
+
   -- The interaction limiter's saved state is per playthrough: re-read it
   -- whenever a different save/checkpoint becomes current.
   for _, eventName in ipairs({ "save.loaded", "save.created", "checkpoint.restored" }) do
     mod.events:on(eventName, function()
       pcall(function() followerInteraction:onSaveChanged() end)
+      if gbFriendship then pcall(function() gbFriendship:reset() end) end
       pcall(function() companion:reset() end)
       pcall(function() levelReady:reset() end)
       pcall(function() forageSource:reset() end)
@@ -401,6 +415,9 @@ return function(mod)
     pcall(function()
       battleTrigger:onPlayerStepped(ev and ev.x, ev and ev.y)
     end)
+    if gbFriendship then
+      pcall(function() gbFriendship:onStep(EnginePatch.leadPartyMon and EnginePatch.leadPartyMon()) end)
+    end
   end)
 
   -- a battle with a wild Pokemon Sweet Scent called over: its evasion starts lowered

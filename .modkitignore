@@ -37,6 +37,7 @@ tests/forage_sparkle_unit_test.lua
 tests/forager_unit_test.lua
 tests/form_source_unit_test.lua
 tests/gb_color_unit_test.lua
+tests/gb_friendship_unit_test.lua
 tests/grass_cover_unit_test.lua
 tests/hd_field_unit_test.lua
 tests/health_bar_unit_test.lua
@@ -154,3 +155,5 @@ dist/wilds-of-hoenn-v1.7.5-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.7.5-hgss.zip
 dist/wilds-of-hoenn-v1.8.0-beta.1-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.8.0-beta.1-hgss.zip
+dist/wilds-of-hoenn-v1.8.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.8.0-hgss.zip
