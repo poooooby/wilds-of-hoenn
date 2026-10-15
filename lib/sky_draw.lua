@@ -79,11 +79,16 @@ end
 
 --- Does a bird at height `h` draw blurred (needs its canvas prepared)?
 function SkyDraw.blurred(h)
+  -- Game Boy games: no blur canvas at all -- the world canvas is re-coloured by palette
+  -- zone, and a second shader pass would fight it; high birds draw sharp with their
+  -- height's alpha through the same proxy path (lib/engine_gb.lua GbColor) as everything
+  if Config.gbBoot then return false end
   return (tonumber(h) or 0) > Config.FLYERS.sharpBelow
 end
 
 --- How much of the sharp sprite / the blurred canvas shows at height `h` (crossfade).
 function SkyDraw.mix(h)
+  if Config.gbBoot then return 1, 0 end -- sharp all the way up (see blurred)
   local lo, hi = Config.FLYERS.sharpBelow, Config.FLYERS.sharpAbove
   h = tonumber(h) or 0
   if h <= lo then return 1, 0 end

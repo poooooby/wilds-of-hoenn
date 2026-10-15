@@ -389,7 +389,8 @@ end
 --- personality; `opts.shiny` makes it genuinely shiny (same nature and gender).
 function SpawnManager:encounterFor(species, level, opts)
   opts = opts or {}
-  local enc = { species = tonumber(species), level = tonumber(level) or 10,
+  -- a number (Gen 3's internal id) or a Game Boy game's string key ("PIDGEY")
+  local enc = { species = tonumber(species) or species, level = tonumber(level) or 10,
                 personality = EnginePatch.randomPersonality(), shiny = false }
   if opts.shiny then
     local ids = EnginePatch.trainerIds() or { otId = 0, otSecretId = 0 }
@@ -408,7 +409,10 @@ end
 --- Returns true, cell -- or nil, reason.
 function SpawnManager:spawnSpecies(species, level, opts)
   opts = opts or {}
-  if not tonumber(species) then return nil, "no species" end
+  -- a species is a number (Gen 3's internal id) or a Game Boy game's string key ("PIDGEY")
+  if not tonumber(species) and not (EnginePatch.nationalFor and EnginePatch.nationalFor(species)) then
+    return nil, "no species"
+  end
   local p = EnginePatch.playerCell and EnginePatch.playerCell()
   if not p then return nil, "no player" end
   local radius = tonumber(opts.radius) or 3
@@ -433,7 +437,9 @@ end
 --- Starts a wild battle against `species` at `level` right now.
 --- Returns true, or nil, reason.
 function SpawnManager:battleSpecies(species, level, opts)
-  if not tonumber(species) then return nil, "no species" end
+  if not tonumber(species) and not (EnginePatch.nationalFor and EnginePatch.nationalFor(species)) then
+    return nil, "no species"
+  end
   local enc = self:encounterFor(species, level, opts)
   local ok, err = EnginePatch.startWild(self.game, enc, {})
   if not ok then return nil, tostring(err or "the battle did not start") end

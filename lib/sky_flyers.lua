@@ -61,8 +61,8 @@ local function between(rng, range) return rng(range[1], range[2]) end
 --- serpents and sky dragons (Gyarados, Rayquaza) are Flying types, but no birds. A species
 --- the Pokedex has no height for is judged by its type alone.
 function SkyFlyers.flies(species)
-  species = tonumber(species)
-  if not (species and EnginePatch.isFlying and EnginePatch.isFlying(species)) then return false end
+  -- species: Gen 3's internal id (a number) or a Game Boy game's string key ("PIDGEY")
+  if species == nil or not (EnginePatch.isFlying and EnginePatch.isFlying(species)) then return false end
   local cfg = Config.FLYERS
   local nat = EnginePatch.nationalFor and EnginePatch.nationalFor(species)
   if nat and cfg.notBirds[nat] then return false end
@@ -557,8 +557,11 @@ function SkyFlyers:_spawnPercher()
   if not entry then return false end
   local vw, vh = self.viewSize()
   local cam = self.cam
+  -- on a small view (the Game Boy games' 160 x 144) the usual 16 px inset plus the
+  -- player clearance would leave no legal spot at all: perch right up to the view's edge
+  local margin = vw > 200 and 16 or 0
   local spot = self.perches:pick(function(s)
-    return inView(cam, vw, vh, s.x * 16, s.y * 16, 16) and not self:_playerNear(s.x, s.y, cfg.scatterRunning + 1)
+    return inView(cam, vw, vh, s.x * 16, s.y * 16, margin) and not self:_playerNear(s.x, s.y, cfg.scatterRunning + 1)
       and self:clearOfPlayer(s.x, s.y)
   end, self.taken, 24, rng)
   if not spot then return false end

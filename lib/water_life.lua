@@ -75,7 +75,12 @@ function WaterLife.isFish(species)
   if nat and cfg.fishExtra[nat] then return true end
   local g1, g2 = nil, nil
   if EnginePatch.eggGroups then g1, g2 = EnginePatch.eggGroups(species) end
-  if not (g1 == 12 or g2 == 12) then return false end -- Water 2: the fish
+  if g1 == nil and g2 == nil then
+    -- a game with no egg groups (Gen 1 / Gen 2): a small Water type is a fish
+    if not (EnginePatch.isWaterType and EnginePatch.isWaterType(species)) then return false end
+  elseif not (g1 == 12 or g2 == 12) then -- Water 2: the fish
+    return false
+  end
   local h = EnginePatch.heightDm and EnginePatch.heightDm(species)
   return h == nil or h < cfg.maxFishHeightDm
 end

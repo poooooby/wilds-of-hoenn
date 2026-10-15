@@ -118,7 +118,12 @@ for _, case in ipairs({ { game = "red", gen = 1, layout = "gen1" }, { game = "go
   eq(ex and ex.enginePatch and ex.enginePatch.isGb, true, case.game .. ": the Gen 1 / Gen 2 engine layer is in charge")
   check(ex and ex.spawnManager ~= nil and ex.battleTrigger ~= nil and ex.followerAdapter ~= nil,
     case.game .. ": spawns, battles and the follower are built")
-  eq(ex and ex.spawnManager and ex.spawnManager.sky, nil, case.game .. ": no sky (Gen 3 only)")
+  if case.gen == 1 then
+    check(ex and ex.spawnManager and ex.spawnManager.sky ~= nil,
+      case.game .. ": the sky is built (Gen 1 carries the ambient systems)")
+  else
+    eq(ex and ex.spawnManager and ex.spawnManager.sky, nil, case.game .. ": no sky on Gen 2 yet")
+  end
   local okE, errE = pcall(Runtime.emit, "map.entered", { mapId = "ROUTE_1" })
   check(okE, case.game .. ": a real map.entered does not throw (" .. tostring(errE) .. ")")
   local okS, errS = pcall(Runtime.emit, "world.stepped", { mapId = "ROUTE_1", x = 3, y = 4 })

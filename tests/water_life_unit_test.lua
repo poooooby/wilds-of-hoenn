@@ -61,6 +61,15 @@ do
   check(not WL.isFish(7), "never Octillery (not a fish)")
   check(not WL.isFish(4), "Tentacool is no fish")
   check(not WL.isFish(5), "Wailmer is too big to leap")
+
+  -- a game with no egg groups (Gen 1 / Gen 2): a small Water type is a fish
+  local savedEgg, savedWater = fake.eggGroups, fake.isWaterType
+  fake.eggGroups = function() return nil, nil end
+  fake.isWaterType = function(s) return s == 1 or s == 2 or s == 5 end
+  check(WL.isFish(1), "no egg groups: a small Water type (Magikarp) still leaps")
+  check(not WL.isFish(5), "...a big one (Wailmer) still does not")
+  check(not WL.isFish(8), "...a non-Water type does not")
+  fake.eggGroups, fake.isWaterType = savedEgg, savedWater
   check(WL.isWhale(5), "Wailmer surfaces")
   local fish, whales = WL.poolFor("ROUTE_105")
   eq(#fish, 3, "the map's fish: Magikarp, Goldeen, Feebas")

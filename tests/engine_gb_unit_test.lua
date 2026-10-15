@@ -86,19 +86,37 @@ function OverworldState.rollsIndoorEncounters(def) return def.indoor == true end
 fake["src.world.OverworldController"] = OverworldState
 fake["src.battle.BattleState"] = { newWild = function(_g, sp, lv) return { species = sp, level = lv } end }
 fake["src.world.Map"] = { isOutdoor = function(def) return def.indoor ~= true end,
+  isFlyTown = function(def) return def.town == true end,
   ghostBattles = function() return nil end, inRegion = function() return false end }
-fake["src.world.FieldDefaults"] = { constant = function() return { 50, 100, 140, 170, 195, 215, 230, 242, 251, 256 } end }
+fake["src.world.FieldDefaults"] = {
+  constant = function() return { 50, 100, 140, 170, 195, 215, 230, 242, 251, 256 } end,
+  field = function(_data, key)
+    if key ~= "fishing" then return nil end
+    return { OLD_ROD = { always = { species = "MAGIKARP", level = 5 } },
+             GOOD_ROD = { pool = { { species = "GOLDEEN", level = 10 } } },
+             SUPER_ROD = { perMap = "superRod" } }
+  end,
+}
 local Game1 = {
   data = {
-    pokemon = { PIKACHU = { dex = 25 }, PIDGEY = { dex = 16 }, RATTATA = { dex = 19 } },
+    pokemon = {
+      PIKACHU = { dex = 25, types = { "ELECTRIC" }, dexEntry = { heightFt = 1, heightIn = 4 },
+                  baseStats = { hp = 35, attack = 55, defense = 30, speed = 90, special = 50 } },
+      PIDGEY = { dex = 16, types = { "NORMAL", "FLYING" }, dexEntry = { heightFt = 1, heightIn = 0 } },
+      RATTATA = { dex = 19, types = { "NORMAL" } },
+      GOLDEEN = { dex = 118, types = { "WATER" }, dexEntry = { heightFt = 2, heightIn = 0 } },
+      MAGIKARP = { dex = 129, types = { "WATER" }, dexEntry = { heightFt = 2, heightIn = 11 } },
+      TENTACOOL = { dex = 72, types = { "WATER", "POISON" }, dexEntry = { heightFt = 2, heightIn = 11 } },
+    },
     encounters = {
       ROUTE_1 = { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 }, { species = "RATTATA", level = 2 },
         { species = "PIDGEY", level = 4 }, { species = "PIDGEY", level = 4 }, { species = "PIDGEY", level = 4 },
         { species = "PIDGEY", level = 4 }, { species = "PIDGEY", level = 4 }, { species = "PIDGEY", level = 4 },
         { species = "PIDGEY", level = 4 }, { species = "PIKACHU", level = 5 } } } },
       CAVE = { grass = { rate = 10, slots = { { species = "RATTATA", level = 8 } } } },
+      SEASIDE = { water = { rate = 10, slots = { { species = "TENTACOOL", level = 10 } } } },
     },
-    field = { indoorEncounters = {} },
+    field = { indoorEncounters = {}, superRod = { SEASIDE = { { species = "GOLDEEN", level = 10 } } } },
   },
   save = { party = { { species = "PIKACHU", level = 9 } }, pokedex = { owned = { PIDGEY = true } }, repelSteps = 0 },
   stack = { top = function(self) return self._top end },
@@ -114,7 +132,11 @@ eq(EP.isGb, true, "engine_patch.lua hands out the Gen 1 / Gen 2 layer on a Gen 1
 eq(EP.layoutName(), "gen1", "layout gen1")
 local okProbe, missing = EP.probe()
 check(okProbe, "the Gen 1 probe passes on the fake engine (" .. table.concat(missing or {}, "; ") .. ")")
-eq(EP.supports("sky"), false, "no sky on Gen 1 (yet)")
+eq(EP.supports("sky"), true, "Gen 1 carries the sky (lib/gb/gen1.lua FEATURES)")
+eq(EP.supports("water_life"), true, "...and the water life")
+eq(EP.supports("local_scenes"), true, "...and the local scenes")
+eq(EP.supports("wild_reacts"), true, "...and the wild reactions")
+eq(EP.supports("roles"), false, "the partner roles are not carried yet")
 
 local player = { cellX = 3, cellY = 2, px = 48, py = 32, moving = false, facing = "down" }
 local ow = {
@@ -187,10 +209,45 @@ eq(EP.terrainAt(0, 0), "land", "an indoor (cave) floor is land")
 eq(EP.mapType(), 4, "indoors reads as map type 4")
 ow.map.def.indoor = nil
 eq(EP.mapType(), 3, "outdoors reads as map type 3")
+ow.map.def.town = true
+eq(EP.mapType(), 1, "a Fly town reads as map type 1 (the birds may perch)")
+ow.map.def.town = nil
+eq(EP.skyAllowed(), true, "open sky outdoors")
+
+-- the ambient systems' seams (Tier 1)
+eq(EP.isFlying("PIDGEY"), true, "Pidgey is a Flying type (by key)")
+eq(EP.isFlying(16), true, "...and by national dex number")
+eq(EP.isFlying("RATTATA"), false, "Rattata is not")
+eq(EP.isWaterType("GOLDEEN"), true, "Goldeen is a Water type")
+eq(EP.heightDm("PIDGEY"), 3, "Pidgey's 1'0\" dex height is 3 dm")
+eq(EP.heightDm(118), 6, "Goldeen's 2'0\" is 6 dm (by dex number)")
+eq(EP.baseStatTotal("PIKACHU"), 260, "Pikachu's five base stats sum to 260")
+ow.map.def.signs = { { x = 2, y = 0, text = "T" } }
+local signs = EP.signCells()
+check(#signs == 1 and signs[1].x == 2 and signs[1].y == 0, "the map's signposts come through")
+ow.neighbors = { { map = { id = "ROUTE_2" } }, { map = { id = "VIRIDIAN_CITY" } } }
+local nb = EP.neighbourMapIds()
+check(#nb == 2 and nb[1] == "ROUTE_2" and nb[2] == "VIRIDIAN_CITY", "the live neighbour map ids")
+ow.npcs = { { cellX = 4, cellY = 4 } }
+eq(EP.objectOn(4, 4), true, "an NPC's cell is occupied")
+eq(EP.objectOn(5, 4), false, "...the next one is not")
+ow.npcs = {}
+eq(EP.playCry("PIDGEY"), nil, "playCry is safe headless")
+eq(EP.fieldEffectSheet("exclamation_question_mark"), nil, "no emote sheet without love (code-drawn fallback)")
+eq(EP.fieldEffectSheet("ground_impact_dust"), nil, "other sheets stay absent")
 
 -- encounters
 local t = EP.tableFor("ROUTE_1")
 check(t and t.land and not t.water, "Route 1's table has land, no water")
+check(type(t.land) == "table" and type(t.land.slots) == "table", "...and carries its slot list for the ambient systems")
+eq(t.land.slots[1].species, 16, "...slot species as national dex numbers (Pidgey 16)")
+local sea = EP.tableFor("SEASIDE")
+check(sea and sea.water and type(sea.water.slots) == "table", "a water table carries slots too")
+eq(sea.water.slots[1].species, 72, "...Tentacool as dex 72")
+check(type(sea.fishing) == "table" and type(sea.fishing.slots) == "table", "...and the rods' pools as `fishing`")
+local fishDex = {}
+for _, slot in ipairs(sea.fishing.slots) do fishDex[slot.species] = true end
+check(fishDex[129] and fishDex[118], "the Old Rod's Magikarp and the Super Rod's Goldeen are in it")
 local seen = {}
 math.randomseed(7)
 for _ = 1, 400 do

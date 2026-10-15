@@ -98,12 +98,13 @@ function EngineGb.isSupported()
   return EngineGb.layoutName() ~= nil
 end
 
--- the optional systems main.lua builds here (the core -- spawns, battles, the
--- follower -- always runs); Gen 3-only for now
-EngineGb.FEATURES = {}
-
+--- The optional systems main.lua may build on this generation (the core -- spawns,
+--- battles, the follower -- always runs): the adapter's FEATURES set (lib/gb/gen1.lua;
+--- Gen 2 has none yet).
 function EngineGb.supports(feature)
-  return EngineGb.FEATURES[feature] == true
+  local a = A()
+  local f = a and a.FEATURES
+  return f ~= nil and f[feature] == true
 end
 
 function EngineGb.probe()
@@ -556,7 +557,43 @@ end
 function EngineGb.mapType()
   local a = A()
   if not a then return nil end
+  if a.mapTypeOf then
+    local ok, mt = pcall(a.mapTypeOf, EngineGb._world)
+    if ok and mt then return mt end
+  end
   return a.isOutdoor(EngineGb._world) and 3 or 4
+end
+
+--- Open sky over this map (the birds): outdoors.
+function EngineGb.skyAllowed(_mapId)
+  local a = A()
+  if not (a and a.isOutdoor) then return false end
+  local ok, out = pcall(a.isOutdoor, EngineGb._world)
+  return ok and out == true
+end
+
+--- The ids of the maps joined to this one (the sky pulls their species into a town's pool).
+function EngineGb.neighbourMapIds()
+  local a = A()
+  if not (a and a.neighbourIds) then return {} end
+  local ok, ids = pcall(a.neighbourIds, EngineGb._world)
+  return ok and type(ids) == "table" and ids or {}
+end
+
+--- Is an engine character (an NPC, the follower, a boulder) on cell (x, y)?
+function EngineGb.objectOn(x, y)
+  local a = A()
+  if not (a and a.objectOn) then return false end
+  local ok, on = pcall(a.objectOn, EngineGb._world, x, y)
+  return ok and on == true
+end
+
+--- The map's signposts, { {x, y}, ... } (the birds perch on them).
+function EngineGb.signCells()
+  local a = A()
+  if not (a and a.signCells) then return {} end
+  local ok, cells = pcall(a.signCells, EngineGb._world)
+  return ok and type(cells) == "table" and cells or {}
 end
 
 -- something standing on (x, y) that a wild Pokemon may not walk into: the player, an
@@ -614,13 +651,20 @@ end
 
 function EngineGb.ensureEncountersLoaded() return true end
 
---- { land = ..., water = ... } markers for the map's encounter table (only presence is read).
+--- The map's encounter areas: presence markers at least ({ land = ..., water = ... });
+--- Gen 1 carries slot lists too ({ slots = {{species = dex, level}} }, plus `fishing`),
+--- which the ambient systems (the sky, the water) read for their species pools.
 function EngineGb.tableFor(mapId)
   local a = A()
   if not a then return nil end
   local ok, t = pcall(a.tables, EngineGb._world, mapId)
-  if not (ok and t) then return nil end
-  return { land = t.land and true or nil, water = t.water and true or nil }
+  if not (ok and type(t) == "table") then return nil end
+  local land, water = t.land, t.water
+  return {
+    land = type(land) == "table" and land or (land and true or nil),
+    water = type(water) == "table" and water or (water and true or nil),
+    fishing = type(t.fishing) == "table" and t.fishing or nil,
+  }
 end
 
 function EngineGb.rollSweetScent(mapId, terrain)
@@ -809,6 +853,44 @@ function EngineGb.followerSprite(renderer, npc)
   return s
 end
 
+--- Species facts for the ambient systems (string key or national dex number in).
+function EngineGb.isWaterType(species)
+  local a = A()
+  if not (a and a.hasType) then return false end
+  local ok, yes = pcall(a.hasType, species, "WATER")
+  return ok and yes == true
+end
+
+function EngineGb.heightDm(species)
+  local a = A()
+  if not (a and a.heightDm) then return nil end
+  local ok, dm = pcall(a.heightDm, species)
+  return ok and dm or nil
+end
+
+function EngineGb.baseStatTotal(species)
+  local a = A()
+  if not (a and a.baseStatTotal) then return nil end
+  local ok, sum = pcall(a.baseStatTotal, species)
+  return ok and sum or nil
+end
+
+function EngineGb.playCry(species)
+  local a = A()
+  if a and a.playCry then pcall(a.playCry, species) end
+  return nil
+end
+
+--- The engine sheets the mod's little drawings use. Gen 1 has the emote bubbles ("!" and
+--- "?", lib/wild_emote.lua); every other name answers nil (a code-drawn fallback).
+function EngineGb.fieldEffectSheet(name)
+  if name ~= "exclamation_question_mark" then return nil end
+  local a = A()
+  if not (a and a.emoteSheet) then return nil end
+  local ok, sheet = pcall(a.emoteSheet)
+  return ok and sheet or nil
+end
+
 -- ------------------------------------------------------------------ stubs
 -- Called without an existence check somewhere in the mod, not there on Gen 1 / Gen 2
 -- (yet): each answers "nothing" (nil). The systems that need them are not built here
@@ -818,17 +900,23 @@ local STUBS = {
   "followerInFacingCell", "showChoice", "choiceActive", "messageOnLastPage", "closeStayMessage",
   "displayName", "friendshipOf", "setFriendship", "clearStatus", "encounters", "collision", "pokemon",
   "trainerIds", "isShiny", "genderOf", "grassSheet", "reflectionKind", "reflectiveAt", "reflectionWobble",
-  "coverReflections", "startRipple", "fieldEffectSheet", "buildWildFighter", "battlerOf", "moveRow",
+  "coverReflections", "startRipple", "buildWildFighter", "battlerOf", "moveRow",
   "moveDamage", "moveDisplayName", "expGain", "expApply", "movesLearnedAt", "knowsMove", "evolutionTarget",
-  "startEvolution", "startMoveLearn", "speciesTypes", "baseStatTotal", "eggGroups", "isWaterType",
-  "skyAllowed", "neighbourMapIds", "forageAllowed", "bagAdd", "bagCanAdd", "itemCatalog", "playSuccess",
-  "playSelect", "drawText", "partyMenu", "playCry", "cryFinished", "playerPose", "freeCellsAhead",
+  "startEvolution", "startMoveLearn", "speciesTypes", "eggGroups",
+  "forageAllowed", "bagAdd", "bagCanAdd", "itemCatalog", "playSuccess",
+  "playSelect", "drawText", "partyMenu", "cryFinished", "playerPose", "freeCellsAhead",
   "moveNumber", "grassRustle",
 }
 for _, name in ipairs(STUBS) do
   if EngineGb[name] == nil then EngineGb[name] = function() return nil end end
 end
-function EngineGb.isFlying() return false end
+--- Flying-type (the sky's birds); string key or national dex number in.
+function EngineGb.isFlying(species)
+  local a = A()
+  if not (a and a.hasType) then return false end
+  local ok, yes = pcall(a.hasType, species, "FLYING")
+  return ok and yes == true
+end
 function EngineGb.cryFinished() return true end
 
 return EngineGb

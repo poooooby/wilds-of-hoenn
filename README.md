@@ -157,9 +157,12 @@ time, and they stay out until you change your leader again. One partner is out a
 - 🎮 **Red, Blue, Yellow, Gold, Silver and Crystal** get the heart of the mod: visible wild
   Pokémon from the game's own encounter tables (Gold and Silver's change with the time of day),
   battles with exactly the Pokémon you walk onto (shinies included in Gold, Silver and Crystal),
-  your party's leader following you, and both sprite styles. The rest (flying Pokémon, Water
-  Life, Local Scenes, Wild Reacts, the Battler and Forager jobs, Pet / Play / Talk, Sweet Scent)
-  is for Ruby, Sapphire, Emerald, FireRed and LeafGreen for now.
+  your party's leader following you, and both sprite styles. Red, Blue and Yellow also get the
+  ambient world: birds passing overhead and perching on town signposts, wild Flying types
+  swooping in and out, fish leaping from the water, wild Pokémon reacting when you bike close
+  by, and Lavender Town's ghosts. The rest (the partner's Battler and Forager jobs,
+  Pet / Play / Talk, Sweet Scent) is for Ruby, Sapphire, Emerald, FireRed and LeafGreen for
+  now, as is everything on Gold, Silver and Crystal beyond the heart.
 - 🌈 **Red, Blue and Yellow colours:** in the game's palette colour modes, the Pokémon take on
   the area's colours like every other sprite. In ADVANCED colours they keep their full colours.
 - 🔀 **Wilds of Kanto Revival** is the same idea for Red, Blue, Yellow and Gold: use one or the

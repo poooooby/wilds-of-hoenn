@@ -78,9 +78,20 @@ return function(mod)
   local WaterLife = V.require("water_life")
   local LocalScenes = V.require("local_scenes")
 
-  -- a Gen 1 / Gen 2 boot (lib/engine_gb.lua): no Gen 3-only options, no Gen 3-only systems
+  -- a Gen 1 / Gen 2 boot (lib/engine_gb.lua): only the options whose systems run there.
+  -- A feature the generation's engine layer supports (EnginePatch.supports; lib/gb/gen1.lua
+  -- FEATURES) keeps its option row and is built below like on Gen 3.
   local gb = EnginePatch.isGb == true
   Config.gbBoot = gb
+  local function supported(feature)
+    return not gb or (EnginePatch.supports and EnginePatch.supports(feature) == true)
+  end
+  if gb then
+    for key, feature in pairs({ flyers = "sky", water_life = "water_life",
+                                local_scenes = "local_scenes", wild_reacts = "wild_reacts" }) do
+      if supported(feature) then Config.GEN3_ONLY[key] = nil end
+    end
+  end
   Config.defineOptions(mod)
 
   -- The engine's follower npc is built with the SPRITE_PIKACHU record (PikachuFollower /
@@ -134,20 +145,21 @@ return function(mod)
   end
 
   local spawnManager = SpawnManager.new(mod)
-  -- the Gen 3-only ambient systems: on a Gen 1 / Gen 2 boot an inert stand-in
+  -- the ambient systems, where this generation's engine layer carries them
+  -- (EnginePatch.supports; always on Gen 3): elsewhere an inert stand-in
   local inert = setmetatable({}, { __index = function() return function() end end })
   -- flying Pokemon in the sky; wild Flying types arrive and leave through it
-  local skyFlyers = gb and inert or SkyFlyers.new(mod, {
+  local skyFlyers = supported("sky") and SkyFlyers.new(mod, {
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
-  })
-  spawnManager.sky = not gb and skyFlyers or nil
+  }) or inert
+  spawnManager.sky = supported("sky") and skyFlyers or nil
   -- fish leaping, whales surfacing (ambient)
-  local waterLife = gb and inert or WaterLife.new(mod, {
+  local waterLife = supported("water_life") and WaterLife.new(mod, {
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
-  })
-  spawnManager.water = not gb and waterLife or nil -- wild fish swim in / out under the sea
+  }) or inert
+  spawnManager.water = supported("water_life") and waterLife or nil -- wild fish swim in / out under the sea
   -- little moments in a few places (Lavender's ghosts, Petalburg Woods' bugs, Fortree's Tropius)
-  local localScenes = gb and inert or LocalScenes.new(mod)
+  local localScenes = supported("local_scenes") and LocalScenes.new(mod) or inert
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
   -- a wild Pokemon chasing the player catches up (lib/wild_reactions.lua): the battle
   spawnManager.onContact = function(e) battleTrigger:onChaserContact(e) end

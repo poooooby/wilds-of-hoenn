@@ -3,6 +3,9 @@
 -- call is guarded by the caller; nothing here keeps state.
 local Gen1 = { generation = 1, layout = "gen1" }
 
+-- the ambient systems main.lua may build on this generation (EnginePatch.supports)
+Gen1.FEATURES = { sky = true, water_life = true, local_scenes = true, wild_reacts = true }
+
 local load = function() return nil end
 function Gen1.init(loadModule) load = loadModule end
 
@@ -100,10 +103,69 @@ local function hasSlots(t)
   return type(t) == "table" and (tonumber(t.rate) or 0) > 0 and type(t.slots) == "table" and #t.slots > 0
 end
 
---- { land = bool, water = bool } for the map's encounter table.
+--- The species def for a string key ("MAGIKARP") or a national dex number.
+local dexToKey -- [dex] = key, built once
+function Gen1.speciesDef(species)
+  local data = Gen1.data()
+  local mons = data and data.pokemon
+  if type(mons) ~= "table" or species == nil then return nil, nil end
+  if type(species) == "string" then return mons[species], species end
+  local n = tonumber(species)
+  if not n then return nil, nil end
+  if not dexToKey then
+    dexToKey = {}
+    for key, def in pairs(mons) do
+      local dex = type(def) == "table" and tonumber(def.dex)
+      if dex and type(key) == "string" and dexToKey[dex] == nil then dexToKey[dex] = key end
+    end
+  end
+  local key = dexToKey[n]
+  return key and mons[key] or nil, key
+end
+
+-- a slot list with its species as NATIONAL DEX numbers (the ambient systems -- the sky,
+-- the water -- collect species with tonumber(); the string keys stay for battles)
+local function dexSlots(slots)
+  local out
+  for _, s in ipairs(slots or {}) do
+    local def = type(s) == "table" and Gen1.speciesDef(s.species)
+    local dex = def and tonumber(def.dex)
+    if dex then
+      out = out or {}
+      out[#out + 1] = { species = dex, level = tonumber(s.level) or 5 }
+    end
+  end
+  return out
+end
+
+--- The map's encounter areas, with slot lists for the ambient systems: `land` / `water`
+--- = { slots = {{species = dex, level}, ...} } (true-ish, as the presence checks read it),
+--- `fishing` = the rods' pools (Super Rod per map, Good Rod's pool, Old Rod's Magikarp).
 function Gen1.tables(_ow, mapId)
   local def = encDef(mapId)
-  return { land = hasSlots(def and def.grass), water = hasSlots(def and def.water) }
+  local out = {}
+  if hasSlots(def and def.grass) then out.land = { slots = dexSlots(def.grass.slots) } end
+  if hasSlots(def and def.water) then out.water = { slots = dexSlots(def.water.slots) } end
+  local data = Gen1.data()
+  local FD = load("src.world.FieldDefaults")
+  if data and FD and FD.field then
+    -- the rods (OverworldController.lua fishingPool): Old always Magikarp, Good a fixed
+    -- pool, Super the per-map groups under field[perMap]
+    local okF, rods = pcall(FD.field, data, "fishing")
+    local fish = {}
+    for _, rod in pairs(okF and type(rods) == "table" and rods or {}) do
+      if type(rod) == "table" then
+        if type(rod.always) == "table" then fish[#fish + 1] = rod.always end
+        for _, s in ipairs(type(rod.pool) == "table" and rod.pool or {}) do fish[#fish + 1] = s end
+        local groups = rod.perMap and data.field and data.field[rod.perMap]
+        local per = type(groups) == "table" and groups[mapId]
+        for _, s in ipairs(type(per) == "table" and per or {}) do fish[#fish + 1] = s end
+      end
+    end
+    local slots = dexSlots(fish)
+    if slots then out.fishing = { slots = slots } end
+  end
+  return out
 end
 
 --- One encounter for `terrain` on `mapId`, picked with the game's own slot buckets
@@ -208,6 +270,125 @@ function Gen1.isOutdoor(ow)
   if not (Map and Map.isOutdoor and def) then return true end
   local ok, out = pcall(Map.isOutdoor, def)
   return not ok or out == true
+end
+
+--- A town or city (the maps the Fly list knows, Map.isFlyTown): where the sky's birds
+--- may perch. 1 town, 3 route, 4 inside -- the Gen 3 map-type numbers the mod reads.
+function Gen1.mapTypeOf(ow)
+  if not Gen1.isOutdoor(ow) then return 4 end
+  local Map = load("src.world.Map")
+  local def = ow and ow.map and ow.map.def
+  if Map and Map.isFlyTown and def then
+    local ok, town = pcall(Map.isFlyTown, def)
+    if ok and town then return 1 end
+  end
+  return 3
+end
+
+--- Does `species` (string key or national dex) have `wanted` among its types?
+function Gen1.hasType(species, wanted)
+  local def = Gen1.speciesDef(species)
+  for _, t in ipairs(def and def.types or {}) do
+    if t == wanted then return true end
+  end
+  return false
+end
+
+--- Pokedex height in decimetres (the dex entry's feet and inches).
+function Gen1.heightDm(species)
+  local def = Gen1.speciesDef(species)
+  local e = def and def.dexEntry
+  if not e then return nil end
+  local ft, inch = tonumber(e.heightFt), tonumber(e.heightIn)
+  if not (ft or inch) then return nil end
+  local m = (ft or 0) * 0.3048 + (inch or 0) * 0.0254
+  return math.floor(m * 10 + 0.5)
+end
+
+--- The sum of the base stats (Gen 1's five).
+function Gen1.baseStatTotal(species)
+  local def = Gen1.speciesDef(species)
+  local b = def and def.baseStats
+  if type(b) ~= "table" then return nil end
+  local sum = 0
+  for _, v in pairs(b) do sum = sum + (tonumber(v) or 0) end
+  return sum > 0 and sum or nil
+end
+
+--- The ids of the maps joined to this one (the live neighbour list the engine draws).
+function Gen1.neighbourIds(ow)
+  local out = {}
+  for _, n in ipairs(ow and ow.neighbors or {}) do
+    local id = type(n) == "table" and type(n.map) == "table" and n.map.id
+    if id then out[#out + 1] = id end
+  end
+  return out
+end
+
+--- Is an engine character (an NPC, the follower, a boulder) on cell (x, y)?
+function Gen1.objectOn(ow, x, y)
+  for _, npc in ipairs(ow and ow.npcs or {}) do
+    if npc.cellX == x and npc.cellY == y then return true end
+    if npc.moving and npc.targetX == x and npc.targetY == y then return true end
+  end
+  return false
+end
+
+--- The map's signposts, { {x, y}, ... } (map def signs).
+function Gen1.signCells(ow)
+  local out = {}
+  for _, s in ipairs(ow and ow.map and ow.map.def and ow.map.def.signs or {}) do
+    if tonumber(s.x) and tonumber(s.y) then out[#out + 1] = { x = s.x, y = s.y } end
+  end
+  return out
+end
+
+function Gen1.playCry(species)
+  local data = Gen1.data()
+  local Sound = load("src.core.Sound")
+  local _, key = Gen1.speciesDef(species)
+  if not (data and Sound and Sound.playCry and key) then return nil end
+  pcall(Sound.playCry, data, key)
+end
+
+--- The engine's emote bubbles ("!" frame 0, "?" frame 1) as the sheet shape the mod reads
+--- ({ image, quads }): the OBJ-palette art re-shaded the way the engine's own emote draw
+--- does (OverworldController.lua obpEmoteImage), built once.
+local emoteSheet
+function Gen1.emoteSheet()
+  if emoteSheet ~= nil then return emoteSheet or nil end
+  emoteSheet = false
+  local data = Gen1.data()
+  local bubble = data and data.field and data.field.emotionBubbles
+  if not (bubble and bubble.path and love and love.graphics) then return nil end
+  local Assets = load("src.render.Assets")
+  local ok, sheet = pcall(function()
+    local img
+    if love.image and love.image.newImageData and Assets and Assets.imageData then
+      local id = Assets.imageData(bubble.path)
+      id:mapPixel(function(_, _, r, _, _, a)
+        local v = 0
+        if r > 0.5 then v = 1
+        elseif r > 0.17 then v = 170 / 255 end
+        return v, v, v, a
+      end)
+      img = love.graphics.newImage(id)
+    elseif Assets and Assets.resolve then
+      img = love.graphics.newImage(Assets.resolve(bubble.path))
+    end
+    if not img then return nil end
+    local quads = {}
+    -- the mod reads frames 0 ("!") and 1 ("?"); the engine's crops are 1 EXCLAMATION,
+    -- 2 QUESTION (emotion_bubbles.asm order)
+    for i, rect in ipairs(bubble.bubbles or {}) do
+      if i <= 2 and rect.w then
+        quads[i - 1] = love.graphics.newQuad(rect.x, rect.y, rect.w, rect.h, img:getDimensions())
+      end
+    end
+    return { image = img, quads = quads, fw = 16, fh = 16, frames = 2 }
+  end)
+  if ok and sheet then emoteSheet = sheet end
+  return emoteSheet or nil
 end
 
 --- The input wrap: while `isHeld()` the overworld reads no input this frame, so a held
