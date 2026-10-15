@@ -302,6 +302,18 @@ return function(mod)
     pcall(function() spawnManager:onMapExited() end)
   end)
 
+  -- who a script walks: the player and someone else together = an escort, and the
+  -- companion goes into its ball (lib/follower_adapter.lua isEscorting)
+  mod.hooks:wrap("script.command", function(next, _ctx, op, row)
+    if (op == "applymovement" or op == "applymovementat") and type(row) == "table" then
+      pcall(function() followerAdapter:onScriptMovement(row.localId or row[1]) end)
+    end
+    return next()
+  end)
+  mod.events:on("script.ended", function(_ev)
+    pcall(function() followerAdapter:onScriptEnded() end)
+  end)
+
   -- Classic Encounters: suppresses the vanilla step-based land/water roll
   -- while OFF. Fishing (rollFishing) and Rock Smash (rollRocks) never run
   -- through onStep/encounter.roll, so they stay vanilla regardless.

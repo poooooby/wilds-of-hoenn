@@ -14,6 +14,9 @@
 
 ### Changed
 
+- **Your partner steps into its ball for the nurse and for escorts.** At a Pokemon Center
+  counter it goes into its ball while the heal machine runs and comes back out after; it does
+  the same while a story scene walks someone along with you.
 - **A new party leader becomes your follower.** Putting a different Pokemon first in your party
   makes it your follower, like the lead in the original games, even if you had sent another one
   out. You can still pick any Pokemon and job in the party menu; that choice stays until you

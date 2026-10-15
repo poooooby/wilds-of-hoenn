@@ -54,7 +54,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   finds things, and the rarer they get: evolution stones from friendship 130, the rarest finds
   from 200.
 - 🚲 **Bike rides:** hop on your bike and your partner rides along in its Poké Ball, popping
-  back out when you get off.
+  back out when you get off. It also slips into its ball at the Pokémon Center while the nurse
+  heals your team, and while someone walks along with you in a story scene, keeping out of the
+  way.
 
 ### A Living World
 

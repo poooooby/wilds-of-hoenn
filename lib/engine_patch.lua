@@ -1902,6 +1902,15 @@ function EnginePatch.cryFinished()
   return not ok or done == true
 end
 
+--- Is the nurse's heal machine running (pokecenter_heal.lua PokecenterHeal.isActive: the
+--- Poke Balls on the tray, the jingle)? The follower goes into its ball meanwhile.
+function EnginePatch.healingActive()
+  local Heal = loadModule("src.core.game3.pokecenter_heal")
+  if not (Heal and Heal.isActive) then return false end
+  local ok, on = pcall(Heal.isActive)
+  return ok and on == true
+end
+
 --- Tagged field input lock (Field.lock / unlock). No-ops without the field.
 function EnginePatch.lockField(tag)
   local Field = loadModule(EnginePatch.READONLY.fieldLock.mod)

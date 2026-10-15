@@ -294,6 +294,11 @@ function FollowerAdapter:_tickRecall(npc, r)
   -- its role (Forage, Battle) pauses meanwhile, like while surfing
   local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
   if biking then recalled = true end
+  -- at the nurse's counter it goes into its ball for the heal machine, and comes back out
+  if EnginePatch.healingActive and EnginePatch.healingActive() then recalled = true end
+  -- walking with another character (a script moving the player and them together -- an
+  -- escort -- or Gen 2's `follow`), it stays out of their way inside its ball
+  if self:isEscorting() then recalled = true end
   self.surfRecall = recalled
   -- a Battler out of strength rests inside the player (any art style)
   if self.away then recalled = true end
@@ -315,6 +320,38 @@ function FollowerAdapter:_tickRecall(npc, r)
   local px, py = nil, nil
   if EnginePatch.playerPixel then px, py = EnginePatch.playerPixel() end
   r.recallX, r.recallY = px, py
+end
+
+--- Gen 3 escorts: main.lua's `script.command` wrap reports every `applymovement` target
+--- (local id; 0xFF = the player). A script that moves the player AND someone else is the
+--- player walking with them, so the companion goes into its ball until the script ends
+--- (`onScriptEnded`, or the field being free again).
+FollowerAdapter.LOCALID_PLAYER = 0xFF
+
+function FollowerAdapter:onScriptMovement(localId)
+  local id = tonumber(localId)
+  if not id then return end
+  local m = self.scriptMoves or {}
+  self.scriptMoves = m
+  if id == FollowerAdapter.LOCALID_PLAYER then m.player = true else m.other = true end
+  if m.player and m.other then self.escorting = true end
+end
+
+function FollowerAdapter:onScriptEnded()
+  self.scriptMoves, self.escorting = nil, false
+end
+
+--- Is the companion keeping out of the way of a character walking with the player?
+function FollowerAdapter:isEscorting()
+  if self.escorting then
+    -- no script running any more (an end we did not hear): let go
+    if EnginePatch.fieldBusy and not EnginePatch.fieldBusy() then
+      self:onScriptEnded()
+      return false
+    end
+    return true
+  end
+  return EnginePatch.leadingNpc ~= nil and EnginePatch.leadingNpc() == true
 end
 
 --- The callback passed to mod.hooks:wrap("world.follower.spawn", ...).
