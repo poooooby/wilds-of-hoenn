@@ -265,6 +265,89 @@ do
   check(not straight, "never a straight line: always an arc")
 end
 
+-- ------- a passer moves in perspective with the view: not held in the top band
+do
+  local sky = SkyFlyers.new(mod)
+  sky:onMapEntered("ROUTE_104")
+  sky:collectActors({}, 160, 320)
+  sky.timers.perch, sky.timers.dive = 99999, 99999
+  local passer
+  for _ = 1, 60 * 120 do
+    sky:tick()
+    sky:collectActors({}, 160, 320)
+    for _, b in ipairs(sky.birds) do if b.kind == "passer" then passer = b end end
+    if passer then break end
+  end
+  check(passer ~= nil, "a passer came by")
+  if passer then
+    local vw, vh = fake.viewSize()
+    local p = FlightPath.look(passer.h).parallax
+    local function screenY(camY)
+      sky:collectActors({}, 160, camY)
+      local _, sy = FlightPath.toScreen(passer.x, passer.y, p, 160, camY, vw, vh)
+      return sy + 16
+    end
+    local still = screenY(320)
+    local walkedUp = screenY(320 - 64)
+    check(math.abs((walkedUp - still) - 64 * p) < 0.5, ("walking up 4 tiles moves it down the screen at its parallax (%.1f px)"):format(walkedUp - still))
+    check(walkedUp > Config.FLYERS.passer.band * vh, "...past the top band (no longer held in it)")
+    local walkedDown = screenY(320 + 64)
+    check(walkedDown < still - 64 * p + 0.5, "walking down carries it up and off the top")
+  end
+end
+
+-- ------- Flying Mons on Ambient: no bird flies high overhead (lower passers still do)
+do
+  local function run(minutes)
+    local sky = SkyFlyers.new(mod)
+    sky:onMapEntered("ROUTE_104")
+    sky:collectActors({}, 160, 320)
+    local high, low = 0, 0
+    local seen = {}
+    for _ = 1, 60 * 60 * minutes do
+      sky.timers.perch, sky.timers.dive = 99999, 99999
+      sky:tick()
+      sky:collectActors({}, 160, 320)
+      for _, b in ipairs(sky.birds) do
+        if b.kind == "passer" and not seen[b.id] then
+          seen[b.id] = true
+          if b.high then high = high + 1 else low = low + 1 end
+        end
+      end
+    end
+    return high, low, sky
+  end
+  optionStore.flyers = "ambient"
+  local high, low = run(8)
+  eq(high, 0, "Ambient: none high overhead")
+  check(low > 0, "...the lower passers still come (" .. low .. ")")
+  optionStore.flyers = "full"
+  local highOn, _, sky = run(8)
+  check(highOn > 0, "Full: some fly high (" .. highOn .. ")")
+  -- Full -> Ambient with a high bird in the air and a bird perched: only the high one goes
+  sky.birds[#sky.birds + 1] = { kind = "passer", high = true, id = 9999 }
+  sky.birds[#sky.birds + 1] = { kind = "percher", id = 9998 }
+  optionStore.flyers = "ambient"
+  sky:onOptionChanged("ROUTE_104")
+  local highLeft, perched = 0, 0
+  for _, b in ipairs(sky.birds) do
+    if b.high then highLeft = highLeft + 1 end
+    if b.id == 9998 then perched = perched + 1 end
+  end
+  eq(highLeft, 0, "Full -> Ambient: the high bird in the air is gone")
+  eq(perched, 1, "...a perched bird stays put")
+  optionStore.flyers = "off"
+  sky:onOptionChanged("ROUTE_104")
+  eq(sky:count(), 0, "Off: every bird goes")
+  -- an old save's on / off toggle
+  optionStore.flyers = true
+  eq(Config.flyersMode(mod), "full", "a saved On reads as Full")
+  optionStore.flyers = false
+  eq(Config.flyersMode(mod), "off", "a saved Off reads as Off")
+  optionStore.flyers = nil
+  eq(Config.flyersMode(mod), "full", "never set: Full")
+end
+
 -- ------- swoops stay clear of the player
 do
   local sky = SkyFlyers.new(mod)

@@ -4,6 +4,9 @@
 
 ### Added
 
+- **Flying Mons: Full / Ambient / Off.** Full is everything, including the big, soft-focus birds
+  flying high overhead; Ambient keeps the passing, perching and diving birds and the swooping
+  wild Flying types but leaves the high birds out; Off is none of it. A saved On is Full.
 - **Finizen at sea (Water Life).** Out on the sea, a Finizen now and then surfaces with a puff
   from its blowhole and porpoises along in a string of leaps before diving again, like a dolphin.
   Once in a long while a whole pod comes up to play, swimming round in a ring and taking turns to
@@ -17,6 +20,9 @@
   ducking down into the grass with a rustle, or fading into a cave's dark. Birds still fly away.
 - **Birds overhead bob with their wingbeats.** The high birds crossing the top of the screen rise
   and fall a little as they fly instead of gliding along a flat line.
+- **Birds overhead move with the view.** A bird passing high overhead starts across the top of
+  the screen, then drifts with your walking at its own depth instead of sticking to the top edge:
+  walk up and it slides down the sky, walk down and it slips away off the top.
 - **Only real birds dive into the sea.** A sea Flying type that is no bird (Mantine, for example)
   still flies by but never plunges into the water; Wingull, Pelipper and the other real birds do.
 - **A new party leader becomes your follower.** Putting a different Pokemon first in your party

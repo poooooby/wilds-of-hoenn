@@ -29,9 +29,14 @@ return {
   {
     key = "flyers",
     label = "Flying Mons",
-    type = "toggle",
-    default = true,
-    description = "Flying Pokemon in the sky: birds of the area pass overhead, perch on trees, roofs and signposts, and real sea birds dive for food. Wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Off: none of it, wild Pokemon all arrive the usual way.",
+    type = "choice",
+    default = "full",
+    choices = {
+      { "FULL", "full" },
+      { "AMBIENT", "ambient" },
+      { "OFF", "off" },
+    },
+    description = "Flying Pokemon in the sky: birds of the area pass overhead, perch on trees, roofs and signposts, and real sea birds dive for food; wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Full: all of it, with big soft-focus birds flying high overhead. Ambient: the same without the high birds. Off: none of it, wild Pokemon all arrive the usual way.",
   },
   {
     key = "water_life",

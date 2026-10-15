@@ -10,7 +10,7 @@ Config.DEFAULTS = {
   wild_silhouettes = "off",
   species_sizes = true,
   spawn_amount = "normal",
-  flyers = true,
+  flyers = "full",
   smooth_follow = true,
   wild_reacts = true,
   water_life = true,
@@ -67,7 +67,8 @@ Config.FLYERS = {
   flapTicks = 6,                        -- HGSS wing beat (walkA / walkB)
   -- the occasional bird overhead: one at a time, every 30-70 s, crossing the TOP of the screen
   -- (its feet within the top `band` of the view) on a gentle arc of `arc` px, never straight
-  -- (the high one bobs up and down as it goes, `bob` px either way, a beat every `bobTicks`)
+  -- (the high one bobs up and down as it goes, `bob` px either way, a beat every `bobTicks`).
+  -- It starts in the band, then moves in perspective as the view scrolls (not held there).
   passer = { every = { 1800, 4200 }, max = 1, maxHigh = 1, ticks = { 300, 480 }, highTicks = { 240, 360 },
              band = 0.22, arc = { 6, 16 }, bob = { 2, 4 }, bobTicks = { 40, 56 } },
   -- a swoop (landing, perching, diving, leaving) starts / ends off screen, mid or high up
@@ -551,8 +552,23 @@ end
 
 --- The Flying Mons option: birds in the sky, perching, and wild Flying-type Pokemon
 --- arriving / leaving by air. On unless switched off.
+--- The Flying Mons option: "full" (everything, the high birds too), "ambient" (no high
+--- birds) or "off". A save from when it was an on / off toggle reads true -> full, false -> off.
+function Config.flyersMode(mod)
+  local v = optGet(mod, "flyers")
+  if v == true then return "full" end
+  if v == false then return "off" end
+  if v == "full" or v == "ambient" or v == "off" then return v end
+  return "full"
+end
+
 function Config.flyersOn(mod)
-  return optGet(mod, "flyers") ~= false
+  return Config.flyersMode(mod) ~= "off"
+end
+
+--- The big blurred passers high overhead (lib/sky_flyers.lua): Flying Mons on Full only.
+function Config.highBirdsOn(mod)
+  return Config.flyersMode(mod) == "full"
 end
 
 local VALID_SILHOUETTE ={ off = true, undiscovered = true, all = true }

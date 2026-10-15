@@ -136,6 +136,7 @@ end
 function SkyFlyers:onMapEntered(mapId)
   self:clear()
   self.mapId = mapId
+  self.mode = Config.flyersMode(self.mod)
   self.allowed = Config.flyersOn(self.mod) and EnginePatch.skyAllowed(mapId) or false
   self.pool, self.seaPool, self.perches = {}, {}, nil
   if not self.allowed then return end
@@ -177,9 +178,28 @@ function SkyFlyers:onMapExited()
   self.allowed = false
 end
 
---- The option changed: off drops every ambient bird now; on starts them on this map.
+--- The Flying Mons option changed: off drops every ambient bird now; on (from off) starts
+--- them on this map; Full <-> Ambient only adds / takes away the high birds.
 function SkyFlyers:onOptionChanged(mapId)
-  if Config.flyersOn(self.mod) then self:onMapEntered(mapId or self.mapId) else self:onMapExited() end
+  local mode, was = Config.flyersMode(self.mod), self.mode
+  self.mode = mode
+  if mode == "off" then
+    self:onMapExited()
+  elseif was == nil or was == "off" or not self.allowed then
+    self:onMapEntered(mapId or self.mapId)
+  else
+    self:_dropHighBirds()
+  end
+end
+
+--- Without the high birds (Flying Mons on Ambient): any flying high overhead go now.
+function SkyFlyers:_dropHighBirds()
+  if Config.highBirdsOn(self.mod) then return end
+  local keep = {}
+  for _, b in ipairs(self.birds) do
+    if b.kind == "passer" and b.high then SkyDraw.release(b) else keep[#keep + 1] = b end
+  end
+  self.birds = keep
 end
 
 --- Can a wild Pokemon arrive / leave by air here? (The option on, open sky, a Flying type,
@@ -487,7 +507,8 @@ function SkyFlyers:_spawnPasser()
   local entry = pickWeighted(self.pool, rng)
   if not entry then return false end
   local fog = FOG[(EnginePatch.weatherId and EnginePatch.weatherId()) or -1]
-  local high = not fog and self:_count("passer", true) < cfg.maxHigh and rng(1, 100) <= 40
+  local high = not fog and Config.highBirdsOn(self.mod) and self:_count("passer", true) < cfg.maxHigh
+    and rng(1, 100) <= 40
   local h = high and 1 or (0.45 + rng(0, 15) / 100)
   local look = FlightPath.look(h)
   local vw, vh = self.viewSize()
@@ -517,7 +538,6 @@ function SkyFlyers:_spawnPasser()
     bird.high, bird.screenSpace = high, true
     bird.sx, bird.sy = x0, y0
     bird.cam0 = { x = self.cam.x, y = self.cam.y }
-    bird.band = { top = -margin, bottom = vh * cfg.band }
   end
   return bird ~= nil
 end
@@ -671,12 +691,12 @@ function SkyFlyers:collectActors(actors, camX, camY)
   local vw, vh = self.viewSize()
   for _, b in ipairs(self.birds) do
     if b.screenSpace and b.sx and camX ~= nil then
-      -- a passer: its screen path, slid by the view's scrolling at its own parallax, but kept
-      -- in the top band (feet at most band.bottom down the screen)
+      -- a passer: its screen path, slid by the view's scrolling at its own parallax -- it
+      -- moves in perspective with the player (off the top as they walk down, lower down the
+      -- screen as they walk up), not held in the top band
       local p = FlightPath.look(b.h).parallax
       local sx = b.sx - (camX - b.cam0.x) * p
       local sy = b.sy - (camY - b.cam0.y) * p
-      sy = math.max(b.band.top, math.min(b.band.bottom, sy))
       b.x, b.y = FlightPath.fromScreen(sx - 8, sy - 16, p, camX, camY, vw, vh)
     end
     SkyDraw.push(actors, b, camX or 0, camY or 0, vw, vh)
