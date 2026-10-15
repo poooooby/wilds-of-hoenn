@@ -85,11 +85,58 @@ scripts/build-mod.py
 docs/MANUAL_TEST.md
 
 # local Claude Code settings and skills (gitignored)
-
+.claude/settings.json
+.claude/skills/lua-developer/SKILL.md
 
 # local notes and the README banner image (not needed to run)
+CLAUDE.md
 DEVELOPMENT.md
 WoH.png
 
 # local build output
-
+dist/wilds-of-hoenn-v0.1.0.zip
+dist/wilds-of-hoenn-v1.0.1-hgss.zip
+dist/wilds-of-hoenn-v1.1.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.1.0-hgss.zip
+dist/wilds-of-hoenn-v1.1.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.1.1-hgss.zip
+dist/wilds-of-hoenn-v1.2.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.2.0-hgss.zip
+dist/wilds-of-hoenn-v1.2.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.2.1-hgss.zip
+dist/wilds-of-hoenn-v1.2.2-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.2.2-hgss.zip
+dist/wilds-of-hoenn-v1.3.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.3.0-hgss.zip
+dist/wilds-of-hoenn-v1.4.0-hgss-pmd-superseded.zip
+dist/wilds-of-hoenn-v1.4.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.4.0-hgss-superseded.zip
+dist/wilds-of-hoenn-v1.4.0-hgss.zip
+dist/wilds-of-hoenn-v1.5.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.5.0-hgss.zip
+dist/wilds-of-hoenn-v1.6.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.6.0-hgss.zip
+dist/wilds-of-hoenn-v1.6.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.6.1-hgss.zip
+dist/wilds-of-hoenn-v1.6.2-beta.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.6.2-beta.1-hgss.zip
+dist/wilds-of-hoenn-v1.6.2-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.6.2-hgss.zip
+dist/wilds-of-hoenn-v1.7.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.0-hgss.zip
+dist/wilds-of-hoenn-v1.7.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.1-hgss.zip
+dist/wilds-of-hoenn-v1.7.2-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.2-hgss.zip
+dist/wilds-of-hoenn-v1.7.3-beta.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.3-beta.1-hgss.zip
+dist/wilds-of-hoenn-v1.7.3-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.3-hgss.zip
+dist/wilds-of-hoenn-v1.7.4-beta.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.4-beta.1-hgss.zip
+dist/wilds-of-hoenn-v1.7.4-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.4-hgss.zip
+dist/wilds-of-hoenn-v1.7.5-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.7.5-hgss.zip
+dist/wilds-of-hoenn-v1.8.0-beta.1-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.8.0-beta.1-hgss.zip
