@@ -65,6 +65,23 @@ check(plain ~= pika and plain.def.displayWidth == nil, "Species Sizes off: the s
 eq(plain.def.image, pika.def.image, "...the same baked sheet either way")
 HdField.setSpeciesSizes(true)
 
+-- the Game Boy player is one 16 px tile, the Gen 3 one 22 px: on Gen 1 / 2 a card is
+-- scaled by 16 / 22 so it keeps the same size next to the player; never on Gen 3
+local Config = V.require("config")
+eq(Config.gbSizeRatio(), 1, "not a Game Boy boot: no player-size ratio")
+Config.gbBoot = true
+check(math.abs(Config.gbSizeRatio() - 16 / 22) < 1e-9, "a Game Boy boot: 16 / 22")
+local gbPika = sheets:spriteFor({ dex = 25, shiny = false, style = "pokemmo" }, false)
+check(math.abs(gbPika.def.displayWidth - 48 * HGSS[25] * 16 / 22) < 1e-9,
+  "Game Boy: the Pikachu card is its Species Size x 16 / 22")
+HdField.setSpeciesSizes(false)
+local gbPlain = sheets:spriteFor({ dex = 25, shiny = false, style = "pokemmo" }, false)
+check(gbPlain.def.displayWidth == nil, "...Species Sizes off: still the sheet's own size")
+HdField.setSpeciesSizes(true)
+Config.gbBoot = false
+local again = sheets:spriteFor({ dex = 25, shiny = false, style = "pokemmo" }, false)
+check(math.abs(again.def.displayWidth - 48 * HGSS[25]) < 1e-9, "back off a Game Boy boot: the plain Species Size")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

@@ -23,6 +23,7 @@
 local V = ...
 local GbColor = V.require("gb_color")
 local HdField = V.require("hd_field")
+local Config = V.require("config")
 
 local VoxelSheets = {}
 VoxelSheets.__index = VoxelSheets
@@ -120,6 +121,9 @@ function VoxelSheets:spriteFor(r, luma)
   local key = table.concat({ tostring(r.dex), r.shiny and "s" or "n", style, sil and "sil" or "",
     luma and "luma" or "color" }, "-")
   local factor = HdField.factorFor(style == "pmd" and "pmd" or "hgss", r.dex)
+  -- sized against the shorter Game Boy player (Config.gbSizeRatio; 1 on Gen 3), with
+  -- Species Sizes on only -- off, a card keeps its art's own size
+  if HdField.speciesSizes then factor = factor * Config.gbSizeRatio() end
   local spriteKey = key .. "@" .. factor
   local hit = self.sprites[spriteKey]
   if hit ~= nil then return hit or nil end

@@ -454,6 +454,19 @@ end
 Config.GEN3_ONLY = { flyers = true, water_life = true, local_scenes = true, wild_reacts = true }
 Config.gbBoot = false
 
+-- Species Sizes are tuned against the Gen 3 player (22 px from the ground to the top of
+-- the head; the Scale Tool's PLAYER_PX). The Gen 1 / Gen 2 player is one 16 px tile, so on
+-- those games a Pokemon's size is scaled by 16 / 22 to keep the same size next to the
+-- player (lib/voxel_sheets.lua: the 3D world mods' cards). Never used on Gen 3.
+Config.GB_PLAYER_PX, Config.GEN3_PLAYER_PX = 16, 22
+
+--- The size factor for the Game Boy player's height: 16 / 22 on a Gen 1 / Gen 2 boot,
+--- 1 otherwise (Gen 3).
+function Config.gbSizeRatio()
+  if not Config.gbBoot then return 1 end
+  return Config.GB_PLAYER_PX / Config.GEN3_PLAYER_PX
+end
+
 --- Removes the Gen 3-only rows from an option schema (in place).
 function Config.withoutGen3Only(schema)
   for i = #schema, 1, -1 do
