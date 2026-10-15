@@ -111,6 +111,19 @@ eq(select(3, talk(-5)), "wary", "a nonsense low friendship is the lowest tier")
 eq(select(3, talk(9999)), "loves", "...and a huge one the highest")
 eq(select(3, talk(nil)), "wary", "...and none at all the lowest")
 
+-- squished under a roof's edge: the cramped lines, one after another, round again
+local D = Dialogue
+local seen = {}
+for turn = 1, #D.CRAMPED do seen[D.cramped(turn, "BLAZE")] = true end
+local n = 0 for _ in pairs(seen) do n = n + 1 end
+eq(n, #D.CRAMPED, "each cramped line comes up once per round")
+eq(D.cramped(#D.CRAMPED + 1, "BLAZE"), D.cramped(1, "BLAZE"), "...then they start over")
+check(D.cramped(1, "BLAZE"):find("BLAZE", 1, true), "cramped lines name the Pokemon")
+for _, line in ipairs(D.CRAMPED) do
+  local _, breaks = line:gsub("\n", "")
+  check(breaks <= 1, "a cramped line fits the two-line box: " .. (line:gsub("\n", " / ")))
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

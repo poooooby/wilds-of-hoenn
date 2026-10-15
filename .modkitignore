@@ -44,6 +44,7 @@ tests/main_boot_unit_test.lua
 tests/modern_spawns_bridge_unit_test.lua
 tests/modkit_boot_test.lua
 tests/mon_mood_unit_test.lua
+tests/mood_fx_unit_test.lua
 tests/overworld_battle_unit_test.lua
 tests/ow_combat_unit_test.lua
 tests/party_roles_unit_test.lua

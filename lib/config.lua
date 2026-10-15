@@ -11,6 +11,7 @@ Config.DEFAULTS = {
   species_sizes = true,
   spawn_amount = "normal",
   smooth_follow = true,
+  portraits = true,
 }
 
 Config.STATE = {
@@ -282,7 +283,8 @@ function Config.defineOptions(mod)
   local schema = chunk()
   -- The HGSS-only release ships no PMDCollab art: don't offer a style that
   -- would silently draw HGSS anyway.
-  if not Config.hasPmdArt(mod) then Config.withoutPmdStyle(schema) end
+  -- (nor portraits: they are PMDCollab art too)
+  if not Config.hasPmdArt(mod) then Config.withoutPmdStyle(schema) Config.withoutRow(schema, "portraits") end
   mod.options:define(schema)
 end
 
@@ -355,6 +357,19 @@ end
 
 --- The Smooth Follow option: the follower is spaced out behind the player either way;
 --- on, it glides to its place on a turn, off it snaps there. On unless switched off.
+--- Removes the row `key` from an option schema (in place).
+function Config.withoutRow(schema, key)
+  for i = #schema, 1, -1 do
+    if schema[i].key == key then table.remove(schema, i) end
+  end
+  return schema
+end
+
+--- The Portraits option: the partner's portrait above its messages (lib/portrait_ui.lua).
+function Config.portraitsEnabled(mod)
+  return optGet(mod, "portraits") ~= false
+end
+
 function Config.smoothFollow(mod)
   return optGet(mod, "smooth_follow") ~= false
 end

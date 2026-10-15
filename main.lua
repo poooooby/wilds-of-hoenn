@@ -124,6 +124,8 @@ return function(mod)
     levelReady = levelReady,
   })
 
+  followerAdapter.interaction = followerInteraction -- its mood effects while you talk (lib/mood_fx.lua)
+
   mod.exports.spawnManager = spawnManager
   mod.exports.battleTrigger = battleTrigger
   mod.exports.followerAdapter = followerAdapter

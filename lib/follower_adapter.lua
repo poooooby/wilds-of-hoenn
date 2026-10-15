@@ -25,6 +25,7 @@ local GrassCover = V.require("grass_cover")
 local FollowerActions = V.require("follower_actions")
 local EaveDuck = V.require("eave_duck")
 local SweatDrop = V.require("sweat_drop")
+local MoodFx = V.require("mood_fx")
 local PopupText = V.require("popup_text")
 local FollowerSwap = V.require("follower_swap")
 
@@ -251,6 +252,13 @@ end
 function FollowerAdapter:isRecalled()
   local r = self.renderer
   return r ~= nil and (r.recall or 1) < 0.5
+end
+
+--- Is the follower squished under a roof's edge (crouched enough to sweat,
+--- `_tickDuck`)? Its interaction then says it's cramped (lib/follower_interaction.lua).
+function FollowerAdapter:isCramped()
+  local r = self.renderer
+  return r ~= nil and (r.duck or 0) > Config.FOLLOWER_DUCK.sweatFrom
 end
 
 --- Is the follower DRAWN over water this tick? Its own tile, or -- while a role
@@ -503,6 +511,13 @@ function FollowerAdapter:tick()
     self:resetDisplay()
     if self.actState then self:resetBehaviors() end
     return
+  end
+  -- while you Pet / Play / Talk with it: the effect matching its face (lib/mood_fx.lua)
+  local moodKind = self.interaction and self.interaction.moodKind and self.interaction:moodKind() or nil
+  if moodKind ~= self.moodKind then
+    self.moodKind, self.moodAge = moodKind, 0
+  elseif moodKind then
+    self.moodAge = self.moodAge + 1
   end
   local mon, role
   if self.companion then
@@ -773,6 +788,16 @@ function FollowerAdapter:collectActors(actors)
   end
   -- crouching under a roof's edge: a sweat drop at the top corner of its (squashed) head
   local sr = self.renderer
+  -- talking with it: hearts, notes, a rain cloud ... over the top of its head
+  if self.moodKind and sr and (sr.recall or 1) >= 0.5 and sr.headLift then
+    local act = sr.act
+    local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
+    local top = feetY - (sr:headLift() or CELL) * (1 - (sr.duck or 0))
+    local x = npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0)
+    -- (headLift is its highest frame, an idle hop or raised ears included: a little lower
+    -- sits just over the head as it usually stands)
+    actors[#actors + 1] = MoodFx.actor(self.moodKind, self.moodAge or 0, x, top + 3, feetY + 1, math.min(1, (self.moodAge or 0) / 10))
+  end
   if self.sweatAge and sr and (sr.recall or 1) >= 0.5 and sr.headLift then
     local height = sr:headLift() or CELL
     local squashed = height * (1 - (sr.duck or 0))

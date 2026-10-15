@@ -98,11 +98,21 @@ for _, row in ipairs(definedSchema or {}) do if row.key == "sprite_style" then n
 check(noPmdRow ~= nil and #noPmdRow.choices == 1 and noPmdRow.choices[1][2] == "pokemmo",
   "the HGSS-only Sprite Style row offers only HGSS / PokeMMO")
 eq(noPmdRow.default, "pokemmo", "...and defaults to it")
+local noPmdPortraits = false
+for _, row in ipairs(definedSchema or {}) do if row.key == "portraits" then noPmdPortraits = true end end
+check(not noPmdPortraits, "the HGSS-only release has no Portraits option (no portrait art)")
 check(not noPmdRow.description:find("PMDCollab", 1, true), "...and its description does not mention PMDCollab")
 Config.defineOptions(mod)
 local pmdRow
 for _, row in ipairs(definedSchema or {}) do if row.key == "sprite_style" then pmdRow = row end end
 check(pmdRow ~= nil and #pmdRow.choices == 2 and pmdRow.default == "pmd", "with PMD art the row offers both and defaults to pmd")
+local portraitsRow
+for _, row in ipairs(definedSchema or {}) do if row.key == "portraits" then portraitsRow = row end end
+check(portraitsRow ~= nil and portraitsRow.type == "toggle" and portraitsRow.default == true, "with PMD art: a Portraits toggle, on by default")
+check(Config.portraitsEnabled(mod), "Portraits: on when never set")
+optionStore = { portraits = false }
+check(not Config.portraitsEnabled(mod), "...off when switched off")
+optionStore = {}
 
 -- ------- options.lua loads and defines cleanly
 optionStore = {}

@@ -4,6 +4,13 @@
 
 ### Added
 
+- **Portraits option (on by default).** Off: your partner's messages show without its portrait
+  above the text box. Only in the HGSS + PMDCollab build, the one with portraits.
+- **Your partner shows how it feels.** While you Pet, Play or Talk with it, a little effect plays
+  over its head to match its face: hearts (with sparkles when it adores you), music notes when
+  it's happy, sparkles when it trusts you, a "!" when it's curious, a rain cloud when it's sad,
+  tears, an anger mark, a sweat drop when it's worried, and for a hurting one its trouble:
+  poison bubbles, flames, sparks, snowflakes or sleepy Zs.
 - **Smooth Follow option (on by default).** Off: your partner snaps straight to its place behind
   you when you turn, step for step like the original games, instead of gliding round. It keeps
   its distance behind you either way, so a big Pokemon never overlaps you.
@@ -22,7 +29,8 @@
 - **Tall partners duck under roof edges.** A big follower walking in front of a house no longer
   has its head cut off by the eave: it dips a little and, if it is still too tall, crouches down
   until it clears the roof (with a little sweat drop by its head while it does), then stands back
-  up. Behind a house or a tree it still hides as before.
+  up. Behind a house or a tree it still hides as before. Talk to it while it's crouched and it
+  tells you it's cramped and would like to move on, with a worried face.
 - **Your partner steps into its ball for the nurse and for escorts.** At a Pokemon Center
   counter it goes into its ball while the heal machine runs and comes back out after; it does
   the same while a story scene walks someone along with you.

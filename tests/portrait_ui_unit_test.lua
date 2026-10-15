@@ -93,6 +93,22 @@ ui:show(252, false, "Normal")
 check(pcall(function() ui:draw() end), "draw with a message open but no renderer never throws")
 check(ui:isActive(), "and keeps the portrait while the message is open")
 
+-- the Portraits option off: draw stops before looking up any art (the message still shows)
+do
+  local Config = V.require("config")
+  local real, asked = Config.portraitsEnabled, 0
+  local realKey = SpriteSource.portraitKey
+  SpriteSource.portraitKey = function(...) asked = asked + 1 return realKey(...) end
+  Config.portraitsEnabled = function() return false end
+  ui:draw()
+  eq(asked, 0, "Portraits off: no portrait is drawn")
+  check(ui:isActive(), "...the message (and its face, for the mood effect) stays")
+  Config.portraitsEnabled = real
+  ui:draw()
+  check(asked > 0, "Portraits on: it draws again")
+  SpriteSource.portraitKey = realKey
+end
+
 -- say fails cleanly when the engine refuses the message
 fakeEngine.showMessage = function() return false end
 check(not ui:say("x", { dex = 252 }), "say reports a failed show")

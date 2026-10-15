@@ -69,6 +69,13 @@ return {
     label = "Species Sizes",
     type = "toggle",
     default = true,
-    description = "Draw each HGSS / PokeMMO species at its own relative size, the same table Wilds of Kanto Revival uses (a Charizard bigger than a Charmander, a Rattata small). Needs the Gen 3 HD Sprites mod (with its Field HD option on); without it every species is drawn at its sheet's size. PMDCollab sprites keep their own sizes.",
+    description = "Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the Gen 3 HD Sprites mod (with its Field HD option on); without it every species is drawn at its sheet's size.",
+  },
+  {
+    key = "portraits",
+    label = "Portraits",
+    type = "toggle",
+    default = true,
+    description = "Your partner's PMDCollab portrait above its messages when you Pet, Play or Talk with it. Off: the messages show without it.",
   },
 }

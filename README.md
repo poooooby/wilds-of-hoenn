@@ -43,7 +43,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 
 - 🫂 **Friendship you can see:** Face your partner and press A to **Pet**, **Play** fetch or
   **Talk**. Each one raises its friendship, and its portrait shows how it really feels from
-  its HP, status and bond with you. Petting can even cure a status.
+  its HP, status and bond with you, with a little effect over its head to match: hearts,
+  music notes, a rain cloud, an anger mark, sleepy Zs and more. Petting can even cure a
+  status. Squeezed under a roof's edge, it lets you know it's cramped.
 - ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. It fights with
   its real moves, stats and PP, on land or swimming out over water, and earns EXP. Health bars
   and hit effects show on both sides. When it levels up, it tells you a new move or evolution
@@ -82,6 +84,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
 | **Silhouette** | OFF / Undiscovered / All | OFF | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
 | **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs Gen 3 HD Sprites. |
+| **Portraits** | ON / OFF | ON | Your partner's portrait above its messages when you Pet, Play or Talk with it. (HGSS + PMDCollab build only.) |
 
 Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option.
 

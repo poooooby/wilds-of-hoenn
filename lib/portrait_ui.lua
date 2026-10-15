@@ -130,6 +130,7 @@ end
 --- without a portrait, an open message or art.
 function PortraitUI:draw()
   if not self.dex then return end
+  if not Config.portraitsEnabled(self.mod) then return end -- the Portraits option
   if not EnginePatch.isMessageOpen() then
     self:clear()
     return
