@@ -94,6 +94,16 @@ scripts/build-mod.py
 # manual test checklist and other docs
 docs/MANUAL_TEST.md
 
+# trailer showcase director and shot lists (showcase branch)
+showcase/README.md
+showcase/camera.lua
+showcase/director.lua
+showcase/run.cmd
+showcase/run.ps1
+showcase/run.sh
+showcase/shots_emerald.lua
+showcase/shots_firered.lua
+
 # local Claude Code settings and skills (gitignored)
 .claude/settings.json
 .claude/skills/lua-developer/SKILL.md
@@ -150,3 +160,5 @@ dist/wilds-of-hoenn-v1.7.5-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.7.5-hgss.zip
 dist/wilds-of-hoenn-v1.8.0-beta.1-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.8.0-beta.1-hgss.zip
+dist/wilds-of-hoenn-v1.8.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.8.0-hgss.zip

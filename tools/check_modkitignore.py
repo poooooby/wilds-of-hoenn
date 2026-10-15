@@ -38,6 +38,7 @@ EXCLUDED_DIRS = [
     ("# bake / validation / asset tools", "tools"),
     ("# build scripts", "scripts"),
     ("# manual test checklist and other docs", "docs"),
+    ("# trailer showcase director and shot lists (showcase branch)", "showcase"),
     ("# local Claude Code settings and skills (gitignored)", ".claude"),
 ]
 # local build output (names change with every build, so these go stale harmlessly)
