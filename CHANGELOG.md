@@ -14,6 +14,10 @@
 
 ### Changed
 
+- **Tall partners duck under roof edges.** A big follower walking in front of a house no longer
+  has its head cut off by the eave: it dips a little and, if it is still too tall, crouches down
+  until it clears the roof (with a little sweat drop by its head while it does), then stands back
+  up. Behind a house or a tree it still hides as before.
 - **Your partner steps into its ball for the nurse and for escorts.** At a Pokemon Center
   counter it goes into its ball while the heal machine runs and comes back out after; it does
   the same while a story scene walks someone along with you.

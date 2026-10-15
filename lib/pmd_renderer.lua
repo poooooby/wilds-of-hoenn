@@ -331,16 +331,26 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   else
     dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x - camX, y - camY)
   end
-  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
-  local scaleY = scale
+  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) + 0.5)
+  local scaleY, scaleX = scale, scale
+  -- ducking under an eave (a follower, lib/eave_duck.lua): squashed toward its ground
+  -- point and a little wider about its anchor
+  local duck = tonumber(self.duck) or 0
+  if duck > 0 and not crop then
+    scaleY = scale * (1 - duck)
+    dy = dy + math.floor(entry.ay * (scale - scaleY) + 0.5)
+    scaleX = scale * (1 + duck * (Config.FOLLOWER_DUCK and Config.FOLLOWER_DUCK.widen or 0))
+    dx = dx - math.floor(entry.ax * (scaleX - scale) + 0.5)
+  end
   if act then
     dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5)
     -- sinking into the ground: squash toward the feet (the ground point stays put)
     local sink = tonumber(act.sink) or 0
     if sink > 0 then
       if sink >= 1 then return end
-      scaleY = scale * (1 - sink)
-      dy = dy + math.floor(entry.ay * (scale - scaleY) + 0.5)
+      local before = scaleY
+      scaleY = scaleY * (1 - sink)
+      dy = dy + math.floor(entry.ay * (before - scaleY) + 0.5)
     end
     -- a hit flushes the sprite red
     local flash = tonumber(act.flash) or 0
@@ -356,9 +366,9 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   elseif alpha < 1 then
     love.graphics.setColor(1, 1, 1, alpha)
   end
-  love.graphics.draw(image, quad, dx, dy, 0, scale, scaleY)
+  love.graphics.draw(image, quad, dx, dy, 0, scaleX, scaleY)
   if foamQuad then
-    love.graphics.draw(foamImage, foamQuad, dx, dy, 0, scale, scaleY)
+    love.graphics.draw(foamImage, foamQuad, dx, dy, 0, scaleX, scaleY)
   end
   if self.silhouette or tint or alpha < 1 then love.graphics.setColor(1, 1, 1, 1) end
 end

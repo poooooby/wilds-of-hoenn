@@ -412,6 +412,8 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   end
 
   if act then pushX, pushY = pushX + (act.dx or 0), pushY + (act.dy or 0) end
+  -- ducking under an eave (a follower, lib/eave_duck.lua): moved down a little
+  pushY = pushY + (self.duckDy or 0)
 
   -- recalled into the player (a Battler out of strength): shrink and slide
   -- toward them; sinking into the ground: squash toward the feet
@@ -427,6 +429,13 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
     tint = 0.55 + 0.45 * mul
   end
   local sink = act and tonumber(act.sink) or 0
+  -- ...and squashed toward its feet, a little wider
+  local duck = tonumber(self.duck) or 0
+  local wide = 1
+  if duck > 0 then
+    sink = 1 - (1 - sink) * (1 - duck)
+    wide = 1 + duck * (Config.FOLLOWER_DUCK and Config.FOLLOWER_DUCK.widen or 0)
+  end
   if sink >= 1 then return end
   local flash = act and tonumber(act.flash) or 0
   if flash > 0 then tint = math.min(tint or 1, 1 - 0.6 * math.min(1, flash)) end
@@ -450,7 +459,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
     local boxLeft = (x - camX) + (flipX < 0 and drawX - frameW or drawX) + pushX
     local boxTop = (y - camY) + drawY + pushY
     love.graphics.draw(image, quad, boxLeft + frameW / 2, boxTop + frameH, 0,
-      flipX * mul, mul * (1 - sink), frameW / 2, frameH)
+      flipX * mul * wide, mul * (1 - sink), frameW / 2, frameH)
   end
   if self.silhouette or tint or alpha < 1 then
     love.graphics.setColor(1, 1, 1, 1)

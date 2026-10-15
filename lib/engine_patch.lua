@@ -1583,6 +1583,79 @@ function EnginePatch.mapType()
   return tonumber(def.mapType)
 end
 
+-- ------- the map's covering layer (a tall follower ducking under a roof's edge,
+-- lib/eave_duck.lua)
+local function currentDef()
+  local Map = loadModule(EnginePatch.READONLY.mapCurrentDef.mod)
+  if not (Map and Map.currentDef) then return nil end
+  local ok, def = pcall(Map.currentDef)
+  return ok and type(def) == "table" and def or nil
+end
+
+-- (pair .. ":" .. mid) -> true / false: does that metatile draw anything over actors.
+-- Cached, because the tileset's over-layer bytes are dropped when it leaves memory.
+local coverCache = {}
+local function metatileCovers(ts, mid)
+  local NativeTileset = loadModule("src.core.game3.tileset_native")
+  if not (NativeTileset and NativeTileset.slotFor) then return nil end
+  local okS, slot = pcall(NativeTileset.slotFor, ts, mid)
+  if not okS or type(slot) ~= "number" then return nil end
+  -- tileset_native.lua scan_slot: a 12-byte header, two bytes per metatile, then 256
+  -- palette-index bytes (16 x 16 pixels) per atlas slot; 0 = transparent
+  local blob = ts.overBlob
+  if type(blob) == "string" and #blob > 12 then
+    local midCount = blob:byte(7) + blob:byte(8) * 256
+    local base = 13 + midCount * 2 + slot * 256
+    if base + 255 > #blob then return false end
+    for i = base, base + 255 do
+      if blob:byte(i) ~= 0 then return true end
+    end
+    return false
+  end
+  local data = ts.overImageData -- the same pixels as an image (blob already trimmed)
+  if data and data.getPixel and ts.cols then
+    local sx, sy = (slot % ts.cols) * 16, math.floor(slot / ts.cols) * 16
+    for y = sy, sy + 15 do
+      for x = sx, sx + 15 do
+        local ok, _, _, _, a = pcall(data.getPixel, data, x, y)
+        if ok and a and a > 0 then return true end
+      end
+    end
+    return false
+  end
+  return nil
+end
+
+--- Does the map's own metatile at (x, y) draw over actors -- a tree canopy, a roof (the
+--- upper map layer, field_view.lua drawNativeOverTiles)? Map tiles only: objects (a Cut
+--- tree) are not part of it. nil when it cannot be told.
+function EnginePatch.coversActors(x, y)
+  local Map = loadModule(EnginePatch.READONLY.mapCurrentDef.mod)
+  local NativeTileset = loadModule("src.core.game3.tileset_native")
+  if not (Map and Map.worldMidAt and NativeTileset and NativeTileset.get) then return nil end
+  local def = currentDef()
+  if not def then return nil end
+  local okM, mid, pair = pcall(Map.worldMidAt, x, y, def)
+  if not (okM and mid and pair) then return nil end
+  local key = tostring(pair) .. ":" .. tostring(mid)
+  local hit = coverCache[key]
+  if hit ~= nil then return hit end
+  local okT, ts = pcall(NativeTileset.get, pair)
+  if not (okT and type(ts) == "table") then return nil end
+  if not ts.layered then coverCache[key] = false return false end
+  local covers = metatileCovers(ts, mid)
+  if covers ~= nil then coverCache[key] = covers end
+  return covers
+end
+
+--- Is (x, y) a cell nothing can walk onto (a wall, a tree trunk, a roof)?
+function EnginePatch.isWall(x, y)
+  local Collision = EnginePatch.collision()
+  if not (Collision and Collision.isWalkable) then return false end
+  local ok, walkable = pcall(Collision.isWalkable, x, y)
+  return ok and walkable == false
+end
+
 --- Is (x, y) one of the current map's warp tiles -- a door, a cave mouth, stairs,
 --- a ladder, an escalator (map.lua's def.warps, the same list warping reads)?
 --- False with no map loaded. The follower uses it to walk out of a doorway

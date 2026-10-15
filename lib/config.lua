@@ -205,6 +205,13 @@ Config.PMD_FOLLOWER_SIDE_OVERHANG = 0.6
 Config.PMD_FOLLOWER_TURN_SPEED = 1
 Config.PMD_FOLLOWER_GAP_DOWN = 0 -- the gap while facing down (trailing above the player)
 Config.PMD_FOLLOWER_GAP = 4
+-- A tall follower in front of a house ducks under its eave (lib/eave_duck.lua): down by up
+-- to `nudge` px first, then squashed toward its feet for the rest, never below `minScale`
+-- of its height (anything still over is cut by the eave as before); a little wider while
+-- squashed (`widen` x the squash), easing in and out by `ease` of the way each tick.
+-- While it crouches more than `sweatFrom` it sweats (lib/sweat_drop.lua): one drop for a light
+-- crouch, up to `sweatMax` drops, cycling faster, the harder it is squashed.
+Config.FOLLOWER_DUCK = { nudge = 4, minScale = 0.5, widen = 0.15, ease = 0.2, sweatFrom = 0.03, sweatMax = 3 }
 Config.PMD_FOLLOWER_IDLE_DELAY = 300
 Config.PMD_FOLLOWER_IDLE_SPEED = 0.5
 Config.PMD_WILD_IDLE_SPEED = 0.75

@@ -23,6 +23,8 @@ local SpriteSource = V.require("sprite_source")
 local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
 local FollowerActions = V.require("follower_actions")
+local EaveDuck = V.require("eave_duck")
+local SweatDrop = V.require("sweat_drop")
 local PopupText = V.require("popup_text")
 local FollowerSwap = V.require("follower_swap")
 
@@ -320,6 +322,60 @@ function FollowerAdapter:_tickRecall(npc, r)
   local px, py = nil, nil
   if EnginePatch.playerPixel then px, py = EnginePatch.playerPixel() end
   r.recallX, r.recallY = px, py
+  self:_tickDuck(npc, r)
+end
+
+-- the art's width as drawn (px), for which columns of tiles it spans
+local function drawnWidth(r)
+  if r.isPmd then
+    local PmdRenderer = V.require("pmd_renderer")
+    local w = PmdRenderer.contentSize(r.info, r.hdScale and r:hdScale() or 1)
+    return (w and w > 0) and w or CELL
+  end
+  return (r.visualWidth and r:visualWidth()) or CELL
+end
+
+--- A tall follower in front of a house ducks under the eave the map draws over characters
+--- (lib/eave_duck.lua): `r.duckDy` px down, `r.duck` squashed toward its feet, eased in and
+--- out. Gen 3's covering tiles only (EnginePatch.coversActors); nothing while recalled.
+--- The map is only asked again when the tiles the art spans change (a new tile window, or
+--- a new map: the engine makes a new npc on every map change); otherwise a few sums.
+local function coversTile(x, y) return EnginePatch.coversActors(x, y) == true end
+local function solidTile(x, y) return EnginePatch.isWall(x, y) == true end
+
+function FollowerAdapter:_tickDuck(npc, r)
+  local cfg = Config.FOLLOWER_DUCK
+  local wantDy, wantDuck = 0, 0
+  if EnginePatch.coversActors and EnginePatch.isWall and (r.recall or 1) >= 1 and npc.px and npc.py then
+    local height = r.headLift and r:headLift() or nil
+    if height and height > CELL then
+      local cx = npc.px + CELL / 2 + (r.pushX or 0)
+      local half = drawnWidth(r) / 2
+      local feetY = npc.py + CELL + (r.pushY or 0)
+      local feetRow = math.floor((feetY - 1) / CELL)
+      local top = feetY - height
+      local c0, c1, r0 = EaveDuck.window(cx - half, cx + half, top)
+      local s = self.duckScan
+      if not (s and s.npc == npc and s.c0 == c0 and s.c1 == c1 and s.r0 == r0 and s.feetRow == feetRow) then
+        s = s or {}
+        s.npc, s.c0, s.c1, s.r0, s.feetRow = npc, c0, c1, r0, feetRow
+        s.row = EaveDuck.lowestRow(c0, c1, r0, feetRow, coversTile, solidTile)
+        self.duckScan = s
+      end
+      wantDy, wantDuck = EaveDuck.split(EaveDuck.need(s.row, top), height, cfg)
+    end
+  end
+  local k = cfg.ease
+  r.duckDy = (r.duckDy or 0) + (wantDy - (r.duckDy or 0)) * k
+  r.duck = (r.duck or 0) + (wantDuck - (r.duck or 0)) * k
+  if math.abs(r.duckDy - wantDy) < 0.05 then r.duckDy = wantDy end
+  if math.abs(r.duck - wantDuck) < 0.002 then r.duck = wantDuck end
+  -- crouching (not just dipping): a sweat drop by its head (collectActors)
+  if r.duck > Config.FOLLOWER_DUCK.sweatFrom then
+    self.sweatAge = (self.sweatAge or 0) + 1
+  else
+    self.sweatAge = nil
+  end
 end
 
 --- Gen 3 escorts: main.lua's `script.command` wrap reports every `applymovement` target
@@ -704,6 +760,26 @@ function FollowerAdapter:collectActors(actors)
       npc.px + ((r and r.pushX) or 0) + ((act and act.dx) or state.dx or 0),
       npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or state.dy or 0), npc.elevation, 22, popup and 0 or 1)
     if a then actors[#actors + 1] = a end
+  end
+  -- crouching under a roof's edge: a sweat drop at the top corner of its (squashed) head
+  local sr = self.renderer
+  if self.sweatAge and sr and (sr.recall or 1) >= 0.5 and sr.headLift then
+    local height = sr:headLift() or CELL
+    local squashed = height * (1 - (sr.duck or 0))
+    local half = drawnWidth(sr) / 2
+    -- on the side it faces (its head), touching the top of it
+    local facing = (sr.act and sr.act.facing) or npc.facing
+    local side = facing == "left" and -1 or 1
+    local x = npc.px + CELL / 2 + (sr.pushX or 0) + side * math.floor(half * 0.35) - (side < 0 and 5 or 0)
+    local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0)
+    local cfg = Config.FOLLOWER_DUCK
+    local fade = math.min(1, ((sr.duck or 0) - cfg.sweatFrom) / 0.08)
+    -- the harder it is squashed, the more it sweats (1 .. sweatMax drops, faster)
+    local intensity = ((sr.duck or 0) - cfg.sweatFrom) / math.max(0.01, (1 - cfg.minScale) - cfg.sweatFrom)
+    -- the other drops on the other side of its head (toward its middle when it faces away)
+    local span = side * -math.max(8, math.floor(math.min(half, 24) * 0.7))
+    local drops = SweatDrop.drops(self.sweatAge, intensity, cfg.sweatMax, span)
+    actors[#actors + 1] = SweatDrop.actor(drops, x, feetY - squashed + 3, feetY + 1, 1, fade)
   end
   -- the grass goes on the tiles under the sprite's real feet: it is spaced away
   -- from its own tile (and a scene may slide it), and a big one is wider than a tile
