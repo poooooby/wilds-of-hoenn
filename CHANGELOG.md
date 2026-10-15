@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.8.0 (2026-10-15)
 
 ### Added
 
@@ -77,7 +77,6 @@
   depends on how mismatched it is with your lead: one only a little weaker or stronger reacts
   about a quarter of the time, one far weaker or far stronger always does. One that lets you pass
   leaves you be for a few seconds.
-
 - **Wild Reacts: charging and vanishing.** A stronger wild Pokemon chasing you now charges with
   its Attack animation (PMDCollab style) until it catches you and the battle opens; giving up, it
   walks home again. A weaker one that runs off sometimes (30%) disappears at the end of its run:
