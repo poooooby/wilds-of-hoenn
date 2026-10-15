@@ -4,6 +4,8 @@
 
 ### Added
 
+- **Shinies sparkle.** A shiny wild Pokemon, and a shiny partner, twinkle every few seconds:
+  a few little gold stars pop on its body and fade. Each one keeps its own rhythm.
 - **Flying Mons: Full / Ambient / Off.** Full is everything, including the big, soft-focus birds
   flying high overhead; Ambient keeps the passing, perching and diving birds and the swooping
   wild Flying types but leaves the high birds out; Off is none of it. A saved On is Full.

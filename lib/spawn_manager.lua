@@ -19,6 +19,7 @@ local SpawnFx = V.require("spawn_fx")
 local SkyFlyers = V.require("sky_flyers")
 local WildReactions = V.require("wild_reactions")
 local WildEmote = V.require("wild_emote")
+local ShinySparkle = V.require("shiny_sparkle")
 
 local SpawnManager = {}
 SpawnManager.__index = SpawnManager
@@ -721,6 +722,14 @@ function SpawnManager:collectActors(actors, camX, camY)
           or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
         actors[#actors + 1] = WildEmote.actor(e.react.emote, e.react.emoteAge or 0, e.px, e.py,
           math.max(10, math.min(96, (lift or 20) + 4)), e.elevation, id)
+      end
+      -- a shiny one twinkles now and then (not as a silhouette, nor while it arrives / leaves)
+      if e.shiny and not e.fx and e.renderer and not e.renderer.silhouette then
+        local r = e.renderer
+        local lift = (r.headLift and r:headLift()) or 20
+        local a = ShinySparkle.actor(self.ticks or 0, id, e.px + 8, e.py + 16 - lift, lift * 0.85,
+          ShinySparkle.bodyWidth(r) * 0.5 * 0.8, e.py + 1, e.elevation)
+        if a then actors[#actors + 1] = a end
       end
       if e.lured then
         -- just above the highest point its art reaches in any frame (headLift), so the

@@ -57,6 +57,7 @@ tests/reachability_unit_test.lua
 tests/reflection_unit_test.lua
 tests/renderer_factory_unit_test.lua
 tests/shiny_chain_test.lua
+tests/shiny_sparkle_unit_test.lua
 tests/shiny_unit_test.lua
 tests/sky_draw_unit_test.lua
 tests/sky_flyers_unit_test.lua

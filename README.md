@@ -34,7 +34,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   easier to hit when you battle them.
 - ✨ **Shiny chains** (with [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns)): win
   or catch the same species again and again and it turns up more, is likelier to be shiny and
-  has better stats. Shinies always show their colours on the overworld.
+  has better stats. Shinies always show their colours on the overworld, and twinkle now and
+  then with a little sparkle, your shiny partner too.
 
 ### Your Companion
 

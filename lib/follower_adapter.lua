@@ -24,6 +24,7 @@ local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
 local FollowerActions = V.require("follower_actions")
 local PopupText = V.require("popup_text")
+local ShinySparkle = V.require("shiny_sparkle")
 local FollowerSwap = V.require("follower_swap")
 
 local FollowerAdapter = {}
@@ -666,6 +667,21 @@ function FollowerAdapter:collectActors(actors)
     local a = PopupText.actor(popup and popup.text or ready,
       npc.px + ((r and r.pushX) or 0) + ((act and act.dx) or state.dx or 0),
       npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or state.dy or 0), npc.elevation, 22, popup and 0 or 1)
+    if a then actors[#actors + 1] = a end
+  end
+  -- a shiny partner twinkles now and then (not while recalled into the player, nor while it
+  -- stands on the player's own spot -- just after a map change -- hidden behind them)
+  local sr = self.renderer
+  local ppx, ppy = EnginePatch.playerPixel and EnginePatch.playerPixel()
+  local underPlayer = ppx ~= nil and npc.px ~= nil and math.abs(npc.px - ppx) < 1 and math.abs(npc.py - ppy) < 1
+  if self.leadShiny and sr and npc.px and npc.py and (sr.recall or 1) >= 1 and sr.headLift and not npc.hidden
+      and not underPlayer then
+    self.sparkleAge = (self.sparkleAge or 0) + 1
+    local act = sr.act
+    local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
+    local lift = (sr:headLift() or CELL) * (1 - (sr.duck or 0))
+    local a = ShinySparkle.actor(self.sparkleAge, 0, npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0),
+      feetY - lift, lift * 0.85, ShinySparkle.bodyWidth(sr) * 0.5 * 0.8, feetY + 1, npc.elevation)
     if a then actors[#actors + 1] = a end
   end
   -- the grass goes on the tiles under the sprite's real feet: it is spaced away
