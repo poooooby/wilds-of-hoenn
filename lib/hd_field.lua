@@ -91,14 +91,16 @@ end
 --- Tag one sheet image (from ActorRenderer.loadImage) loaded from `path`. Safe to
 --- call with no library. Only sprite sheets are tagged: a portrait or any other image
 --- loaded the same way is left alone.
-function HdField.tag(mod, image, path)
+function HdField.tag(mod, image, path, feetPivot)
   if image == nil then return false end
   if type(path) == "string" and not HdField.parse(path) then return false end
   local ex = library(mod)
   if not ex then return false end
   local info = HdField.parse(path)
   local spec = { filter = "nearest", path = path, factor = HdField.speciesFactor(path) }
-  local pivot = pmdPivot(mod, info)
+  -- PMD: its ground point; an HGSS land sheet: its real feet (lib/actor_renderer.lua,
+  -- the frame's empty rows under them left out)
+  local pivot = pmdPivot(mod, info) or feetPivot
   if pivot then
     spec.lowPivot = pivot
   else

@@ -186,8 +186,15 @@ local function loadImage(mod, path)
   end
   if img then
     imageCache[path] = img
-    -- drawn at window resolution by gen3-hd-sprites when it is installed (lib/hd_field.lua)
-    HdField.tag(mod, img, path)
+    -- drawn at window resolution by gen3-hd-sprites when it is installed (lib/hd_field.lua);
+    -- an HGSS land sheet sized about its real feet (the frame's empty rows under them left out)
+    local pivot
+    if ActorRenderer.isLandSheet(path) and img.getDimensions then
+      local w, h = img:getDimensions()
+      local fh = math.floor(h / 18)
+      pivot = { w / 2, fh - (ActorRenderer.artBottomPadOf(mod, path, 18) or 0) }
+    end
+    HdField.tag(mod, img, path, pivot)
   end
   return img
 end
@@ -317,6 +324,67 @@ function ActorRenderer.artTopOf(mod, path, frameCount)
   return best
 end
 
+--- An HGSS / PokeMMO LAND sheet (true_size18/hgss): its frames carry empty rows under the
+--- feet, measured per sheet (artBottomPadOf). The water / levitating packs have their own
+--- fixed pad (SpriteSource.bottomPadFor). Pure; for testing.
+function ActorRenderer.isLandSheet(path)
+  return type(path) == "string" and path:find("/true_size18/hgss/", 1, true) ~= nil
+end
+
+--- The empty rows under the art at the bottom of a sheet's frames -- the fewest over every
+--- frame, so the lowest pose still touches the ground -- read from its pixels once and
+--- cached per sheet; nil when unreadable. Revival's sheets are cropped to the art and
+--- anchored at the feet; ours keep a 32 px frame, so without this they float 3-4 px.
+local artBottomCache = {}
+function ActorRenderer.artBottomPadOf(mod, path, frameCount)
+  local hit = artBottomCache[path]
+  if hit ~= nil then return hit or nil end
+  artBottomCache[path] = false
+  if not (love and love.image and love.image.newImageData) then return nil end
+  local data
+  local full = mod and mod.assets and type(mod.assets.path) == "function"
+    and select(2, pcall(mod.assets.path, mod.assets, path)) or path
+  local ok, d = pcall(love.image.newImageData, full)
+  if ok and d then data = d end
+  if not data and mod and SpriteAtlas.installed() then
+    local okA, a = pcall(SpriteAtlas.sheetData, mod, path)
+    if okA and a then data = a end
+  end
+  if not data then return nil end
+  local w, h = data:getDimensions()
+  local n = frameCount or 18
+  local fh = math.floor(h / n)
+  local bytes = data:getString()
+  local byte = string.byte
+  local best
+  for f = 0, n - 1 do
+    for y = fh - 1, 0, -1 do
+      if best and (fh - 1 - y) >= best then break end -- cannot beat what another frame found
+      local row = ((f * fh + y) * w) * 4
+      local found = false
+      for x = 0, w - 1 do
+        if byte(bytes, row + x * 4 + 4) > 0 then found = true break end
+      end
+      if found then
+        local pad = fh - 1 - y
+        if not best or pad < best then best = pad end
+        break
+      end
+    end
+  end
+  artBottomCache[path] = best or false
+  return best
+end
+
+--- The rows a frame of `path` is drawn lower so its art stands on the ground: the water /
+--- levitating packs' fixed pad, else a land sheet's measured empty rows.
+function ActorRenderer.feetPadFor(mod, path, frameCount)
+  local pad = SpriteSource.bottomPadFor(path) or 0
+  if pad > 0 then return pad end
+  if ActorRenderer.isLandSheet(path) then return ActorRenderer.artBottomPadOf(mod, path, frameCount) or 0 end
+  return 0
+end
+
 --- How far above the tile's bottom edge the art reaches at its highest over every frame
 --- (px, as drawn, gen3-hd-sprites' size included): where things floating over it (the
 --- Sweet Scent hearts) start, so no pose covers them. A frame stands on the tile's bottom
@@ -328,7 +396,7 @@ function ActorRenderer:headLift()
   if not (path and fh) then return fh end
   local top = ActorRenderer.artTopOf(self.mod, path, self.frameCount or 18) or 0
   local k = HdField.scaleOfPath(self.mod, path) or 1
-  return (fh - top) * k - (SpriteSource.bottomPadFor(path) or 0) - ActorRenderer.swimDropFor(path)
+  return (fh - top) * k - ActorRenderer.feetPadFor(self.mod, path, self.frameCount or 18) * k - ActorRenderer.swimDropFor(path)
 end
 
 --- The frame this sprite would draw at world (x, y), for its water reflection
@@ -358,7 +426,7 @@ function ActorRenderer:reflectionGeometry(x, y, facing, walkPhase)
   if not quad then return nil end
   local qx, qy, frameW, frameH = quad:getViewport()
   local drawX, drawY, flipX = ActorRenderer.drawOffset(facing, frameW, frameH)
-  local pad = SpriteSource.bottomPadFor(path)
+  local pad = ActorRenderer.feetPadFor(self.mod, path, self.frameCount or 18)
   drawY = drawY + pad + ActorRenderer.swimDropFor(path)
   local pushX, pushY = self.pushX, self.pushY
   if pushX == nil or pushY == nil then
@@ -401,7 +469,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
 
   local _qx, _qy, frameW, frameH = quad:getViewport()
   local drawX, drawY, flipX = ActorRenderer.drawOffset(facing, frameW, frameH)
-  drawY = drawY + SpriteSource.bottomPadFor(path) -- baked-in bottom margin
+  drawY = drawY + ActorRenderer.feetPadFor(self.mod, path, self.frameCount or 18) -- the art's feet on the ground
   drawY = drawY + ActorRenderer.swimDropFor(path) -- sits lower in the water
   -- A follower's offset is eased tick-by-tick by lib/follower_adapter.lua
   -- (pushX/pushY) so a turn glides instead of snapping; anything that never

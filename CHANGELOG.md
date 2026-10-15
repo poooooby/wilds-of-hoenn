@@ -57,6 +57,9 @@
 
 ### Fixed
 
+- **HGSS Pokemon stand on the ground.** HGSS / PokeMMO style Pokemon, wild ones and your
+  partner, floated a few pixels above the ground (the empty rows under the feet in their sprite
+  frames). Their feet now touch the ground like the player's.
 - **HGSS partner walks properly.** An HGSS / PokeMMO style partner held one walk frame through
   each whole step and flashed its standing pose between steps: on some (Quilava) a twitchy glide.
   It now steps like the player and NPCs do, a foot forward for half a step then standing, the

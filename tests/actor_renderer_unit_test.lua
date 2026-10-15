@@ -319,6 +319,17 @@ do
   eq(ActorRenderer.swimDropFor(nil), 0, "no path: no drop")
 end
 
+-- ------- feet on the ground: an HGSS land sheet's empty rows under the feet are measured
+-- (artBottomPadOf, needs the image's pixels); the water packs keep their fixed pad
+check(ActorRenderer.isLandSheet("assets/wilds_generated/true_size18/hgss/077-normal.png"), "the HGSS land pack is a land sheet")
+check(not ActorRenderer.isLandSheet("assets/wilds_generated/true_size18/swimming/131-normal.png"), "...the swimming pack is not")
+check(not ActorRenderer.isLandSheet("assets/pmd/walk/077-normal.png"), "...nor PMDCollab art")
+local swimPath = "assets/wilds_generated/true_size18/swimming/131-normal.png"
+check(ActorRenderer.feetPadFor(nil, swimPath, 18) == SpriteSource.bottomPadFor(swimPath) and SpriteSource.bottomPadFor(swimPath) > 0,
+  "a swimming sheet keeps its fixed waterline pad")
+check(ActorRenderer.feetPadFor(nil, "nowhere/true_size18/hgss/999-normal.png", 18) == 0,
+  "a land sheet whose pixels cannot be read: no pad (drawn as before)")
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
