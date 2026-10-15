@@ -42,17 +42,28 @@ end
 --- base dex number and, for PMD, the animation. nil for anything else (a portrait, an
 --- unknown path). A swimming Pokemon's foam overlay (assets/pmd/foam<anim>/) reads as
 --- its animation, so it is sized and pivoted exactly like the sprite it sits on.
+-- path -> parsed info | false: the renderers ask for their sheet's size every frame, so a
+-- path is matched once (a few hundred sheets at most); the info is shared -- read only
+local parsed = {}
+
 function HdField.parse(path)
   if type(path) ~= "string" then return nil end
+  local hit = parsed[path]
+  if hit ~= nil then return hit or nil end
+  local info = false
   local key = path:match("/true_size18/%w+/(%d+[%w_%-]-)%-%a+%.png$")
-  if key then return { style = "hgss", key = key, dex = tonumber(key:match("^(%d+)")) } end
-  local anim, pkey = path:match("^assets/pmd/(%a+)/(%d+[%w_%-]-)%-%a+%.png$")
-  if anim and anim ~= "portraits" then
-    local foam = anim:match("^foam(%a+)$")
-    return { style = "pmd", key = pkey, dex = tonumber(pkey:match("^(%d+)")), anim = foam or anim,
-             foam = foam ~= nil or nil }
+  if key then
+    info = { style = "hgss", key = key, dex = tonumber(key:match("^(%d+)")) }
+  else
+    local anim, pkey = path:match("^assets/pmd/(%a+)/(%d+[%w_%-]-)%-%a+%.png$")
+    if anim and anim ~= "portraits" then
+      local foam = anim:match("^foam(%a+)$")
+      info = { style = "pmd", key = pkey, dex = tonumber(pkey:match("^(%d+)")), anim = foam or anim,
+               foam = foam ~= nil or nil }
+    end
   end
-  return nil
+  parsed[path] = info
+  return info or nil
 end
 
 local function lookup(tbl, info)

@@ -199,6 +199,19 @@ do
   SkyFlyers.restore(fx.view)
   eq(renderer.presentation, "land", "its ground art is back")
 
+  -- a water spawn (Wingull on the sea) flies in with its standing art, not its swimming one
+  local swimR = V.require("renderer_factory").new(mod, 278, false, "pokemmo", "swimming")
+  local we = { id = 6, cellX = 4, cellY = 8, dex = 278, renderer = swimR, isFlyer = true, terrain = "water" }
+  local wfx = sky:planArrival(we)
+  local flying
+  for _ = 1, 2000 do
+    if sky:stepFlight(wfx) then break end
+    if wfx.view.h > 0.3 and swimR.presentation ~= "levitates" then flying = flying or swimR.presentation end
+  end
+  check(flying == nil or flying == "land", "a bird off the water flies with its land art (" .. tostring(flying) .. ")")
+  SkyFlyers.restore(wfx.view)
+  eq(swimR.presentation, "swimming", "...and swims again once it is down")
+
   -- by way of a perch: forced -- never in the wild, only where there are town perches
   local saved = Config.FLYERS.land.perchChance
   Config.FLYERS.land.perchChance = 1

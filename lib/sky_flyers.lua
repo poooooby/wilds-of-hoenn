@@ -246,7 +246,9 @@ local function animate(view, s)
     view.pose = ActorRenderer.POSE_STAND
   else
     if s.flapping then
-      if view.floater then r.presentation = SpriteSource.PRESENTATION_LEVITATES end
+      -- a floater flies with its levitating sheet, any other bird with its land one: never
+      -- the swimming art of a spawn that arrives on / leaves from the water
+      r.presentation = view.floater and SpriteSource.PRESENTATION_LEVITATES or SpriteSource.PRESENTATION_LAND
       local beat = math.floor(view.flapClock / Config.FLYERS.flapTicks) % 2
       view.pose = beat == 0 and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
     else

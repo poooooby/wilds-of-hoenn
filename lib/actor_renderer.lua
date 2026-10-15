@@ -246,7 +246,19 @@ end
 --- or nil if no art is installed for it (draw() then skips silently -- a
 --- missing sheet never crashes the field renderer).
 function ActorRenderer:imagePath()
-  return SpriteSource.pathFor(self.mod, self.dex, self.shiny, self.style, self.presentation)
+  -- asked several times a frame: resolved again only when what it depends on changed
+  -- (no garbage per draw); a miss is never kept, so art that shows up later is found
+  local c = self._pathFor
+  if c and c[1] == self.dex and c[2] == self.shiny and c[3] == self.style and c[4] == self.presentation
+      and c[5] == self.mod then
+    return c[6]
+  end
+  local path = SpriteSource.pathFor(self.mod, self.dex, self.shiny, self.style, self.presentation)
+  if path then
+    if not c then c = {} self._pathFor = c end
+    c[1], c[2], c[3], c[4], c[5], c[6] = self.dex, self.shiny, self.style, self.presentation, self.mod, path
+  end
+  return path
 end
 
 --- The current frame's pixel WIDTH for this renderer's resolved art, or

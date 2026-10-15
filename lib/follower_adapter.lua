@@ -527,7 +527,18 @@ function FollowerAdapter:tick()
     local sp = EnginePatch.leadPartySpecies()
     mon, role = sp and { species = sp } or nil, "follow"
   end
-  local target = dispOf(mon, role)
+  -- the same Pokemon as last tick (same table, personality, species, role): its record
+  -- again instead of a new one (and a shiny check) every tick
+  local last = self._lastTarget
+  local target
+  if last and last.mon == mon and last.role == role and mon and last.pid == mon.personality
+      and last.sp == mon.species then
+    target = last.target
+  else
+    target = dispOf(mon, role)
+    self._lastTarget = { mon = mon, role = role, pid = mon and mon.personality, sp = mon and mon.species,
+                         target = target }
+  end
   if not self.disp then
     self.disp = target
   elseif self.swap then
