@@ -43,7 +43,7 @@ EXCLUDED_DIRS = [
 # local build output (names change with every build, so these go stale harmlessly)
 BUILD_DIRS = ["dist"]  # every build goes to dist/ (scripts/build-mod.py default)
 # local notes, the developer guide and the README banner image
-EXCLUDED_FILES = ["CLAUDE.md", "DEVELOPMENT.md", "WoH.png"]
+EXCLUDED_FILES = ["CLAUDE.md", "DEVELOPMENT.md", "TODO.md", "WoH.png"]
 
 SKIP_DIR_NAMES = {"__pycache__", ".git", ".modkit", ".vscode"}
 

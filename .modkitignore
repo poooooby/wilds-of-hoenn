@@ -101,6 +101,7 @@ docs/MANUAL_TEST.md
 # local notes and the README banner image (not needed to run)
 CLAUDE.md
 DEVELOPMENT.md
+TODO.md
 WoH.png
 
 # local build output
@@ -150,3 +151,5 @@ dist/wilds-of-hoenn-v1.7.5-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.7.5-hgss.zip
 dist/wilds-of-hoenn-v1.8.0-beta.1-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.8.0-beta.1-hgss.zip
+dist/wilds-of-hoenn-v1.8.0-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.8.0-hgss.zip
