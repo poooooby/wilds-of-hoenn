@@ -1,6 +1,6 @@
--- Idle and Roam behaviours for visible wild Pokemon. No Chase/Hidden in v1
--- (see docs/ARCHITECTURE.md). Movement legality always goes through the
--- engine's own Collision.canEnter/isWater -- never reimplemented.
+-- Idle and Roam behaviours for visible wild Pokemon (startled ones flee or chase: lib/
+-- wild_reactions.lua, through Behavior.tryStep). Movement legality always goes through
+-- the engine's own Collision.canEnter/isWater -- never reimplemented.
 local V = ...
 local EnginePatch = V.require("engine_patch")
 
@@ -83,21 +83,35 @@ function Behavior.tick(entity, game, rng)
     return
   end
 
-  local dir = DIRS[math.floor(rng() * 4) + 1]
+  Behavior.tryStep(entity, game, DIRS[math.floor(rng() * 4) + 1], STEP_FRAMES)
+end
+
+--- Turns `entity` toward `dir` and starts a one-tile step there taking `frames` ticks
+--- (16 = walking pace, fewer = faster), when its own legality allows it. True when the
+--- step began. Shared by Roam and the startled flee / chase (lib/wild_reactions.lua).
+function Behavior.tryStep(entity, game, dir, frames)
   local d = DELTA[dir]
+  if not d then return false end
   local tx, ty = entity.cellX + d[1], entity.cellY + d[2]
   entity.facing = dir
-  if not canStep(entity, game, tx, ty) then return end
+  if not canStep(entity, game, tx, ty) then return false end
   entity.fromX, entity.fromY = entity.cellX, entity.cellY
   entity.targetX, entity.targetY = tx, ty
   entity.progress = 0
-  entity.stepFrames = STEP_FRAMES
+  entity.stepFrames = frames or STEP_FRAMES
   entity.moving = true
+  -- PMDCollab plays its walk cycle faster on a quicker step (1 at walking pace)
+  if entity.renderer and entity.renderer.isPmd then
+    entity.renderer.walkMul = STEP_FRAMES / entity.stepFrames
+  end
   -- Alternates walkA/walkB once per step (not per tick) -- see
   -- lib/spawn_manager.lua's collectActors, which reads this to pick the
   -- pose; the engine's own stepFlip draw() parameter is hardcoded false
   -- for non-player actors, so this is the only source of A/B alternation.
   entity.stepParity = not entity.stepParity
+  return true
 end
+Behavior.STEP_FRAMES = STEP_FRAMES
+Behavior.DELTA = DELTA
 
 return Behavior

@@ -37,7 +37,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   easier to hit when you battle them.
 - ✨ **Shiny chains** (with [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns)): win
   or catch the same species again and again and it turns up more, is likelier to be shiny and
-  has better stats. Shinies always show their colours on the overworld.
+  has better stats. Shinies always show their colours on the overworld, and twinkle now and
+  then with a little sparkle, your shiny partner too.
 
 ### Your Companion
 
@@ -66,6 +67,30 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
 - 🌊 **Water that feels like water:** Pokémon swim with a foam line on the water, leave ripples
   on ponds and puddles, and cast reflections like the player and NPCs do.
+- 🏃 **They notice you:** run or bike close by and wild Pokémon react. Ones weaker than your
+  lead Pokémon jump with a "!" and run off (small birds fly away), and sometimes vanish at the end
+  of their run, ducking down into the grass or slipping away into a cave's dark; stronger ones, if
+  you come right up to them, turn on you angrily and charge (in PMDCollab style, attacking as they
+  come), and if they catch you, the battle starts. Each one gives up at its own distance.
+  An even match isn't bothered, and walking past calmly disturbs nobody.
+- 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
+  softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on
+  roofs, trees and signposts (and fly off when you walk up); real sea birds (Wingull, Pelipper and
+  their kind) dive into the water for food; and wild Flying types swoop in
+  from off screen to land in the grass, or take off again, always curving around you.
+- 🐟 **Life in the water:** the area's small fish (Magikarp, Goldeen, Luvdisc and friends) leap
+  out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a
+  spray from their blowhole before sinking back under. Out at sea, keep an eye out for Finizen:
+  now and then one surfaces with a puff and porpoises along in a string of leaps, and once in a
+  long while a whole pod comes up to play, swimming round in a ring and taking turns to leap. Dive down and fish glide by under the sea
+  as dark shapes trailing bubbles, sometimes a little school of them; the wild Pokémon living
+  down there arrive the same way, swimming in as a shadow before taking shape.
+- 👻 **Local scenes:** a few special places have moments of their own. Ghosts fade in around
+  Lavender Town and wander a little, straight through walls, before fading away; tell the girl there you don't believe in ghosts and you
+  may find one standing right behind you. In Petalburg Woods, Burmy and Silcoon / Cascoon dangle
+  from the trees on silk threads, Slakoth naps on the treetops, and once in a while Vigoroth
+  bounds in to dance up there. Over Fortree City, a great Tropius sometimes rises out of the treetops and wanders
+  across them, the leaves rustling around it.
 - 🌾 **Small touches:** Pokémon sink into tall grass, your partner fades in as you step out of a
   door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art.
 - 📏 **True-to-life sizes** (with [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites)):
@@ -78,11 +103,15 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | Option | Choices | Default | What it does |
 |---|---|---|---|
 | **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon in areas with wild encounters. |
-| **Spawn Amount** | Low / Normal / High | Normal | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
-| **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
+| **Spawn Amount** | LOW / NORMAL / HIGH | NORMAL | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
+| **Flying Mons** | FULL / AMBIENT / OFF | FULL | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. Full adds big birds flying high overhead, softly out of focus; Ambient leaves those out. |
+| **Water Life** | ON / OFF | ON | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, Finizen porpoising out at sea (sometimes a whole pod at play), and fish swimming by under the sea when you dive, just for the scenery. |
+| **Local Scenes** | ON / OFF | ON | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
+| **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
+| **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
 | **Smooth Follow** | ON / OFF | ON | Your partner keeps its distance behind you either way. On: it glides round turns. Off: it snaps straight to its place, step for step like the original games. |
 | **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
-| **Silhouette** | OFF / Undiscovered / All | OFF | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
+| **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
 | **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs Gen 3 HD Sprites. |
 | **Portraits** | ON / OFF | ON | Your partner's portrait above its messages when you Pet, Play or Talk with it. (HGSS + PMDCollab build only.) |
 

@@ -68,7 +68,54 @@ GUTTER = 2
 ANIMS = ("walk", "idle")  # output names; SpriteCollab names are Walk / Idle
 # Used by the overworld fights (the Battler's blows and a struck Pokemon's flinch);
 # a species without one simply plays a rapid Idle instead, so they never fail a bake.
-OPTIONAL_ANIMS = ("attack", "hurt")  # SpriteCollab: Attack (else Strike) / Hurt
+OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop", "sleep", "dance", "rotate")
+# SpriteCollab: Attack (else Strike) / Hurt / Hover / Hop / Sleep / Dance / Rotate
+# Output name -> SpriteCollab animation name when they differ.
+SOURCE_ANIM = {"fly": "Hover"}
+# "fly" (a flying Pokemon in the sky, lib/sky_flyers.lua): a REAL Hover-Anim.png only (an
+# AnimData "Hover" that is a <CopyOf> another animation -- Zubat's Shoot, Applin's Charge --
+# is not flight art), unless the species is listed here (the flyer audit, national dex ->
+# the SpriteCollab animation it flies with). "Walk" bakes nothing: the runtime already flies
+# a species without a "fly" sheet with its Walk loop. Species the audit ruled out as flyers
+# altogether are Config.FLYERS.notBirds (lib/config.lua), not here.
+FLY_SOURCE = {
+    12: "Walk", 16: "FlapAround", 17: "FlapAround", 18: "FlapAround", 41: "Walk",
+    83: "Attack", 123: "Attack", 144: "Walk", 145: "Walk", 149: "Special0", 164: "Walk",
+    169: "Walk", 187: "Walk", 188: "Walk", 193: "Walk", 198: "Walk", 207: "Walk", 227: "Walk",
+    267: "Walk", 276: "FlapAround", 277: "FlapAround", 279: "Walk", 373: "Walk", 416: "Walk",
+    425: "Walk", 426: "Walk", 441: "Attack", 469: "Walk", 519: "FlapAround", 527: "Walk",
+    561: "Attack", 566: "Attack", 580: "FlapAround", 581: "FlapAround", 627: "FlapAround",
+    630: "Walk", 661: "FlapAround", 701: "Attack", 714: "Walk", 722: "Attack", 723: "Attack",
+    741: "Hop", 821: "FlapAround", 845: "Attack", 931: "Attack", 940: "Attack", 941: "Walk",
+}
+# FlapAround is not a loop in one direction: each row is a full turn, starting facing that
+# row's direction, two frames (wings in, wings out) per direction. Its first two frames are
+# that direction's wing beat; they are baked as the loop, each held FLAP_TICKS.
+FLAP_PICK = [0, 1]
+FLAP_TICKS = 6
+
+
+def fly_meta(dex: int, anims: dict) -> dict | None:
+    """The AnimData entry the "fly" sheet is baked from, or None (no fly sheet)."""
+    name = FLY_SOURCE.get(dex)
+    if name is None:
+        meta = anims.get("Hover")
+        return meta if meta and meta.get("source") == "Hover" else None
+    if name == "Walk":
+        return None
+    meta = anims.get(name)
+    if meta and name == "FlapAround":
+        meta = dict(meta, pick=FLAP_PICK, pickDurations=[FLAP_TICKS] * len(FLAP_PICK))
+    return meta
+# Animations never drawn swimming: no foam band is baked for them.
+NO_WATER_ANIMS = {"fly", "hop", "sleep", "dance", "rotate"}
+# "hop" is only baked for the small fish that leap out of the water (lib/water_life.lua,
+# Config.WATER_LIFE: the Water 2 egg group under 1 m, plus Feebas, minus Horsea / Octillery /
+# Inkay), not for every species (it is a tall sheet, and nothing else uses it).
+HOP_SPECIES = {118, 129, 170, 211, 223, 318, 339, 340, 349, 370, 456, 746, 779, 846, 978}
+# Only for the Local Scenes that use them (lib/local_scenes.lua, Petalburg Woods): Slakoth
+# asleep on a tree top, Vigoroth dancing on one, Silcoon / Cascoon spinning on a silk line.
+SCENE_SPECIES = {"sleep": {287}, "dance": {288}, "rotate": {266, 268}}
 ALL_ANIMS = ANIMS + OPTIONAL_ANIMS
 WALK_FROM_IDLE_MAX_TICKS = 10  # see the Idle-stands-in-for-Walk case in main()
 
@@ -189,23 +236,51 @@ def compose(sheet: Image.Image, fw: int, fh: int, cols: int, box) -> Image.Image
     return out
 
 
+def pick_columns(img: Image.Image | None, fw: int, picks: list[int]) -> Image.Image | None:
+    """Only the frame columns `picks` of a sheet, side by side (all rows kept)."""
+    if img is None:
+        return None
+    out = Image.new(img.mode, (fw * len(picks), img.height), (0, 0, 0, 0))
+    for i, c in enumerate(picks):
+        out.paste(img.crop((c * fw, 0, (c + 1) * fw, img.height)), (i * fw, 0))
+    return out
+
+
+def eight_rows(sheet, fh: int):
+    """A one-row sheet (an animation with no facing: Sleep) repeated for all 8 directions."""
+    if sheet is None or sheet.height != fh:
+        return sheet
+    out = Image.new(sheet.mode, (sheet.width, fh * 8), (0, 0, 0, 0))
+    for r in range(8):
+        out.paste(sheet, (0, r * fh))
+    return out
+
+
 def bake_anim(src_dir: Path, shiny_dir: Path | None, anim_name: str, meta: dict):
-    """-> (entry, normal_sheet, shiny_sheet|None) or None when unusable."""
+    """-> (entry, normal_sheet, shiny_sheet|None) or None when unusable. `meta["pick"]`
+    keeps only those frame columns (with `pickDurations`): FlapAround's wing beat."""
     source = meta["source"]
     fw, fh, durations = meta["fw"], meta["fh"], meta["durations"]
     cols = len(durations)
-    sheet = load_sheet(src_dir, source, "Anim")
+    sheet = eight_rows(load_sheet(src_dir, source, "Anim"), fh)
     if sheet is None or sheet.size != (fw * cols, fh * 8):
         return None
     shiny = None
     if shiny_dir is not None:
-        shiny = load_sheet(shiny_dir, source, "Anim")
+        shiny = eight_rows(load_sheet(shiny_dir, source, "Anim"), fh)
         if shiny is not None and shiny.size != sheet.size:
             shiny = None
+    shadow = eight_rows(load_sheet(src_dir, source, "Shadow"), fh)
+    picks = meta.get("pick")
+    if picks:
+        sheet, shiny = pick_columns(sheet, fw, picks), pick_columns(shiny, fw, picks)
+        shadow = pick_columns(shadow, fw, picks) if shadow is not None and shadow.width >= fw * cols else None
+        durations = list(meta["pickDurations"])
+        cols = len(durations)
     box = union_bounds([s for s in (sheet, shiny) if s is not None], fw, fh, cols)
     if box is None:
         return None
-    ax, ay = ground_point(load_sheet(src_dir, source, "Shadow"), fw, fh, cols)
+    ax, ay = ground_point(shadow, fw, fh, cols)
     cw, ch = (box[2] - box[0]) + 2 * GUTTER, (box[3] - box[1]) + 2 * GUTTER
     entry = {
         "cw": cw, "ch": ch, "cols": cols, "durations": durations,
@@ -346,37 +421,106 @@ def pixels(img: Image.Image):
     return getattr(img, "get_flattened_data", img.getdata)()
 
 
-def shiny_palette(normal: Image.Image, shiny: Image.Image) -> dict:
-    """normal colour -> shiny colour, read pixel by pixel from two sheets of the same
-    layout (a species' Walk); each colour takes the shiny colour it most often becomes."""
+
+# Shiny from HGSS. SpriteCollab has no shiny art at all for a few dozen species (mostly
+# Gen 5+, Alcremie's flavours, Ogerpon's masks). Their HGSS sheets have one, and the HGSS
+# normal and shiny sheets are pixel-aligned, so they give the exact normal -> shiny colour
+# pairs. Each PMD colour is matched to its nearest HGSS normal colour (CIE Lab) and shifted
+# the way that colour shifts to its shiny (in Lab), so the PMD art keeps its own shading;
+# colours the HGSS shiny leaves alone (outline, eyes) stay. Index entries get
+# `shinyFromHgss`.
+def _srgb_to_lab(c):
+    def lin(v):
+        v /= 255
+        return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (lin(v) for v in c[:3])
+    x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+    f = lambda t: t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+    fx, fy, fz = f(x), f(y), f(z)
+    return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
+
+
+def _lab_to_srgb(lab):
+    L, a, b = lab
+    fy = (L + 16) / 116
+    fx, fz = fy + a / 500, fy - b / 200
+    inv = lambda t: t ** 3 if t ** 3 > 0.008856 else (t - 16 / 116) / 7.787
+    x, y, z = inv(fx) * 0.95047, inv(fy), inv(fz) * 1.08883
+    rgb = (3.2406 * x - 1.5372 * y - 0.4986 * z, -0.9689 * x + 1.8758 * y + 0.0415 * z,
+           0.0557 * x - 0.2040 * y + 1.0570 * z)
+    def enc(v):
+        v = max(0.0, min(1.0, v))
+        v = 12.92 * v if v <= 0.0031308 else 1.055 * v ** (1 / 2.4) - 0.055
+        return int(round(v * 255))
+    return tuple(enc(v) for v in rgb)
+
+
+def hgss_shiny_recolorer(dex: int, key: str):
+    """A function sheet -> shiny sheet built from the species' HGSS normal / shiny colour
+    pairs (its form's sheets, else its base species'), or None without both HGSS sheets."""
+    for name in (key, f"{dex:03d}"):
+        n_path, s_path = HGSS_DIR / f"{name}-normal.png", HGSS_DIR / f"{name}-shiny.png"
+        if n_path.is_file() and s_path.is_file():
+            break
+    else:
+        return None
+    return shift_recolorer(Image.open(n_path).convert("RGBA"), Image.open(s_path).convert("RGBA"))
+
+
+def walk_recolorer(walk_pair, entry: dict):
+    """The species' own shiny Walk as a recolour reference, or None (no SpriteCollab shiny
+    Walk, a Walk shiny made from HGSS, or one not lining up with the normal Walk)."""
+    if walk_pair[1] is None or entry.get("walk", {}).get("shinyFromHgss"):
+        return None
+    return shift_recolorer(*walk_pair, same_outline=True)
+
+
+ALIGN_TOLERANCE = 0.03  # share of a sheet's opaque pixels whose outline may differ
+
+
+def shift_recolorer(n_img: Image.Image, s_img: Image.Image, same_outline: bool = False):
+    """A function sheet -> shiny sheet from two pixel-aligned sheets (normal, shiny): each
+    colour is SHIFTED (in Lab) the way its nearest reference colour shifts, so several
+    shades never collapse into one (a plain swap to the nearest colour flattened faces and
+    detail: Archen's, Marshadow's). A colour the reference has maps exactly. Used with the
+    HGSS sheets, and with a species' own shiny Walk for an animation SpriteCollab has no
+    shiny of. None when the sheets do not line up: the same size is not enough -- a few
+    SpriteCollab shiny Walks are drawn in another pose (Marshadow, Archen), and colour pairs
+    read from them are garbage -- so with `same_outline` (a SpriteCollab Walk pair) the
+    two sheets' outlines must match too. Not for HGSS: its shiny sheets carry sparkles."""
+    if n_img.size != s_img.size:
+        return None
+    na, sa = n_img.getchannel("A").tobytes(), s_img.getchannel("A").tobytes()
+    opaque = sum(1 for a in na if a) or 1
+    if same_outline and sum(1 for a, b in zip(na, sa) if (a > 0) != (b > 0)) > opaque * ALIGN_TOLERANCE:
+        return None
     votes: dict = {}
-    for a, b in zip(pixels(normal), pixels(shiny)):
+    for a, b in zip(pixels(n_img), pixels(s_img)):
         if a[3] and b[3]:
-            votes.setdefault(a, {}).setdefault(b, 0)
-            votes[a][b] += 1
-    return {a: max(bs, key=bs.get) for a, bs in votes.items()}
-
-
-def recolor(sheet: Image.Image, palette: dict) -> Image.Image:
-    """`sheet` in shiny colours: a colour the palette knows is swapped, any other one is
-    shifted like the nearest colour it knows (an attack's own highlight shades)."""
-    known = list(palette)
+            votes.setdefault(a[:3], {}).setdefault(b[:3], 0)
+            votes[a[:3]][b[:3]] += 1
+    if not votes:
+        return None
+    pairs = [(_srgb_to_lab(n), _srgb_to_lab(max(bs, key=bs.get)), n == max(bs, key=bs.get))
+             for n, bs in votes.items()]
     cache: dict = {}
 
-    def swap(c):
-        if not c[3]:
-            return c
-        if c in palette:
-            return palette[c]
+    def shift(c):
         if c not in cache:
-            near = min(known, key=lambda k: sum((k[i] - c[i]) ** 2 for i in range(3)))
-            to = palette[near]
-            cache[c] = tuple(max(0, min(255, c[i] + to[i] - near[i])) for i in range(3)) + (c[3],)
+            lab = _srgb_to_lab(c)
+            nl, sl, same = min(pairs, key=lambda t: sum((t[0][i] - lab[i]) ** 2 for i in range(3)))
+            cache[c] = c if same else _lab_to_srgb(tuple(lab[i] + sl[i] - nl[i] for i in range(3)))
         return cache[c]
 
-    out = Image.new("RGBA", sheet.size)
-    out.putdata([swap(c) for c in pixels(sheet)])
-    return out
+    def apply(sheet: Image.Image) -> Image.Image:
+        out = sheet.copy()
+        out.putdata([(p if not p[3] else shift(p[:3]) + (p[3],)) for p in pixels(sheet)])
+        return out
+
+    return apply
+
 
 
 def bowl_rows(sheet: Image.Image, entry: dict, w: int) -> int:
@@ -614,7 +758,8 @@ def main() -> int:
 
     for anim in ALL_ANIMS:
         (out / anim).mkdir(parents=True, exist_ok=True)
-        (out / f"foam{anim}").mkdir(parents=True, exist_ok=True)
+        if anim not in NO_WATER_ANIMS:
+            (out / f"foam{anim}").mkdir(parents=True, exist_ok=True)
     index_path = out / "index.json"
     index = {"version": INDEX_VERSION, "directions": [n for n, _ in DIRECTIONS], "gutter": GUTTER, "dex": {}}
     if index_path.is_file() and wanted is not None:
@@ -639,6 +784,14 @@ def main() -> int:
             stats["unusable"] += 1
             continue
         shiny_dir = shiny_dir if shiny_dir.is_dir() else None
+        # no shiny art upstream for an animation (none at all, or an empty shiny folder):
+        # made from the species' HGSS shiny colours -- built on first use
+        hgss_cache: list = []
+
+        def hgss_shiny():
+            if not hgss_cache:
+                hgss_cache.append(hgss_shiny_recolorer(dex, key))
+            return hgss_cache[0]
 
         entry: dict = {}
         walk_pair = (None, None)
@@ -664,24 +817,41 @@ def main() -> int:
             info, normal, shiny = result
             info["foot"] = foot_of(normal, info)
             info["top"] = top_of(normal, info)
+            walk_shift = walk_recolorer(walk_pair, entry) if shiny is None and anim != "walk" else None
+            if walk_shift is not None:
+                # an Idle with no shiny upstream, but SpriteCollab's own shiny Walk: its colours
+                shiny = walk_shift(normal)
+                info["shinyRecolored"] = True
+            elif shiny is None and hgss_shiny() is not None:
+                shiny = hgss_shiny()(normal)
+                info["shinyFromHgss"] = True
             bake_water(out, anim, dex, key, normal, shiny, info, args.water_keep, args.force)
             entry[anim] = dict(info, shiny=shiny is not None)
             if anim == "walk":
                 entry["scale"] = true_size_scale(dex, key, normal, info)
                 walk_pair = (normal, shiny)
             normal_path = out / anim / f"{key}-normal.png"
+            shiny_path = out / anim / f"{key}-shiny.png"
             if args.force or not normal_path.exists():
                 normal.save(normal_path, "PNG", optimize=True)
-                if shiny is not None:
-                    shiny.save(out / anim / f"{key}-shiny.png", "PNG", optimize=True)
             else:
                 stats["skipped_existing"] += 1
+            if shiny is not None and (args.force or not shiny_path.exists()):
+                shiny.save(shiny_path, "PNG", optimize=True)
         if ok:
             for anim in OPTIONAL_ANIMS:
-                meta = anims.get(anim.capitalize())
+                source = SOURCE_ANIM.get(anim, anim.capitalize())
+                if anim == "fly":
+                    meta = fly_meta(dex, anims)
+                elif anim == "hop":
+                    meta = anims.get("Hop") if dex in HOP_SPECIES else None
+                elif anim in SCENE_SPECIES:
+                    meta = anims.get(source) if dex in SCENE_SPECIES[anim] else None
+                else:
+                    meta = anims.get(source)
                 if meta is None and anim == "attack":
                     meta = anims.get("Strike")
-                result = bake_anim(folder, shiny_dir, anim.capitalize(), meta) if meta else None
+                result = bake_anim(folder, shiny_dir, source, meta) if meta else None
                 normal_path = out / anim / f"{key}-normal.png"
                 if result is None:
                     normal_path.unlink(missing_ok=True)
@@ -692,11 +862,18 @@ def main() -> int:
                 info, normal, shiny = result
                 info["foot"] = foot_of(normal, info)
                 info["top"] = top_of(normal, info)
-                if shiny is None and walk_pair[1] is not None:
-                    # no shiny fight art upstream, but a shiny Walk: recolour with its palette
-                    shiny = recolor(normal, shiny_palette(*walk_pair))
+                walk_shift = walk_recolorer(walk_pair, entry) if shiny is None else None
+                if walk_shift is not None:
+                    # no shiny art for this animation upstream, but SpriteCollab's own shiny
+                    # Walk (lining up with the normal one): its colour pairs
+                    shiny = walk_shift(normal)
                     info["shinyRecolored"] = True
-                bake_water(out, anim, dex, key, normal, shiny, info, args.water_keep, args.force)
+                elif shiny is None and hgss_shiny() is not None:
+                    # no shiny art upstream at all: the HGSS sheets' colours
+                    shiny = hgss_shiny()(normal)
+                    info["shinyFromHgss"] = True
+                if anim not in NO_WATER_ANIMS:
+                    bake_water(out, anim, dex, key, normal, shiny, info, args.water_keep, args.force)
                 entry[anim] = dict(info, shiny=shiny is not None)
                 shiny_path = out / anim / f"{key}-shiny.png"
                 if shiny is None:

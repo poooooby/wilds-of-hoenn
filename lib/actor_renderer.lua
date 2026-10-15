@@ -201,19 +201,21 @@ end
 
 ActorRenderer.loadImage = loadImage -- shared with lib/pmd_renderer.lua
 
-local function quadFor(path, image, frameIndex, frameCount)
+-- `rows` (optional): only the frame's top `rows` rows
+local function quadFor(path, image, frameIndex, frameCount, rows)
   local perPath = quadCache[path]
   if not perPath then
     perPath = {}
     quadCache[path] = perPath
   end
-  local q = perPath[frameIndex]
+  local key = rows and (frameIndex + 1) * 4096 + rows or frameIndex
+  local q = perPath[key]
   if q then return q end
   if not (love and love.graphics and love.graphics.newQuad) then return nil end
   local iw, ih = image:getDimensions()
   local frameH = ih / frameCount
-  q = love.graphics.newQuad(0, frameIndex * frameH, iw, frameH, iw, ih)
-  perPath[frameIndex] = q
+  q = love.graphics.newQuad(0, frameIndex * frameH, iw, rows and math.min(rows, frameH) or frameH, iw, ih)
+  perPath[key] = q
   return q
 end
 
@@ -471,6 +473,22 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   local drawX, drawY, flipX = ActorRenderer.drawOffset(facing, frameW, frameH)
   drawY = drawY + ActorRenderer.feetPadFor(self.mod, path, self.frameCount or 18) -- the art's feet on the ground
   drawY = drawY + ActorRenderer.swimDropFor(path) -- sits lower in the water
+  -- only the top of it showing, cut off at its feet' line (a Tropius's head above the
+  -- trees, lib/local_scenes.lua): `act.reveal` = how much of the art, top down
+  local reveal = act and tonumber(act.reveal)
+  if reveal then
+    if reveal <= 0 then return end
+    local pad = SpriteSource.bottomPadFor(path) or 0
+    local top = ActorRenderer.artTopOf(self.mod, path, self.frameCount or 18) or 0
+    local feet = frameH - pad
+    local rows = math.max(1, math.min(feet, math.floor(top + math.min(1, reveal) * (feet - top) + 0.5)))
+    local cut = quadFor(path, image, frameIndex, self.frameCount, rows)
+    if cut then
+      quad = cut
+      drawY = drawY + (feet - rows) -- the cut edge where its feet were
+      frameH = rows
+    end
+  end
   -- A follower's offset is eased tick-by-tick by lib/follower_adapter.lua
   -- (pushX/pushY) so a turn glides instead of snapping; anything that never
   -- sets those falls back to the instantaneous per-facing value.
@@ -496,6 +514,9 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
     end
     tint = 0.55 + 0.45 * mul
   end
+  -- a flying Pokemon high up is drawn bigger (lib/sky_draw.lua), grown about its feet
+  local grow = act and tonumber(act.scale)
+  if grow and grow > 0 then mul = mul * grow end
   local sink = act and tonumber(act.sink) or 0
   -- ...and squashed toward its feet, a little wider
   local duck = tonumber(self.duck) or 0
@@ -511,10 +532,13 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   -- fading in (a follower walking out of a doorway, lib/follower_adapter.lua)
   local alpha = ActorRenderer.alphaOf(self)
   if alpha <= 0 then return end
+  local shade = self.shade -- a colour it is drawn through (a ghost's dusk tint, lib/local_scenes.lua)
   if self.silhouette then
     -- Multiply-tint to black, keeping the sheet's own alpha -- no pixel
     -- remap needed: Gen 3's world already draws true-color, unshaded.
     love.graphics.setColor(0, 0, 0, alpha)
+  elseif shade then
+    love.graphics.setColor(shade[1], shade[2], shade[3], alpha)
   elseif tint then
     love.graphics.setColor(1, tint, tint, alpha)
   elseif alpha < 1 then
@@ -529,7 +553,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
     love.graphics.draw(image, quad, boxLeft + frameW / 2, boxTop + frameH, 0,
       flipX * mul * wide, mul * (1 - sink), frameW / 2, frameH)
   end
-  if self.silhouette or tint or alpha < 1 then
+  if self.silhouette or shade or tint or alpha < 1 then
     love.graphics.setColor(1, 1, 1, 1)
   end
 end

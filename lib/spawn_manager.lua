@@ -16,6 +16,10 @@ local GrassCover = V.require("grass_cover")
 local ModernSpawns = V.require("modern_spawns_bridge")
 local SweetScentHearts = V.require("sweet_scent_hearts")
 local SpawnFx = V.require("spawn_fx")
+local SkyFlyers = V.require("sky_flyers")
+local WildReactions = V.require("wild_reactions")
+local WildEmote = V.require("wild_emote")
+local ShinySparkle = V.require("shiny_sparkle")
 
 local SpawnManager = {}
 SpawnManager.__index = SpawnManager
@@ -32,7 +36,27 @@ function SpawnManager.new(mod)
   }, SpawnManager)
 end
 
+-- Is `e` coming or going by air (lib/sky_flyers.lua, mode "swoop") or swimming under the
+-- sea (lib/water_life.lua, mode "swim")? Either way it is not on its tile yet / any more.
+local function travelling(e)
+  return e.fx ~= nil and (e.fx.mode == "swoop" or e.fx.mode == "swim")
+end
+SpawnManager._travelling = travelling
+
+-- the module that moves a travelling entity: the sky for a swoop, Water Life for a swim
+function SpawnManager:_traveller(fx)
+  if fx and fx.mode == "swim" then return self.water end
+  return self.sky
+end
+
 function SpawnManager:clearAll()
+  -- a flight / swim cut short gives back its perch and canvas
+  for _, e in pairs(self.entities) do
+    if travelling(e) then
+      local h = self:_traveller(e.fx)
+      if h then h:endFlight(e.fx) end
+    end
+  end
   self.entities = {}
   self.order = {}
   self.filled = false -- the map's first fill is instant; spawns after it arrive (lib/spawn_fx.lua)
@@ -124,6 +148,8 @@ function SpawnManager:onMapEntered(mapId, game)
   self:clearAll()
   self.mapId = mapId
   self.game = game
+  -- a Dive map: its wild Pokemon are drawn whole (not cut at a surface they are far below)
+  self.underwater = EnginePatch.mapType ~= nil and EnginePatch.mapType() == 5
   self.reach, self.reachCount, self.reachAge = nil, nil, 0
   if not Config.enabled(self.mod) then return end
   self.source:loadMap(mapId)
@@ -159,7 +185,8 @@ function SpawnManager:trimToAmount()
     local want = targetCount(self.source:eligibleCount(terrain), row)
     local list = {}
     for id, e in pairs(self.entities) do
-      if e.terrain == terrain and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.lured then
+      if e.terrain == terrain and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.lured
+        and not e.react then
         local d = p and math.max(math.abs(e.cellX - p.x), math.abs(e.cellY - p.y)) or 0
         list[#list + 1] = { id = id, d = d }
       end
@@ -300,7 +327,8 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
   local id = self.nextId
   self.nextId = id + 1
 
-  local presentation = (terrain == "water") and SpriteSource.DEFAULT_WATER_PRESENTATION or SpriteSource.PRESENTATION_LAND
+  local presentation = (terrain == "water" and not self.underwater) and SpriteSource.DEFAULT_WATER_PRESENTATION
+    or SpriteSource.PRESENTATION_LAND
   local renderer = RendererFactory.new(self.mod, dex, enc.shiny, Config.spriteStyle(self.mod), presentation)
   -- PMDCollab: start each Pokemon at its own point in the Idle loop so a
   -- group of them doesn't breathe in unison.
@@ -326,10 +354,29 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
     flapClock = math.random(0, 4 * Config.IDLE_FLAP_TICKS),
     renderer = renderer,
     state = Config.STATE.AVAILABLE,
+    -- a Flying type may come and go by air (lib/sky_flyers.lua), and after a while on
+    -- the ground it takes off by itself (groundStay ticks)
+    isFlyer = SkyFlyers.flies(enc.species),
+    groundAge = 0,
   }
+  local e = self.entities[id]
+  if e.isFlyer then
+    local stay = Config.FLYERS.land.groundStay
+    e.groundStay = math.random(stay[1], stay[2])
+  end
   self.order[#self.order + 1] = id
-  -- after the map's first fill, a new Pokemon rises out of the grass / surfaces / fades in
-  if self.filled then self:_startFx(self.entities[id], "appear") end
+  -- after the map's first fill, a new Pokemon rises out of the grass / surfaces / fades
+  -- in -- or, a Flying type with the sky open, swoops down onto its cell
+  if self.filled then
+    if self.sky and self.sky:canFly(e) and self.sky:clearOfPlayer(e.cellX, e.cellY) then
+      e.fx = self.sky:planArrival(e)
+    elseif self.underwater and self.water and self.water:canSwim(e) then
+      -- under the sea a fish swims in as a shadow and takes shape (lib/water_life.lua)
+      e.fx = self.water:planArrival(e)
+    else
+      self:_startFx(e, "appear")
+    end
+  end
   return true
 end
 
@@ -412,9 +459,73 @@ end
 
 --- Advances every live entity one tick (engine_patch's `followerTick` hook,
 --- piggybacked on Follower.update so this mod needs no extra tick seam).
+--- What lib/wild_reactions.lua needs this tick (the player, the lead's strength, ways to
+--- take off / start a battle / tell an occupied cell), or nil when nobody may react now:
+--- the option off, the field busy (a cutscene, a trainer, a message), a battle, Safari.
+function SpawnManager:_reactContext()
+  if not Config.wildReacts(self.mod) then return nil end
+  if EnginePatch.fieldBusy and EnginePatch.fieldBusy() then return nil end
+  if EnginePatch.battleActive and EnginePatch.battleActive() then return nil end
+  if EnginePatch.safariActive and EnginePatch.safariActive() then return nil end
+  local lead = EnginePatch.leadPartyMon and EnginePatch.leadPartyMon()
+  local bst = EnginePatch.baseStatTotal
+  local ctx = self._reactCtx or {}
+  self._reactCtx = ctx
+  ctx.now, ctx.game, ctx.rng = self.ticks, self.game, math.random
+  ctx.player = EnginePatch.playerCell and EnginePatch.playerCell()
+  ctx.lead = lead and { level = tonumber(lead.level), bst = bst and bst(tonumber(lead.species or lead.speciesId)) } or nil
+  ctx.bst = bst
+  ctx.canFly = ctx.canFly or function(e)
+    return self.sky ~= nil and self.sky:canFly(e)
+  end
+  ctx.occupied = ctx.occupied or function(x, y, me)
+    for _, o in pairs(self.entities) do
+      if o ~= me and o.state ~= Config.STATE.DESPAWNED
+        and ((o.cellX == x and o.cellY == y) or (o.moving and o.targetX == x and o.targetY == y)) then
+        return true
+      end
+    end
+    return false
+  end
+  ctx.takeoff = ctx.takeoff or function(e) self:despawn(e.id, { animate = true, fly = true }) end
+  ctx.fleeVanish = ctx.fleeVanish or function(e) self:fleeVanish(e) end
+  ctx.onContact = ctx.onContact or function(e) if self.onContact then self.onContact(e) end end
+  return ctx
+end
+
+--- A fled Pokemon at the end of its run, chosen to disappear (Config.REACT.flee
+--- vanishChance): in grass it shrinks into it with a rustle, in a cave it fades out (the
+--- leaving fx of its tile, lib/spawn_fx.lua). Anywhere else -- a path, the water -- or a
+--- bird, it stays. Returns true when it went.
+function SpawnManager:fleeVanish(e)
+  if not e or e.isFlyer or e.state ~= Config.STATE.AVAILABLE or e.terrain == "water" then return false end
+  local grass = EnginePatch.isGrass and EnginePatch.isGrass(e.cellX, e.cellY)
+  local cave = EnginePatch.mapType and EnginePatch.mapType() == 4
+  if not (grass or cave) then return false end
+  self:despawn(e.id, { animate = true })
+  return true
+end
+
+--- The option was switched off: everyone reacting calms down at once.
+function SpawnManager:calmReactions()
+  for _, e in pairs(self.entities) do
+    if e.react then WildReactions.finish(e, self.ticks, 0) end
+  end
+end
+
 function SpawnManager:tick(game)
   self.game = game or self.game
+  self.ticks = (self.ticks or 0) + 1
   self:_checkReach()
+  -- a player running / biking close by startles them (lib/wild_reactions.lua)
+  local reactCtx = self:_reactContext()
+  if reactCtx then
+    local list = self._reactList or {}
+    self._reactList = list
+    for i = #list, 1, -1 do list[i] = nil end
+    for _, id in ipairs(self.order) do list[#list + 1] = self.entities[id] end
+    WildReactions.scan(list, reactCtx)
+  end
   local gone
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
@@ -422,9 +533,24 @@ function SpawnManager:tick(game)
       e.rings.age = e.rings.age + 1
       if e.rings.age >= SpawnFx.ringsTicks() then e.rings = nil end
     end
+    if e and e.rustle then -- a landing / take-off's rustle, on its own clock too
+      e.rustle.age = e.rustle.age + 1
+      if not SpawnFx.rustleFrame(e.rustle.frames, e.rustle.age) then e.rustle = nil end
+    end
     -- an `engaged` Pokemon is in a skirmish with the player's Battler
     -- (lib/overworld_battle.lua): it stands its ground and that module animates it
-    if e and e.fx then
+    if e and travelling(e) then
+      -- arriving / leaving by air (lib/sky_flyers.lua) or swimming (lib/water_life.lua)
+      if e.moving then Behavior._advanceMove(e) end
+      local h = self:_traveller(e.fx)
+      local done = not h or h:stepFlight(e.fx)
+      if done and e.fx.kind == "leave" then
+        gone = gone or {}
+        gone[#gone + 1] = id
+      elseif done then
+        self:_touchDown(e)
+      end
+    elseif e and e.fx then
       -- arriving / leaving (lib/spawn_fx.lua): it finishes a step it was on, nothing else
       if e.moving then Behavior._advanceMove(e) end
       if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
@@ -447,17 +573,53 @@ function SpawnManager:tick(game)
         lure.ticks, lure.age = lure.ticks - 1, lure.age + 1
         if e.moving then Behavior._advanceMove(e) end
         if lure.ticks <= 0 then e.lured = nil end
+      elseif e.react then
+        -- startled / angry: fleeing, chasing, looking (lib/wild_reactions.lua); reacting
+        -- carries on through a busy field only as far as finishing a step
+        if reactCtx then
+          WildReactions.tick(e, reactCtx)
+        elseif e.moving then
+          Behavior._advanceMove(e)
+        else
+          WildReactions.finish(e, self.ticks, Config.REACT.cooldown)
+        end
       else
         Behavior.tick(e, self.game)
       end
-      if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
+      local r = e.renderer
+      if r and r.isPmd and ((e.react and e.react.mode == "chase") or e.charging) then
+        -- an angry one charges at the player with its Attack animation (Walk without one),
+        -- on until its battle opens; giving up it walks home again
+        r:advanceAs("attack", 1, "walk")
+        if e.charging and not (e.react and e.react.mode == "chase") then
+          -- (held while its battle is starting; counted down while it is still out there)
+          if e.state == Config.STATE.AVAILABLE then
+            e.charging = e.charging > 1 and e.charging - 1 or nil
+          end
+        end
+      elseif r and r.advance then
+        e.charging = nil
+        r:advance(e.moving)
+      end
+      -- a Flying type that has been on the ground a while takes off (a fresh spawn,
+      -- maybe another one swooping in, takes its place)
+      if e.groundStay and not lure and not e.react then
+        e.groundAge = e.groundAge + 1
+        if e.groundAge >= e.groundStay and not e.moving and self.sky and self.sky:canFly(e)
+          and self.sky:clearOfPlayer(e.cellX, e.cellY) then
+          gone = gone or {}
+          gone[#gone + 1] = { takeoff = id }
+        end
+      end
     elseif e and e.engaged and e.moving then
       -- caught mid-step: it finishes the step (the Battler planned for the cell it
       -- lands on), then stands its ground
       Behavior._advanceMove(e)
     end
   end
-  for _, id in ipairs(gone or {}) do self:despawn(id) end
+  for _, id in ipairs(gone or {}) do
+    if type(id) == "table" then self:despawn(id.takeoff, { animate = true }) else self:despawn(id) end
+  end
   self:refill("land")
   self:refill("water")
 end
@@ -494,7 +656,8 @@ function SpawnManager:reflections(list, camX, camY)
   if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    local r = e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) and e.renderer
+    local r = e and e.state ~= Config.STATE.DESPAWNED and not travelling(e)
+      and inView(e, camX, camY, vw, vh) and e.renderer
     if r and r.reflectionGeometry then
       local geo = r:reflectionGeometry(e.px, e.py, e.facing, poseOf(e))
       if geo then
@@ -514,7 +677,20 @@ function SpawnManager:collectActors(actors, camX, camY)
   if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    if e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) then
+    if e and travelling(e) then
+      -- in the air / under the water: drawn by lib/sky_draw.lua (sized and blurred by depth)
+      local h = self:_traveller(e.fx)
+      if h then h:pushFlight(e.fx, actors, camX, camY) end
+      if e.rings then
+        local a = SpawnFx.ringsActor(e.rings.age, e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
+        if a then actors[#actors + 1] = a end
+      end
+      if e.rustle then
+        local a = SpawnFx.rustleActor(e.rustle.sheet, e.rustle.frames, e.rustle.age,
+          e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
+        if a then actors[#actors + 1] = a end
+      end
+    elseif e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) then
       local pose = poseOf(e)
       actors[#actors + 1] = {
         kind = "wild_mon", i = id,
@@ -535,6 +711,26 @@ function SpawnManager:collectActors(actors, camX, camY)
           e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end
       end
+      if e.rustle then
+        local a = SpawnFx.rustleActor(e.rustle.sheet, e.rustle.frames, e.rustle.age,
+          e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
+        if a then actors[#actors + 1] = a end
+      end
+      if e.react and e.react.emote then
+        local r = e.renderer
+        local lift = r and r.headLift and r:headLift()
+          or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
+        actors[#actors + 1] = WildEmote.actor(e.react.emote, e.react.emoteAge or 0, e.px, e.py,
+          math.max(10, math.min(96, (lift or 20) + 4)), e.elevation, id)
+      end
+      -- a shiny one twinkles now and then (not as a silhouette, nor while it arrives / leaves)
+      if e.shiny and not e.fx and e.renderer and not e.renderer.silhouette then
+        local r = e.renderer
+        local lift = (r.headLift and r:headLift()) or 20
+        local a = ShinySparkle.actor(self.ticks or 0, id, e.px + 8, e.py + 16 - lift, lift * 0.85,
+          ShinySparkle.bodyWidth(r) * 0.5 * 0.8, e.py + 1, e.elevation)
+        if a then actors[#actors + 1] = a end
+      end
       if e.lured then
         -- just above the highest point its art reaches in any frame (headLift), so the
         -- idle / walk animation never covers the hearts, plus a 4 px gap
@@ -553,7 +749,9 @@ end
 function SpawnManager:entityAt(tx, ty)
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
-    if e and e.state == Config.STATE.AVAILABLE and e.cellX == tx and e.cellY == ty then
+    -- one still in the air (arriving by sky) is not there yet
+    if e and e.state == Config.STATE.AVAILABLE and e.cellX == tx and e.cellY == ty
+      and not travelling(e) then
       return e
     end
   end
@@ -577,7 +775,9 @@ function SpawnManager:fightTargets()
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     -- never the roaming legendary: it is met only in a real battle, which keeps its saved state
-    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer and not e.fx then
+    -- nor one fleeing / chasing / looking at the player (lib/wild_reactions.lua)
+    if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer and not e.fx
+      and not e.react then
       out[#out + 1] = e
     end
   end
@@ -596,6 +796,7 @@ end
 
 --- How a Pokemon on this tile arrives / leaves: "water", "grass" or "fade".
 function SpawnManager:_fxMode(e)
+  if self.underwater then return "fade" end -- no surface to break, no grass, under the sea
   if e.terrain == "water" or (EnginePatch.isWater and EnginePatch.isWater(e.cellX, e.cellY)) then return "water" end
   if EnginePatch.isGrass and EnginePatch.isGrass(e.cellX, e.cellY) then return "grass" end
   return "fade"
@@ -632,6 +833,37 @@ function SpawnManager:_applyFx(e)
   r.alpha = v.alpha
 end
 
+--- The splash / rustle where a Flying type touches down or lifts off: water ripples (and
+--- the rings), grass rustles once.
+function SpawnManager:_liftEffects(e)
+  local mode = self:_fxMode(e)
+  if mode == "water" then
+    if EnginePatch.startRipple then EnginePatch.startRipple(e.cellX, e.cellY) end
+    e.rings = { age = 0 }
+  elseif mode == "grass" and EnginePatch.grassRustle then
+    local sheet, frames = EnginePatch.grassRustle(e.cellX, e.cellY)
+    if sheet then e.rustle = { sheet = sheet, frames = frames, age = 0 } end
+  end
+end
+
+--- A Flying type arriving by air has landed on its cell: its ground look back, a
+--- splash or a rustle, and from now on it is met and fought like any other. Should the
+--- player have walked onto its cell meanwhile, it takes straight off again.
+function SpawnManager:_touchDown(e)
+  local fx = e.fx
+  e.fx = nil
+  local h = fx and self:_traveller(fx)
+  if fx and fx.view then
+    if h and h.restore then h.restore(fx.view) else SkyFlyers.restore(fx.view) end
+  end
+  e.groundAge = 0
+  self:_liftEffects(e)
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p and ((p.x == e.cellX and p.y == e.cellY) or (p.moving and p.targetX == e.cellX and p.targetY == e.cellY)) then
+    self:despawn(e.id, { animate = true })
+  end
+end
+
 --- Removes a wild Pokemon. `opts.animate`: it sinks back into the grass / water or fades
 --- out first (state LEAVING: drawn, but no longer met, counted or fought), then goes.
 --- Without it -- after a battle, on a map change -- it is gone at once.
@@ -639,10 +871,34 @@ function SpawnManager:despawn(id, opts)
   local e = self.entities[id]
   if not e then return end
   if opts and opts.animate and e.state == Config.STATE.AVAILABLE then
+    if travelling(e) then
+      -- still arriving: it turns round and leaves
+      local h = self:_traveller(e.fx)
+      if h then h:endFlight(e.fx) end
+      if e.fx.view then
+        if h and h.restore then h.restore(e.fx.view) else SkyFlyers.restore(e.fx.view) end
+      end
+      e.fx = nil
+    end
     e.state = Config.STATE.LEAVING
-    e.lured = nil
-    self:_startFx(e, "leave")
+    e.lured, e.react = nil, nil
+    -- (`opts.fly`: a startled bird takes off even right by the player, flying away from them)
+    if self.underwater and self.water and self.water:canSwim(e) and not e.engaged then
+      -- under the sea a fish fades back to a shadow and swims off
+      e.fx = self.water:planDeparture(e)
+    elseif self.sky and self.sky:canFly(e) and not e.engaged
+      and (opts.fly or self.sky:clearOfPlayer(e.cellX, e.cellY)) then
+      -- a Flying type takes off from its cell and flies away
+      self:_liftEffects(e)
+      e.fx = self.sky:planDeparture(e)
+    else
+      self:_startFx(e, "leave")
+    end
     return
+  end
+  if travelling(e) then
+    local h = self:_traveller(e.fx)
+    if h then h:endFlight(e.fx) end
   end
   self.entities[id] = nil
   for i = #self.order, 1, -1 do
@@ -664,7 +920,7 @@ function SpawnManager:refreshSpriteStyle()
   local style = Config.spriteStyle(self.mod)
   for _, e in pairs(self.entities) do
     if e.renderer then
-      local presentation = (e.terrain == "water") and SpriteSource.DEFAULT_WATER_PRESENTATION
+      local presentation = (e.terrain == "water" and not self.underwater) and SpriteSource.DEFAULT_WATER_PRESENTATION
         or SpriteSource.PRESENTATION_LAND
       local fresh = RendererFactory.new(self.mod, e.dex, e.shiny, style, presentation)
       fresh.silhouette = e.renderer.silhouette

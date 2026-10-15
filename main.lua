@@ -70,6 +70,9 @@ return function(mod)
   local Reflection = V.require("reflection")
   local ModernSpawns = V.require("modern_spawns_bridge")
   local Shiny = V.require("shiny")
+  local SkyFlyers = V.require("sky_flyers")
+  local WaterLife = V.require("water_life")
+  local LocalScenes = V.require("local_scenes")
 
   Config.defineOptions(mod)
   HdField.setSpeciesSizes(Config.get(mod, "species_sizes"))
@@ -82,7 +85,7 @@ return function(mod)
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.7.5"
+  mod.exports.version = "1.8.0-beta.1"
   mod.exports.engineReady = false
   -- Public extension points for consumers; defaults stay unchanged.
   mod.exports.spriteAtlas = SpriteAtlas
@@ -106,7 +109,21 @@ return function(mod)
   end
 
   local spawnManager = SpawnManager.new(mod)
+  -- flying Pokemon in the sky; wild Flying types arrive and leave through it
+  local skyFlyers = SkyFlyers.new(mod, {
+    occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
+  })
+  spawnManager.sky = skyFlyers
+  -- fish leaping, whales surfacing (ambient)
+  local waterLife = WaterLife.new(mod, {
+    occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
+  })
+  spawnManager.water = waterLife -- wild fish swim in / out under the sea
+  -- little moments in a few places (Lavender's ghosts, Petalburg Woods' bugs, Fortree's Tropius)
+  local localScenes = LocalScenes.new(mod)
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
+  -- a wild Pokemon chasing the player catches up (lib/wild_reactions.lua): the battle
+  spawnManager.onContact = function(e) battleTrigger:onChaserContact(e) end
   local companion = Companion.new(mod)
   local partyRoles = PartyRoles.new(companion)
   local followerAdapter = FollowerAdapter.new(mod, companion)
@@ -127,6 +144,9 @@ return function(mod)
   followerAdapter.interaction = followerInteraction -- its mood effects while you talk (lib/mood_fx.lua)
 
   mod.exports.spawnManager = spawnManager
+  mod.exports.skyFlyers = skyFlyers
+  mod.exports.waterLife = waterLife
+  mod.exports.localScenes = localScenes
   mod.exports.battleTrigger = battleTrigger
   mod.exports.followerAdapter = followerAdapter
   mod.exports.portraitUI = portraitUI
@@ -177,6 +197,9 @@ return function(mod)
   local installed = EnginePatch.install({
     collectActors = function(actors, camX, camY)
       spawnManager:collectActors(actors, camX, camY)
+      skyFlyers:collectActors(actors, camX, camY)
+      waterLife:collectActors(actors, camX, camY)
+      localScenes:collectActors(actors, camX, camY)
       followerAdapter:collectActors(actors)
     end,
     -- See lib/battle_trigger.lua's header: exceptLocalId == nil is the
@@ -244,6 +267,9 @@ return function(mod)
     end,
     followerTick = function(game)
       spawnManager:tick(game)
+      skyFlyers:tick()
+      waterLife:tick()
+      localScenes:tick()
       followerInteraction:tick(game)
       battleTrigger:tick()
       battleTrigger:checkContact()
@@ -260,6 +286,9 @@ return function(mod)
 
   mod.events:on("map.entered", function(ev)
     local ok2, err = pcall(function()
+      skyFlyers:onMapEntered(ev and ev.mapId)
+      waterLife:onMapEntered(ev and ev.mapId)
+      localScenes:onMapEntered(ev and ev.mapId)
       spawnManager:onMapEntered(ev and ev.mapId, mod.world and mod.world.game)
       followerAdapter:mapChanged()
     end)
@@ -302,6 +331,21 @@ return function(mod)
 
   mod.events:on("map.exited", function(_ev)
     pcall(function() spawnManager:onMapExited() end)
+    pcall(function() skyFlyers:onMapExited() end)
+    pcall(function() waterLife:onMapExited() end)
+    pcall(function() localScenes:onMapExited() end)
+  end)
+
+  -- Lavender Town's "Do you believe in ghosts?": her reply to a "No" (its text key) may
+  -- bring a Gengar up behind the player (lib/local_scenes.lua), gone once she has finished.
+  mod.hooks:wrap("script.command", function(next, _ctx, op, row)
+    if op == "loadword" and type(row) == "table" and type(row.value) == "string" then
+      pcall(function() localScenes:onScriptText(row.value) end)
+    end
+    return next()
+  end)
+  mod.events:on("script.ended", function(_ev)
+    pcall(function() localScenes:onScriptEnded() end)
   end)
 
   -- who a script walks: the player and someone else together = an escort, and the
@@ -360,12 +404,26 @@ return function(mod)
     elseif ev.key == "spawn_amount" then
       -- raised: refill tops up on the next tick; lowered: the extras go now
       pcall(function() spawnManager:trimToAmount() end)
+    elseif ev.key == "flyers" then
+      local current = mod.world and mod.world:current()
+      pcall(function() skyFlyers:onOptionChanged(current and current.mapId) end)
+    elseif ev.key == "water_life" then
+      local current = mod.world and mod.world:current()
+      pcall(function() waterLife:onOptionChanged(current and current.mapId) end)
+    elseif ev.key == "local_scenes" then
+      local current = mod.world and mod.world:current()
+      pcall(function() localScenes:onOptionChanged(current and current.mapId) end)
+    elseif ev.key == "wild_reacts" then
+      if ev.value == false then pcall(function() spawnManager:calmReactions() end) end
     elseif ev.key == "species_sizes" then
       HdField.setSpeciesSizes(ev.value)
     elseif ev.key == "sprite_style" then
       -- Re-point every already-spawned entity's renderer immediately,
       -- rather than waiting for the next map transition.
       spawnManager:refreshSpriteStyle()
+      skyFlyers:clear() -- the ambient birds come back in the new style
+      waterLife:clear()
+      localScenes:clear()
     end
   end)
 

@@ -168,14 +168,27 @@ end
 --- One field tick of a named animation ("attack", "hurt", ...) instead of
 --- Walk / Idle -- the overworld fights. A species with no such sheet gets a
 --- rapid Idle in its place, so every Pokemon has something to show.
-function PmdRenderer:advanceAs(anim, speed)
-  local want = (self.info and self.info[anim]) and anim or "idle"
+--- `fallback` (default a rapid Idle): the animation shown when the species has no
+--- `anim` sheet, at `speed` (flying falls back to Walk, which for most birds is a flap).
+function PmdRenderer:advanceAs(anim, speed, fallback)
+  local want = (self.info and self.info[anim]) and anim or nil
   local rate = speed or 1
-  if want ~= anim then rate = rate * 3 end
+  if not want then
+    if fallback and self.info and self.info[fallback] then
+      want = fallback
+    else
+      want, rate = "idle", rate * 3
+    end
+  end
   if want ~= self.anim then
     self.anim, self.clock, self.idleHold = want, 0, 0
   end
   self.clock = self.clock + rate
+end
+
+--- Holds the first frame of Idle, not playing it (a perched bird with its wings folded).
+function PmdRenderer:holdIdle()
+  self.anim, self.clock, self.idleHold = "idle", 0, 0
 end
 
 --- The size gen3-hd-sprites draws this sprite at on top of its own (its Species
@@ -197,10 +210,12 @@ end
 --- anchor (ay, or the waterline while swimming) sits `groundY` below the tile's top,
 --- and the bake's `top` is the highest row any frame reaches. Falls back to the
 --- visible height for an index without `top`.
-function PmdRenderer:headLift()
+--- `anims` (optional): the animations to measure instead of Walk and Idle (a Pokemon asleep
+--- lies lower: lib/local_scenes.lua's zzz sit over its Sleep pose).
+function PmdRenderer:headLift(anims)
   local s = PmdRenderer.scaleOf(self.info) * self:hdScale()
   local best
-  for _, anim in ipairs({ "walk", "idle" }) do
+  for _, anim in ipairs(anims or { "walk", "idle" }) do
     local entry = self.info and self.info[anim]
     local top = entry and tonumber(entry.top)
     if top then
@@ -236,6 +251,21 @@ function PmdRenderer:canSwim()
 end
 
 local quadCache = {} -- [path] = { [(row * cols + col) * 1024 + height] = quad }
+
+-- a sub-rectangle of a sheet (cached per path and rectangle)
+local partCache = setmetatable({}, { __mode = "k" })
+local function partQuad(path, image, x, y, w, h)
+  local per = partCache[image]
+  if not per then per = {} partCache[image] = per end
+  local key = ((x * 4096 + y) * 256 + w) * 256 + h
+  local q = per[key]
+  if q then return q end
+  if not (love and love.graphics and love.graphics.newQuad) then return nil end
+  local iw, ih = image:getDimensions()
+  q = love.graphics.newQuad(x, y, w, h, iw, ih)
+  per[key] = q
+  return q
+end
 
 local function quadFor(path, image, entry, col, row, height)
   local perPath = quadCache[path]
@@ -314,6 +344,23 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     foamQuad = foamImage and quadFor(foamPath, foamImage, entry, col, row, bandCrop)
     if not foamQuad then crop = bandCrop end -- no band art: a straight cut at the waterline
   end
+  -- only part of it showing, standing in the trees (a Tropius's head above them,
+  -- lib/local_scenes.lua): `act.clip` = the box of the cell shown ({x0, y0, x1, y1}, cell px;
+  -- default the whole art, top to feet), `act.reveal` = how much of the box, top down. The
+  -- box's cut edge stands on the ground point, below the art's own x anchor.
+  local reveal = (not crop) and act and tonumber(act.reveal) or nil
+  local part, partOx, partOy
+  if reveal then
+    if reveal <= 0 then return end
+    local box = act.clip or { 0, tonumber(entry.top) or 0, entry.cw, tonumber(entry.ay) or entry.ch }
+    local x0, y0 = math.max(0, box[1]), math.max(0, box[2])
+    local x1, y1 = math.min(entry.cw, box[3]), math.min(entry.ch, box[4])
+    local rows = math.max(1, math.floor(math.min(1, reveal) * (y1 - y0) + 0.5))
+    part = partQuad(path, image, col * entry.cw + x0, row * entry.ch + y0, x1 - x0, rows)
+    if not part then return end
+    partOx, partOy = entry.ax - x0, rows
+    HdField.quadPivot(image, part, partOx, partOy)
+  end
   local quad = quadFor(path, image, entry, col, row, crop)
   if not quad then return end
   if crop then
@@ -338,6 +385,9 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     scale = scale * mul
     tint = 0.55 + 0.45 * mul
   end
+  -- a flying Pokemon high up is drawn bigger (lib/sky_draw.lua), grown about its ground point
+  local grow = act and tonumber(act.scale)
+  if grow and grow > 0 then scale = scale * grow end
   local dx, dy
   if crop then
     dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_SWIM_Y or 18, x - camX, y - camY, bandCrop)
@@ -372,18 +422,28 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   -- fading in (a follower walking out of a doorway, lib/follower_adapter.lua)
   local alpha = ActorRenderer.alphaOf(self)
   if alpha <= 0 then return end
+  local shade = self.shade -- a colour it is drawn through (a ghost's dusk tint, lib/local_scenes.lua)
   if self.silhouette then
     love.graphics.setColor(0, 0, 0, alpha)
+  elseif shade then
+    love.graphics.setColor(shade[1], shade[2], shade[3], alpha)
   elseif tint then
     love.graphics.setColor(1, tint, tint, alpha)
   elseif alpha < 1 then
     love.graphics.setColor(1, 1, 1, alpha)
   end
-  love.graphics.draw(image, quad, dx, dy, 0, scaleX, scaleY)
+  if part then
+    -- its cut edge on the ground point (moved like the whole sprite would be)
+    local gx = (x - camX) + CELL / 2 + math.floor(self.pushX + 0.5) + math.floor(((act and act.dx) or 0) + 0.5)
+    local gy = (y - camY) + PmdRenderer.groundOf(entry, scale) + math.floor(self.pushY + 0.5) + math.floor(((act and act.dy) or 0) + 0.5)
+    love.graphics.draw(image, part, gx, gy, 0, scale, scale, partOx, partOy)
+  else
+    love.graphics.draw(image, quad, dx, dy, 0, scaleX, scaleY)
+  end
   if foamQuad then
     love.graphics.draw(foamImage, foamQuad, dx, dy, 0, scaleX, scaleY)
   end
-  if self.silhouette or tint or alpha < 1 then love.graphics.setColor(1, 1, 1, 1) end
+  if self.silhouette or shade or tint or alpha < 1 then love.graphics.setColor(1, 1, 1, 1) end
 end
 
 return PmdRenderer

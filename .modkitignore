@@ -23,6 +23,7 @@ tests/eave_duck_unit_test.lua
 tests/encounter_source_unit_test.lua
 tests/engine_patch_probe_test.lua
 tests/engine_patch_unit_test.lua
+tests/flight_path_unit_test.lua
 tests/follower_actions_unit_test.lua
 tests/follower_adapter_unit_test.lua
 tests/follower_dialogue_unit_test.lua
@@ -40,6 +41,7 @@ tests/health_bar_unit_test.lua
 tests/hit_effect_unit_test.lua
 tests/interaction_limiter_unit_test.lua
 tests/level_ready_unit_test.lua
+tests/local_scenes_unit_test.lua
 tests/main_boot_unit_test.lua
 tests/modern_spawns_bridge_unit_test.lua
 tests/modkit_boot_test.lua
@@ -48,6 +50,7 @@ tests/mood_fx_unit_test.lua
 tests/overworld_battle_unit_test.lua
 tests/ow_combat_unit_test.lua
 tests/party_roles_unit_test.lua
+tests/perch_spots_unit_test.lua
 tests/pmd_renderer_unit_test.lua
 tests/pmd_water_unit_test.lua
 tests/popup_text_unit_test.lua
@@ -56,13 +59,19 @@ tests/reachability_unit_test.lua
 tests/reflection_unit_test.lua
 tests/renderer_factory_unit_test.lua
 tests/shiny_chain_test.lua
+tests/shiny_sparkle_unit_test.lua
 tests/shiny_unit_test.lua
+tests/sky_draw_unit_test.lua
+tests/sky_flyers_unit_test.lua
 tests/spawn_fx_unit_test.lua
 tests/spawn_manager_unit_test.lua
 tests/sprite_atlas_unit_test.lua
 tests/sprite_source_unit_test.lua
 tests/sweat_drop_unit_test.lua
 tests/sweet_scent_hearts_unit_test.lua
+tests/water_life_unit_test.lua
+tests/wild_emote_unit_test.lua
+tests/wild_reactions_unit_test.lua
 
 # bake / validation / asset tools
 tools/check_modkitignore.py

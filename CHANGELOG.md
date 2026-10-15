@@ -14,13 +14,80 @@
 - **Smooth Follow option (on by default).** Off: your partner snaps straight to its place behind
   you when you turn, step for step like the original games, instead of gliding round. It keeps
   its distance behind you either way, so a big Pokemon never overlaps you.
-
+- **Shinies sparkle.** A shiny wild Pokemon, and a shiny partner, twinkle every few seconds:
+  a few little gold stars pop on its body and fade. Each one keeps its own rhythm.
+- **Flying Mons: Full / Ambient / Off.** Full is everything, including the big, soft-focus birds
+  flying high overhead; Ambient keeps the passing, perching and diving birds and the swooping
+  wild Flying types but leaves the high birds out; Off is none of it. A saved On is Full.
+- **Finizen at sea (Water Life).** Out on the sea, a Finizen now and then surfaces with a puff
+  from its blowhole and porpoises along in a string of leaps before diving again, like a dolphin.
+  Once in a long while a whole pod comes up to play, swimming round in a ring and taking turns to
+  leap, then goes back under. Drawn at its own size from either sprite style.
+- **Local Scenes (Local Scenes option, on by default).** A few special places get moments of
+  their own, just for the scenery. Lavender Town: ghosts (Gastly, sometimes Haunter) fade in
+  around town, wander a few steps, through walls and over roofs, dark and see-through, and fade away; answer "No"
+  when the girl asks whether you believe in ghosts and, 1 time in 4, a Gengar fades in right
+  behind you and stays until she has finished talking. Petalburg Woods: Burmy slides down from
+  the leaves on a silk thread and is reeled back up, Silcoon and Cascoon dangle and slowly spin,
+  Slakoth naps on the treetops with "z"s floating up, and once in a while Vigoroth leaps in from
+  off screen, dances on a treetop and leaps away. Fortree City: once in a while a big Tropius rises
+  out of the treetops (its top half showing, the leaves rustling round it), walks a few steps
+  across them and sinks back under. The bugs and Slakoth are drawn a little smaller, to fit the trees. PMDCollab art plays the
+  real Sleep, Dance and Rotate animations.
+- **Life in the water (Water Life option, on by default).** The small fish of the area's fishing
+  and Surf Pokemon (Magikarp, Goldeen, Feebas, Luvdisc, Carvanha ...) now and then leap out of
+  open water in an arc and splash back in, with ripples and a spray of droplets; PMDCollab ones
+  play their own hop. Wailmer and Wailord rise to the surface, lie there or drift a little, blow
+  a spout from their blowhole and sink back under. Diving, the sea's fish (any non-legendary fish
+  of the National Dex under 2 m) swim by as dark shadows trailing bubbles, curving and wiggling,
+  nearer the surface bigger and softer, sometimes in a small school. Just scenery: never battled.
+- **Visible wild Pokemon under the sea.** Dive maps get their own visible wild Pokemon from the
+  underwater table, drawn whole (not cut off at a surface they are far below). A fish among them
+  swims in from off screen as a shadow, curving round you, and takes shape on its spot; leaving,
+  it fades back to a shadow and swims away. Others fade in and out. Swimming onto one starts the
+  battle, as on land.
+- **Wild Pokemon react when you run or bike close by (Wild Reacts option, on by default).**
+  Ones weaker than your lead Pokemon are startled (a "!" over their head) and run off a few
+  tiles; small birds fly away. Stronger ones only mind you up close (2 tiles): they stop, turn
+  to you, show an anger mark and give chase, a little faster than you can run: if they catch you, the wild battle starts. Each chase gives up at its own
+  distance (4 to 10 tiles), and a bike or leaving the grass gets you away. Evenly matched ones
+  carry on as normal, and walking past disturbs nobody.
+- **Flying Pokemon in the sky (Flying Mons option, Full by default).** Now and then one of the
+  area's birds crosses the top of the screen in a gentle arc: the higher it flies, the bigger,
+  faster and more out of focus it looks, since it is closer to the camera. In towns and cities,
+  birds from the routes around them perch on roofs, trees and signposts, sit with folded wings
+  (turning or hopping now and then), and fly off after a while or when you walk up. Sea birds dive into open water for food with a splash and come back
+  up. Wild Flying-type Pokemon swoop in from off screen to land in the grass or on the water
+  instead of rising out of it (in the wild a bird only ever lands where you can reach it), and
+  take off again after a
+  while; their flight always curves around you, and one that appears right next to you (within 3
+  tiles) arrives the usual way. Only real fliers count: Flying types taller than 3 m (Gyarados,
+  Rayquaza), flightless ones (Doduo, Dodrio, Delibird) and a few whose art does not look like
+  flying (Charizard, Hoothoot, Xatu, Emolga and others) stay on the ground. No birds in caves
+  or indoors, fewer in rain.
+  PMDCollab birds fly with the animation picked for each one: their own hover loop,
+  a wing beat (Pidgey, Taillow), a glide (Dragonite), or their walk cycle.
 - **Spawn Amount option: Low / Normal / High.** Normal is the same number of wild Pokemon as
   before. Low is about half (up to 4 each in grass and water), High about one and a half times (up
   to 12 each). Lowering it takes effect at once, the farthest Pokemon leaving first.
 
 ### Changed
 
+- **Wild Reacts: charging and vanishing.** A stronger wild Pokemon chasing you now charges with
+  its Attack animation (PMDCollab style) until it catches you and the battle opens; giving up, it
+  walks home again. A weaker one that runs off sometimes (30%) disappears at the end of its run:
+  ducking down into the grass with a rustle, or fading into a cave's dark. Birds still fly away.
+- **Birds overhead bob with their wingbeats.** The high birds crossing the top of the screen rise
+  and fall a little as they fly instead of gliding along a flat line.
+- **Birds overhead move with the view.** A bird passing high overhead starts across the top of
+  the screen, then drifts with your walking at its own depth instead of sticking to the top edge:
+  walk up and it slides down the sky, walk down and it slips away off the top.
+- **Only real birds dive into the sea.** A sea Flying type that is no bird (Mantine, for example)
+  still flies by but never plunges into the water; Wingull, Pelipper and the other real birds do.
+- **A new party leader becomes your follower.** Putting a different Pokemon first in your party
+  makes it your follower, like the lead in the original games, even if you had sent another one
+  out. You can still pick any Pokemon and job in the party menu; that choice stays until you
+  change your leader again. Moving your current partner to the front keeps its job.
 - **Species Sizes measured against you.** Each Pokemon is now sized by its real height next to the
   player, who stands for an adult: knee-high ones come up to about half your height, the biggest
   tower over you at a little over twice it. Tiny and giant ones are eased toward a sensible
@@ -34,11 +101,11 @@
 - **Your partner steps into its ball for the nurse and for escorts.** At a Pokemon Center
   counter it goes into its ball while the heal machine runs and comes back out after; it does
   the same while a story scene walks someone along with you.
-- **A new party leader becomes your follower.** Putting a different Pokemon first in your party
-  makes it your follower, like the lead in the original games, even if you had sent another one
-  out. You can still pick any Pokemon and job in the party menu; that choice stays until you
-  change your leader again. Moving your current partner to the front keeps its job.
-
+- **Every PMDCollab Pokemon has a shiny look now.** 39 species (Tranquill, Flamigo, Bombirdier,
+  Squawkabilly, the Alcremie flavours, Ogerpon's masks and more) had no shiny PMDCollab art, so a
+  shiny one looked normal. Their shiny is now made from their HGSS shiny colours, keeping the
+  PMDCollab shading. A few others missing one animation's shiny (Archen, Marshadow ...) are filled
+  in the same way.
 - **Visible wild Pokemon in the Safari Zone.** The Safari Zone (Kanto and Hoenn) fills with
   visible Pokemon like everywhere else; walking onto one starts a real Safari Zone battle, with
   Safari Balls, bait and rocks. With Classic Enc off they are the only encounters there, as on
@@ -72,7 +139,6 @@
   after, with the same Pokemon -- as the original games never roll a wild encounter on a step
   that hatched an egg. Meanwhile you stay on its tile (a held direction or a ledge no longer
   carries you past it before the battle opens).
-
 - **Your partner rides in its Poke Ball on a bike.** Getting on a bike sends it back into its
   ball, and it comes out again when you get off (its Forage / Battle role pauses meanwhile).
 - **A worn-out Battler no longer pops out on a new map.** One resting inside you at 1 HP came

@@ -10,8 +10,12 @@ Config.DEFAULTS = {
   wild_silhouettes = "off",
   species_sizes = true,
   spawn_amount = "normal",
+  flyers = "full",
   smooth_follow = true,
   portraits = true,
+  wild_reacts = true,
+  water_life = true,
+  local_scenes = true,
 }
 
 Config.STATE = {
@@ -47,6 +51,171 @@ Config.SPAWN_AMOUNT = {
 -- a battle with one starts with the foe's evasion at `evasion` stages (-1 = 75%, like the
 -- in-battle move). They come on top of the Spawn Amount target.
 Config.SWEET_SCENT = { min = 2, max = 3, minDist = 1, maxDist = 4, lureTicks = 3600, evasion = -1 }
+
+-- Flying Pokemon in the sky (lib/sky_flyers.lua, lib/flight_path.lua, lib/sky_draw.lua),
+-- 60 Hz ticks / px. The camera looks straight down, so a bird higher up is CLOSER to it:
+-- bigger (`scale`), sliding faster across the ground (`parallax`, about the view's
+-- centre) and out of focus (`blur`, px of the drawn sprite), hazed toward the sky and
+-- see-through. `h` 0 = low (landing, perched), 0.5 = mid, 1 = high; between, interpolated.
+Config.FLYERS = {
+  layers = {
+    { h = 0,   scale = 1.0, parallax = 1.0,  blur = 0,   alpha = 1.0,  haze = 0 },
+    { h = 0.5, scale = 1.4, parallax = 1.25, blur = 1.0, alpha = 0.95, haze = 0.12 },
+    { h = 1,   scale = 2.0, parallax = 1.6,  blur = 2.5, alpha = 0.85, haze = 0.25 },
+  },
+  sharpBelow = 0.15, sharpAbove = 0.25, -- low birds draw sharp (gen3-hd-sprites sized); crossfade between
+  haze = { 0.86, 0.93, 1.0 },           -- the sky colour far birds fade toward
+  flapTicks = 6,                        -- HGSS wing beat (walkA / walkB)
+  -- the occasional bird overhead: one at a time, every 30-70 s, crossing the TOP of the screen
+  -- (its feet within the top `band` of the view) on a gentle arc of `arc` px, never straight
+  -- (the high one bobs up and down as it goes, `bob` px either way, a beat every `bobTicks`).
+  -- It starts in the band, then moves in perspective as the view scrolls (not held there).
+  passer = { every = { 1800, 4200 }, max = 1, maxHigh = 1, ticks = { 300, 480 }, highTicks = { 240, 360 },
+             band = 0.22, arc = { 6, 16 }, bob = { 2, 4 }, bobTicks = { 40, 56 } },
+  -- a swoop (landing, perching, diving, leaving) starts / ends off screen, mid or high up
+  -- (startH, in hundredths), from any side, curving so its path never comes within
+  -- `clearRadius` tiles of the player; a wild Pokemon that close arrives / leaves the usual way
+  swoop = { startH = { 55, 100 }, clearRadius = 3, arc = { 10, 28 } },
+  perch = { every = { 600, 1500 }, max = 2, stay = { 600, 2400 }, fidget = { 180, 480 },
+            flyTicks = { 80, 110 }, scatter = 2, scatterRunning = 3, cryChance = 0.2 },
+  dive = { every = { 900, 2400 }, under = { 120, 300 }, flyTicks = { 70, 90 }, sinkTicks = 14 },
+  -- a wild Flying-type Pokemon arriving / leaving by air instead of rising out of the grass
+  land = { flyTicks = { 80, 100 }, perchChance = 0.4, perchRange = 4, sit = { 180, 480 }, hopTicks = 22,
+           groundStay = { 2700, 7200 } },
+  hopHeight = 3, hopTicks = 12,         -- a perched bird's little hop
+  perchLift = { canopy = 6, sign = 10 },
+  stormSlowdown = 2,                    -- rain / sandstorm: everything comes this many times less often
+  -- which Flying types are birds (lib/sky_flyers.lua SkyFlyers.flies): none taller than
+  -- maxBirdHeightDm in the Pokedex (decimetres: Gyarados 65, Rayquaza 70), and none of
+  -- `notBirds` (national dex): the flightless Doduo, Dodrio, Delibird, and those the flyer
+  -- audit ruled out (no art that reads as flying; tools/generate_pmd_sprites.py FLY_SOURCE
+  -- holds what the others fly with)
+  notBirds = {
+    [6] = true, [36] = true, [84] = true, [85] = true, [163] = true, [178] = true, [225] = true,
+    [587] = true, [629] = true, [641] = true, [642] = true, [645] = true, [732] = true,
+    [733] = true, [905] = true, [993] = true,
+  },
+  maxBirdHeightDm = 30,
+  -- the real birds (national dex): only these dive into the sea (a Water / sea Flying type
+  -- that is no bird -- Mantine, Gyarados, a Flying bug -- never does)
+  realBirds = {
+    [16] = true, [17] = true, [18] = true, [21] = true, [22] = true, [83] = true, [144] = true,
+    [145] = true, [146] = true, [164] = true, [177] = true, [198] = true, [227] = true, [250] = true,
+    [276] = true, [277] = true, [278] = true, [279] = true, [333] = true, [334] = true, [396] = true,
+    [397] = true, [398] = true, [430] = true, [441] = true, [519] = true, [520] = true, [521] = true,
+    [566] = true, [567] = true, [580] = true, [581] = true, [627] = true, [628] = true, [630] = true,
+    [661] = true, [662] = true, [663] = true, [731] = true, [741] = true, [821] = true, [822] = true,
+    [823] = true, [845] = true, [865] = true, [931] = true, [940] = true, [941] = true, [962] = true,
+    [973] = true,
+  },
+  maxAmbientWidth = 56,                 -- px: bigger art stays out of the ambient sky (it would cover the view)
+}
+
+-- Wild Pokemon reacting to a player who runs or bikes close by (the Wild Reacts option,
+-- lib/wild_reactions.lua). 60 Hz ticks; distances in tiles (the greater of the x / y
+-- distances). Strength is level x base-stat total against the lead Pokemon's: under
+-- `weakRatio` it is startled ("!") and flees (a bird takes off), over `strongRatio` it gets
+-- angry and chases; an even match in between is not bothered.
+Config.REACT = {
+  radius = 4, bikeRadius = 5,     -- how close the running / biking player has to come
+  aggroRadius = 2, bikeAggroRadius = 3, -- ...for a stronger one to get angry: much closer
+  weakRatio = 0.7, strongRatio = 1.3,
+  alertTicks = 24,                -- "!" before fleeing / taking off
+  turnTicks = 22,                 -- a stronger one's pause before it turns to the player
+  angerTicks = 36,                -- then the anger mark, then the chase
+  emoteTicks = 50,                -- how long an emote stays up
+  hopTicks = 12, hopPx = 3,       -- a startled little hop
+  -- running pace; at the end of its run, `vanishChance` % of them disappear -- in grass
+  -- shrinking into it with a rustle, in a cave fading out (lib/spawn_manager.lua fleeVanish)
+  flee = { steps = { 3, 6 }, frames = 8, vanishChance = 30 },
+  chase = { frames = 7,           -- a touch faster than a running player (8)
+            leash = { 4, 10 },    -- tiles it follows before giving up: rolled every chase
+            -- PMDCollab: it charges with its Attack animation while it chases and on until
+            -- its battle opens; no battle within `chargeTicks` of catching up -> it calms down
+            chargeTicks = 90,
+            secondsPerTile = 1.2, -- the matching time limit (leash x this)
+            noPathTicks = 60, returnSteps = { 2, 4 } },
+  cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
+}
+
+-- Life in the water (the Water Life option, lib/water_life.lua): ambient, never met or
+-- fought, drawn from the map's own fishing and Surf tables. 60 Hz ticks / px.
+--   leapers -- small fish (the Water 2 egg group -- the fish -- under `maxFishHeightDm`,
+--              plus `fishExtra`, minus `notFish`, national dex) jump out of the water and
+--              back in with a splash;
+--   whales  -- `whales` (Wailmer, Wailord) rise to the surface, drift or lie still a while,
+--              blow a spray from their blowhole, and sink back under.
+Config.WATER_LIFE = {
+  maxFishHeightDm = 10,
+  fishExtra = { [349] = true },                                -- Feebas (Water 1 / Dragon egg groups)
+  notFish = { [116] = true, [224] = true, [686] = true },      -- Horsea, Octillery, Inkay
+  whales = { [320] = true, [321] = true },                     -- Wailmer, Wailord
+  leap = { every = { 420, 1200 }, max = 2, ticks = { 34, 44 }, height = 18, pmdHeight = 8, drift = 12 },
+  whale = { every = { 1500, 3300 }, max = 1, riseTicks = 50, stay = { 240, 480 }, drift = { 0, 1 },
+            sprays = { 1, 2 }, sprayTicks = 48 },
+  minPlayerDist = 2,                                           -- tiles kept clear of the player
+  -- Finizen (national dex `species`, drawn by its own art whether or not the game has it), rare,
+  -- on a SEA map only (its Surf / fishing tables hold one of `seaMarkers`): a dolphin -- it
+  -- surfaces with a puff from its blowhole, porpoises along in `leaps` arcs `leapDist` px
+  -- apart (gliding at the surface `glideTicks` between them, puffing now and then), and dives.
+  -- Now and then (`podChance` %) a pod of `pod` instead: they surface together, swim round in
+  -- a ring (`ring` = x / y radius px; a lap every `lapTicks`) taking turns to leap for
+  -- `play` ticks, then go under. `surfaceShow`: how much of a Finizen at the surface shows above the water (its back and fin).
+  -- Drawn at its Species Sizes size (HGSS_scale / PMD_scale), never enlarged.
+  dolphin = { species = 963, every = { 5400, 10800 }, leaps = { 2, 4 }, leapDist = 26, leapTicks = 30,
+              height = 16, pmdHeight = 11, glideTicks = 14, glideDist = 8, riseTicks = 18,
+              puffTicks = 16, puffPower = 0.55, puffChance = 50, surfaceShow = 0.45,
+              podChance = 12, pod = { 3, 5 }, ring = { 26, 10 }, lapTicks = 170, play = { 480, 720 },
+              podLeapEvery = 95, podStagger = 12 },
+  seaMarkers = { [72] = true, [73] = true, [222] = true, [278] = true, [279] = true, [318] = true,
+                 [319] = true, [320] = true, [321] = true, [370] = true },
+  -- under the sea (Dive maps): every fish the game knows, National Dex included (Water 2 egg group, no
+  -- legendary -- the Undiscovered group -- nothing over swim.maxHeightDm) swim across as dark
+  -- shadows of themselves, wiggling, trailing bubbles; small ones sometimes in a school.
+  -- Like the birds, depth is distance from the camera: near the surface (h 1) bigger,
+  -- sliding faster, softer and fainter; down by the seabed (h 0) smaller and sharper.
+  swim = { every = { 240, 600 }, max = 3, ticks = { 360, 600 }, maxHeightDm = 20,
+           schoolChance = 40, school = { 3, 4 }, schoolMaxHeightDm = 6, schoolSpread = 14,
+           wave = { amp = 6, cycles = { 3, 5 } }, curve = 30, bubbleEvery = { 18, 36 }, bubbleTicks = 50,
+           -- the body's own wiggle while it swims: a quick side to side sway across its way,
+           -- `px` either side, a full beat every `ticks`
+           wiggle = { px = 2, ticks = 14 },
+           layers = {
+             { h = 0, scale = 0.85, parallax = 1.0, blur = 0,   alpha = 0.5,  haze = 0 },
+             { h = 1, scale = 1.35, parallax = 1.2, blur = 1.5, alpha = 0.32, haze = 0 },
+           } },
+}
+
+-- Local Scenes (the Local Scenes option, lib/local_scenes.lua): little moments tied to a
+-- place, ambient, never met. 60 Hz ticks / px. `every` = the wait before the next scene of
+-- each cadence (an "occasional" one about every 30 s, a "rare" one about every 2 min).
+Config.LOCAL_SCENES = {
+  every = { occasional = { 1500, 2100 }, rare = { 6000, 8400 } },
+  minPlayerDist = 2,                     -- tiles kept clear of the player
+  -- Lavender Town: a ghost fades in somewhere in view, wanders about a little (through
+  -- walls: `moves` drifts of `step` cells, `stepTicks` a cell, a `pause` between), fades out
+  ghost = { species = { 92, 92, 93 }, alpha = 0.55, fade = 60, shade = { 0.55, 0.45, 0.75 },
+            moves = { 3, 5 }, step = { 1, 2 }, stepTicks = 40, pause = { 20, 80 } },
+  -- ...and Gengar behind the player when the girl who asks about ghosts is told "No"
+  -- (her No line's text key: FireRed, LeafGreen)
+  gengar = { species = 94, chance = 25, behind = 2, alpha = 0.85, fade = 40, linger = 30,
+             noText = { ["g3:0817f568"] = true, ["g3:0817f544"] = true } },
+  -- Petalburg Woods: a bug lowered on a silk thread from under a tree's crown, hanging a
+  -- while, then reeled back up. `drop` px below the crown's bottom edge.
+  -- `scale`: drawn smaller than a wild Pokemon, so it hangs clear of the leaves
+  hang = { burmy = { species = { 412 }, scale = 0.65, drop = { 6, 12 }, down = 90, stay = { 240, 480 }, up = 120, sway = 2, swayTicks = 150 },
+           cocoon = { species = { 266, 268 }, scale = 0.65, drop = { 8, 14 }, down = 60, stay = { 300, 540 }, up = 90, sway = 4, swayTicks = 120 } },
+  -- ...Slakoth asleep on a tree top
+  sleeper = { species = 287, scale = 0.7, ticks = { 1200, 2400 }, fade = 30, zzzEvery = 40 },
+  -- ...Vigoroth leaping onto a tree top from off screen, dancing, leaping off
+  dancer = { species = 288, leapTicks = 50, leapHeight = 40, loops = 2, hgssTicks = 240 },
+  -- Fortree City: a big Tropius rises out of the trees, walks a little over them, sinks back
+  -- only the top `half` (70%) of it above the leaves (cut there), leaves rustling round it as it moves
+  -- (PMDCollab: only the Idle frames with its wings all the way down, `wingsDown`, `poseTicks`
+  -- each, walking too -- its Walk spreads them, the rest of its Idle raises them)
+  -- `southHalf`: facing south (PMDCollab) it is shorter (seen from the front), so more shows
+  tropius = { species = 357, scale = 1.5, half = 0.7, southHalf = 0.85, wingsDown = { 1, 4, 7, 10 }, poseTicks = 18, rise = 180, steps = { 2, 4 }, stepTicks = 48, rest = { 60, 150 } },
+}
 
 -- Idle wing-flap for floating/flying species: logic ticks each pose of the
 -- walkA/stand/walkB/stand cycle is held (~1.3s per full cycle at 60 ticks/s).
@@ -374,6 +543,24 @@ function Config.smoothFollow(mod)
   return optGet(mod, "smooth_follow") ~= false
 end
 
+--- The Wild Reacts option: wild Pokemon flee from / chase a player running or biking
+--- close by. On unless switched off.
+function Config.wildReacts(mod)
+  return optGet(mod, "wild_reacts") ~= false
+end
+
+--- The Water Life option: fish leaping, whales surfacing (lib/water_life.lua). On unless
+--- switched off.
+function Config.waterLife(mod)
+  return optGet(mod, "water_life") ~= false
+end
+
+--- The Local Scenes option: little moments tied to a place (lib/local_scenes.lua). On
+--- unless switched off.
+function Config.localScenes(mod)
+  return optGet(mod, "local_scenes") ~= false
+end
+
 function Config.classicEncEnabled(mod)
   return optGet(mod, "classic_enc") == true
 end
@@ -385,7 +572,28 @@ function Config.spawnAmount(mod)
   return Config.SPAWN_AMOUNT[v] or Config.SPAWN_AMOUNT.normal, Config.SPAWN_AMOUNT[v] and v or "normal"
 end
 
-local VALID_SILHOUETTE = { off = true, undiscovered = true, all = true }
+--- The Flying Mons option: birds in the sky, perching, and wild Flying-type Pokemon
+--- arriving / leaving by air. On unless switched off.
+--- The Flying Mons option: "full" (everything, the high birds too), "ambient" (no high
+--- birds) or "off". A save from when it was an on / off toggle reads true -> full, false -> off.
+function Config.flyersMode(mod)
+  local v = optGet(mod, "flyers")
+  if v == true then return "full" end
+  if v == false then return "off" end
+  if v == "full" or v == "ambient" or v == "off" then return v end
+  return "full"
+end
+
+function Config.flyersOn(mod)
+  return Config.flyersMode(mod) ~= "off"
+end
+
+--- The big blurred passers high overhead (lib/sky_flyers.lua): Flying Mons on Full only.
+function Config.highBirdsOn(mod)
+  return Config.flyersMode(mod) == "full"
+end
+
+local VALID_SILHOUETTE ={ off = true, undiscovered = true, all = true }
 function Config.silhouetteMode(mod)
   local v = optGet(mod, "wild_silhouettes")
   if VALID_SILHOUETTE[v] then return v end

@@ -73,6 +73,15 @@ function HdField.speciesFactor(path)
   return lookup(SizeTables[info.style], info) or 1
 end
 
+--- The species factor for art `key` ("479" / "479-heat" / 25) in `style` ("hgss" | "pmd"),
+--- 1 with Species Sizes off. For what draws without a sheet path (lib/voxel_sheets.lua's
+--- cards in a voxel world mod, which needs no gen3-hd-sprites to size them).
+function HdField.factorFor(style, key)
+  if not HdField.speciesSizes or key == nil then return 1 end
+  local k = tostring(key)
+  return lookup(SizeTables[style], { key = k, dex = tonumber(k:match("^(%d+)")) }) or 1
+end
+
 local function scaleOf(spec)
   return math.max(MIN_SCALE, math.min(MAX_SCALE, spec.factor))
 end

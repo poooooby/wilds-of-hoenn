@@ -80,6 +80,12 @@ FAMILIES: dict[str, list[str]] = {
     # the overworld-fight animations (Attack, Hurt): optional per species
     "pmd_attack": ["assets/pmd/attack"],
     "pmd_hurt": ["assets/pmd/hurt"],
+    # a flying Pokemon's wing-beat in the sky (SpriteCollab Hover): optional per species
+    "pmd_fly": ["assets/pmd/fly"],
+    # a small fish's leap out of the water (SpriteCollab Hop): only the leaping fish
+    "pmd_hop": ["assets/pmd/hop"],
+    # the Local Scenes' extra animations (Sleep, Dance, Rotate): a few species only
+    "pmd_scene": ["assets/pmd/sleep", "assets/pmd/dance", "assets/pmd/rotate"],
     # the foam overlays a swimming Pokemon is drawn with (mostly transparent, tiny)
     "pmd_foam": ["assets/pmd/foamwalk", "assets/pmd/foamidle", "assets/pmd/foamattack", "assets/pmd/foamhurt"],
     "pmd_portraits": ["assets/pmd/portraits"],

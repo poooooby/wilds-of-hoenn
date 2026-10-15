@@ -863,6 +863,70 @@ do
   _G.require = realRequire
 end
 
+-- ------- the sky (lib/sky_flyers.lua): types, open sky, perches, neighbours
+do
+  local overBlob
+  do
+    -- tileset_native.lua's layout: 12-byte header (bytes 7-8 = metatile count), two bytes
+    -- per metatile, then 256 bytes per atlas slot. Slot 0 empty, slot 1 has a pixel.
+    local midCount = 2
+    local header = string.char(0, 0, 0, 0, 0, 0, midCount % 256, math.floor(midCount / 256), 0, 0, 0, 0)
+    local mids = string.rep("\0", midCount * 2)
+    local slot0 = string.rep("\0", 256)
+    local slot1 = string.rep("\0", 100) .. "\5" .. string.rep("\0", 155)
+    overBlob = header .. mids .. slot0 .. slot1
+  end
+  local layouts = { [0] = { [0] = 10, [1] = 11 } } -- y -> x -> mid
+  local def = { mapType = 3, cave = 0, bgEvents = {
+    { type = "sign", x = 4, y = 6 }, { type = "hidden_item", x = 1, y = 1 }, { type = "sign", x = "?" },
+  } }
+  local skyFake = {
+    ["src.core.game3.map"] = {
+      currentDef = function() return def end,
+      worldMidAt = function(x, y) local row = layouts[y] return row and row[x] or 0, "PAIR" end,
+      neighborList = { { mapId = "ROUTE_102" }, { map = "ROUTE_104" } },
+    },
+    ["src.core.game3.tileset_native"] = {
+      get = function(pair) if pair == "PAIR" then return { layered = true, overBlob = overBlob, cols = 8 } end end,
+      slotFor = function(_ts, mid) if mid == 11 then return 1 end return 0 end,
+    },
+    ["src.core.game3.pokemon"] = {
+      types = function(s) if s == 1 then return { 0, 2 } elseif s == 2 then return { 11, 2 } end return { 0, 0 } end,
+    },
+    ["src.core.game3.field_weather"] = { getWeather = function() return 3 end },
+  }
+  _G.require = function(n)
+    if skyFake[n] ~= nil then return skyFake[n] end
+    if fake[n] ~= nil then return fake[n] end
+    return realRequire(n)
+  end
+  local EP = assert(loadfile("lib/engine_patch.lua"))(nil)
+  EP.cacheModules(false)
+  check(EP.isFlying(1), "Normal/Flying is a flyer")
+  check(EP.isFlying(2) and EP.isWaterType(2), "Water/Flying: a flyer and a sea bird")
+  check(not EP.isFlying(3), "a ground species is not")
+  check(EP.skyAllowed("R"), "a route under open sky")
+  def.mapType = 8
+  check(not EP.skyAllowed("R"), "indoors: no sky")
+  def.mapType, def.cave = 3, 1
+  check(not EP.skyAllowed("R"), "a map flagged a cave: no sky")
+  def.cave = 0
+  def.mapType = 2
+  check(EP.skyAllowed("R"), "a city: sky")
+  def.mapType = 5
+  check(not EP.skyAllowed("R"), "underwater: no sky")
+  def.mapType = 3
+  eq(EP.coversActors(1, 0), true, "a metatile whose upper layer has pixels covers actors (tree crown / roof)")
+  eq(EP.coversActors(0, 0), false, "an empty upper layer does not")
+  local signs = EP.signCells()
+  eq(#signs, 1, "signposts: only well-formed 'sign' events")
+  eq(signs[1] and signs[1].x, 4, "...at their cell")
+  local n = EP.neighbourMapIds()
+  check(#n == 2 and n[1] == "ROUTE_102" and n[2] == "ROUTE_104", "the maps joined to this one")
+  eq(EP.weatherId(), 3, "the current weather")
+  _G.require = realRequire
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
