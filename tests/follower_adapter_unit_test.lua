@@ -1068,18 +1068,21 @@ do
     healing = false
     for _ = 1, T + 1 do fh:tick() end
     eq(fh.renderer.recall, 1, style .. ": healed: back out")
-    fh:onScriptMovement(0xFF)
-    check(not fh:isEscorting(), style .. ": a script moving only the player is no escort")
+    check(not fh:inCutscene(), style .. ": talking to someone (no one moved): it stays out")
     fh:onScriptMovement(3)
-    check(fh:isEscorting(), style .. ": ...moving the player and an NPC together is")
+    check(fh:inCutscene(), style .. ": a script walking an NPC is a cutscene")
+    fh:onScriptEnded()
+    fh:onScriptMovement(0xFF)
+    check(fh:inCutscene(), style .. ": ...so is one walking only the player")
+    fh:onScriptMovement(3)
     for _ = 1, T + 1 do fh:tick() end
-    eq(fh.renderer.recall, 0, style .. ": walking with them it keeps out of the way, in its ball")
+    eq(fh.renderer.recall, 0, style .. ": during the cutscene it keeps out of the way, in its ball")
     fh:onScriptEnded()
     for _ = 1, T + 1 do fh:tick() end
     eq(fh.renderer.recall, 1, style .. ": the script over: back out")
-    fh:onScriptMovement(0xFF) fh:onScriptMovement(4)
+    fh:onScriptMovement(4)
     busy = false
-    check(not fh:isEscorting(), style .. ": no script running any more (an end not heard): it lets go")
+    check(not fh:inCutscene(), style .. ": no script running any more (an end not heard): it lets go")
     busy = true
     leading = true
     for _ = 1, T + 1 do fh:tick() end

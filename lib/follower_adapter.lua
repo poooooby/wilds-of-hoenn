@@ -307,9 +307,9 @@ function FollowerAdapter:_tickRecall(npc, r)
   if biking then recalled = true end
   -- at the nurse's counter it goes into its ball for the heal machine, and comes back out
   if EnginePatch.healingActive and EnginePatch.healingActive() then recalled = true end
-  -- walking with another character (a script moving the player and them together -- an
-  -- escort -- or Gen 2's `follow`), it stays out of their way inside its ball
-  if self:isEscorting() then recalled = true end
+  -- a cutscene (a script moving anyone: the player, an NPC, both -- or Gen 2's `follow`),
+  -- it stays out of the way inside its ball; plain dialogue moves nobody and leaves it out
+  if self:inCutscene() then recalled = true end
   self.surfRecall = recalled
   -- a Battler out of strength rests inside the player (any art style)
   if self.away then recalled = true end
@@ -387,28 +387,25 @@ function FollowerAdapter:_tickDuck(npc, r)
   end
 end
 
---- Gen 3 escorts: main.lua's `script.command` wrap reports every `applymovement` target
---- (local id; 0xFF = the player). A script that moves the player AND someone else is the
---- player walking with them, so the companion goes into its ball until the script ends
---- (`onScriptEnded`, or the field being free again).
+--- Gen 3 cutscenes: main.lua's `script.command` wrap reports every `applymovement` target
+--- (local id; 0xFF = the player). A script that moves anyone -- the player, an NPC, the
+--- player walking with someone -- is a cutscene, so the companion goes into its ball until
+--- the script ends (`onScriptEnded`, or the field being free again). Talking to someone
+--- (text, `faceplayer`) moves nobody: it stays out.
 FollowerAdapter.LOCALID_PLAYER = 0xFF
 
 function FollowerAdapter:onScriptMovement(localId)
-  local id = tonumber(localId)
-  if not id then return end
-  local m = self.scriptMoves or {}
-  self.scriptMoves = m
-  if id == FollowerAdapter.LOCALID_PLAYER then m.player = true else m.other = true end
-  if m.player and m.other then self.escorting = true end
+  if tonumber(localId) then self.cutscene = true end
 end
 
 function FollowerAdapter:onScriptEnded()
-  self.scriptMoves, self.escorting = nil, false
+  self.cutscene = false
 end
 
---- Is the companion keeping out of the way of a character walking with the player?
-function FollowerAdapter:isEscorting()
-  if self.escorting then
+--- Is a cutscene running (or a character following the player), so the companion keeps
+--- out of the way in its ball?
+function FollowerAdapter:inCutscene()
+  if self.cutscene then
     -- no script running any more (an end we did not hear): let go
     if EnginePatch.fieldBusy and not EnginePatch.fieldBusy() then
       self:onScriptEnded()

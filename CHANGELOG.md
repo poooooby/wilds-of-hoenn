@@ -103,9 +103,10 @@
   until it clears the roof (with a little sweat drop by its head while it does), then stands back
   up. Behind a house or a tree it still hides as before. Talk to it while it's crouched and it
   tells you it's cramped and would like to move on, with a worried face.
-- **Your partner steps into its ball for the nurse and for escorts.** At a Pokemon Center
+- **Your partner steps into its ball for the nurse and for cutscenes.** At a Pokemon Center
   counter it goes into its ball while the heal machine runs and comes back out after; it does
-  the same while a story scene walks someone along with you.
+  the same during any story scene that moves you or someone else about, and comes back out when
+  the scene ends. Just talking to someone leaves it out.
 - **Every PMDCollab Pokemon has a shiny look now.** 39 species (Tranquill, Flamigo, Bombirdier,
   Squawkabilly, the Alcremie flavours, Ogerpon's masks and more) had no shiny PMDCollab art, so a
   shiny one looked normal. Their shiny is now made from their HGSS shiny colours, keeping the

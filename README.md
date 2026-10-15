@@ -58,8 +58,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   from 200.
 - 🚲 **Bike rides:** hop on your bike and your partner rides along in its Poké Ball, popping
   back out when you get off. It also slips into its ball at the Pokémon Center while the nurse
-  heals your team, and while someone walks along with you in a story scene, keeping out of the
-  way.
+  heals your team, and during story scenes where people move about, keeping out of the way
+  (just talking to someone leaves it out).
 
 ### A Living World
 

@@ -348,8 +348,8 @@ return function(mod)
     pcall(function() localScenes:onScriptEnded() end)
   end)
 
-  -- who a script walks: the player and someone else together = an escort, and the
-  -- companion goes into its ball (lib/follower_adapter.lua isEscorting)
+  -- a script that walks anyone is a cutscene: the companion goes into its ball until it
+  -- ends (lib/follower_adapter.lua inCutscene); plain dialogue walks nobody
   mod.hooks:wrap("script.command", function(next, _ctx, op, row)
     if (op == "applymovement" or op == "applymovementat") and type(row) == "table" then
       pcall(function() followerAdapter:onScriptMovement(row.localId or row[1]) end)
