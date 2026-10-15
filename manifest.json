@@ -7,7 +7,7 @@
   "profile": "content",
   "category": "MECHANIC",
   "game_version": ">=0.0.0-0",
-  "games": ["gen3"],
+  "games": ["gen1", "gen2", "gen3"],
   "priority": 80,
   "dependencies": [],
   "optional_dependencies": [
@@ -17,11 +17,12 @@
     "gen3-hd-sprites"
   ],
   "conflicts": [
-    "wildfollowers"
+    "wildfollowers",
+    "wilds_of_kanto_gen3"
   ],
   "permissions": ["engine_internals"],
   "affects_link": false,
   "options_schema": "options.lua",
-  "description": "Visible, reactive wild Pokemon for the Hoenn overworld (Ruby, Sapphire, Emerald, FireRed, LeafGreen). Sister project to Wilds of Kanto Revival, built from scratch for Gen1Recomp's game3 engine.",
+  "description": "Visible, reactive wild Pokemon and a following partner for Red, Blue, Yellow, Gold, Silver, Crystal, Ruby, Sapphire, Emerald, FireRed and LeafGreen. Sister project to Wilds of Kanto Revival (use one or the other).",
   "github": "poooooby/wilds-of-hoenn"
 }

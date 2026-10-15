@@ -173,7 +173,7 @@ function BattleTrigger:onPlayerBumped(entity)
   if self:isPending() then return end
   local enc = {
     species = entity.species, level = entity.level, personality = entity.personality,
-    ivs = entity.ivs, roamer = entity.roamer, moves = entity.moves,
+    ivs = entity.ivs, roamer = entity.roamer, moves = entity.moves, dvs = entity.dvs,
   }
   if entity.roamer then
     -- the roaming legendary battles as the engine has it NOW: its current HP and status

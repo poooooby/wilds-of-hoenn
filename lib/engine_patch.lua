@@ -23,6 +23,19 @@
 -- tests/engine_patch_probe_test.lua runs this file's probes against a real
 -- gen1recomp checkout (luajit) so an engine update that moves one of these
 -- fields fails loudly instead of silently breaking spawns in the field.
+--
+-- Red / Blue / Yellow and Gold / Silver / Crystal run on other engines: on such a boot
+-- this module is lib/engine_gb.lua instead, which answers the same API there.
+local V = ...
+do
+  local okV, GameVersion = pcall(require, "src.core.GameVersion")
+  if okV and type(GameVersion) == "table" and type(GameVersion.generation) == "function" then
+    local okG, generation = pcall(GameVersion.generation)
+    if okG and (generation == 1 or generation == 2) and type(V) == "table" and V.require then
+      return V.require("engine_gb")
+    end
+  end
+end
 
 local EnginePatch = {}
 

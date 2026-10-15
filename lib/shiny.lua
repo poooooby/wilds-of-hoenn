@@ -103,9 +103,15 @@ end
 --- chainBonus, nil = none), and applies the chain's perfect stats. Mutates and
 --- returns `enc`; `enc.shiny` is always set to true / false.
 function Shiny.rollForEncounter(enc, bonus, rng)
-  if type(enc) ~= "table" or enc.personality == nil then return enc end
-  rng = rng or math.random
+  if type(enc) ~= "table" then return enc end
   local EnginePatch = V.require("engine_patch")
+  -- Gen 2: shininess is in the DVs the encounter rolled (lib/engine_gb.lua); no chain there
+  if type(enc.dvs) == "table" and EnginePatch.shinyDvs then
+    enc.shiny = EnginePatch.shinyDvs(enc.dvs) == true
+    return enc
+  end
+  if enc.personality == nil then return enc end
+  rng = rng or math.random
   local ids = EnginePatch.trainerIds() or { otId = 0, otSecretId = 0 }
   enc.shiny = EnginePatch.isShiny(enc.personality, ids.otId, ids.otSecretId) == true
   if type(bonus) ~= "table" then return enc end

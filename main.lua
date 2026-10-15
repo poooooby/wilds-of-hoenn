@@ -19,9 +19,13 @@
 --   lib/interaction_limiter.lua  - cooldowns, window budget, abuse lock-out for it
 --   options.lua             - Mod Manager option schema
 --
--- Gen 3 only: runs on Ruby / Sapphire / Emerald (layout "rse") and FireRed /
--- LeafGreen (layout "frlg") -- they share every game3 module patched here --
--- and installs nothing on any other game (EnginePatch.layoutName() == nil).
+-- Every generation: Ruby / Sapphire / Emerald (layout "rse") and FireRed /
+-- LeafGreen (layout "frlg") share every game3 module patched here; Red / Blue /
+-- Yellow ("gen1") and Gold / Silver / Crystal ("gen2") run on other engines, which
+-- lib/engine_gb.lua answers for behind the same EnginePatch API (engine_patch.lua
+-- hands it out on such a boot). There the core runs -- visible spawns, battles, the
+-- follower, both sprite styles -- and the Gen 3-only systems (the sky, Water Life,
+-- Local Scenes, Wild Reacts, the companion roles and menus) are not built.
 --
 -- Fail-safe: if EnginePatch.probe() finds any engine touch point has moved
 -- (a gen1recomp update), this mod logs exactly what and installs nothing
@@ -74,7 +78,28 @@ return function(mod)
   local WaterLife = V.require("water_life")
   local LocalScenes = V.require("local_scenes")
 
+  -- a Gen 1 / Gen 2 boot (lib/engine_gb.lua): no Gen 3-only options, no Gen 3-only systems
+  local gb = EnginePatch.isGb == true
+  Config.gbBoot = gb
   Config.defineOptions(mod)
+
+  -- The engine's follower npc is built with the SPRITE_PIKACHU record (PikachuFollower /
+  -- gen2/Follower.lua), which Red and Blue do not have (Yellow and Gold do): register a
+  -- placeholder -- the player's own sheet -- while the registry is open (load phase).
+  -- FollowerAdapter puts our renderer on the npc the first tick it is out.
+  if gb and mod.content and mod.content.sprites then
+    pcall(function()
+      local sprites = mod.content.sprites
+      local okGet, have = pcall(sprites.get, sprites, "SPRITE_PIKACHU")
+      if okGet and have then return end
+      local okRed, red = pcall(sprites.get, sprites, "SPRITE_RED")
+      sprites:register("SPRITE_PIKACHU", {
+        id = "SPRITE_PIKACHU",
+        image = okRed and type(red) == "table" and red.image or "assets/generated/sprites/red.png",
+        frames = 6, walker = true,
+      })
+    end)
+  end
   HdField.setSpeciesSizes(Config.get(mod, "species_sizes"))
 
   -- Pure asset I/O, no engine dependency: safe to try regardless of game
@@ -94,7 +119,7 @@ return function(mod)
 
   local layout = EnginePatch.layoutName()
   if not layout then
-    mod.log:info("[wilds_of_hoenn] not a Gen 3 boot (Ruby/Sapphire/Emerald/FireRed/LeafGreen) -- installing nothing")
+    mod.log:info("[wilds_of_hoenn] not a game this mod knows -- installing nothing")
     return
   end
   mod.exports.layout = layout
@@ -109,18 +134,20 @@ return function(mod)
   end
 
   local spawnManager = SpawnManager.new(mod)
+  -- the Gen 3-only ambient systems: on a Gen 1 / Gen 2 boot an inert stand-in
+  local inert = setmetatable({}, { __index = function() return function() end end })
   -- flying Pokemon in the sky; wild Flying types arrive and leave through it
-  local skyFlyers = SkyFlyers.new(mod, {
+  local skyFlyers = gb and inert or SkyFlyers.new(mod, {
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
   })
-  spawnManager.sky = skyFlyers
+  spawnManager.sky = not gb and skyFlyers or nil
   -- fish leaping, whales surfacing (ambient)
-  local waterLife = WaterLife.new(mod, {
+  local waterLife = gb and inert or WaterLife.new(mod, {
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
   })
-  spawnManager.water = waterLife -- wild fish swim in / out under the sea
+  spawnManager.water = not gb and waterLife or nil -- wild fish swim in / out under the sea
   -- little moments in a few places (Lavender's ghosts, Petalburg Woods' bugs, Fortree's Tropius)
-  local localScenes = LocalScenes.new(mod)
+  local localScenes = gb and inert or LocalScenes.new(mod)
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
   -- a wild Pokemon chasing the player catches up (lib/wild_reactions.lua): the battle
   spawnManager.onContact = function(e) battleTrigger:onChaserContact(e) end
@@ -268,7 +295,7 @@ return function(mod)
       skyFlyers:tick()
       waterLife:tick()
       localScenes:tick()
-      followerInteraction:tick(game)
+      if not gb then followerInteraction:tick(game) end
       battleTrigger:tick()
       battleTrigger:checkContact()
       followerAdapter:tick()
@@ -282,8 +309,54 @@ return function(mod)
 
   mod.exports.engineReady = true
 
+  if gb then
+    -- a voxel world mod (TERRARIUM, Potato Voxel, Dramaless, Stadium2) draws the world from
+    -- engine sprites: our Pokemon go in as sheets baked from their own art
+    -- (lib/voxel_sheets.lua), on cards of their own size (lib/compat/: Wilds of Kanto
+    -- Revival's adapters, one per provider, over one shared SpriteBillboards wrap)
+    local VoxelSheets = V.require("voxel_sheets")
+    local ActorRenderer = V.require("actor_renderer")
+    local SpriteSource = V.require("sprite_source")
+    local okAssets, Assets = pcall(require, "src.render.Assets")
+    EnginePatch.voxelSheets = VoxelSheets.new({
+      assets = okAssets and Assets or nil,
+      poses = { STAND = ActorRenderer.POSE_STAND, WALK_A = ActorRenderer.POSE_WALK_A },
+      makeRenderer = function(key, shiny, style)
+        return V.require("renderer_factory").new(mod, key, shiny, style, SpriteSource.PRESENTATION_LAND)
+      end,
+    })
+    local VOXEL_ADAPTERS = {
+      "compat/terrarium_variable_geometry", "compat/potato_voxel_variable_geometry",
+      "compat/dramaless_variable_geometry", "compat/stadium2_variable_geometry",
+    }
+    -- each adapter installs only when its provider is loaded (absent -> nothing)
+    local function voxelAdapters()
+      for _, name in ipairs(VOXEL_ADAPTERS) do
+        pcall(function() V.require(name).install(mod) end)
+      end
+    end
+    mod.events:on("mods.loaded", voxelAdapters)
+    mod.events:on("game.ready", voxelAdapters)
+
+    -- Gen 1 / Gen 2 collision is a public hook: a wild Pokemon blocks NPCs, never the
+    -- player stepping onto it (lib/engine_gb.lua collisionVerdict)
+    mod.hooks:wrap("movement.collision", function(next, allowed, ctx)
+      local base = next(allowed, ctx)
+      local ok, out = pcall(EnginePatch.collisionVerdict, base, ctx, function(x, y)
+        return spawnManager:entityAt(x, y)
+      end)
+      if ok then return out end
+      return base
+    end)
+    -- the field's battle state (Gen 3 reads it off the engine)
+    mod.events:on("battle.started", function() EnginePatch.noteBattle(true) end)
+    mod.events:on("battle.ended", function() EnginePatch.noteBattle(false) end)
+  end
+
   mod.events:on("map.entered", function(ev)
     local ok2, err = pcall(function()
+      -- Gen 1 / Gen 2: the world that loaded this map, before the spawns read it
+      if EnginePatch.noteMap then EnginePatch.noteMap(mod.world and mod.world.game, ev and ev.map) end
       skyFlyers:onMapEntered(ev and ev.mapId)
       waterLife:onMapEntered(ev and ev.mapId)
       localScenes:onMapEntered(ev and ev.mapId)
@@ -336,15 +409,17 @@ return function(mod)
 
   -- Lavender Town's "Do you believe in ghosts?": her reply to a "No" (its text key) may
   -- bring a Gengar up behind the player (lib/local_scenes.lua), gone once she has finished.
-  mod.hooks:wrap("script.command", function(next, _ctx, op, row)
-    if op == "loadword" and type(row) == "table" and type(row.value) == "string" then
-      pcall(function() localScenes:onScriptText(row.value) end)
-    end
-    return next()
-  end)
-  mod.events:on("script.ended", function(_ev)
-    pcall(function() localScenes:onScriptEnded() end)
-  end)
+  if not gb then
+    mod.hooks:wrap("script.command", function(next, _ctx, op, row)
+      if op == "loadword" and type(row) == "table" and type(row.value) == "string" then
+        pcall(function() localScenes:onScriptText(row.value) end)
+      end
+      return next()
+    end)
+    mod.events:on("script.ended", function(_ev)
+      pcall(function() localScenes:onScriptEnded() end)
+    end)
+  end
 
   -- Classic Encounters: suppresses the vanilla step-based land/water roll
   -- while OFF. Fishing (rollFishing) and Rock Smash (rollRocks) never run
@@ -358,7 +433,7 @@ return function(mod)
   -- already counted the chain and maybe swapped in the chained species; this
   -- runs after it and makes the encounter shiny / gives it perfect stats (a Gen 3
   -- shiny is this mod's job, lib/shiny.lua). Nothing without Modern Spawns.
-  mod.hooks:wrap("encounter.species", function(next, _enc, _ctx)
+  if not gb then mod.hooks:wrap("encounter.species", function(next, _enc, _ctx)
     local out = next()
     if type(out) ~= "table" then return out end
     local species = tonumber(out.speciesId) or tonumber(out.species)
@@ -370,7 +445,7 @@ return function(mod)
     Shiny.rollForEncounter(probe, bonus)
     out.personality, out.ivs = probe.personality, probe.ivs
     return out
-  end)
+  end) end
 
   -- Party follower: the engine's public seam, no patching needed.
   mod.hooks:wrap("world.follower.spawn", function(_next, _game, _world)

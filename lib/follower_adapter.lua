@@ -332,13 +332,23 @@ end
 -- Is this party Pokemon shiny? The same real check the wild spawns use, against
 -- ITS OWN trainer ids (a traded or gifted one is judged by its original trainer).
 local function monShiny(mon)
+  -- Gen 2 (lib/engine_gb.lua): its DVs
+  if EnginePatch.monShiny then return type(mon) == "table" and EnginePatch.monShiny(mon) == true end
   if type(mon) ~= "table" or mon.personality == nil then return false end
   return EnginePatch.isShiny(mon.personality, tonumber(mon.otId), tonumber(mon.otSecretId)) == true
 end
 
+-- the sprite the engine's follower npc carries: the renderer itself, or (Gen 1 / Gen 2)
+-- the engine-shaped sprite lib/engine_gb.lua wraps it in
+local function npcSprite(r, npc)
+  if EnginePatch.followerSprite then return EnginePatch.followerSprite(r, npc) end
+  return r
+end
+
 local function dispOf(mon, role)
   return {
-    mon = mon, role = role, species = mon and tonumber(mon.species) or nil,
+    -- an engine species id; Gen 1 / Gen 2 name theirs ("PIKACHU")
+    mon = mon, role = role, species = mon and (tonumber(mon.species) or mon.species) or nil,
     shiny = monShiny(mon),
     key = tostring(mon and (mon.personality or ("species" .. tostring(mon.species)))) .. ":" .. tostring(role),
   }
@@ -439,16 +449,16 @@ function FollowerAdapter:tick()
   local style = Config.spriteStyle(self.mod)
   local shiny = self.disp.shiny == true
   if species ~= self.leadSpecies or style ~= self.style or shiny ~= self.leadShiny
-      or npc.sprite ~= self.renderer then
+      or npc.sprite ~= npcSprite(self.renderer, npc) then
     self.leadSpecies, self.style, self.leadShiny = species, style, shiny
     local dex = species and FormSource.artKeyFor(self.mod, species) or nil
     if not dex then
       self.renderer = nil
-      npc.sprite = nil
+      npc.sprite = npcSprite(nil, npc)
     else
       self.isFloater = SpriteSource.isFloater(self.mod, dex)
       self.renderer = RendererFactory.new(self.mod, dex, shiny, style)
-      npc.sprite = self.renderer
+      npc.sprite = npcSprite(self.renderer, npc)
     end
   end
   if not self.renderer then

@@ -444,7 +444,22 @@ function Config.defineOptions(mod)
   -- The HGSS-only release ships no PMDCollab art: don't offer a style that
   -- would silently draw HGSS anyway.
   if not Config.hasPmdArt(mod) then Config.withoutPmdStyle(schema) end
+  if Config.gbBoot then Config.withoutGen3Only(schema) end
   mod.options:define(schema)
+end
+
+-- Options whose systems only exist on a Gen 3 boot so far (the sky, the water, the scenes,
+-- the reactions: lib/engine_gb.lua supports none of them yet). A Gen 1 / Gen 2 boot
+-- (Config.gbBoot, set by main.lua) does not offer them and reads them as off.
+Config.GEN3_ONLY = { flyers = true, water_life = true, local_scenes = true, wild_reacts = true }
+Config.gbBoot = false
+
+--- Removes the Gen 3-only rows from an option schema (in place).
+function Config.withoutGen3Only(schema)
+  for i = #schema, 1, -1 do
+    if Config.GEN3_ONLY[schema[i].key] then table.remove(schema, i) end
+  end
+  return schema
 end
 
 -- Is PMDCollab art installed? (assets/pmd/index.json -- shipped loose even in an
@@ -484,6 +499,7 @@ function Config.withoutPmdStyle(schema)
 end
 
 local function optGet(mod, key)
+  if Config.gbBoot and Config.GEN3_ONLY[key] then return false end
   if mod and mod.options and type(mod.options.get) == "function" then
     local v = mod.options:get(key)
     if v ~= nil then return v end

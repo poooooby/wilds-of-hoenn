@@ -9,6 +9,19 @@
   Once in a long while a whole pod comes up to play, swimming round in a ring and taking turns to
   leap, then goes back under. Drawn at its own size from either sprite style.
 
+- **Red, Blue, Yellow, Gold, Silver and Crystal.** Wilds of Hoenn now runs on every game
+  Gen1Recomp plays. On the Game Boy games you get the heart of it: wild Pokemon you can see,
+  rolled from the game's own encounter tables (by time of day in Gold, Silver and Crystal, and
+  only the Unown letters you have unlocked); walking onto one battles exactly that Pokemon, shiny
+  or not; your party's leader follows you; both sprite styles. Wild Pokemon stand in the grass
+  with the grass over their feet, and in Red, Blue and Yellow's palette colour modes they take
+  on the area's colours like every other sprite. The other features stay on the Gen 3 games for
+  now, and their options are not shown on the Game Boy games. Wilds of Kanto Revival is the same
+  idea for Red, Blue, Yellow and Gold: switch on one or the other.
+- **3D world mods.** With TERRARIUM, Potato Voxel or Dramaless (Red, Blue, Yellow) or Stadium2
+  (Gold, Silver, Crystal) on, the wild Pokemon and your follower stand in the 3D world as cards of
+  their own art at their own size, sunk into the grass and water like its own characters.
+
 ### Changed
 
 - **Wild Reacts: charging and vanishing.** A stronger wild Pokemon chasing you now charges with

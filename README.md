@@ -4,12 +4,14 @@
 
 # Wilds of Hoenn 🌿
 
-*The tall grass is alive. Wild Pokémon roam the overworld of Ruby, Sapphire, Emerald, FireRed
-and LeafGreen. Walk up to one to battle it, and bring a partner along for the journey.*
+*The tall grass is alive. Wild Pokémon roam the overworld of Red, Blue, Yellow, Gold, Silver,
+Crystal, Ruby, Sapphire, Emerald, FireRed and LeafGreen. Walk up to one to battle it, and bring a
+partner along for the journey.*
 
 </div>
 
-A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3 games.
+A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp), for its Generation 1, 2 and 3
+games.
 
 ## ✨ Features
 
@@ -140,6 +142,23 @@ time, and they stay out until you change your leader again. One partner is out a
   shiny chains.
 - [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites): smooth, true-to-size sprites.
 
+## 📌 Good to Know
+
+- 🎮 **Red, Blue, Yellow, Gold, Silver and Crystal** get the heart of the mod: visible wild
+  Pokémon from the game's own encounter tables (Gold and Silver's change with the time of day),
+  battles with exactly the Pokémon you walk onto (shinies included in Gold, Silver and Crystal),
+  your party's leader following you, and both sprite styles. The rest (flying Pokémon, Water
+  Life, Local Scenes, Wild Reacts, the Battler and Forager jobs, Pet / Play / Talk, Sweet Scent)
+  is for Ruby, Sapphire, Emerald, FireRed and LeafGreen for now.
+- 🌈 **Red, Blue and Yellow colours:** in the game's palette colour modes, the Pokémon take on
+  the area's colours like every other sprite. In ADVANCED colours they keep their full colours.
+- 🔀 **Wilds of Kanto Revival** is the same idea for Red, Blue, Yellow and Gold: use one or the
+  other. If both are switched on, Wilds of Kanto Revival runs and this mod stays off.
+- 🧊 **3D world mods** (TERRARIUM, Potato Voxel, Dramaless on Red, Blue and Yellow; Stadium2
+  on Gold, Silver and Crystal): the wild Pokémon and your follower stand in the 3D world too, as cards of their own art at their own size, half hidden
+  by the grass and the water like everyone else there. They show one still frame per pose
+  there (standing, walking).
+
 ## 🪪 Credits
 
 - **HGSS / PokeMMO overworld sprites:** many artists, collected by
@@ -155,7 +174,7 @@ time, and they stay out until you change your leader again. One partner is out a
 
 - **TTiN** and **Untamed Tohjo**: friendship-weighted foraging and shiny chains (used with
   permission).
-- **Wilds of Kanto Revival**: this mod's sister project, for Generation 1 and 2.
+- **Wilds of Kanto Revival**: this mod's sister project, for Red, Blue, Yellow and Gold.
 
 ## 🤖 AI Disclosure
 

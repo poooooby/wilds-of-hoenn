@@ -41,7 +41,7 @@ for f in tests/*_unit_test.lua; do lua "$f" || echo "FAIL: $f"; done
 # Engine tests (luajit, from inside the gen1recomp checkout; ROM-free unless noted)
 cd ../gen1recomp
 luajit mods/wilds_of_hoenn/tests/engine_patch_probe_test.lua
-luajit mods/wilds_of_hoenn/tests/modkit_boot_test.lua
+luajit mods/wilds_of_hoenn/tests/modkit_boot_test.lua           # Emerald, FireRed, LeafGreen, Red, Gold boots
 luajit mods/wilds_of_hoenn/tests/classic_encounters_test.lua
 luajit mods/wilds_of_hoenn/tests/forage_ndex_catalog_test.lua  # with national_dex_gen3 linked
 luajit mods/wilds_of_hoenn/tests/shiny_chain_test.lua          # FireRed imported, national_dex_gen3 + modern_spawns linked
@@ -98,9 +98,53 @@ real engine checkout: if a Gen1Recomp update moves one, the mod switches itself 
 what changed instead of crashing. Wild encounters come from the engine's own rules
 (`Encounters.rules().rollSweetScent`); nothing about wild generation is reimplemented.
 
-Start reading at the header of `lib/engine_patch.lua`, then each module's header in `lib/`.
+### Red, Blue, Yellow, Gold, Silver, Crystal
+
+Gen1Recomp runs the Game Boy games on two other engines (`src/world/OverworldController.lua`
+for Gen 1, `src/world/gen2/World.lua` for Gen 2). On such a boot `lib/engine_patch.lua` hands
+out `lib/engine_gb.lua` in its own place: the same API, answered for those engines
+(`lib/gb/gen1.lua`, `lib/gb/gen2.lua` hold what differs), so `SpawnManager`, `BattleTrigger`,
+`FollowerAdapter` and the renderers run unchanged. Its seams, probed and reversible like
+`engine_patch`'s:
+
+- `OverworldState.drawWorld` / `World.drawPeople`: for the length of that call, one proxy per
+  actor we collect is appended to the list the engine y-sorts and draws (`ow.entities` /
+  `world.npcs`), and removed afterwards. Our Pokémon sort with the player and NPCs and get the
+  engine's grass over their feet; collision, NPC movement, trainer sight and talking never see
+  them. Both engines draw a walker 4 px above its tile (`lib/gb_color.lua` FOOT_LIFT). While a
+  render pipeline mod (3D: TERRARIUM, Potato Voxel, Dramaless; Stadium2 on Gen 2, through
+  `World.drawPipeline`) draws the world, only renderer-drawn actors go in, each with the
+  `pose()` the pipeline reads: a sheet baked from our own art in Gen 1's 6-frame layout
+  (`lib/voxel_sheets.lua`, a composed `Assets` path; luminance shades outside true-colour modes)
+  whose def carries its real `frameWidth` / `frameHeight` / `anchorX` / `anchorY`. The cards get
+  that size from `lib/compat/`: Wilds of Kanto Revival's adapters, copied as they are (one
+  file per provider over `voxel_sprite_billboards_adapter.lua`), but for a log shim and the
+  feet `cut` TERRARIUM passes. The follower's sprite hands the pipeline the same kind of sheet.
+- `OverworldState.update` / `World.step`: the per-tick update. `OverworldState.handleInput` /
+  `World.pollInput`: a waiting contact holds the player.
+- The public `movement.collision` hook (main.lua, `EngineGb.collisionVerdict`): a wild Pokémon
+  blocks every mover but the player and the follower.
+- The engine's own follower (`world.follower.spawn`; Red and Blue get a placeholder
+  `SPRITE_PIKACHU` record at load) carries our renderer in an engine-shaped sprite
+  (`EngineGb.followerSprite`); anything else a caller reads comes from its own engine sprite.
+
+Encounters are the engines' own slot picks (Gen 1's buckets, Gen 2's `Encounter.grassSlot` by
+time of day / `waterSlot`, Unown by unlocked letters) on the engines' own encounter tiles; Gen
+2 rolls the DVs at spawn time, so shininess shows and the battle (`Mon.new`, `World:startBattle`)
+is that Pokémon. Gen 1 battles go through `BattleState.newWild` + `pushBattle`, the way a step
+encounter does (ghosts, Safari). Colour: Gen 1's palette-zone pass re-colours the world canvas,
+so outside its true-colour modes our art is drawn through a 3-shade luminance shader
+(`lib/gb_color.lua`). Not built on these boots (`Config.gbBoot`, `EngineGb.supports`): the sky,
+Water Life, Local Scenes, Wild Reacts, the companion roles and menus, Sweet Scent, reflections.
+
+To try it in a real game with Wilds of Kanto Revival installed, switch that off for the game
+first: the loader drops the mod that declares the conflict, which is this one.
+
+Start reading at the header of `lib/engine_patch.lua` (and `lib/engine_gb.lua`), then each
+module's header in `lib/`.
 Tests mirror `lib/` one to one in `tests/`.
 
 This mod is a sister project to [Wilds of Kanto Revival](https://github.com/poooooby/wilds-of-kanto-gen-3),
-built from scratch for Gen 3's engine. It shares no runtime code or save data with it, only a
-read-only copy of its overworld art.
+built from scratch for Gen 3's engine and since grown to cover Gen 1 and 2 too (use one or the
+other). It shares no runtime code or save data with it, only a read-only copy of its overworld
+art.

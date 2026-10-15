@@ -343,6 +343,7 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
     species = enc.species, dex = dex, level = enc.level,
     personality = enc.personality, ivs = enc.ivs, roamer = enc.roamer,
     moves = enc.moves, shiny = enc.shiny,
+    dvs = enc.dvs, -- Gen 2 (lib/engine_gb.lua): the DVs the battle Pokemon is built with
     terrain = terrain, elevation = 3,
     cellX = cell.x, cellY = cell.y, px = cell.x * 16, py = cell.y * 16,
     facing = facings[math.random(1, 4)],

@@ -104,6 +104,29 @@ for _, game in ipairs({ "firered", "leafgreen" }) do
   rFr.release()
 end
 
+-- ------- Red / Gold: other engines, answered by lib/engine_gb.lua behind the same API
+-- (engine_patch.lua hands it out on a Gen 1 / Gen 2 boot) -- the real probe and wraps
+for _, case in ipairs({ { game = "red", gen = 1, layout = "gen1" }, { game = "gold", gen = 2, layout = "gen2" } }) do
+  GameVersion.set(case.game)
+  local rGb = T.sdk.loadMod("mods/wilds_of_hoenn", { data = T.fixtures.fresh(), generation = case.gen })
+  eq(#rGb.errors, 0, "wilds_of_hoenn loads with no Loader errors on " .. case.game)
+  local mGb = rGb.loader.mods.wilds_of_hoenn
+  eq(mGb and mGb.state, "loaded", case.game .. ": the mod reaches loaded")
+  local ex = rGb.loader.exports and rGb.loader.exports.wilds_of_hoenn
+  eq(ex and ex.layout, case.layout, case.game .. ": layout " .. case.layout)
+  eq(ex and ex.engineReady, true, case.game .. ": engineReady (the real Gen " .. case.gen .. " probe passed)")
+  eq(ex and ex.enginePatch and ex.enginePatch.isGb, true, case.game .. ": the Gen 1 / Gen 2 engine layer is in charge")
+  check(ex and ex.spawnManager ~= nil and ex.battleTrigger ~= nil and ex.followerAdapter ~= nil,
+    case.game .. ": spawns, battles and the follower are built")
+  eq(ex and ex.spawnManager and ex.spawnManager.sky, nil, case.game .. ": no sky (Gen 3 only)")
+  local okE, errE = pcall(Runtime.emit, "map.entered", { mapId = "ROUTE_1" })
+  check(okE, case.game .. ": a real map.entered does not throw (" .. tostring(errE) .. ")")
+  local okS, errS = pcall(Runtime.emit, "world.stepped", { mapId = "ROUTE_1", x = 3, y = 4 })
+  check(okS, case.game .. ": a real world.stepped does not throw (" .. tostring(errS) .. ")")
+  if ex and ex.enginePatch and ex.enginePatch.uninstall then ex.enginePatch.uninstall() end
+  rGb.release()
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
