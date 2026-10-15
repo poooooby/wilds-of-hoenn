@@ -16,10 +16,11 @@ end
 
 math.randomseed(5)
 
--- species: 1 Magikarp, 2 Goldeen, 3 Horsea, 4 Tentacool, 5 Wailmer, 6 Feebas, 7 Octillery
-local NAT = { 129, 118, 116, 72, 320, 349, 224 }
-local EGG = { { 12, 14 }, { 12, 12 }, { 2, 14 }, { 9, 9 }, { 5, 12 }, { 2, 14 }, { 2, 12 } }
-local HEIGHT = { 9, 6, 4, 9, 20, 6, 9 }
+-- species: 1 Magikarp, 2 Goldeen, 3 Horsea, 4 Tentacool, 5 Wailmer, 6 Feebas, 7 Octillery,
+-- 8 Poliwag (a pond)
+local NAT = { 129, 118, 116, 72, 320, 349, 224, 60 }
+local EGG = { { 12, 14 }, { 12, 12 }, { 2, 14 }, { 9, 9 }, { 5, 12 }, { 2, 14 }, { 2, 12 }, { 2, 2 } }
+local HEIGHT = { 9, 6, 4, 9, 20, 6, 9, 6 }
 local fake = {}
 local optionStore = { sprite_style = "pokemmo" }
 local mod = { options = { get = function(_, k) return optionStore[k] end }, read = function() return nil end }
@@ -34,7 +35,9 @@ end
 fake.nationalFor = function(s) return NAT[s] end
 fake.eggGroups = function(s) local e = EGG[s] if e then return e[1], e[2] end end
 fake.heightDm = function(s) return HEIGHT[s] end
+local pond = false
 fake.tableFor = function()
+  if pond then return { fishing = { slots = { { species = 1 }, { species = 8 } } } } end
   return { fishing = { slots = { { species = 1 }, { species = 1 }, { species = 2 }, { species = 5 } } },
            water = { slots = { { species = 4 }, { species = 3 }, { species = 6 }, { species = 7 } } } }
 end
@@ -194,6 +197,100 @@ do
   check(v.swayY == 0 and math.abs(v.swayX) > 1.5, "swimming up, it sways side to side")
   WL._sway(v, false)
   check(v.swayX == 0 and v.swayY == 0, "resting: no wiggle")
+end
+
+-- ------- Finizen: a dolphin on the sea, alone or (rarely) a pod
+do
+  local cfg = Config.WATER_LIFE.dolphin
+  eq(cfg.species, 963, "Finizen is national dex 963")
+  local _, _, sea = WL.poolFor("ROUTE_105")
+  check(sea, "a map whose tables hold Tentacool / Wailmer is the sea")
+  pond = true
+  local _, _, pondSea = WL.poolFor("POND")
+  check(not pondSea, "...a pond of Magikarp and Poliwag is not")
+  pond = false
+
+  -- one Finizen's run: surface, porpoise in a row of leaps, dive
+  local plan = WL.dolphinPlan(3, 1, cfg, function() return true end)
+  local kinds = {}
+  for _, s in ipairs(plan.segments) do kinds[#kinds + 1] = s.kind end
+  eq(table.concat(kinds, ","), "rise,leap,glide,leap,glide,leap,dive", "it surfaces, porpoises three times, dives")
+  check(plan.dist > 3 * cfg.leapDist, "...moving along as it goes")
+  local x0, l0, r0 = WL.dolphinAt(plan, 0, cfg, 16)
+  check(x0 == 0 and l0 == 0 and r0 < 0.05, "at first it is under the water")
+  local _, _, rSurface = WL.dolphinAt(plan, cfg.riseTicks - 1, cfg, 16)
+  check(math.abs(rSurface - cfg.surfaceShow) < 0.05, "surfaced: only its back and fin show")
+  local leap = plan.segments[2]
+  local _, lTop, rTop = WL.dolphinAt(plan, leap.t0 + math.floor(leap.n / 2), cfg, 16)
+  check(lTop > 15 and rTop == 1, "mid-leap: wholly out of the water, high in its arc")
+  local _, lEnd, rEnd = WL.dolphinAt(plan, plan.n + 5, cfg, 16)
+  check(lEnd == 0 and rEnd == 0, "after the dive it is gone")
+  local back = WL.dolphinPlan(2, -1, cfg)
+  check(back.dist < 0, "a run can go either way")
+
+  -- a pod in a ring, taking turns to leap
+  local play, n = 600, 4
+  local leapers, maxLeapers, seenAt = {}, 0, {}
+  for t = 0, play do
+    local now = 0
+    for k = 1, n do
+      local x, y, lift, reveal, facing, leaping = WL.podMember(k, n, t, play, cfg, 16, 1)
+      check(math.abs(x) <= cfg.ring[1] + 0.01 and math.abs(y) <= cfg.ring[2] + 0.01, "a pod member keeps to its ring")
+      if leaping then now = now + 1 leapers[k] = true end
+      if t == play then seenAt[k] = reveal end
+      if t == 300 and not leaping then check(math.abs(reveal - cfg.surfaceShow) < 0.01, "at play it rides the surface") end
+    end
+    maxLeapers = math.max(maxLeapers, now)
+  end
+  eq(#leapers, n, "every one of the pod leaps")
+  check(maxLeapers < n, "...taking turns, never all at once")
+  local gone = true
+  for k = 1, n do if seenAt[k] > 0.01 then gone = false end end
+  check(gone, "at the end they have all gone under")
+  local _, _, _, _, f1 = WL.podMember(1, n, 0, play, cfg, 16, 1)
+  local _, _, _, _, f2 = WL.podMember(1, n, math.floor(cfg.lapTicks / 4), play, cfg, 16, 1)
+  check(f1 ~= f2, "swimming round, it turns as it goes")
+
+  -- only on the sea, rare, sized by its Species Sizes factor (never enlarged)
+  local wl = WL.new(mod, { rng = math.random })
+  pond = true
+  wl:onMapEntered("POND")
+  check(not wl.sea and not wl:_spawnDolphin(), "no Finizen on a pond")
+  pond = false
+  wl:onMapEntered("ROUTE_105")
+  check(wl.sea and wl.timers.dolphin ~= nil, "on the sea its timer runs")
+  check(cfg.every[1] >= 3600, "...and it is rare (a minute and more apart)")
+  local HdField = V.require("hd_field")
+  local s = WL.dolphinScale(mod, { isPmd = false })
+  check(s <= 1 and math.abs(s - (V.require("HGSS_scale")[963] or 1)) < 1e-9, "Finizen is drawn at its HGSS size, never enlarged")
+  check(WL.dolphinScale(mod, { isPmd = true }) == math.min(1, V.require("PMD_scale")[963] or 1), "...and at its PMD size")
+  HdField.setSpeciesSizes(false)
+  eq(WL.dolphinScale(mod, { isPmd = true }), 1, "Species Sizes off: its own size")
+  HdField.setSpeciesSizes(true)
+  wl:collectActors({}, 0, 0)
+  local spawned, pods = 0, 0
+  for _ = 1, 200 do
+    wl.creatures = {}
+    if wl:_spawnDolphin() then
+      spawned = spawned + 1
+      if wl.creatures[1].kind == "pod" then pods = pods + 1 end
+    end
+  end
+  check(spawned > 150, "on open sea a Finizen surfaces")
+  check(pods > 0 and pods < spawned / 3, "...a pod only now and then")
+  -- it plays out without errors and is drawn, puffs and splashes included
+  wl.creatures = {}
+  wl:_spawnDolphin()
+  local drawn, splashes = 0, 0
+  for _ = 1, 900 do
+    wl:tick()
+    local actors = {}
+    wl:collectActors(actors, 0, 0)
+    for _, a in ipairs(actors) do
+      if a.kind == "ow_water_life" then drawn = drawn + 1 elseif a.kind == "ow_water_droplets" then splashes = splashes + 1 end
+    end
+  end
+  check(drawn > 0 and splashes > 0, "it is drawn, with splashes / puffs")
 end
 
 if failures > 0 then

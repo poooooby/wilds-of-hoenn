@@ -151,6 +151,11 @@ function FlightPath.step(plan)
       local w = math.sin(p * math.pi * 2 * ph.wave[2]) * ph.wave[1]
       x, y = x - dy / len * w, y + dx / len * w
     end
+    -- a bird's bob: up and down with its wing beat (`bob` = { amp, ticks }: px either way, a
+    -- full rise and fall every `ticks`), in the plan's own units (screen px for a passer)
+    if ph.bob then
+      y = y + math.sin(plan.t / ph.bob[2] * math.pi * 2) * ph.bob[1]
+    end
     s.x, s.y = x, y
     s.h = lerp(a.h or 0, b.h or 0, e)
     s.lift = lerp(a.lift or 0, b.lift or 0, e)

@@ -2,8 +2,23 @@
 
 ## Unreleased
 
+### Added
+
+- **Finizen at sea (Water Life).** Out on the sea, a Finizen now and then surfaces with a puff
+  from its blowhole and porpoises along in a string of leaps before diving again, like a dolphin.
+  Once in a long while a whole pod comes up to play, swimming round in a ring and taking turns to
+  leap, then goes back under. Drawn at its own size from either sprite style.
+
 ### Changed
 
+- **Wild Reacts: charging and vanishing.** A stronger wild Pokemon chasing you now charges with
+  its Attack animation (PMDCollab style) until it catches you and the battle opens; giving up, it
+  walks home again. A weaker one that runs off sometimes (30%) disappears at the end of its run:
+  ducking down into the grass with a rustle, or fading into a cave's dark. Birds still fly away.
+- **Birds overhead bob with their wingbeats.** The high birds crossing the top of the screen rise
+  and fall a little as they fly instead of gliding along a flat line.
+- **Only real birds dive into the sea.** A sea Flying type that is no bird (Mantine, for example)
+  still flies by but never plunges into the water; Wingull, Pelipper and the other real birds do.
 - **A new party leader becomes your follower.** Putting a different Pokemon first in your party
   makes it your follower, like the lead in the original games, even if you had sent another one
   out. You can still pick any Pokemon and job in the party menu; that choice stays until you

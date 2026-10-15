@@ -266,6 +266,33 @@ eq(grassOverlayActors, smGrass:count(), "collectActors also appends one grass ov
 fakeEngine.isGrass = function() return false end
 fakeEngine.grassSheet = function() return nil end
 
+-- ------- a fled Pokemon disappearing at the end of its run: into grass, or a cave's dark
+do
+  local sm = SpawnManager.new(mod)
+  sm:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local e = sm.entities[sm.order[1]]
+  local realGrass, realType = fakeEngine.isGrass, fakeEngine.mapType
+  fakeEngine.mapType = function() return 3 end
+  fakeEngine.isGrass = function() return false end
+  eq(sm:fleeVanish(e), false, "on a path out in the open it stays")
+  e.isFlyer = true
+  fakeEngine.isGrass = function() return true end
+  eq(sm:fleeVanish(e), false, "a bird never does (it flies off instead)")
+  e.isFlyer = nil
+  e.terrain = "water"
+  eq(sm:fleeVanish(e), false, "nor a swimmer")
+  e.terrain = "land"
+  eq(sm:fleeVanish(e), true, "in grass it shrinks into it")
+  eq(e.state, V.require("config").STATE.LEAVING, "...leaving the animated way (its tile's fx)")
+  local e2 = sm.entities[sm.order[2]]
+  if e2 then
+    fakeEngine.isGrass = function() return false end
+    fakeEngine.mapType = function() return 4 end
+    eq(sm:fleeVanish(e2), true, "in a cave it fades out")
+  end
+  fakeEngine.isGrass, fakeEngine.mapType = realGrass, realType
+end
+
 -- ------- Sprite Style: threaded into each entity's renderer at spawn
 -- time, and a live option change re-points every live entity without
 -- despawning anything

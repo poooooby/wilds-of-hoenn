@@ -200,7 +200,12 @@ function WildReactions.tick(e, ctx)
   end
 
   if r.mode == "flee" then
-    if r.steps <= 0 or not p then return finish(e, ctx.now, cfg.cooldown, rng) end
+    if r.steps <= 0 or not p then
+      finish(e, ctx.now, cfg.cooldown, rng)
+      -- at the end of its run some of them disappear into the grass / the cave's dark
+      if r.steps <= 0 and ctx.fleeVanish and rng(1, 100) <= cfg.flee.vanishChance then ctx.fleeVanish(e) end
+      return
+    end
     local dir = WildReactions.fleeDir(e.cellX, e.cellY, p.x, p.y, function(d)
       local dd = Behavior.DELTA[d]
       return not (ctx.occupied and ctx.occupied(e.cellX + dd[1], e.cellY + dd[2], e))
@@ -223,6 +228,8 @@ function WildReactions.tick(e, ctx)
       -- caught up with a standing player: the battle
       e.facing = faceToward(e.cellX, e.cellY, p.x, p.y) or e.facing
       finish(e, ctx.now, cfg.chaseCooldown, rng)
+      -- still charging (its Attack animation) until the battle opens
+      e.charging = cfg.chase.chargeTicks
       if ctx.onContact then ctx.onContact(e) end
       return
     end

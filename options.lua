@@ -31,14 +31,14 @@ return {
     label = "Flying Mons",
     type = "toggle",
     default = true,
-    description = "Flying Pokemon in the sky: birds of the area pass overhead, perch on trees, roofs and signposts, and sea birds dive for food. Wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Off: none of it, wild Pokemon all arrive the usual way.",
+    description = "Flying Pokemon in the sky: birds of the area pass overhead, perch on trees, roofs and signposts, and real sea birds dive for food. Wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Off: none of it, wild Pokemon all arrive the usual way.",
   },
   {
     key = "water_life",
     label = "Water Life",
     type = "toggle",
     default = true,
-    description = "Life in the water, just for the scenery: small fish of the area (Magikarp, Goldeen, Luvdisc ...) leap out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a spray, before sinking back under. Diving, fish swim by under the sea as dark shadows trailing bubbles. Never battled.",
+    description = "Life in the water, just for the scenery: small fish of the area (Magikarp, Goldeen, Luvdisc ...) leap out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a spray, before sinking back under. Out at sea, Finizen porpoise by now and then (once in a while a whole pod comes up to play). Diving, fish swim by under the sea as dark shadows trailing bubbles. Never battled.",
   },
   {
     key = "local_scenes",

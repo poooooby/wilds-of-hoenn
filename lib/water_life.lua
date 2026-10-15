@@ -10,6 +10,12 @@
 --   whales  -- Wailmer and Wailord rise slowly to the surface (drawn swimming, cut at the
 --              waterline), lie there or drift a tile, blow a spray from their blowhole once
 --              or twice, and sink back under.
+--   Finizen -- rare, on the sea only (a map whose tables hold a sea Pokemon,
+--              Config.WATER_LIFE.seaMarkers), drawn from its own art by national dex at its
+--              Species Sizes size: a dolphin, not a whale -- it surfaces with a small puff
+--              from its blowhole, porpoises along in a row of leaps and dives again. Very
+--              rarely a whole pod surfaces, swims round in a ring taking turns to leap, then
+--              goes under.
 -- Only in open water in view (water all round, nothing on it, not next to the player), at
 -- most a couple at once. Drawn as ordinary field actors at the water's level.
 local V = ...
@@ -23,6 +29,7 @@ local RecallMath = V.require("recall_math")
 local FlightPath = V.require("flight_path")
 local SkyDraw = V.require("sky_draw")
 local ActorRenderer = V.require("actor_renderer")
+local HdField = V.require("hd_field")
 
 local WaterLife = {}
 WaterLife.__index = WaterLife
@@ -130,16 +137,20 @@ local function addFrom(list, seen, t)
   end
 end
 
---- The fish and whales of `mapId`'s fishing and Surf tables: two lists of species.
+--- The fish and whales of `mapId`'s fishing and Surf tables (two lists of species), and
+--- whether it is the sea (one of them is a Config.WATER_LIFE.seaMarkers Pokemon).
 function WaterLife.poolFor(mapId)
   local all, seen = {}, {}
   addFrom(all, seen, EnginePatch.tableFor(mapId))
-  local fish, whales = {}, {}
+  local fish, whales, sea = {}, {}, false
+  local markers = Config.WATER_LIFE.seaMarkers
   for _, s in ipairs(all) do
     if WaterLife.isWhale(s) then whales[#whales + 1] = s
     elseif WaterLife.isFish(s) then fish[#fish + 1] = s end
+    local nat = EnginePatch.nationalFor and EnginePatch.nationalFor(s)
+    if nat and markers[nat] then sea = true end
   end
-  return fish, whales
+  return fish, whales, sea
 end
 
 function WaterLife:_refreshPool()
@@ -148,9 +159,9 @@ function WaterLife:_refreshPool()
   if self.underwater then
     -- every sea fish the game knows (National Dex included), not just this map's table
     self.swimmers = WaterLife.allSwimmers()
-    self.fish, self.whales = {}, {}
+    self.fish, self.whales, self.sea = {}, {}, false
   else
-    self.fish, self.whales = WaterLife.poolFor(self.mapId)
+    self.fish, self.whales, self.sea = WaterLife.poolFor(self.mapId)
   end
 end
 
@@ -171,7 +182,8 @@ function WaterLife:onMapEntered(mapId)
   if self.underwater then
     self.timers = { swim = math.floor(between(rng, cfg.swim.every) / 4) }
   else
-    self.timers = { leap = math.floor(between(rng, cfg.leap.every) / 3), whale = math.floor(between(rng, cfg.whale.every) / 3) }
+    self.timers = { leap = math.floor(between(rng, cfg.leap.every) / 3), whale = math.floor(between(rng, cfg.whale.every) / 3),
+                    dolphin = math.floor(between(rng, cfg.dolphin.every) / 3) }
   end
 end
 
@@ -241,7 +253,8 @@ end
 --- A whale's spout `age` ticks into a spray lasting `n`: a fountain of droplets thrown up
 --- from the blowhole and fanning out as they fall, { {dx, dy, alpha, size}, ... } (size 2 =
 --- a bigger drop, near the start of its flight). Pure (tested).
-function WaterLife.spray(age, n, seed)
+function WaterLife.spray(age, n, seed, power)
+  power = power or 1
   local out = {}
   local fade = age < n and 1 or math.max(0, 1 - (age - n) / 30)
   if fade <= 0 then return out end
@@ -251,7 +264,7 @@ function WaterLife.spray(age, n, seed)
     if t >= 0 and t < 34 and born < n * 0.7 then
       local side = ((k * 7 + seed) % 9) - 4      -- -4 .. 4: a fan
       local vx = side * 0.16
-      local vy = -(3.0 + ((k * 13 + seed) % 9) * 0.1)
+      local vy = -(3.0 + ((k * 13 + seed) % 9) * 0.1) * power
       local dy = vy * t + 0.12 * t * t
       if dy <= 2 then
         out[#out + 1] = { math.floor(vx * t + 0.5), math.floor(dy + 0.5), (1 - t / 34) * fade, t < 10 and 2 or 1 }
@@ -327,6 +340,156 @@ function WaterLife:_spawnWhale()
               facing = drift < 0 and "left" or (drift > 0 and "right" or (rng(0, 1) == 0 and "left" or "right")) }
   self.nextId = self.nextId + 1
   self:_splashAt(c, x, y)
+  self.creatures[#self.creatures + 1] = c
+  return true
+end
+
+-- ------- Finizen: a dolphin, alone or in a pod ------------------------------------
+
+-- is the row of cells from (x, y) `tiles` along `dir` open water (with a row each side)?
+function WaterLife:_waterRun(x, y, dir, tiles)
+  for i = 0, tiles do
+    for dy = -1, 1 do
+      local cx = x + dir * i
+      if not EnginePatch.isWater(cx, y + dy) or (self.occupied and self.occupied(cx, y + dy)) then return false end
+    end
+  end
+  return true
+end
+
+--- The plan of one Finizen's run, pure: { segments = { {kind, t0, n, x0, x1, puff} ... }, n,
+--- dist } with x in px from its start: rise -> (leap, glide)* -> leap -> dive.
+function WaterLife.dolphinPlan(leaps, dir, cfg, puffRoll)
+  local segs, t, x = {}, 0, 0
+  local function add(kind, n, dx, puff)
+    segs[#segs + 1] = { kind = kind, t0 = t, n = n, x0 = x, x1 = x + dir * dx, puff = puff }
+    t, x = t + n, x + dir * dx
+  end
+  add("rise", cfg.riseTicks, 0, true)
+  for i = 1, leaps do
+    add("leap", cfg.leapTicks, cfg.leapDist)
+    if i < leaps then add("glide", cfg.glideTicks, cfg.glideDist, puffRoll and puffRoll(i) or false) end
+  end
+  add("dive", cfg.riseTicks, cfg.glideDist / 2)
+  return { segments = segs, n = t, dist = x }
+end
+
+-- how much of a leaping Finizen shows, `p` through its leap: out of the water at once, whole
+-- at the top, back in nose first
+local function leapReveal(show, p)
+  return math.min(1, show + (1 - show) * math.min(1, math.sin(math.pi * p) * 2.2))
+end
+
+--- Where a Finizen is `t` ticks into its plan, pure: x offset px, lift px (up = positive),
+--- how much of it shows above the water (act.reveal), and the segment it is in.
+function WaterLife.dolphinAt(plan, t, cfg, height)
+  local show = cfg.surfaceShow
+  for _, s in ipairs(plan.segments) do
+    if t < s.t0 + s.n then
+      local p = math.max(0, math.min(1, (t - s.t0) / s.n))
+      local x = s.x0 + (s.x1 - s.x0) * p
+      if s.kind == "rise" then return x, 0, show * RecallMath.ease(p), s end
+      if s.kind == "dive" then return x, 0, show * (1 - RecallMath.ease(p)), s end
+      if s.kind == "glide" then return x, 0, show, s end
+      return x, math.sin(math.pi * p) * height, leapReveal(show, p), s
+    end
+  end
+  local last = plan.segments[#plan.segments]
+  return last and last.x1 or 0, 0, 0, nil
+end
+
+--- The size a Finizen is drawn at, by act.scale: its Species Sizes factor (HGSS_scale /
+--- PMD_scale), never above 1 -- unless gen3-hd-sprites is drawing the field, which sizes
+--- the sheet by that same factor itself.
+function WaterLife.dolphinScale(mod, r)
+  if HdField.active and HdField.active(mod) then return 1 end
+  local f = HdField.factorFor and HdField.factorFor((r and r.isPmd) and "pmd" or "hgss", Config.WATER_LIFE.dolphin.species) or 1
+  return math.min(1, f)
+end
+
+-- the Finizen art (national dex; the game need not have the species), drawn whole
+function WaterLife:_dolphinRenderer()
+  local r = RendererFactory.new(self.mod, Config.WATER_LIFE.dolphin.species, false, Config.spriteStyle(self.mod),
+    SpriteSource.PRESENTATION_LAND)
+  if r and r.isPmd then r.swimming = false end
+  return r
+end
+
+function WaterLife:_spawnDolphin()
+  local cfg, rng = Config.WATER_LIFE.dolphin, self.rng
+  if not self.sea or self:count("dolphin") + self:count("pod") >= 1 then return false end
+  if rng(1, 100) <= cfg.podChance then return self:_spawnPod() end
+  local leaps = between(rng, cfg.leaps)
+  for _ = 1, 6 do
+    local x, y = self:_waterCell(0)
+    if not x then return false end
+    local dir = rng(0, 1) == 0 and -1 or 1
+    local plan = WaterLife.dolphinPlan(leaps, dir, cfg, function() return rng(1, 100) <= cfg.puffChance end)
+    local tiles = math.ceil(plan.dist * dir / 16) + 1
+    if self:_waterRun(x, y, dir, tiles) then
+      local r = self:_dolphinRenderer()
+      if not r then return false end
+      local c = { kind = "dolphin", id = self.nextId, cx = x, cy = y, renderer = r, t = 0, n = plan.n,
+                  plan = plan, dir = dir, facing = dir < 0 and "left" or "right",
+                  scale = WaterLife.dolphinScale(self.mod, r) }
+      self.nextId = self.nextId + 1
+      self.creatures[#self.creatures + 1] = c
+      return true
+    end
+  end
+  return false
+end
+
+--- One pod member's place `t` ticks into the pod's play, pure: x, y offset px from the
+--- ring's centre, lift px, reveal, facing, whether it is mid-leap (and how far through).
+--- `k` of `count` members, evenly round the ring, all going the same way (`spin` +-1).
+function WaterLife.podMember(k, count, t, play, cfg, height, spin)
+  local rx, ry = cfg.ring[1], cfg.ring[2]
+  local w = spin * math.pi * 2 / cfg.lapTicks
+  local a = (k - 1) / count * math.pi * 2 + w * t
+  local x, y = math.cos(a) * rx, math.sin(a) * ry
+  local facing = FlightPath.facing(-math.sin(a) * rx * w, math.cos(a) * ry * w) or "down"
+  -- surfacing one after another, going under at the end the same way
+  local st = (k - 1) * cfg.podStagger
+  local rise, show = cfg.riseTicks, cfg.surfaceShow
+  local downAt = play - rise - (count - 1) * cfg.podStagger + st
+  local reveal
+  if t < st then reveal = 0
+  elseif t < st + rise then reveal = show * RecallMath.ease((t - st) / rise)
+  elseif t >= downAt then reveal = show * (1 - RecallMath.ease(math.min(1, (t - downAt) / rise)))
+  else reveal = show end
+  -- taking turns to leap: each every podLeapEvery ticks, offset by its place in the ring,
+  -- never while surfacing or going under
+  local lift, leaping, lp = 0, false, 0
+  local period = cfg.podLeapEvery
+  local off = math.floor((k - 1) / count * period)
+  local into = t - st - rise - off
+  if into >= 0 and t + cfg.leapTicks < downAt then
+    into = into % period
+    if into < cfg.leapTicks then
+      lp = into / cfg.leapTicks
+      lift = math.sin(math.pi * lp) * height
+      reveal = leapReveal(show, lp)
+      leaping = true
+    end
+  end
+  return x, y, lift, reveal, facing, leaping, lp
+end
+
+function WaterLife:_spawnPod()
+  local cfg, rng = Config.WATER_LIFE.dolphin, self.rng
+  local x, y = self:_waterCell(2)
+  if not x then return false end
+  local count, members = between(rng, cfg.pod), {}
+  for k = 1, count do
+    local r = self:_dolphinRenderer()
+    if not r then return false end
+    members[k] = { renderer = r, wasLeaping = false, scale = WaterLife.dolphinScale(self.mod, r) }
+  end
+  local play = between(rng, cfg.play)
+  local c = { kind = "pod", id = self.nextId, cx = x, cy = y, t = 0, n = play, play = play,
+              members = members, spin = rng(0, 1) == 0 and -1 or 1 }
+  self.nextId = self.nextId + 1
   self.creatures[#self.creatures + 1] = c
   return true
 end
@@ -621,6 +784,52 @@ local function whaleState(c, cfg)
 end
 WaterLife._leapState, WaterLife._whaleState = leapState, whaleState
 
+-- a Finizen's leap height for its art style (PMD art stands taller: a lower arc reads the same)
+local function dolphinHeight(r, cfg)
+  return (r and r.isPmd) and cfg.pmdHeight or cfg.height
+end
+
+-- a Finizen on its run: its animation, splashes where it leaves / re-enters the water,
+-- puffs from its blowhole
+function WaterLife:_tickDolphin(c, cfg)
+  local r = c.renderer
+  local _, _, _, seg = WaterLife.dolphinAt(c.plan, c.t - 1, cfg, 0)
+  if r and r.isPmd then
+    if seg and seg.kind == "leap" then r:advanceAs("hop", 1, "walk") else r:advance(true) end
+  end
+  for _, s in ipairs(c.plan.segments) do
+    if s.kind == "leap" and (c.t == s.t0 + 2 or c.t == s.t0 + s.n - 2) then
+      local px = (c.t == s.t0 + 2) and s.x0 or s.x1
+      self:_splashAt(c, math.floor((c.cx * 16 + px) / 16 + 0.5), c.cy)
+    end
+    if s.puff and c.t == s.t0 + (s.kind == "rise" and s.n or 1) then
+      c.puffs = c.puffs or {}
+      c.puffs[#c.puffs + 1] = { age = 0 }
+    end
+  end
+end
+
+-- a pod at play: each member's animation, a splash as it leaps out / dives back in, now and
+-- then a puff as it comes down
+function WaterLife:_tickPod(c, cfg)
+  for k, m in ipairs(c.members) do
+    local r = m.renderer
+    local x, y, _, _, _, leaping = WaterLife.podMember(k, #c.members, c.t, c.play, cfg, dolphinHeight(r, cfg), c.spin)
+    if r and r.isPmd then
+      if leaping then r:advanceAs("hop", 1, "walk") else r:advance(true) end
+    end
+    if leaping ~= m.wasLeaping then
+      self:_splashAt(c, math.floor((c.cx * 16 + x) / 16 + 0.5), math.floor((c.cy * 16 + y) / 16 + 0.5))
+      if not leaping and self.rng(1, 100) <= cfg.puffChance / 2 then m.puff = { age = 0 } end
+    end
+    m.wasLeaping = leaping
+    if m.puff then
+      m.puff.age = m.puff.age + 1
+      if m.puff.age > cfg.puffTicks + 30 then m.puff = nil end
+    end
+  end
+end
+
 --- One tick: new creatures on their timers, every one a step on.
 function WaterLife:tick()
   if not self.allowed then return end
@@ -632,6 +841,7 @@ function WaterLife:tick()
     if t <= 0 then
       if kind == "leap" then self:_spawnLeaper()
       elseif kind == "whale" then self:_spawnWhale()
+      elseif kind == "dolphin" then self:_spawnDolphin()
       else self:_spawnSwimmer() end
       t = between(self.rng, cfg[kind].every)
     end
@@ -648,6 +858,10 @@ function WaterLife:tick()
     if c.kind == "leap" then
       if r and r.isPmd then r:advanceAs("hop", 1, "idle") end
       if c.t == c.n then self:_splashAt(c, math.floor((c.cx * 16 + c.dir * cfg.leap.drift) / 16 + 0.5), c.cy) end
+    elseif c.kind == "dolphin" then
+      self:_tickDolphin(c, cfg.dolphin)
+    elseif c.kind == "pod" then
+      self:_tickPod(c, cfg.dolphin)
     else
       if r and r.advance then r:advance(c.drift ~= 0 and c.t > cfg.whale.riseTicks and c.t < cfg.whale.riseTicks + c.stay) end
       for _, at in ipairs(c.sprayAt) do
@@ -657,7 +871,7 @@ function WaterLife:tick()
         self:_splashAt(c, math.floor((c.cx * 16 + c.drift * 16) / 16 + 0.5), c.cy)
       end
     end
-    for _, list in ipairs({ c.rings or {}, c.splashes or {}, c.sprays or {} }) do
+    for _, list in ipairs({ c.rings or {}, c.splashes or {}, c.sprays or {}, c.puffs or {} }) do
       for _, fx in ipairs(list) do fx.age = fx.age + 1 end
     end
     local alive = c.t < c.n + 40 -- (the last splash plays out)
@@ -665,6 +879,58 @@ function WaterLife:tick()
     ::continue::
   end
   self.creatures = keep
+end
+
+-- one Finizen's sprite: drawn whole, `reveal` of it above the water, `lift` px up, at `scale`
+local function dolphinActor(actors, r, x, y, facing, reveal, lift, scale, id)
+  if reveal <= 0.01 then return end
+  local act = { reveal = reveal, dy = -lift, scale = scale ~= 1 and scale or nil }
+  actors[#actors + 1] = {
+    kind = "ow_water_life", x = x, y = y, sortY = y, elevation = 3, i = 95500 + id,
+    facing = facing, walkPhase = "stand",
+    draw = function(_, cX, cY)
+      local old = r.act
+      r.act = act
+      r:draw(x, y, cX, cY, facing, "stand")
+      r.act = old
+    end,
+  }
+end
+
+-- a puff from a Finizen's blowhole, low on its back as it rides at the surface
+local function puffActor(actors, puff, x, y, r, cfg, scale, seed)
+  local lift = ((r and r.headLift and r:headLift()) or 16) * (scale or 1)
+  local d = WaterLife.spray(puff.age, cfg.puffTicks, seed, cfg.puffPower)
+  if #d > 0 then
+    actors[#actors + 1] = dropletActor(d, x + 8, y + 16 - math.floor(lift * cfg.surfaceShow) + 2, y + 2, seed)
+  end
+end
+
+function WaterLife:_dolphinActors(actors, c, cfg)
+  local dc = cfg.dolphin
+  if c.kind == "dolphin" then
+    local r = c.renderer
+    local dx, lift, reveal = WaterLife.dolphinAt(c.plan, c.t, dc, dolphinHeight(r, dc))
+    local x, y = c.cx * 16 + dx, c.cy * 16
+    if c.t <= c.n then dolphinActor(actors, r, x, y, c.facing, reveal, lift, c.scale, c.id) end
+    for _, p in ipairs(c.puffs or {}) do puffActor(actors, p, x, y, r, dc, c.scale, c.id) end
+  else
+    for k, m in ipairs(c.members) do
+      local r = m.renderer
+      local ox, oy, lift, reveal, facing = WaterLife.podMember(k, #c.members, c.t, c.play, dc, dolphinHeight(r, dc), c.spin)
+      local x, y = c.cx * 16 + ox, c.cy * 16 + oy
+      if c.t <= c.n then dolphinActor(actors, r, x, y, facing, reveal, lift, m.scale, c.id * 8 + k) end
+      if m.puff then puffActor(actors, m.puff, x, y, r, dc, m.scale, c.id * 8 + k) end
+    end
+  end
+  for _, rg in ipairs(c.rings or {}) do
+    local a = SpawnFx.ringsActor(rg.age, rg.x * 16, rg.y * 16, rg.y * 16, 3, 96500 + c.id)
+    if a then actors[#actors + 1] = a end
+  end
+  for _, s in ipairs(c.splashes or {}) do
+    local d = WaterLife.splash(s.age, c.id)
+    if #d > 0 then actors[#actors + 1] = dropletActor(d, s.x * 16 + 8, s.y * 16 + 13, s.y * 16 + 1, c.id) end
+  end
 end
 
 --- Appends every creature's actors; remembers the camera for placing new ones.
@@ -676,6 +942,10 @@ function WaterLife:collectActors(actors, camX, camY)
     if c.kind == "swim" then
       SkyDraw.push(actors, c, camX or 0, camY or 0, vw, vh)
       if #c.bubbles > 0 then actors[#actors + 1] = bubbleActor(c.bubbles, c.id) end
+      goto continue
+    end
+    if c.kind == "dolphin" or c.kind == "pod" then
+      self:_dolphinActors(actors, c, cfg)
       goto continue
     end
     local x, y, act

@@ -487,8 +487,22 @@ function SpawnManager:_reactContext()
     return false
   end
   ctx.takeoff = ctx.takeoff or function(e) self:despawn(e.id, { animate = true, fly = true }) end
+  ctx.fleeVanish = ctx.fleeVanish or function(e) self:fleeVanish(e) end
   ctx.onContact = ctx.onContact or function(e) if self.onContact then self.onContact(e) end end
   return ctx
+end
+
+--- A fled Pokemon at the end of its run, chosen to disappear (Config.REACT.flee
+--- vanishChance): in grass it shrinks into it with a rustle, in a cave it fades out (the
+--- leaving fx of its tile, lib/spawn_fx.lua). Anywhere else -- a path, the water -- or a
+--- bird, it stays. Returns true when it went.
+function SpawnManager:fleeVanish(e)
+  if not e or e.isFlyer or e.state ~= Config.STATE.AVAILABLE or e.terrain == "water" then return false end
+  local grass = EnginePatch.isGrass and EnginePatch.isGrass(e.cellX, e.cellY)
+  local cave = EnginePatch.mapType and EnginePatch.mapType() == 4
+  if not (grass or cave) then return false end
+  self:despawn(e.id, { animate = true })
+  return true
 end
 
 --- The option was switched off: everyone reacting calms down at once.
@@ -571,7 +585,21 @@ function SpawnManager:tick(game)
       else
         Behavior.tick(e, self.game)
       end
-      if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
+      local r = e.renderer
+      if r and r.isPmd and ((e.react and e.react.mode == "chase") or e.charging) then
+        -- an angry one charges at the player with its Attack animation (Walk without one),
+        -- on until its battle opens; giving up it walks home again
+        r:advanceAs("attack", 1, "walk")
+        if e.charging and not (e.react and e.react.mode == "chase") then
+          -- (held while its battle is starting; counted down while it is still out there)
+          if e.state == Config.STATE.AVAILABLE then
+            e.charging = e.charging > 1 and e.charging - 1 or nil
+          end
+        end
+      elseif r and r.advance then
+        e.charging = nil
+        r:advance(e.moving)
+      end
       -- a Flying type that has been on the ground a while takes off (a fresh spawn,
       -- maybe another one swooping in, takes its place)
       if e.groundStay and not lure and not e.react then

@@ -33,9 +33,9 @@ function V.require(name)
 end
 
 -- species: 10 Taillow (Normal/Flying), 11 Wingull (Water/Flying), 12 Zigzagoon (Normal)
--- 13 Gyarados (Water/Flying, but it does not fly)
-local TYPES = { [10] = { 0, 2 }, [11] = { 11, 2 }, [12] = { 0, 0 }, [13] = { 11, 2 } }
-local NAT = { [10] = 276, [11] = 278, [12] = 263, [13] = 130 }
+-- 13 Gyarados (Water/Flying, but it does not fly), 14 Mantine (Water/Flying, no bird)
+local TYPES = { [10] = { 0, 2 }, [11] = { 11, 2 }, [12] = { 0, 0 }, [13] = { 11, 2 }, [14] = { 11, 2 } }
+local NAT = { [10] = 276, [11] = 278, [12] = 263, [13] = 130, [14] = 226 }
 local tables = {
   ROUTE_104 = { land = { slots = { { species = 12 }, { species = 10 }, { species = 10 } } },
                 water = { slots = { { species = 11 }, { species = 13 } } } },
@@ -54,7 +54,7 @@ fake.neighbourMapIds = function() return neighbours end
 fake.weatherId = function() return weather end
 fake.nationalFor = function(s) return NAT[s] end
 -- Pokedex heights (dm, by internal species id): Gyarados is far too big to be a bird
-local HEIGHT = { [10] = 3, [11] = 6, [12] = 4, [13] = 65 }
+local HEIGHT = { [10] = 3, [11] = 6, [12] = 4, [13] = 65, [14] = 21 }
 fake.heightDm = function(s) return HEIGHT[s] end
 fake.mapBounds = function() return 30, 20 end
 -- a row of tree crowns along y = 2, open water for x >= 20
@@ -289,6 +289,42 @@ do
   check(worst >= 4 * 16 - 1, ("no swoop path comes within 3 tiles of the player (closest %d px)"):format(math.floor(worst)))
   check(not sky:clearOfPlayer(17, 12) and sky:clearOfPlayer(19, 10), "clearOfPlayer: 3 tiles is too close, 4 is not")
   player.x, player.y = 0, 19
+end
+
+-- ------- only real birds dive into the sea
+do
+  local saved = tables.ROUTE_104.water.slots
+  tables.ROUTE_104.water.slots = { { species = 11 }, { species = 14 } }
+  local sky = SkyFlyers.new(mod)
+  sky:onMapEntered("ROUTE_104")
+  local inPool, divers = {}, {}
+  for _, e in ipairs(sky.pool) do inPool[e.species] = true end
+  for _, e in ipairs(sky.seaPool) do divers[e.species] = true end
+  check(inPool[14], "Mantine flies by (a Flying type of the sea)")
+  check(divers[11], "Wingull, a real bird, dives")
+  check(not divers[14], "...Mantine, no bird, never does")
+  check(SkyFlyers.isRealBird(10) and not SkyFlyers.isRealBird(14), "Taillow is a real bird, Mantine is not")
+  sky:onMapExited()
+  tables.ROUTE_104.water.slots = saved
+end
+
+-- ------- the high passer bobs as it goes; a lower one does not
+do
+  local sky = SkyFlyers.new(mod)
+  sky:onMapEntered("ROUTE_104")
+  sky:collectActors({}, 0, 0)
+  local high, low
+  for _ = 1, 400 do
+    sky.birds = {}
+    sky:_spawnPasser()
+    local b = sky.birds[1]
+    if b and b.high then high = high or b elseif b then low = low or b end
+    if high and low then break end
+  end
+  local hph, lph = high and high.plan.phases[1], low and low.plan.phases[1]
+  check(hph and hph.bob and hph.bob[1] >= Config.FLYERS.passer.bob[1], "the high passer bobs")
+  check(lph and lph.bob == nil, "a lower passer flies its arc smoothly")
+  sky:onMapExited()
 end
 
 if failures > 0 then

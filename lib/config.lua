@@ -67,8 +67,9 @@ Config.FLYERS = {
   flapTicks = 6,                        -- HGSS wing beat (walkA / walkB)
   -- the occasional bird overhead: one at a time, every 30-70 s, crossing the TOP of the screen
   -- (its feet within the top `band` of the view) on a gentle arc of `arc` px, never straight
+  -- (the high one bobs up and down as it goes, `bob` px either way, a beat every `bobTicks`)
   passer = { every = { 1800, 4200 }, max = 1, maxHigh = 1, ticks = { 300, 480 }, highTicks = { 240, 360 },
-             band = 0.22, arc = { 6, 16 } },
+             band = 0.22, arc = { 6, 16 }, bob = { 2, 4 }, bobTicks = { 40, 56 } },
   -- a swoop (landing, perching, diving, leaving) starts / ends off screen, mid or high up
   -- (startH, in hundredths), from any side, curving so its path never comes within
   -- `clearRadius` tiles of the player; a wild Pokemon that close arrives / leaves the usual way
@@ -93,6 +94,18 @@ Config.FLYERS = {
     [733] = true, [905] = true, [993] = true,
   },
   maxBirdHeightDm = 30,
+  -- the real birds (national dex): only these dive into the sea (a Water / sea Flying type
+  -- that is no bird -- Mantine, Gyarados, a Flying bug -- never does)
+  realBirds = {
+    [16] = true, [17] = true, [18] = true, [21] = true, [22] = true, [83] = true, [144] = true,
+    [145] = true, [146] = true, [164] = true, [177] = true, [198] = true, [227] = true, [250] = true,
+    [276] = true, [277] = true, [278] = true, [279] = true, [333] = true, [334] = true, [396] = true,
+    [397] = true, [398] = true, [430] = true, [441] = true, [519] = true, [520] = true, [521] = true,
+    [566] = true, [567] = true, [580] = true, [581] = true, [627] = true, [628] = true, [630] = true,
+    [661] = true, [662] = true, [663] = true, [731] = true, [741] = true, [821] = true, [822] = true,
+    [823] = true, [845] = true, [865] = true, [931] = true, [940] = true, [941] = true, [962] = true,
+    [973] = true,
+  },
   maxAmbientWidth = 56,                 -- px: bigger art stays out of the ambient sky (it would cover the view)
 }
 
@@ -110,9 +123,14 @@ Config.REACT = {
   angerTicks = 36,                -- then the anger mark, then the chase
   emoteTicks = 50,                -- how long an emote stays up
   hopTicks = 12, hopPx = 3,       -- a startled little hop
-  flee = { steps = { 3, 6 }, frames = 8 },        -- running pace
+  -- running pace; at the end of its run, `vanishChance` % of them disappear -- in grass
+  -- shrinking into it with a rustle, in a cave fading out (lib/spawn_manager.lua fleeVanish)
+  flee = { steps = { 3, 6 }, frames = 8, vanishChance = 30 },
   chase = { frames = 7,           -- a touch faster than a running player (8)
             leash = { 4, 10 },    -- tiles it follows before giving up: rolled every chase
+            -- PMDCollab: it charges with its Attack animation while it chases and on until
+            -- its battle opens; no battle within `chargeTicks` of catching up -> it calms down
+            chargeTicks = 90,
             secondsPerTile = 1.2, -- the matching time limit (leash x this)
             noPathTicks = 60, returnSteps = { 2, 4 } },
   cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
@@ -134,6 +152,21 @@ Config.WATER_LIFE = {
   whale = { every = { 1500, 3300 }, max = 1, riseTicks = 50, stay = { 240, 480 }, drift = { 0, 1 },
             sprays = { 1, 2 }, sprayTicks = 48 },
   minPlayerDist = 2,                                           -- tiles kept clear of the player
+  -- Finizen (national dex `species`, drawn by its own art whether or not the game has it), rare,
+  -- on a SEA map only (its Surf / fishing tables hold one of `seaMarkers`): a dolphin -- it
+  -- surfaces with a puff from its blowhole, porpoises along in `leaps` arcs `leapDist` px
+  -- apart (gliding at the surface `glideTicks` between them, puffing now and then), and dives.
+  -- Now and then (`podChance` %) a pod of `pod` instead: they surface together, swim round in
+  -- a ring (`ring` = x / y radius px; a lap every `lapTicks`) taking turns to leap for
+  -- `play` ticks, then go under. `surfaceShow`: how much of a Finizen at the surface shows above the water (its back and fin).
+  -- Drawn at its Species Sizes size (HGSS_scale / PMD_scale), never enlarged.
+  dolphin = { species = 963, every = { 5400, 10800 }, leaps = { 2, 4 }, leapDist = 26, leapTicks = 30,
+              height = 16, pmdHeight = 11, glideTicks = 14, glideDist = 8, riseTicks = 18,
+              puffTicks = 16, puffPower = 0.55, puffChance = 50, surfaceShow = 0.45,
+              podChance = 12, pod = { 3, 5 }, ring = { 26, 10 }, lapTicks = 170, play = { 480, 720 },
+              podLeapEvery = 95, podStagger = 12 },
+  seaMarkers = { [72] = true, [73] = true, [222] = true, [278] = true, [279] = true, [318] = true,
+                 [319] = true, [320] = true, [321] = true, [370] = true },
   -- under the sea (Dive maps): every fish the game knows, National Dex included (Water 2 egg group, no
   -- legendary -- the Undiscovered group -- nothing over swim.maxHeightDm) swim across as dark
   -- shadows of themselves, wiggling, trailing bubbles; small ones sometimes in a school.

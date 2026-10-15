@@ -186,6 +186,18 @@ do
   check(math.abs(s.x - 100) < 1e-6 and math.abs(s.y) < 1e-6, "...and still ends on its target")
 end
 
+-- ------- a bird's bob: up and down along its way, about the line it flies
+do
+  local plan = FlightPath.plan({ { type = "fly", from = { x = 0, y = 50, h = 1 }, to = { x = 200, y = 50, h = 1 },
+                                   n = 120, bob = { 3, 40 } } })
+  local lo, hi = 1e9, -1e9
+  for _ = 1, 119 do
+    local s = FlightPath.step(plan)
+    lo, hi = math.min(lo, s.y), math.max(hi, s.y)
+  end
+  check(hi - lo > 5 and hi - lo <= 6.01, "the bob rises and falls `amp` px either side of its line")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

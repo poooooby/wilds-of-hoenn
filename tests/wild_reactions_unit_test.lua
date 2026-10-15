@@ -189,6 +189,25 @@ do
   run(e, ctx, 2000)
   eq(contacts[#contacts], e, "it found a way round the wall and caught the player: the battle")
   check(math.abs(e.cellX - player.x) + math.abs(e.cellY - player.y) <= 1, "...next to the player")
+  eq(e.charging, cfg.chase.chargeTicks, "...still charging (its Attack animation) until the battle opens")
+end
+
+-- ------- at the end of its run a fled Pokemon may disappear (vanishChance %)
+do
+  local cfg = Config.REACT
+  local function flee(roll)
+    local e = entity(10, 10, 5)
+    local player = { x = 12, y = 10, moving = true }
+    local vanished = {}
+    local ctx = ctxFor(player, 30, { fleeVanish = function(x) vanished[#vanished + 1] = x end })
+    WR.scan({ e }, ctx)
+    ctx.rng = function(a, b) if a == 1 and b == 100 then return roll end return a end
+    run(e, ctx, 600)
+    return #vanished
+  end
+  eq(flee(cfg.flee.vanishChance), 1, "a roll inside the chance: it disappears at the end of its run")
+  eq(flee(cfg.flee.vanishChance + 1), 0, "...outside it, it stays")
+  eq(cfg.flee.vanishChance, 30, "30% of them")
 end
 
 -- ------- the chase is quicker than a running player

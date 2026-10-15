@@ -60,16 +60,21 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 - 🌊 **Water that feels like water:** Pokémon swim with a foam line on the water, leave ripples
   on ponds and puddles, and cast reflections like the player and NPCs do.
 - 🏃 **They notice you:** run or bike close by and wild Pokémon react. Ones weaker than your
-  lead Pokémon jump with a "!" and run off (small birds fly away); stronger ones, if you come
-  right up to them, turn on you angrily and give chase, and if they catch you, the battle starts. Each one gives up at its own distance.
+  lead Pokémon jump with a "!" and run off (small birds fly away), and sometimes vanish at the end
+  of their run, ducking down into the grass or slipping away into a cave's dark; stronger ones, if
+  you come right up to them, turn on you angrily and charge (in PMDCollab style, attacking as they
+  come), and if they catch you, the battle starts. Each one gives up at its own distance.
   An even match isn't bothered, and walking past calmly disturbs nobody.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
-  softly out of focus the higher it flies. In towns, birds perch on roofs, trees and signposts (and
-  fly off when you walk up); sea birds dive into the water for food; and wild Flying types swoop in
+  softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on
+  roofs, trees and signposts (and fly off when you walk up); real sea birds (Wingull, Pelipper and
+  their kind) dive into the water for food; and wild Flying types swoop in
   from off screen to land in the grass, or take off again, always curving around you.
 - 🐟 **Life in the water:** the area's small fish (Magikarp, Goldeen, Luvdisc and friends) leap
   out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a
-  spray from their blowhole before sinking back under. Dive down and fish glide by under the sea
+  spray from their blowhole before sinking back under. Out at sea, keep an eye out for Finizen:
+  now and then one surfaces with a puff and porpoises along in a string of leaps, and once in a
+  long while a whole pod comes up to play, swimming round in a ring and taking turns to leap. Dive down and fish glide by under the sea
   as dark shapes trailing bubbles, sometimes a little school of them; the wild Pokémon living
   down there arrive the same way, swimming in as a shadow before taking shape.
 - 👻 **Local scenes:** a few special places have moments of their own. Ghosts fade in around
@@ -92,7 +97,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Show Wild Mons** | On / Off | On | Visible wild Pokémon in areas with wild encounters. |
 | **Spawn Amount** | Low / Normal / High | Normal | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
 | **Flying Mons** | On / Off | On | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. |
-| **Water Life** | On / Off | On | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, and fish swimming by under the sea when you dive, just for the scenery. |
+| **Water Life** | On / Off | On | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, Finizen porpoising out at sea (sometimes a whole pod at play), and fish swimming by under the sea when you dive, just for the scenery. |
 | **Local Scenes** | On / Off | On | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
 | **Wild Reacts** | On / Off | On | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
 | **Sprite Style** | HGSS / PokeMMO, PMDCollab | PMDCollab | The look of wild Pokémon and your partner. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |

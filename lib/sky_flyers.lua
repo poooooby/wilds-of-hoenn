@@ -8,7 +8,7 @@
 --      perchers -- swoop onto a tree crown, a roof or a signpost (lib/perch_spots.lua),
 --                 sit with folded wings, turning or hopping now and then, and fly off
 --                 after a while or when the player comes close;
---      divers  -- Water-type / sea birds plunge into open water with a splash, stay under
+--      divers  -- real birds (Config.FLYERS.realBirds) of the sea / Water type plunge into open water with a splash, stay under
 --                 a moment, burst out and climb away.
 -- 2. Wild Flying-type Pokemon (real spawns, lib/spawn_manager.lua) arriving and leaving
 --    by air: planArrival / planDeparture / stepFlight / pushFlight.
@@ -153,6 +153,12 @@ function SkyFlyers:onMapEntered(mapId)
   }
 end
 
+--- Is this one a real bird (Config.FLYERS.realBirds)? Only those dive into the sea.
+function SkyFlyers.isRealBird(species)
+  local nat = EnginePatch.nationalFor and EnginePatch.nationalFor(species)
+  return nat ~= nil and Config.FLYERS.realBirds[nat] == true
+end
+
 --- Re-reads which species fly here. Done on map entry and every POOL_REFRESH ticks: the
 --- live encounter table can change under us (Modern Spawns writes its own, by time of day,
 --- after the map has loaded).
@@ -162,7 +168,7 @@ function SkyFlyers:_refreshPool()
   self.pool = SkyFlyers.poolFor(self.mapId)
   self.seaPool = {}
   for _, e in ipairs(self.pool) do
-    if e.sea then self.seaPool[#self.seaPool + 1] = e end
+    if e.sea and SkyFlyers.isRealBird(e.species) then self.seaPool[#self.seaPool + 1] = e end
   end
 end
 
@@ -502,8 +508,10 @@ function SkyFlyers:_spawnPasser()
   -- FlightPath bows by +curve along (-dy, dx) / len: flying right (dx > 0) that is downward
   local sign = ((x1 > x0) == bowDown) and 1 or -1
   local n = between(rng, high and cfg.highTicks or cfg.ticks)
+  local bob = high and { between(rng, cfg.bob), between(rng, cfg.bobTicks) } or nil
   local bird = self:_newBird("passer", entry, {
-    { type = "fly", from = { x = x0, y = y0, h = h }, to = { x = x1, y = y1, h = h }, n = n, curve = sign * arc },
+    { type = "fly", from = { x = x0, y = y0, h = h }, to = { x = x1, y = y1, h = h }, n = n, curve = sign * arc,
+      bob = bob },
   })
   if bird then
     bird.high, bird.screenSpace = high, true
