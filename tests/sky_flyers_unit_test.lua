@@ -206,9 +206,9 @@ do
   local flying
   for _ = 1, 2000 do
     if sky:stepFlight(wfx) then break end
-    if wfx.view.h > 0.3 and swimR.presentation ~= "levitates" then flying = flying or swimR.presentation end
+    if wfx.view.h > 0.3 and swimR.presentation ~= "land" then flying = flying or swimR.presentation end
   end
-  check(flying == nil or flying == "land", "a bird off the water flies with its land art (" .. tostring(flying) .. ")")
+  check(flying == nil, "a bird off the water flies with its land art, never a waterline-cut sheet (" .. tostring(flying) .. ")")
   SkyFlyers.restore(wfx.view)
   eq(swimR.presentation, "swimming", "...and swims again once it is down")
 

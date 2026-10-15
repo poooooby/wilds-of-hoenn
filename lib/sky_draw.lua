@@ -94,6 +94,29 @@ end
 
 --- Renders `bird`'s current frame into its canvas. Called from the tick. `bird` =
 --- { renderer, facing, pose }. Returns true when it has a canvas to draw.
+-- draws `bird`'s frame into canvas `c` (pcall'd by prepare: no closure per tick)
+local function drawInto(g, c, bird)
+  g.push("all")
+  g.setCanvas(c)
+  g.clear(0, 0, 0, 0)
+  g.origin()
+  g.setShader()
+  g.setBlendMode("alpha", "alphamultiply")
+  g.setColor(1, 1, 1, 1)
+  local r = bird.renderer
+  local act = r.act
+  r.act = nil -- drawn plain here; height, lift and fade are applied when the canvas is drawn
+  local alpha, sil = r.alpha, r.silhouette
+  r.alpha = nil
+  if bird.silhouette ~= nil then r.silhouette = bird.silhouette end -- a fish's shadow under water
+  local okDraw = pcall(r.draw, r, TILE_X, TILE_Y, 0, 0, bird.facing or "down", bird.pose)
+  r.act, r.alpha, r.silhouette = act, alpha, sil
+  g.pop()
+  return okDraw
+end
+
+local function unwind(g) g.setCanvas() g.pop() end
+
 function SkyDraw.prepare(bird)
   local g = love and love.graphics
   if not (g and g.setCanvas and bird.renderer) then return false end
@@ -103,30 +126,68 @@ function SkyDraw.prepare(bird)
     if not c then return false end
     canvases[bird] = c
   end
-  local ok = pcall(function()
-    g.push("all")
-    g.setCanvas(c)
-    g.clear(0, 0, 0, 0)
-    g.origin()
-    g.setShader()
-    g.setBlendMode("alpha", "alphamultiply")
-    g.setColor(1, 1, 1, 1)
-    local r = bird.renderer
-    local act = r.act
-    r.act = nil -- drawn plain here; height, lift and fade are applied when the canvas is drawn
-    local alpha, sil = r.alpha, r.silhouette
-    r.alpha = nil
-    if bird.silhouette ~= nil then r.silhouette = bird.silhouette end -- a fish's shadow under water
-    local okDraw = pcall(r.draw, r, TILE_X, TILE_Y, 0, 0, bird.facing or "down", bird.pose)
-    r.act, r.alpha, r.silhouette = act, alpha, sil
-    g.pop()
-    return okDraw
-  end)
-  if not ok then pcall(function() g.setCanvas() g.pop() end) end
+  local ok = pcall(drawInto, g, c, bird)
+  if not ok then pcall(unwind, g) end
   return ok
 end
 
 -- ------- actors ------------------------------------------------------------
+
+local TEXEL = { 1 / CANVAS, 1 / CANVAS }
+
+local function sendShader(sh, look)
+  sh:send("texel", TEXEL)
+  sh:send("radius", look.blur / math.max(0.5, look.scale)) -- blur px as drawn
+  sh:send("haze", Config.FLYERS.haze)
+  sh:send("hazeAmount", look.haze)
+end
+
+-- one bird's drawing state, kept on the bird and refilled every frame: its look, its two
+-- actors and their draw functions are made once, not per frame (the field reads the
+-- actors only during the frame they are pushed in)
+local function stateOf(bird)
+  local st = bird._skyDraw
+  if st then return st end
+  st = { look = {}, act = {} }
+  st.sharp = {
+    kind = "sky_mon", elevation = 3,
+    draw = function(_, cX, cY)
+      local r = st.r
+      local act, alpha, sil = r.act, r.alpha, r.silhouette
+      local a = st.act
+      a.scale, a.dx, a.dy, a.sink, a.facing = st.look.scale, st.swayX, st.swayY - st.up, bird.sink, bird.facing
+      r.act = a
+      -- the layer's own transparency too (1 for a low bird; a fish's shadow is see-through)
+      r.alpha = st.sharpA * (bird.alpha or 1) * st.look.alpha
+      if bird.silhouette ~= nil then r.silhouette = bird.silhouette end
+      r:draw(st.sx + cX, st.sy + cY, cX, cY, bird.facing or "down", bird.pose)
+      r.act, r.alpha, r.silhouette = act, alpha, sil
+    end,
+  }
+  st.far = {
+    kind = "sky_mon_far", elevation = 3,
+    draw = function()
+      local g = love.graphics
+      local c, look, alpha = st.canvas, st.look, st.farA
+      local pr, pg, pb, pa = g.getColor()
+      local bm, am = g.getBlendMode()
+      local sh = blurShader()
+      if sh then
+        if pcall(sendShader, sh, look) then g.setShader(sh) else sh = nil end
+      end
+      g.setBlendMode("alpha", "premultiplied")
+      g.setColor(alpha, alpha, alpha, alpha)
+      -- the canvas's feet point on the bird's tile feet point, grown about it
+      g.draw(c, st.sx + 8 + st.swayX * look.scale, st.sy + 16 + (st.swayY - st.up) * look.scale, 0,
+        look.scale, look.scale, FOOT_X, FOOT_Y)
+      if sh then g.setShader() end
+      g.setBlendMode(bm, am)
+      g.setColor(pr, pg, pb, pa)
+    end,
+  }
+  bird._skyDraw = st
+  return st
+end
 
 --- Appends the actors for one bird: `bird` = { id, renderer, x, y (world px of its
 --- ground point's tile), h, lift (px up: a perch), hop (px up), sink, facing, pose,
@@ -135,60 +196,32 @@ end
 --- (camX, camY, vw, vh) = the view. Nothing when it is hidden.
 function SkyDraw.push(actors, bird, camX, camY, vw, vh)
   if bird.hidden then return end
-  local look = FlightPath.look(bird.h, bird.layers) -- (a swimmer brings its own depth layers)
+  local st = stateOf(bird)
+  local look = FlightPath.look(bird.h, bird.layers, st.look) -- (a swimmer brings its own depth layers)
   local id = tonumber(bird.id) or 0
   local sharp, soft = SkyDraw.mix(bird.h)
   local sub = math.max(0, 40 - math.floor(look.parallax * 20)) -- higher birds draw later
   -- where it is seen: perspective about the view's centre (FlightPath.toScreen), as a
   -- world point the renderer can be handed with the real camera
   local sx, sy = FlightPath.toScreen(bird.x, bird.y, look.parallax, camX or 0, camY or 0, vw, vh)
-  local up = (bird.lift or 0) + (bird.hop or 0)
-  local swayX, swayY = bird.swayX or 0, bird.swayY or 0 -- a swimming fish's wiggle
+  st.sx, st.sy = sx, sy
+  st.up = (bird.lift or 0) + (bird.hop or 0)
+  st.swayX, st.swayY = bird.swayX or 0, bird.swayY or 0 -- a swimming fish's wiggle
+  local wx, wy = sx + (camX or 0), sy + (camY or 0)
   if sharp > 0 then
-    local r = bird.renderer
-    actors[#actors + 1] = {
-      kind = "sky_mon", x = sx + (camX or 0), y = sy + (camY or 0), sortY = sy + (camY or 0), elevation = 3,
-      i = 93500 + id, fixedPriority = true, priority = 1, subpriority = sub,
-      draw = function(_, cX, cY)
-        local act, alpha, sil = r.act, r.alpha, r.silhouette
-        r.act = { scale = look.scale, dx = swayX, dy = swayY - up, sink = bird.sink, facing = bird.facing }
-        -- the layer's own transparency too (1 for a low bird; a fish's shadow is see-through)
-        r.alpha = sharp * (bird.alpha or 1) * look.alpha
-        if bird.silhouette ~= nil then r.silhouette = bird.silhouette end
-        r:draw(sx + cX, sy + cY, cX, cY, bird.facing or "down", bird.pose)
-        r.act, r.alpha, r.silhouette = act, alpha, sil
-      end,
-    }
+    st.r, st.sharpA = bird.renderer, sharp
+    local a = st.sharp
+    a.x, a.y, a.sortY, a.i = wx, wy, wy, 93500 + id
+    a.fixedPriority, a.priority, a.subpriority = true, 1, sub
+    actors[#actors + 1] = a
   end
   local c = soft > 0 and canvases[bird]
   if c then
-    local alpha = soft * look.alpha * (bird.alpha or 1)
-    actors[#actors + 1] = {
-      kind = "sky_mon_far", x = sx + (camX or 0), y = sy + (camY or 0), sortY = sy + (camY or 0), elevation = 3,
-      i = 94000 + id, fixedPriority = true, priority = 1, subpriority = math.max(0, sub - 1),
-      draw = function(_, cX, cY)
-        local g = love.graphics
-        local pr, pg, pb, pa = g.getColor()
-        local bm, am = g.getBlendMode()
-        local sh = blurShader()
-        if sh then
-          local okS = pcall(function()
-            sh:send("texel", { 1 / CANVAS, 1 / CANVAS })
-            sh:send("radius", look.blur / math.max(0.5, look.scale)) -- blur px as drawn
-            sh:send("haze", Config.FLYERS.haze)
-            sh:send("hazeAmount", look.haze)
-          end)
-          if okS then g.setShader(sh) else sh = nil end
-        end
-        g.setBlendMode("alpha", "premultiplied")
-        g.setColor(alpha, alpha, alpha, alpha)
-        -- the canvas's feet point on the bird's tile feet point, grown about it
-        g.draw(c, sx + 8 + swayX * look.scale, sy + 16 + (swayY - up) * look.scale, 0, look.scale, look.scale, FOOT_X, FOOT_Y)
-        if sh then g.setShader() end
-        g.setBlendMode(bm, am)
-        g.setColor(pr, pg, pb, pa)
-      end,
-    }
+    st.canvas, st.farA = c, soft * look.alpha * (bird.alpha or 1)
+    local a = st.far
+    a.x, a.y, a.sortY, a.i = wx, wy, wy, 94000 + id
+    a.fixedPriority, a.priority, a.subpriority = true, 1, math.max(0, sub - 1)
+    actors[#actors + 1] = a
   end
 end
 

@@ -342,12 +342,13 @@ do
   check(old:headLift() == old:visualHeight(), "an index without `top` falls back to the visible height")
 end
 
--- ------- standing on the ground: the feet on the tile's bottom edge (PMD_FEET_Y 16)
-check(PmdRenderer.groundOf({ ay = 30, foot = 31 }, 1) == 15, "feet just under the shadow point: shadow 1 px above the tile's bottom")
-check(PmdRenderer.groundOf({ ay = 30, foot = 34 }, 1) == 12, "hooves 4 px below the shadow: that foot line on the bottom edge")
-check(PmdRenderer.groundOf({ ay = 30, foot = 34 }, 0.5) == 14, "...at the size it is drawn")
-check(PmdRenderer.groundOf({ ay = 30, foot = 22 }, 1) == 15, "a flyer hovering over its shadow keeps the hover")
-check(PmdRenderer.groundOf({ ay = 30 }, 1) == 15, "an old bake without `foot`: shadow 1 px above the edge")
+-- ------- standing on the ground: the feet where the player's are (PMD_FEET_Y 15)
+check(Config.PMD_FEET_Y == 15, "the feet line is the player's: 1 px above the tile's bottom")
+check(PmdRenderer.groundOf({ ay = 30, foot = 31 }, 1) == 14, "feet just under the shadow point: shadow 1 px above the feet line")
+check(PmdRenderer.groundOf({ ay = 30, foot = 34 }, 1) == 11, "hooves 4 px below the shadow: that foot line on the feet line")
+check(PmdRenderer.groundOf({ ay = 30, foot = 34 }, 0.5) == 13, "...at the size it is drawn")
+check(PmdRenderer.groundOf({ ay = 30, foot = 22 }, 1) == 14, "a flyer hovering over its shadow keeps the hover")
+check(PmdRenderer.groundOf({ ay = 30 }, 1) == 14, "an old bake without `foot`: shadow 1 px above the feet line")
 
 print("")
 if failures > 0 then

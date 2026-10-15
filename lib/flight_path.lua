@@ -28,8 +28,9 @@ local FlightPath = {}
 local function lerp(a, b, t) return a + (b - a) * t end
 
 --- Every look value for height `h` (clamped to 0..1), interpolated between the layers:
---- { scale, parallax, blur, alpha, haze }.
-function FlightPath.look(h, layers)
+--- { scale, parallax, blur, alpha, haze }. Filled into `out` when given (no new table:
+--- it is asked for every bird every frame).
+function FlightPath.look(h, layers, out)
   layers = layers or Config.FLYERS.layers
   h = math.max(0, math.min(1, tonumber(h) or 0))
   local lo, hi = layers[1], layers[#layers]
@@ -38,11 +39,22 @@ function FlightPath.look(h, layers)
   end
   local span = hi.h - lo.h
   local t = span > 0 and (h - lo.h) / span or 0
-  return {
-    scale = lerp(lo.scale, hi.scale, t), parallax = lerp(lo.parallax, hi.parallax, t),
-    blur = lerp(lo.blur, hi.blur, t), alpha = lerp(lo.alpha, hi.alpha, t),
-    haze = lerp(lo.haze, hi.haze, t),
-  }
+  out = out or {}
+  out.scale, out.parallax = lerp(lo.scale, hi.scale, t), lerp(lo.parallax, hi.parallax, t)
+  out.blur, out.alpha, out.haze = lerp(lo.blur, hi.blur, t), lerp(lo.alpha, hi.alpha, t), lerp(lo.haze, hi.haze, t)
+  return out
+end
+
+--- Just the parallax at height `h` (FlightPath.look's, without building a look).
+function FlightPath.parallaxAt(h, layers)
+  layers = layers or Config.FLYERS.layers
+  h = math.max(0, math.min(1, tonumber(h) or 0))
+  local lo, hi = layers[1], layers[#layers]
+  for i = 1, #layers - 1 do
+    if h >= layers[i].h and h <= layers[i + 1].h then lo, hi = layers[i], layers[i + 1] break end
+  end
+  local span = hi.h - lo.h
+  return lerp(lo.parallax, hi.parallax, span > 0 and (h - lo.h) / span or 0)
 end
 
 --- Where a bird over world point (wx, wy) at `parallax` is seen on screen (px from the
@@ -122,18 +134,29 @@ end
 --- One tick of the plan. Returns the bird's state now:
 --- { x, y, h, lift, sink, hidden, flapping, sitting, facing, events = {...} } (events:
 --- this tick's phase-start events), or nil once the plan is done.
+local NO_EVENTS = setmetatable({}, { __newindex = function() error("FlightPath: events are read only") end })
+
 function FlightPath.step(plan)
   local ph = FlightPath.current(plan)
   if not ph then return nil end
-  local events
+  -- one state table per plan, refilled every tick (read it before the next step)
+  local s = plan._s
+  if not s then s = {} plan._s = s end
+  s.events = NO_EVENTS
   if plan.t == 0 then
-    if ph.event then events = { ph.event } end
+    if ph.event then
+      local ev = plan._ev
+      if not ev then ev = {} plan._ev = ev end
+      ev[1] = ph.event
+      s.events = ev
+    end
     if ph.type == "sit" then ph.age = 0 scheduleFidget(plan, ph) end
   end
   plan.t = plan.t + 1
   local n = math.max(1, ph.n or 1)
   local p = math.min(1, plan.t / n)
-  local s = { h = 0, lift = 0, sink = 0, events = events or {} }
+  s.h, s.lift, s.sink = 0, 0, 0
+  s.x, s.y, s.flapping, s.alpha, s.sitting, s.hop, s.hidden = nil, nil, nil, nil, nil, nil, nil
 
   if ph.type == "fly" then
     local a, b = ph.from, ph.to

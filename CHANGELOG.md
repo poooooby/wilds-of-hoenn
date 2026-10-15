@@ -129,13 +129,17 @@
 
 ### Fixed
 
-- **Birds over the sea fly with their wings out.** In HGSS / PokeMMO style, a bird that swooped
-  down onto the water, or took off from it, flew with its swimming sprite. It now flies with its
-  normal one and swims once it is down.
+- **Birds fly whole.** In HGSS / PokeMMO style, birds in the sky (Wingull, Pelipper,
+  Butterfree ...) and ones swooping down onto the water or taking off from it flew with their
+  over-the-water sprite, cut off at the waterline. They now fly with their normal sprite, wings
+  out, and swim once they are down on the water.
+- **PMDCollab Pokemon stand where you do.** Their feet sat a pixel below the player's, and ones
+  whose idle is a little bounce (Kakuna, Pikachu, Charmeleon ...) sank into the ground while
+  resting, by up to six pixels. They now rest on the ground at the player's feet.
 - **Lighter on weaker devices.** Wilds makes about a quarter of the memory churn it did (less
   than 1.7.5 too, even with the new sky and water life): each sprite looks up its size and its
-  sheet once instead of several times a frame, and your partner's details are checked only when
-  they change.
+  sheet once instead of several times a frame, birds in the sky reuse what they draw with, and
+  your partner's details are checked only when they change.
 - **HGSS Pokemon stand on the ground.** HGSS / PokeMMO style Pokemon, wild ones and your
   partner, floated a few pixels above the ground (the empty rows under the feet in their sprite
   frames). Their feet now touch the ground like the player's. PMDCollab Pokemon too: they stood

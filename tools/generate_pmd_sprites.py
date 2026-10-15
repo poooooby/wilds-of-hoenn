@@ -391,16 +391,35 @@ def waterline_of(sheet: Image.Image, entry: dict, keep: float) -> int | None:
 
 
 def foot_of(sheet: Image.Image, entry: dict) -> float | None:
-    """Where the art stands (cell pixels): the median bottom edge of the frames. PMD's
-    shadow point can sit below the art (Gyarados' coils hover over it); the game grounds
-    such a non-flyer here instead (lib/sprite_source.lua). None for an empty sheet."""
+    """Where the art stands (cell pixels): the bottom edge it shows most of the time --
+    the median of the frames' bottom edges, each frame weighted by how long it is held
+    (`durations`), so a bouncing sprite (Kakuna's Idle: 40 ticks resting on its shadow,
+    a few short hops) stands on its resting frame, not halfway up its hop. PMD's shadow
+    point can sit below the art (Gyarados' coils hover over it); the game grounds such a
+    non-flyer here instead (lib/sprite_source.lua). None for an empty sheet."""
     cw, ch = entry["cw"], entry["ch"]
-    bottoms = []
+    durations = entry.get("durations") or []
+    weighted = []  # (bottom, ticks)
     for x, y in cells_of(entry):
         box = sheet.crop((x, y, x + cw, y + ch)).getchannel("A").getbbox()
         if box:
-            bottoms.append(box[3])
-    return float(statistics.median(bottoms)) if bottoms else None
+            col = x // cw
+            ticks = durations[col] if col < len(durations) and durations[col] > 0 else 1
+            weighted.append((box[3], ticks))
+    if not weighted:
+        return None
+    weighted.sort()
+    total = sum(t for _, t in weighted)
+    lo = hi = None
+    seen = 0
+    for bottom, ticks in weighted:
+        seen += ticks
+        if lo is None and seen * 2 >= total:
+            lo = bottom
+        if seen * 2 > total:
+            hi = bottom
+            break
+    return float((lo + hi) / 2)
 
 
 def top_of(sheet: Image.Image, entry: dict) -> int | None:

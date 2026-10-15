@@ -758,7 +758,11 @@ end
 
 --- Appends every scene's actors; remembers the camera for placing new ones.
 function LocalScenes:collectActors(actors, camX, camY)
-  if camX ~= nil and camY ~= nil then self.cam = { x = camX, y = camY } end
+  if camX ~= nil and camY ~= nil then -- (kept in place: no table per frame)
+    local cam = self.cam
+    if not cam then cam = {} self.cam = cam end
+    cam.x, cam.y = camX, camY
+  end
   for _, c in ipairs(self.scenes) do
     if not c.hidden and (c.alpha or 1) > 0.01 then
       if c.kind == "burmy" or c.kind == "cocoon" then actors[#actors + 1] = threadActor(c) end

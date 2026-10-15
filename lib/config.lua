@@ -328,8 +328,9 @@ Config.FORAGE = {
 }
 
 -- PMDCollab style (lib/pmd_renderer.lua). A PMD frame stands on the ground like
--- HGSS art and the player: centred on the 16px tile, its feet (the bake's `foot`
--- line) on PMD_FEET_Y px below the tile's top edge, its bottom edge
+-- the player: centred on the 16px tile, its feet (the bake's `foot` line: where the
+-- art rests most of the time) PMD_FEET_Y px below the tile's top edge -- 15, the
+-- player's own feet, 1 px above the tile's bottom edge
 -- (PmdRenderer.groundOf: a flyer hovering above its shadow keeps the hover). A non-flyer
 -- whose art hovers over its shadow point is grounded on its art first
 -- (SpriteSource.groundPmd). PMD_SCALE multiplies the art, and
@@ -340,7 +341,7 @@ Config.PMD_SCALE = 1
 -- index.json. It made big species look oversized, so it is OFF: every PMD
 -- sprite draws at PMD_SCALE x 1. Set true to apply the baked scales again.
 Config.PMD_TRUE_SIZE = false
-Config.PMD_FEET_Y = 16
+Config.PMD_FEET_Y = 15
 -- A swimming PMD sprite (lib/pmd_renderer.lua) stands on its WATERLINE, the bottom of
 -- its foam bowl, instead of its feet: this many px below the tile's top edge.
 Config.PMD_SWIM_Y = 18

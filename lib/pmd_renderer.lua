@@ -61,12 +61,13 @@ end
 
 --- How far below the tile's top edge an animation's anchor (ay) is placed, at `scale`, so
 --- its art stands on the ground like HGSS art and the player: the tile's bottom edge
---- (Config.PMD_FEET_Y) under the art's feet (the bake's `foot`, its median bottom edge).
+--- (Config.PMD_FEET_Y, the player's feet) under the art's feet (the bake's `foot`: the
+--- bottom edge it rests on most of the time).
 --- Art that reaches below its shadow point -- a walker's front hooves -- puts that foot
 --- line on the edge; anything else (feet on the shadow, or a flyer hovering above it)
 --- puts the shadow point 1 px above it, so a hover is kept. Pure; for testing.
 function PmdRenderer.groundOf(entry, scale)
-  local feetY = Config.PMD_FEET_Y or 16
+  local feetY = Config.PMD_FEET_Y or 15
   local ay, foot = tonumber(entry and entry.ay), tonumber(entry and entry.foot)
   if not (ay and foot) then return feetY - 1 end
   return feetY - math.max(1, foot - ay) * (scale or 1)
