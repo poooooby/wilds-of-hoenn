@@ -14,6 +14,11 @@
 
 ### Changed
 
+- **Species Sizes measured against you.** Each Pokemon is now sized by its real height next to the
+  player, who stands for an adult: knee-high ones come up to about half your height, the biggest
+  tower over you at a little over twice it. Tiny and giant ones are eased toward a sensible
+  smallest and largest size instead of becoming specks or filling the screen, and HGSS and
+  PMDCollab sprites of the same Pokemon now come out the same size.
 - **Tall partners duck under roof edges.** A big follower walking in front of a house no longer
   has its head cut off by the eave: it dips a little and, if it is still too tall, crouches down
   until it clears the roof (with a little sweat drop by its head while it does), then stands back
@@ -44,6 +49,10 @@
 
 ### Fixed
 
+- **HGSS partner walks properly.** An HGSS / PokeMMO style partner held one walk frame through
+  each whole step and flashed its standing pose between steps: on some (Quilava) a twitchy glide.
+  It now steps like the player and NPCs do, a foot forward for half a step then standing, the
+  other foot on the next step.
 - **No softlock when an egg hatches on the step that meets a wild Pokemon.** Stepping onto one
   on the very step an egg hatched started the battle in the middle of the step, and the hatch
   scene opened over it: the "Nickname?" Yes / No then never answered. The battle now waits until

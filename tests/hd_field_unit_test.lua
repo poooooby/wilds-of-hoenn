@@ -163,7 +163,7 @@ for dex = 1, 1025 do
   if type(s) == "number" then n = n + 1 lo, hi = math.min(lo, s), math.max(hi, s) end
 end
 check(n == 1025, "all 1025 species have a size")
-check(lo >= 0.4 and hi <= 1.2 + 1e-9, "sizes stay within 0.4x to 1.2x (" .. lo .. " to " .. hi .. ")")
+check(lo >= 0.5 - 1e-9 and hi <= 2 + 1e-9, "sizes stay within 0.5x to 2x, the scale tool's limits (" .. lo .. " to " .. hi .. ")")
 
 PMD_TABLE[143], PMD_TABLE[150] = pinned[143], pinned[150]
 if failures > 0 then io.stderr:write(failures .. " failure(s)\n") os.exit(1) end

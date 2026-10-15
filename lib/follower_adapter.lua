@@ -624,6 +624,7 @@ function FollowerAdapter:tick()
   -- not-moving -> moving edge -- not every tick -- mirroring
   -- lib/behavior.lua's own entity.stepParity toggle for wild Pokemon.
   local moving = npc.moving or false
+  local standHalf = false -- moving, in the stand-frame half of a step
   if scene then
     -- a scene walks in place: alternate the A/B walk pose every half step
     moving = scene.moving == true
@@ -632,14 +633,23 @@ function FollowerAdapter:tick()
   else
     if moving and not self.wasMoving then
       self.stepParity = not self.stepParity
+      self.stepClock = 0
     end
     self.wasMoving = moving
+    -- the Gen 3 walk cycle: the step's walk frame for its first half, the stand frame for
+    -- the second (walkA, stand, walkB, stand ...). The engine's follower is "not moving" for
+    -- a tick between one step and the next; that tick falls in the stand half.
+    if moving then
+      self.stepClock = (self.stepClock or 0) + 1
+      local half = (EnginePatch.playerIsRunning() and FollowerAdapter.STEP_TICKS / 2 or FollowerAdapter.STEP_TICKS) / 2
+      standHalf = self.stepClock > half
+    end
   end
 
   local pose = ActorRenderer.POSE_STAND
   if scene and scene.bounce then
     pose = ActorRenderer.idleFlapPose(self.actClock, scene.flapTicks or Config.IDLE_FLAP_TICKS)
-  elseif moving then
+  elseif moving and not standHalf then
     if EnginePatch.playerIsRunning() then
       pose = self.stepParity and ActorRenderer.POSE_RUN_A or ActorRenderer.POSE_RUN_B
     else
