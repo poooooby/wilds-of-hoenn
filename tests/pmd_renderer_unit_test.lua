@@ -328,7 +328,7 @@ do
   local h = PmdRenderer.new({}, 128, false, info)
   h.hdScale = function() return 1 end
   local s = PmdRenderer.scaleOf(info)
-  local want = 16 - (Cfg.PMD_GROUND_Y or 12) + (34.5 - 2) * s -- idle reaches higher above its anchor
+  local want = 16 - PmdRenderer.groundOf(info.idle, s) + (34.5 - 2) * s -- idle reaches higher above its anchor
   check(math.abs(h:headLift() - want) < 1e-9, ("headLift = ground offset + (ay - top) x scale, the higher of walk / idle (%.2f)"):format(h:headLift()))
   check(h:headLift() < h:visualHeight() + 16, "lower than the old full-cell lift")
   h.hdScale = function() return 1.5 end
@@ -341,6 +341,13 @@ do
   old.hdScale = function() return 1 end
   check(old:headLift() == old:visualHeight(), "an index without `top` falls back to the visible height")
 end
+
+-- ------- standing on the ground: the feet on the tile's bottom edge (PMD_FEET_Y 16)
+check(PmdRenderer.groundOf({ ay = 30, foot = 31 }, 1) == 15, "feet just under the shadow point: shadow 1 px above the tile's bottom")
+check(PmdRenderer.groundOf({ ay = 30, foot = 34 }, 1) == 12, "hooves 4 px below the shadow: that foot line on the bottom edge")
+check(PmdRenderer.groundOf({ ay = 30, foot = 34 }, 0.5) == 14, "...at the size it is drawn")
+check(PmdRenderer.groundOf({ ay = 30, foot = 22 }, 1) == 15, "a flyer hovering over its shadow keeps the hover")
+check(PmdRenderer.groundOf({ ay = 30 }, 1) == 15, "an old bake without `foot`: shadow 1 px above the edge")
 
 print("")
 if failures > 0 then

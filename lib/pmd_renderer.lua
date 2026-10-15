@@ -59,6 +59,19 @@ function PmdRenderer.placement(entry, scale, groundY, sx, sy, anchorY)
   return math.floor(gx - entry.ax * scale + 0.5), math.floor(gy - (anchorY or entry.ay) * scale + 0.5)
 end
 
+--- How far below the tile's top edge an animation's anchor (ay) is placed, at `scale`, so
+--- its art stands on the ground like HGSS art and the player: the tile's bottom edge
+--- (Config.PMD_FEET_Y) under the art's feet (the bake's `foot`, its median bottom edge).
+--- Art that reaches below its shadow point -- a walker's front hooves -- puts that foot
+--- line on the edge; anything else (feet on the shadow, or a flyer hovering above it)
+--- puts the shadow point 1 px above it, so a hover is kept. Pure; for testing.
+function PmdRenderer.groundOf(entry, scale)
+  local feetY = Config.PMD_FEET_Y or 16
+  local ay, foot = tonumber(entry and entry.ay), tonumber(entry and entry.foot)
+  if not (ay and foot) then return feetY - 1 end
+  return feetY - math.max(1, foot - ay) * (scale or 1)
+end
+
 --- The species' scale as drawn: global PMD_SCALE, x the baked true-size scale
 --- only when Config.PMD_TRUE_SIZE is on (off by default).
 function PmdRenderer.scaleOf(info)
@@ -191,7 +204,7 @@ function PmdRenderer:headLift()
     local entry = self.info and self.info[anim]
     local top = entry and tonumber(entry.top)
     if top then
-      local anchor, groundY = tonumber(entry.ay), Config.PMD_GROUND_Y or 12
+      local anchor, groundY = tonumber(entry.ay), PmdRenderer.groundOf(entry, s)
       if self.swimming then
         local _, band = PmdRenderer.cropHeight(entry)
         if band then anchor, groundY = band, Config.PMD_SWIM_Y or 18 end
@@ -262,7 +275,7 @@ function PmdRenderer:reflectionGeometry(x, y, facing)
   if band then
     dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_SWIM_Y or 18, x, y, band)
   else
-    dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x, y)
+    dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x, y)
   end
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
   if act then dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5) end
@@ -329,7 +342,7 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   if crop then
     dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_SWIM_Y or 18, x - camX, y - camY, bandCrop)
   else
-    dx, dy = PmdRenderer.placement(entry, scale, Config.PMD_GROUND_Y or 12, x - camX, y - camY)
+    dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x - camX, y - camY)
   end
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) + 0.5)
   local scaleY, scaleX = scale, scale

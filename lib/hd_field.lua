@@ -83,7 +83,10 @@ local function pmdPivot(mod, info)
   local ok, pmd = pcall(SpriteSource.pmdInfo, mod, tonumber(info.key) or info.key)
   local entry = ok and type(pmd) == "table" and pmd[info.anim] or nil
   if type(entry) == "table" and tonumber(entry.ax) and tonumber(entry.ay) then
-    return { tonumber(entry.ax), tonumber(entry.ay) }
+    -- about the point that stands on the ground line (lib/pmd_renderer.lua groundOf): its
+    -- feet, or 1 px under the shadow point -- so a resized sprite keeps its feet down
+    local ay, foot = tonumber(entry.ay), tonumber(entry.foot)
+    return { tonumber(entry.ax), ay + (foot and math.max(1, foot - ay) or 1) }
   end
   return nil
 end

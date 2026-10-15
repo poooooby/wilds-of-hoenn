@@ -825,8 +825,9 @@ function FollowerAdapter:collectActors(actors)
   local offY = (r and r.pushY or 0) + (act and act.dy or 0)
   local width, ground = CELL, CELL -- the ground point's depth in the tile
   if r and r.isPmd then
-    width = V.require("pmd_renderer").contentSize(r.info, r:hdScale())
-    ground = Config.PMD_GROUND_Y or 12
+    local PmdRenderer = V.require("pmd_renderer")
+    width = PmdRenderer.contentSize(r.info, r:hdScale())
+    ground = PmdRenderer.groundOf(r.info and r.info.walk, PmdRenderer.scaleOf(r.info))
   elseif r and r.frameWidth then
     width = r:visualWidth() or CELL
   end

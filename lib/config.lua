@@ -154,10 +154,10 @@ Config.FORAGE = {
   blocklist = {},        -- extra item names to never find
 }
 
--- PMDCollab style (lib/pmd_renderer.lua). The ground point of a PMD frame
--- (the shadow marker) is placed at the tile's horizontal centre and
--- PMD_GROUND_Y pixels below the tile's top edge (a 16px tile; 12 puts the
--- feet just above its bottom edge, a little behind the player's). A non-flyer
+-- PMDCollab style (lib/pmd_renderer.lua). A PMD frame stands on the ground like
+-- HGSS art and the player: centred on the 16px tile, its feet (the bake's `foot`
+-- line) on PMD_FEET_Y px below the tile's top edge, its bottom edge
+-- (PmdRenderer.groundOf: a flyer hovering above its shadow keeps the hover). A non-flyer
 -- whose art hovers over its shadow point is grounded on its art first
 -- (SpriteSource.groundPmd). PMD_SCALE multiplies the art, and
 -- PMD_WALK_SPEED multiplies the Walk animation clock (1 = the durations in
@@ -167,7 +167,7 @@ Config.PMD_SCALE = 1
 -- index.json. It made big species look oversized, so it is OFF: every PMD
 -- sprite draws at PMD_SCALE x 1. Set true to apply the baked scales again.
 Config.PMD_TRUE_SIZE = false
-Config.PMD_GROUND_Y = 12
+Config.PMD_FEET_Y = 16
 -- A swimming PMD sprite (lib/pmd_renderer.lua) stands on its WATERLINE, the bottom of
 -- its foam bowl, instead of its feet: this many px below the tile's top edge.
 Config.PMD_SWIM_Y = 18
