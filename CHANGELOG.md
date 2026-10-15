@@ -40,6 +40,13 @@
 - **3D world mods.** With TERRARIUM, Potato Voxel or Dramaless (Red, Blue, Yellow) or Stadium2
   (Gold, Silver, Crystal) on, the wild Pokemon and your follower stand in the 3D world as cards of
   their own art at their own size, sunk into the grass and water like its own characters.
+- **Shinies sparkle on Gold, Silver and Crystal.** A shiny wild Pokemon on the field, and a
+  shiny partner walking behind you, twinkle every few seconds -- the same little gold stars
+  as on the Gen 3 games, judged by the real DV pattern. (Red, Blue and Yellow have no
+  shinies, so nothing sparkles there.)
+- **Out of doors on Red, Blue and Yellow.** Stepping out of a building, your partner slips
+  out of the doorway behind you and fades in as it follows -- it is never drawn standing on
+  top of the house.
 
 ### Fixed
 

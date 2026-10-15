@@ -156,7 +156,8 @@ time, and they stay out until you change your leader again. One partner is out a
 
 - 🎮 **Red, Blue, Yellow, Gold, Silver and Crystal** get the heart of the mod: visible wild
   Pokémon from the game's own encounter tables (Gold and Silver's change with the time of day),
-  battles with exactly the Pokémon you walk onto (shinies included in Gold, Silver and Crystal),
+  battles with exactly the Pokémon you walk onto (shinies included in Gold, Silver and
+  Crystal — and they sparkle on the field, as does a shiny partner),
   your party's leader following you, and both sprite styles. Red, Blue and Yellow also get the
   ambient world: birds passing overhead and perching on town signposts, wild Flying types
   swooping in and out, fish leaping from the water, wild Pokémon reacting when you bike close
