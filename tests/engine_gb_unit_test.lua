@@ -25,6 +25,7 @@ love = {
     push = function() end, pop = function() end, translate = function() end, scale = function() end,
     getShader = function() return nil end, setShader = function() end,
     newShader = function() return { fake = true } end,
+    getColor = function() return 1, 1, 1, 1 end, setColor = function() end,
   },
 }
 
@@ -103,14 +104,43 @@ fake["src.world.FieldDefaults"] = {
 local Game1 = {
   data = {
     pokemon = {
-      PIKACHU = { dex = 25, types = { "ELECTRIC" }, dexEntry = { heightFt = 1, heightIn = 4 },
-                  baseStats = { hp = 35, attack = 55, defense = 30, speed = 90, special = 50 } },
-      PIDGEY = { dex = 16, types = { "NORMAL", "FLYING" }, dexEntry = { heightFt = 1, heightIn = 0 } },
-      RATTATA = { dex = 19, types = { "NORMAL" } },
-      GOLDEEN = { dex = 118, types = { "WATER" }, dexEntry = { heightFt = 2, heightIn = 0 } },
-      MAGIKARP = { dex = 129, types = { "WATER" }, dexEntry = { heightFt = 2, heightIn = 11 } },
-      TENTACOOL = { dex = 72, types = { "WATER", "POISON" }, dexEntry = { heightFt = 2, heightIn = 11 } },
+      PIKACHU = { dex = 25, name = "PIKACHU", types = { "ELECTRIC" }, dexEntry = { heightFt = 1, heightIn = 4 },
+                  baseStats = { hp = 35, attack = 55, defense = 30, speed = 90, special = 50 },
+                  baseExp = 82, growthRate = "MEDIUM", learnset = { { level = 1, move = "THUNDERSHOCK" },
+                    { level = 9, move = "THUNDER_WAVE" }, { level = 16, move = "QUICK_ATTACK" } } },
+      PIDGEY = { dex = 16, name = "PIDGEY", types = { "NORMAL", "FLYING" }, dexEntry = { heightFt = 1, heightIn = 0 },
+                 baseStats = { hp = 40, attack = 45, defense = 40, speed = 56, special = 35 },
+                 baseExp = 55, growthRate = "MEDIUM_SLOW", learnset = { { level = 1, move = "GUST" } },
+                 evolutions = { { method = "LEVEL", level = 18, species = "PIDGEOTTO" } } },
+      PIDGEOTTO = { dex = 17, name = "PIDGEOTTO", types = { "NORMAL", "FLYING" },
+                    baseStats = { hp = 63, attack = 60, defense = 55, speed = 71, special = 50 },
+                    baseExp = 113, growthRate = "MEDIUM_SLOW", learnset = {} },
+      RATTATA = { dex = 19, name = "RATTATA", types = { "NORMAL" } },
+      GOLDEEN = { dex = 118, name = "GOLDEEN", types = { "WATER" }, dexEntry = { heightFt = 2, heightIn = 0 } },
+      MAGIKARP = { dex = 129, name = "MAGIKARP", types = { "WATER" }, dexEntry = { heightFt = 2, heightIn = 11 } },
+      TENTACOOL = { dex = 72, name = "TENTACOOL", types = { "WATER", "POISON" }, dexEntry = { heightFt = 2, heightIn = 11 } },
     },
+    moves = {
+      TACKLE = { id = "TACKLE", name = "TACKLE", power = 40, accuracy = 95, pp = 35, type = "NORMAL" },
+      GROWL = { id = "GROWL", name = "GROWL", power = 0, accuracy = 100, pp = 40, type = "NORMAL" },
+      GUST = { id = "GUST", name = "GUST", power = 40, accuracy = 100, pp = 35, type = "NORMAL" },
+      THUNDERSHOCK = { id = "THUNDERSHOCK", name = "THUNDERSHOCK", power = 40, accuracy = 100, pp = 30, type = "ELECTRIC" },
+      THUNDER_WAVE = { id = "THUNDER_WAVE", name = "THUNDER WAVE", power = 0, accuracy = 100, pp = 20, type = "ELECTRIC" },
+      QUICK_ATTACK = { id = "QUICK_ATTACK", name = "QUICK ATTACK", power = 40, accuracy = 100, pp = 30, type = "NORMAL" },
+    },
+    items = {
+      POTION = { id = "POTION", name = "POTION", price = 300 },
+      POKE_BALL = { id = "POKE_BALL", name = "POKE BALL", price = 200 },
+      MASTER_BALL = { id = "MASTER_BALL", name = "MASTER BALL", price = 0 },
+      BICYCLE = { id = "BICYCLE", name = "BICYCLE", price = 0, keyItem = true },
+      FIRE_STONE = { id = "FIRE_STONE", name = "FIRE STONE", price = 2100 },
+      HM01 = { id = "HM01", name = "HM01", price = 0 },
+      TM01 = { id = "TM01", name = "TM01", price = 3000 },
+      NUGGET = { id = "NUGGET", name = "NUGGET", price = 10000 },
+    },
+    statuses = {},
+    rulesets = { gen1_faithful = { name = "gen1_faithful", randMin = 217, randMax = 255 } },
+    constants = { levelCap = 100 },
     encounters = {
       ROUTE_1 = { grass = { rate = 25, slots = { { species = "PIDGEY", level = 3 }, { species = "RATTATA", level = 2 },
         { species = "PIDGEY", level = 4 }, { species = "PIDGEY", level = 4 }, { species = "PIDGEY", level = 4 },
@@ -157,6 +187,120 @@ end
 fake["src.ui.ListMenu"] = ListMenu
 fake["src.render.Pipelines"] = { worldPipeline = function() return drawn.pipeline end }
 
+-- ------- fake battle / bag / font engine, for the role seams (Tier 2b)
+local FakeStats = {
+  calc = function(def, level)
+    local b = def.baseStats or {}
+    return { hp = (b.hp or 30) + level * 2, attack = b.attack or 10, defense = b.defense or 10,
+             speed = b.speed or 10, special = b.special or 10 }
+  end,
+  ensure = function(_def, mon) return mon end,
+}
+fake["src.pokemon.Stats"] = FakeStats
+local FakeGrowth = {
+  expForLevel = function(_rate, level) return level * level * level end,
+  levelForExp = function(_rate, exp, cap)
+    local lv = math.floor((exp + 1e-9) ^ (1 / 3) + 1e-9)
+    return math.min(cap or 100, math.max(1, lv))
+  end,
+}
+fake["src.pokemon.Growth"] = FakeGrowth
+fake["src.battle.Experience"] = {
+  gainFor = function(def, level) return math.max(1, math.floor((def.baseExp or 50) * level / 7)) end,
+  movesLearnedAt = function(def, level)
+    local out = {}
+    for _, e in ipairs(def.learnset or {}) do
+      if e.level == level then out[#out + 1] = e.move end
+    end
+    return out
+  end,
+}
+fake["src.pokemon.Pokemon"] = {
+  new = function(data, species, level)
+    local def = data.pokemon[species]
+    local moves = {}
+    for _, e in ipairs(def.learnset or {}) do
+      if e.level <= level and #moves < 4 then
+        moves[#moves + 1] = { id = e.move, pp = (data.moves[e.move] or {}).pp or 10 }
+      end
+    end
+    local stats = FakeStats.calc(def, level)
+    return { species = species, level = level, dvs = { attack = 1, defense = 2, speed = 3, special = 4 },
+             statExp = {}, exp = FakeGrowth.expForLevel(def.growthRate, level),
+             stats = stats, hp = stats.hp, moves = moves }
+  end,
+}
+local damageCalls = {}
+fake["src.battle.Damage"] = {
+  compute = function(ruleset, attacker, defender, move, opts)
+    damageCalls[#damageCalls + 1] = { ruleset = ruleset, attacker = attacker, defender = defender,
+                                      move = move, opts = opts }
+    return move.power, { crit = false, typeMult = 20 }
+  end,
+}
+local evoRequests = {}
+local FakeEvolution = {} -- declared first: request's closure needs the local in scope
+function FakeEvolution.pendingFor(game, mon, _trigger)
+  local def = game.data.pokemon[mon.species]
+  for _, e in ipairs(def and def.evolutions or {}) do
+    if e.method == "LEVEL" and (tonumber(mon.level) or 0) >= e.level then return e.species, e end
+  end
+  return nil
+end
+function FakeEvolution.request(game, mon, trigger, onDone)
+  local species = FakeEvolution.pendingFor(game, mon, trigger)
+  if not species then
+    if onDone then onDone() end
+    return nil
+  end
+  evoRequests[#evoRequests + 1] = { mon = mon, to = species, onDone = onDone }
+  return species
+end
+fake["src.pokemon.Evolution"] = FakeEvolution
+local screenPushes = {}
+fake["src.ui.Screens"] = {
+  push = function(_game, name, mon, moveId, cb) screenPushes[#screenPushes + 1] = { name = name, mon = mon, moveId = moveId, cb = cb } end,
+}
+local learnedTold = {}
+fake["src.world.PikachuFollower"] = {
+  onMoveLearned = function(_save, mon, moveId) learnedTold[#learnedTold + 1] = { mon = mon, moveId = moveId } end,
+}
+fake["src.mods.Runtime"] = { wants = function() return false end, emit = function() end }
+-- the Gen 1 single bag, two slots wide so "full" is easy to reach
+fake["src.inventory.Bag"] = (function()
+  local B = {}
+  function B.pocketOf(_id, _data) return "ITEM" end
+  function B.capacity(_data, _pocket) return 2 end
+  function B.order(save, _data) save.bagOrder = save.bagOrder or {} return save.bagOrder end
+  function B.slots(save, _data, _pocket)
+    local n = 0
+    for _ in pairs(save.inventory or {}) do n = n + 1 end
+    return n
+  end
+  function B.addTo(store, order, id, qty, _data, used, cap)
+    local old = store[id]
+    if not old and used >= cap then return false end
+    store[id] = (old or 0) + (qty or 1)
+    if not old then order[#order + 1] = id end
+    return true
+  end
+  function B.add(save, id, qty, data)
+    save.inventory = save.inventory or {}
+    return B.addTo(save.inventory, B.order(save, data), id, qty or 1, data, B.slots(save, data), B.capacity(data))
+  end
+  return B
+end)()
+local sounds = {}
+fake["src.core.Sound"] = {
+  play = function(_data, name) sounds[#sounds + 1] = name end,
+  playCry = function() end,
+}
+local fontDraws = {}
+fake["src.render.Font"] = {
+  width = function(text) return 4 * #tostring(text) end,
+  draw = function(text, x, y) fontDraws[#fontDraws + 1] = { text = text, x = x, y = y } end,
+}
+
 generation = 1
 local V1 = newEnv()
 local EP = assert(loadfile("lib/engine_patch.lua"))(V1)
@@ -168,7 +312,7 @@ eq(EP.supports("sky"), true, "Gen 1 carries the sky (lib/gb/gen1.lua FEATURES)")
 eq(EP.supports("water_life"), true, "...and the water life")
 eq(EP.supports("local_scenes"), true, "...and the local scenes")
 eq(EP.supports("wild_reacts"), true, "...and the wild reactions")
-eq(EP.supports("roles"), false, "the partner roles are not carried yet")
+eq(EP.supports("roles"), true, "...and the partner roles")
 
 local player = { cellX = 3, cellY = 2, px = 48, py = 32, moving = false, facing = "down" }
 local ow = {
@@ -268,7 +412,8 @@ eq(EP.objectOn(5, 4), false, "...the next one is not")
 ow.npcs = {}
 eq(EP.playCry("PIDGEY"), nil, "playCry is safe headless")
 eq(EP.fieldEffectSheet("exclamation_question_mark"), nil, "no emote sheet without love (code-drawn fallback)")
-eq(EP.fieldEffectSheet("ground_impact_dust"), nil, "other sheets stay absent")
+eq(EP.fieldEffectSheet("ground_impact_dust"), nil, "no dust sheet headless (the burst draws alone)")
+eq(EP.fieldEffectSheet("long_grass"), nil, "other sheets stay absent")
 
 -- encounters
 local t = EP.tableFor("ROUTE_1")
@@ -408,6 +553,145 @@ do
   ow.scriptMoves = { {} }
   eq(EP.leadingNpc(), true, "scripted moves read as a cutscene")
   ow.scriptMoves = {}
+end
+
+-- ------- the role seams (Tier 2b: the Battler's combat, the Forager's bag, level-ups)
+do
+  -- move ids are strings, interned to stable numbers for lib/ow_combat.lua
+  local tackle = EP.moveNumber("TACKLE")
+  check(type(tackle) == "number" and tackle > 0, "a string move id interns to a number")
+  eq(EP.moveNumber({ id = "TACKLE" }), tackle, "...a move slot answers the same number")
+  check(EP.moveNumber("GROWL") ~= tackle, "...and another move another one")
+  local row = EP.moveRow(tackle)
+  check(row and row.power == 40 and row.accuracy == 95 and row.pp == 35, "moveRow reads the Gen 1 move data")
+  eq(EP.moveRow("GROWL").power, 0, "...a status move has no power (never picked)")
+
+  -- the battler shape and the engine's damage formula
+  local Pokemon = fake["src.pokemon.Pokemon"]
+  local ally = Pokemon.new(Game1.data, "PIKACHU", 8) -- below THUNDER WAVE's level 9
+  local att = EP.battlerOf(ally)
+  check(att and att.mon == ally and att.curTypes[1] == "ELECTRIC" and att.def, "battlerOf carries the mon, its types and def")
+  eq(ally.maxHp, ally.stats.hp, "...and mirrors maxHp onto the mon (health bars read it)")
+  local wild = EP.buildWildFighter("PIDGEY", 5)
+  check(wild and wild.species == "PIDGEY" and #wild.moves == 1 and wild.moves[1].id == "GUST",
+    "buildWildFighter builds the engine's own wild mon (learnset moves)")
+  eq(wild.hp, wild.maxHp, "...at full HP")
+  local dfn = EP.battlerOf(wild)
+  local dmg, info = EP.moveDamage(att, dfn, tackle, function(lo) return lo end, true)
+  eq(dmg, 40, "moveDamage runs the engine's Damage.compute")
+  check(info and info.critical == false and info.effectiveness == 2, "...translating crit and the x10 type multiplier")
+  local call = damageCalls[#damageCalls]
+  check(call.ruleset == Game1.data.rulesets.gen1_faithful, "...under the game's own ruleset")
+  eq(call.opts.forceCrit, false, "...noCrit pins the crit roll")
+  eq(call.move, Game1.data.moves.TACKLE, "...with the real move row")
+
+  -- EXP: the engine's worth, applied by amount with the Growth curve
+  eq(EP.expGain("PIDGEY", 7), 55, "expGain is the engine's formula (base 55 x 7 / 7)")
+  local hpBefore = ally.hp
+  local result = EP.expApply(ally, 1000 - ally.exp) -- exactly to level 10 on the cubic fake
+  check(result and result.fromLevel == 8 and result.toLevel == 10, "expApply levels the mon up (8 -> 10)")
+  eq(ally.level, 10, "...the level moved")
+  eq(ally.stats.hp, 55, "...the stats were recalculated")
+  eq(ally.hp, hpBefore + 4, "...and the HP delta was kept, not a full heal")
+  eq(ally.maxHp, 55, "...maxHp follows")
+
+  -- the level-up follow-through's questions
+  local learned = EP.movesLearnedAt(ally, 9)
+  check(#learned == 1 and learned[1] == "THUNDER_WAVE", "movesLearnedAt reads the learnset (string ids)")
+  eq(EP.knowsMove(ally, "THUNDERSHOCK"), true, "knowsMove sees a known move")
+  eq(EP.knowsMove(ally, "THUNDER_WAVE"), false, "...not an unknown one")
+  local bird = Pokemon.new(Game1.data, "PIDGEY", 18)
+  eq(EP.evolutionTarget(bird), "PIDGEOTTO", "a level evolution offers its target")
+  eq(EP.evolutionTarget(Pokemon.new(Game1.data, "PIDGEY", 5)), nil, "...not before its level")
+  local evoDone = false
+  check(EP.startEvolution(bird, "PIDGEOTTO", function() evoDone = true end), "startEvolution opens the engine's movie")
+  local req = evoRequests[#evoRequests]
+  check(req and req.mon == bird and req.to == "PIDGEOTTO", "...for that mon and target")
+  req.onDone()
+  check(evoDone, "...and its close reaches our onDone")
+  check(not EP.startEvolution(Pokemon.new(Game1.data, "PIDGEY", 5), "PIDGEOTTO", function() evoDone = "never" end),
+    "nothing to evolve: false, onDone untouched")
+  check(evoDone ~= "never", "...truly untouched")
+
+  -- the learn flow: a free slot learns with the jingle box, a full moveset opens the forget screen
+  local learnDone
+  check(EP.startMoveLearn(ally, { "THUNDER_WAVE" }, function(any) learnDone = any end),
+    "startMoveLearn starts on a mon with a free slot")
+  local box = Game1.stack:top()
+  check(box and box.isTextBox and box.text:find("THUNDER WAVE"), "...the learned box is up")
+  eq(#ally.moves, 2, "...and the move is in the slot")
+  check(learnedTold[#learnedTold] and learnedTold[#learnedTold].moveId == "THUNDER_WAVE",
+    "...Yellow's Pikachu bookkeeping was told")
+  Game1.stack:pop()
+  box.onDone()
+  eq(learnDone, true, "...the chain's end reaches onDone(true)")
+  local fullMon = Pokemon.new(Game1.data, "PIKACHU", 16)
+  fullMon.moves = { { id = "THUNDERSHOCK", pp = 30 }, { id = "THUNDER_WAVE", pp = 20 },
+                    { id = "GROWL", pp = 40 }, { id = "TACKLE", pp = 35 } }
+  local fullDone
+  check(EP.startMoveLearn(fullMon, { "QUICK_ATTACK" }, function(any) fullDone = any end),
+    "a full moveset starts too")
+  local push = screenPushes[#screenPushes]
+  check(push and push.name == "MoveLearnMenu" and push.moveId == "QUICK_ATTACK", "...through the engine's forget screen")
+  push.cb(true)
+  eq(fullDone, true, "...whose close reaches onDone")
+  local neverDone
+  check(not EP.startMoveLearn(ally, { "THUNDER_WAVE" }, function() neverDone = true end),
+    "every move already known: false")
+  check(not neverDone, "...and onDone never ran")
+
+  -- the Forager's catalog and bag
+  local catalog = EP.itemCatalog()
+  local byId = {}
+  for _, e in ipairs(catalog) do byId[e.id] = e end
+  check(byId.POTION and byId.POTION.use == "heal" and byId.POTION.pocket == "ITEMS",
+    "the catalog classifies a heal")
+  eq(byId.POKE_BALL.pocket, "POKE_BALLS", "...a priced ball lands in the ball pocket")
+  eq(byId.MASTER_BALL.pocket, "ITEMS", "...the priceless Master Ball does not (and is excluded by name)")
+  eq(byId.BICYCLE.pocket, "KEY_ITEMS", "...a key item is marked")
+  eq(byId.FIRE_STONE.isEvo, true, "...a stone is an evolution item")
+  eq(byId.HM01.isHm, true, "...an HM is marked")
+  eq(byId.TM01.isTm, true, "...and a TM")
+  Game1.save.inventory, Game1.save.bagOrder = nil, nil
+  check(EP.bagCanAdd("POTION", 1), "an empty bag takes a Potion")
+  eq(Game1.save.inventory, nil, "...without touching the save (a dry run)")
+  check(EP.bagAdd("POTION", 1), "bagAdd puts it in")
+  check(EP.bagAdd("POKE_BALL", 1), "...and a ball (the fake bag holds two slots)")
+  eq(EP.bagCanAdd("NUGGET", 1), false, "a full bag refuses a new item")
+  eq(EP.bagCanAdd("POTION", 1), true, "...but stacks an existing one")
+  eq(Game1.save.inventory.NUGGET, nil, "...and the dry runs never added anything")
+  Game1.save.inventory, Game1.save.bagOrder = nil, nil
+
+  -- where the Forager may set out
+  local allowed = { [3] = true, [4] = true }
+  eq(EP.forageAllowed(allowed), true, "a route allows foraging")
+  ow.map.def.town = true
+  eq(EP.forageAllowed(allowed), false, "...a town does not")
+  ow.map.def.town = nil
+  player.surfing = true
+  eq(EP.forageAllowed(allowed), false, "...nor surfing")
+  player.surfing = nil
+  local wasX, wasY = player.cellX, player.cellY
+  player.cellX, player.cellY = 2, 3 -- a water cell
+  eq(EP.forageAllowed(allowed), false, "...nor standing in water")
+  player.cellX, player.cellY = wasX, wasY
+
+  -- sounds and the font (the popup labels)
+  check(EP.playSelect(), "the menu click plays")
+  eq(sounds[#sounds], "Press_AB", "...the engine's own Press_AB")
+  check(EP.playSuccess(), "the found-it jingle plays")
+  eq(sounds[#sounds], "Get_Item1", "...Get_Item1")
+  eq(EP.fontLayout(), "gb", "the font layout reads \"gb\" (no Gen 3 pen codes or cell drop)")
+  eq(EP.measureText("ROLE"), 16, "measureText is the engine font's width")
+  eq(EP.drawText("ROLE", 5, 7), 16, "drawText draws and answers the width")
+  check(fontDraws[#fontDraws] and fontDraws[#fontDraws].text == "ROLE", "...through the engine font")
+
+  -- the party carries maxHp for the roles
+  local saved = Game1.save.party
+  Game1.save.party = { Pokemon.new(Game1.data, "PIKACHU", 9) }
+  local got = EP.partyMons()
+  eq(got[1].maxHp, got[1].stats.hp, "partyMons mirrors maxHp onto each mon")
+  Game1.save.party = saved
 end
 
 -- busy / holding the player

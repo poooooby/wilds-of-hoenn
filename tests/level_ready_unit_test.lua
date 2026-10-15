@@ -188,6 +188,42 @@ do
   evoTarget = nil
 end
 
+-- ------- Gen 1 shapes: an injected identity, string move ids, a string species
+do
+  local store = newStore()
+  local gbLearn = { [9] = { "THUNDER_WAVE" } }
+  local gbDeps = {
+    movesLearnedAt = function(_mon, level) return gbLearn[level] or {} end,
+    knowsMove = function(m, id)
+      for _, s in ipairs(m.moves or {}) do if s == id then return true end end
+      return false
+    end,
+    evolutionTarget = function(m) return m.level >= 18 and "PIDGEOTTO" or nil end,
+    identityOf = function(m) return m.dex * 65536 + m.dv end,
+  }
+  local lr = LevelReady.new(store, gbDeps)
+  local gbMon = { species = "PIDGEY", dex = 16, dv = 9, level = 9, moves = { "GUST" } }
+  lr:record(gbMon, 8, 9)
+  local p = lr:pending(gbMon)
+  check(p and #p.moves == 1 and p.moves[1] == "THUNDER_WAVE", "string move ids are recorded and kept")
+  check(not p.evolve, "no evolution below its level")
+  -- the state is keyed by the injected identity, and strings survive a save re-read
+  local lr2 = LevelReady.new(store, gbDeps)
+  local p2 = lr2:pending(gbMon)
+  check(p2 and p2.moves[1] == "THUNDER_WAVE", "...and survive a save and re-read")
+  eq(lr2:pending({ species = "PIDGEY", dex = 16, dv = 10, level = 9, moves = { "GUST" } }), nil,
+    "another mon (other DVs) waits for nothing")
+  gbMon.moves = { "GUST", "THUNDER_WAVE" }
+  eq(lr2:pending(gbMon), nil, "a move learned meanwhile stops asking")
+  -- a string species records and clears the evolution
+  local bird = { species = "PIDGEY", dex = 16, dv = 11, level = 18, moves = { "GUST" } }
+  lr2:record(bird, 17, 18)
+  local pe = lr2:pending(bird)
+  check(pe and pe.evolve, "a level evolution with a string species is waiting")
+  bird.species = "PIDGEOTTO"
+  eq(lr2:pending(bird), nil, "...and evolving (the species changed) clears it")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

@@ -24,13 +24,32 @@ local function moveIds(mon, deps)
   return ids
 end
 
+-- PP left for move slot i: the `pp` list (Gen 3), else the move slot's own `pp`
+-- field (a Gen 1 / Gen 2 mon keeps it there). nil = the engine tracks no PP.
+local function ppOf(mon, i)
+  if mon.pp then return tonumber(mon.pp[i]) end
+  local slot = mon.moves and mon.moves[i]
+  return type(slot) == "table" and tonumber(slot.pp) or nil
+end
+
+local function drainPp(mon, i)
+  if mon.pp and mon.pp[i] then
+    mon.pp[i] = math.max(0, mon.pp[i] - 1)
+    return
+  end
+  local slot = mon.moves and mon.moves[i]
+  if type(slot) == "table" and tonumber(slot.pp) then
+    slot.pp = math.max(0, slot.pp - 1)
+  end
+end
+
 --- The moves a mon can use right now: { index, id, row } with PP left and
 --- damage to deal.
 function OwCombat.usableMoves(mon, deps)
   local out = {}
   local ids = moveIds(mon, deps)
   for i, id in ipairs(ids) do
-    local pp = tonumber(mon.pp and mon.pp[i])
+    local pp = ppOf(mon, i)
     if id and id > 0 and (pp == nil or pp > 0) then
       local row = deps.moveRow(id)
       if row and row.power > 0 then
@@ -60,7 +79,9 @@ function OwCombat.new(ally, wild, deps)
   local self = setmetatable({ ally = ally, wild = wild, deps = deps, result = nil, round = 0 }, OwCombat)
   self.allyB = deps.battlerOf(ally)
   self.wildB = deps.battlerOf(wild)
-  local sa, sw = tonumber(ally.speed or ally.spe) or 0, tonumber(wild.speed or wild.spe) or 0
+  -- a Gen 1 / Gen 2 mon keeps its stats under `stats`
+  local sa = tonumber(ally.speed or ally.spe or (ally.stats and ally.stats.speed)) or 0
+  local sw = tonumber(wild.speed or wild.spe or (wild.stats and wild.stats.speed)) or 0
   if sa == sw then
     self.first = deps.rng() < 0.5 and "ally" or "wild"
   else
@@ -125,9 +146,7 @@ function OwCombat:turn()
   else
     event.moveId, event.moveIndex = move.id, move.index
     -- PP is spent whether or not the move lands
-    if attackerMon.pp and attackerMon.pp[move.index] then
-      attackerMon.pp[move.index] = math.max(0, attackerMon.pp[move.index] - 1)
-    end
+    drainPp(attackerMon, move.index)
     local acc = move.row.accuracy
     local hit = acc <= 0 or deps.rng() * 100 < acc
     event.hit = hit

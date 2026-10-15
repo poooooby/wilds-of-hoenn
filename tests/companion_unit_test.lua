@@ -162,6 +162,35 @@ do
   eq(#Companion.ROLES, 3, "the jobs are still just follow / battle / forage")
 end
 
+-- ------- an injected identity (Gen 1 / Gen 2: no personality exists)
+do
+  local idOf = function(m) return m.dex * 65536 + m.dv end
+  local m = newMod()
+  local c = Companion.new(m, idOf)
+  local pika = { species = "PIKACHU", dex = 25, dv = 7, hp = 20 }
+  local rat = { species = "RATTATA", dex = 19, dv = 7, hp = 20 }
+  check(c:set(pika, "battle"), "a mon with no personality is accepted through the injected identity")
+  local who, role = c:resolve({ rat, pika })
+  eq(who, pika, "...and resolves by it")
+  eq(role, "battle", "...with its role")
+  eq(c:savedRole(pika), "battle", "savedRole matches by it too")
+  eq(c:savedRole(rat), nil, "...and only for that mon")
+  local c2 = Companion.new(m, idOf)
+  eq(select(2, c2:resolve({ rat, pika })), "battle", "the choice survives a save and load")
+  eq(m.store["companion/state"].species, "PIKACHU", "a string species is kept in the save")
+  -- a new lead takes over, by identity
+  local c3 = Companion.new(newMod(), idOf)
+  c3:resolve({ pika, rat })
+  c3:set(rat, "forage")
+  eq(select(2, c3:resolve({ pika, rat })), "forage", "a manual pick stands while the lead is unchanged")
+  local newLead = { species = "SQUIRTLE", dex = 7, dv = 1, hp = 20 }
+  local who3, role3 = c3:resolve({ newLead, rat })
+  eq(who3, newLead, "a new lead takes over")
+  eq(role3, "follow", "...as the follower")
+  -- no identity at all: refused, never a nil-keyed state
+  eq(c:set({ species = "PIKACHU" }, "battle"), false, "an identity of nil is refused")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

@@ -27,13 +27,14 @@ local PLATE_H = 10
 -- LeafGreen's small sheet (latin_small_fg.rgba) has them on cell rows 4-10 (11
 -- with the shadow), so the RSE drop pushed the text up out of the plate and cut
 -- off its top. A drop of 4 puts that row 4 on the plate's second pixel row.
-local SMALL_FACE_DROP = { rs = 8, frlg = 4 }
+-- The Game Boy games' font ("gb") draws each glyph exactly at the pen: no drop.
+local SMALL_FACE_DROP = { rs = 8, frlg = 4, gb = 0 }
 
 -- an unknown layout (no engine font yet) keeps the Ruby / Sapphire / Emerald drop
 local function faceDrop()
   local layout = EnginePatch.fontLayout and EnginePatch.fontLayout()
   if layout == nil or layout == "rs" then return SMALL_FACE_DROP.rs end
-  return SMALL_FACE_DROP.frlg
+  return SMALL_FACE_DROP[layout] or SMALL_FACE_DROP.frlg
 end
 PopupText._faceDrop = faceDrop
 -- The small face's space character draws a stray glyph, so words are drawn one

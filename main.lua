@@ -164,13 +164,15 @@ return function(mod)
   local battleTrigger = BattleTrigger.new(mod, spawnManager, mod.log)
   -- a wild Pokemon chasing the player catches up (lib/wild_reactions.lua): the battle
   spawnManager.onContact = function(e) battleTrigger:onChaserContact(e) end
-  local companion = Companion.new(mod)
+  -- a GB mon has no personality: EnginePatch.monIdentity (dex + DVs) keys it instead
+  local companion = Companion.new(mod, gb and EnginePatch.monIdentity or nil)
   local partyRoles = PartyRoles.new(companion)
   local followerAdapter = FollowerAdapter.new(mod, companion)
   -- what a levelled-up companion is waiting for ("New move ready!" / "Ready to evolve!")
   local levelReady = LevelReady.new(mod, {
     movesLearnedAt = EnginePatch.movesLearnedAt, knowsMove = EnginePatch.knowsMove,
     evolutionTarget = EnginePatch.evolutionTarget,
+    identityOf = gb and EnginePatch.monIdentity or nil,
   })
   followerAdapter.levelReady = levelReady
   local portraitUI = PortraitUI.new(mod)
@@ -366,6 +368,16 @@ return function(mod)
     -- the field's battle state (Gen 3 reads it off the engine)
     mod.events:on("battle.started", function() EnginePatch.noteBattle(true) end)
     mod.events:on("battle.ended", function() EnginePatch.noteBattle(false) end)
+
+    -- the ROLE row in the GB party menu: the engine's own `ui.party.submenu` hook
+    -- hands the A-list over (Gen 3 goes through partyMenuUpdate above instead)
+    if supported("roles") then
+      mod.hooks:wrap("ui.party.submenu", function(next, _game, _items, mon, ctx)
+        local items = next()
+        local ok, rows = pcall(function() return partyRoles:gbRows(items, mon, ctx) end)
+        return (ok and type(rows) == "table") and rows or items
+      end)
+    end
   end
 
   mod.events:on("map.entered", function(ev)

@@ -5,7 +5,7 @@ local Gen1 = { generation = 1, layout = "gen1" }
 
 -- the optional systems main.lua may build on this generation (EnginePatch.supports)
 Gen1.FEATURES = { sky = true, water_life = true, local_scenes = true, wild_reacts = true,
-                  interaction = true, portraits = true }
+                  interaction = true, portraits = true, roles = true }
 
 local load = function() return nil end
 function Gen1.init(loadModule) load = loadModule end
@@ -594,6 +594,409 @@ function Gen1.nativeTalk(ow)
   if not d then return false end
   local npc = Gen1.follower(ow)
   return npc ~= nil and npc.cellX == p.cellX + d[1] and npc.cellY == p.cellY + d[2]
+end
+
+-- ------------------------------------------------------------------ roles
+-- The Battler's skirmish, the Forager's bag, level-ups and the learn / evolve screens:
+-- the Gen 1 answers to the engine facts lib/ow_combat.lua, lib/forage_items.lua and
+-- lib/level_ready.lua ask for (the same contracts lib/engine_patch.lua serves on Gen 3).
+
+-- Move ids are STRINGS here ("TACKLE"); the combat code compares ids numerically
+-- (`id > 0`), so each key is interned to a stable number for the session and
+-- translated back at the data lookups.
+local moveNums, moveKeys = {}, {}
+function Gen1.moveNumber(m)
+  if type(m) == "table" then m = m.id or m.move or m.moveId end
+  if type(m) == "number" then return m end
+  if type(m) ~= "string" then return nil end
+  local n = moveNums[m]
+  if not n then
+    n = #moveKeys + 1
+    moveKeys[n] = m
+    moveNums[m] = n
+  end
+  return n
+end
+
+local function moveKeyOf(id)
+  if type(id) == "string" then return id end
+  return moveKeys[tonumber(id) or 0]
+end
+
+local function moveDef(id)
+  local data = Gen1.data()
+  local key = moveKeyOf(id)
+  local row = key and data and type(data.moves) == "table" and data.moves[key]
+  return type(row) == "table" and row or nil
+end
+
+--- { power, accuracy, type, pp } for an (interned) move id, or nil. Gen 1 stores
+--- accuracy as a percent already, the shape lib/ow_combat.lua rolls against.
+function Gen1.moveRow(id)
+  local row = moveDef(id)
+  if not row then return nil end
+  return { power = tonumber(row.power) or 0, accuracy = tonumber(row.accuracy) or 0,
+           type = row.type, pp = tonumber(row.pp) or 0 }
+end
+
+-- the battle's own ruleset (the save's pick, else gen1_faithful): Damage.compute
+-- reads its crit / random-factor / zero-damage rules
+local function rulesetOf()
+  local data = Gen1.data()
+  local save = Gen1.save()
+  local rulesets = data and data.rulesets
+  local selected = save and save.options and save.options.ruleset
+  local rs = rulesets and (selected and rulesets[selected] or rulesets.gen1_faithful)
+  if type(rs) == "table" then return rs end
+  local M = load("src.battle.rulesets.gen1_faithful")
+  return type(M) == "table" and M or nil
+end
+
+--- The battler shape src/battle/Damage.compute reads: the mon, its species def,
+--- fresh stages, current stats / types, the status registry (a real burn or
+--- paralysis keeps its Gen 1 stat penalty). Mirrors `maxHp` onto the mon (the
+--- health bars and lib/ow_combat.lua read it; Gen 1 mons carry only stats.hp).
+function Gen1.battlerOf(mon)
+  local data = Gen1.data()
+  local def = Gen1.speciesDef(mon.species)
+  local Stats = load("src.pokemon.Stats")
+  if def and Stats and Stats.ensure then pcall(Stats.ensure, def, mon) end
+  if type(mon.stats) == "table" and tonumber(mon.stats.hp) then mon.maxHp = mon.stats.hp end
+  return {
+    mon = mon,
+    def = def,
+    name = Gen1.displayName(mon),
+    statuses = data and data.statuses,
+    stages = {},
+    curStats = type(mon.stats) == "table" and mon.stats or {},
+    curTypes = def and def.types or {},
+    curMoves = mon.moves,
+    level = mon.level,
+  }
+end
+
+--- The engine's damage formula between two battlers; `rng(lo, hi)`. Returns
+--- damage, { critical, effectiveness } (nil on any trouble).
+function Gen1.moveDamage(attacker, defender, moveId, rng, noCrit)
+  local Damage = load("src.battle.Damage")
+  local move = moveDef(moveId)
+  local ruleset = rulesetOf()
+  if not (Damage and Damage.compute and move and ruleset) then return nil end
+  local opts = { rng = rng }
+  if noCrit then opts.forceCrit = false end -- (`x and false or nil` would collapse to nil)
+  local ok, dmg, info = pcall(Damage.compute, ruleset, attacker, defender, move, opts)
+  if not ok then return nil end
+  return tonumber(dmg), {
+    critical = type(info) == "table" and info.crit or false,
+    effectiveness = (type(info) == "table" and tonumber(info.typeMult) or 10) / 10,
+  }
+end
+
+--- A wild Pokemon built for an overworld skirmish: the engine's own constructor
+--- (moves and PP from the learnset, random DVs -- the same roll the engine's
+--- step battle makes), hp full, `maxHp` set.
+function Gen1.buildWildFighter(species, level)
+  local data = Gen1.data()
+  local Pokemon = load("src.pokemon.Pokemon")
+  local def, key = Gen1.speciesDef(species)
+  if not (data and Pokemon and Pokemon.new and def and key) then return nil end
+  local ok, mon = pcall(Pokemon.new, data, key, tonumber(level) or 5)
+  if not (ok and type(mon) == "table") then return nil end
+  if not (type(mon.moves) == "table" and #mon.moves > 0) then return nil end
+  mon.maxHp = type(mon.stats) == "table" and tonumber(mon.stats.hp) or nil
+  if not mon.maxHp or mon.maxHp <= 0 then return nil end
+  mon.hp = mon.maxHp
+  return mon
+end
+
+--- EXP a wild `species` at `level` is worth (one participant, the engine's formula).
+function Gen1.expGain(species, level)
+  local def = Gen1.speciesDef(species)
+  local Experience = load("src.battle.Experience")
+  local data = Gen1.data()
+  if not (def and Experience and Experience.gainFor) then return 0 end
+  local ok, n = pcall(Experience.gainFor, def, tonumber(level) or 1, false, 1, false,
+    data and data.constants)
+  return ok and tonumber(n) or 0
+end
+
+--- Gives `amount` EXP to a party mon, levelling it the way the engine's own
+--- Experience.apply does (Growth curve, Stats.calc per level, the HP delta kept,
+--- the `pokemon.level_up` event). Returns { gained, fromLevel, toLevel } or nil.
+function Gen1.expApply(mon, amount)
+  local data = Gen1.data()
+  local def = Gen1.speciesDef(mon and mon.species)
+  local Growth = load("src.pokemon.Growth")
+  local Stats = load("src.pokemon.Stats")
+  if not (data and def and Growth and Stats and type(mon) == "table") then return nil end
+  amount = math.max(0, math.floor(tonumber(amount) or 0))
+  local from = tonumber(mon.level) or 1
+  local cap = (data.constants and tonumber(data.constants.levelCap)) or 100
+  mon.exp = (tonumber(mon.exp) or 0) + amount
+  local okTop, top = pcall(Growth.expForLevel, def.growthRate, cap, data.growth_rates)
+  if okTop and tonumber(top) and mon.exp > top then mon.exp = top end
+  local okL, newLevel = pcall(Growth.levelForExp, def.growthRate, mon.exp, cap, data.growth_rates)
+  if not (okL and tonumber(newLevel)) then return { gained = amount, fromLevel = from, toLevel = from } end
+  local Experience = load("src.battle.Experience")
+  local Runtime = load("src.mods.Runtime")
+  while (tonumber(mon.level) or cap) < math.min(newLevel, cap) do
+    mon.level = mon.level + 1
+    local old = mon.stats
+    local okS, stats = pcall(Stats.calc, def, mon.level, mon.dvs or {}, mon.statExp)
+    if okS and type(stats) == "table" then
+      mon.stats = stats
+      mon.hp = math.min(stats.hp, (tonumber(mon.hp) or 0) + (stats.hp - (type(old) == "table" and old.hp or stats.hp)))
+      mon.maxHp = stats.hp
+    end
+    if Runtime and Runtime.wants and Runtime.emit and Runtime.wants("pokemon.level_up") then
+      pcall(Runtime.emit, "pokemon.level_up", {
+        mon = mon, level = mon.level, prevLevel = mon.level - 1,
+        learnable = (Experience and Experience.movesLearnedAt) and Experience.movesLearnedAt(def, mon.level) or {},
+      })
+    end
+  end
+  return { gained = amount, fromLevel = from, toLevel = mon.level }
+end
+
+--- Moves the species learns at exactly `level` (string ids; the learnset rule the
+--- engine's own level-up uses).
+function Gen1.movesLearnedAt(mon, level)
+  local def = Gen1.speciesDef(type(mon) == "table" and mon.species)
+  local Experience = load("src.battle.Experience")
+  if not (def and Experience and Experience.movesLearnedAt) then return {} end
+  local ok, list = pcall(Experience.movesLearnedAt, def, tonumber(level) or 0)
+  return (ok and type(list) == "table") and list or {}
+end
+
+function Gen1.knowsMove(mon, moveId)
+  local key = moveKeyOf(moveId)
+  if not key then return false end
+  for _, mv in ipairs(type(mon) == "table" and mon.moves or {}) do
+    if type(mv) == "table" and mv.id == key then return true end
+  end
+  return false
+end
+
+--- What `mon` evolves into right now by LEVEL (never a stone or a trade), or nil.
+function Gen1.evolutionTarget(mon)
+  local Game = Gen1.game()
+  local Evolution = load("src.pokemon.Evolution")
+  if not (Game and Evolution and Evolution.pendingFor and type(mon) == "table") then return nil end
+  local ok, species = pcall(Evolution.pendingFor, Game, mon, { kind = "levelup" })
+  if ok and species then return species end
+  return nil
+end
+
+--- The engine's own evolution movie (the player may B-cancel it, as after a
+--- battle). Returns false -- and never calls `onDone` -- when nothing can evolve.
+function Gen1.startEvolution(mon, _target, onDone)
+  local Game = Gen1.game()
+  local Evolution = load("src.pokemon.Evolution")
+  if not (Game and Evolution and Evolution.request) then return false end
+  if Gen1.evolutionTarget(mon) == nil then return false end
+  local ok, species = pcall(Evolution.request, Game, mon, { kind = "levelup" }, onDone)
+  return ok and species ~= nil
+end
+
+--- The level-up learn flow for the recorded `moveIds`, one at a time, the way the
+--- engine's own Evolution.learnEvolutionMoves runs it: a free slot learns with the
+--- jingle box, a full moveset opens the engine's forget screen (MoveLearnMenu).
+--- `onDone(learnedAny)` once the chain ends. Returns false -- and never calls
+--- `onDone` -- when no move in the list can open anything.
+function Gen1.startMoveLearn(mon, moveIds, onDone)
+  local Game = Gen1.game()
+  local data = Gen1.data()
+  local TextBox = load("src.render.TextBox")
+  local Screens = load("src.ui.Screens")
+  if not (Game and Game.stack and data and TextBox and Screens
+      and type(mon) == "table" and type(mon.moves) == "table"
+      and type(moveIds) == "table" and #moveIds > 0) then return false end
+  -- anything to do at all? (every id already known / unknown -> false, onDone never runs)
+  local any = false
+  for _, id in ipairs(moveIds) do
+    if moveDef(id) and not Gen1.knowsMove(mon, id) then any = true break end
+  end
+  if not any then return false end
+  local i, learnedAny = 0, false
+  local function nextStep()
+    i = i + 1
+    if moveIds[i] == nil then
+      if onDone then pcall(onDone, learnedAny) end
+      return
+    end
+    local key = moveKeyOf(moveIds[i])
+    local mdef = key and data.moves[key]
+    if not mdef or Gen1.knowsMove(mon, key) then return nextStep() end
+    if #mon.moves < 4 then
+      table.insert(mon.moves, { id = key, pp = tonumber(mdef.pp) or 0 })
+      local Pika = load("src.world.PikachuFollower")
+      if Pika and Pika.onMoveLearned then pcall(Pika.onMoveLearned, Gen1.save(), mon, key) end
+      local Runtime = load("src.mods.Runtime")
+      if Runtime and Runtime.emit then pcall(Runtime.emit, "pokemon.move_learned", { mon = mon, moveId = key }) end
+      learnedAny = true
+      local text = string.format("%s learned\n%s!", Gen1.displayName(mon), mdef.name or key)
+      local okB, box = pcall(TextBox.new, Game, text, nextStep,
+        TextBox.soundOpts and TextBox.soundOpts(Game, "Get_Item1") or nil)
+      if okB and box then
+        pcall(Game.stack.push, Game.stack, box)
+      else
+        nextStep()
+      end
+    else
+      local okP = pcall(Screens.push, Game, "MoveLearnMenu", mon, key, function(learned)
+        if learned then learnedAny = true end
+        nextStep()
+      end)
+      if not okP then nextStep() end
+    end
+  end
+  nextStep()
+  return true
+end
+
+-- the item-use kinds lib/forage_items.lua weighs (the Gen 1 data carries none)
+local USE_OF = {
+  POTION = "heal", SUPER_POTION = "heal", HYPER_POTION = "heal", MAX_POTION = "heal",
+  FULL_RESTORE = "heal", FRESH_WATER = "heal", SODA_POP = "heal", LEMONADE = "heal",
+  ANTIDOTE = "status", BURN_HEAL = "status", ICE_HEAL = "status", AWAKENING = "status",
+  PARLYZ_HEAL = "status", FULL_HEAL = "status",
+  REVIVE = "revive", MAX_REVIVE = "revive",
+  HP_UP = "vitamin", PROTEIN = "vitamin", IRON = "vitamin", CARBOS = "vitamin",
+  CALCIUM = "vitamin", PP_UP = "vitamin",
+}
+local EVO_STONES = { FIRE_STONE = true, WATER_STONE = true, THUNDER_STONE = true,
+                     LEAF_STONE = true, MOON_STONE = true }
+
+--- Every item the Forager may consider, in the entry shape lib/forage_items.lua
+--- reads. Gen 1's data carries only { id, name, price, keyItem }: the pocket, use
+--- kind and TM / HM / stone flags are derived (key items -> KEY_ITEMS, a priced
+--- "... BALL" -> POKE_BALLS, names "TM## / HM##", the five stones).
+function Gen1.itemCatalog()
+  local data = Gen1.data()
+  local items = data and data.items
+  local out = {}
+  if type(items) ~= "table" then return out end
+  for id, row in pairs(items) do
+    if type(row) == "table" and type(row.name) == "string" and row.name ~= "" then
+      local name = row.name
+      local price = tonumber(row.price) or 0
+      local pocket = "ITEMS"
+      if row.keyItem then pocket = "KEY_ITEMS"
+      elseif price > 0 and name:upper():match("BALL$") then pocket = "POKE_BALLS" end
+      out[#out + 1] = {
+        id = row.id or id, name = name, pocket = pocket, price = price,
+        use = USE_OF[row.id or id] or "none",
+        isHm = name:match("^HM%d") ~= nil, isTm = name:match("^TM%d") ~= nil,
+        isEvo = EVO_STONES[row.id or id] == true,
+      }
+    end
+  end
+  table.sort(out, function(a, b) return tostring(a.id) < tostring(b.id) end)
+  return out
+end
+
+--- Puts `qty` of item `id` into the bag (src/inventory/Bag, the game's own rules:
+--- Gen 1's single 20-slot bag, 99 a stack). False when it does not fit.
+function Gen1.bagAdd(id, qty)
+  local save = Gen1.save()
+  local Bag = load("src.inventory.Bag")
+  if not (save and Bag and Bag.add) then return false end
+  local ok, added = pcall(Bag.add, save, id, qty or 1, Gen1.data())
+  return ok and added == true
+end
+
+--- Would it fit right now? A dry run of the bag's own add against scratch copies
+--- (Bag.addTo mutates nothing on failure, and the copies catch its successes).
+function Gen1.bagCanAdd(id, qty)
+  local save = Gen1.save()
+  local Bag = load("src.inventory.Bag")
+  local data = Gen1.data()
+  if not (save and Bag and Bag.addTo and Bag.order and Bag.slots and Bag.capacity and Bag.pocketOf) then
+    return false
+  end
+  local ok, fits = pcall(function()
+    local inv = {}
+    for k, v in pairs(save.inventory or {}) do inv[k] = v end
+    local order = {}
+    for i, v in ipairs(Bag.order(save, data)) do order[i] = v end
+    local stacks = {}
+    for k, v in pairs(type(save.bagStacks) == "table" and save.bagStacks or {}) do
+      local list = {}
+      if type(v) == "table" then for j, c in ipairs(v) do list[j] = c end end
+      stacks[k] = list
+    end
+    local pocket = Bag.pocketOf(id, data)
+    return Bag.addTo(inv, order, id, qty or 1, data,
+      Bag.slots(save, data, pocket), Bag.capacity(data, pocket), stacks)
+  end)
+  return ok and fits == true
+end
+
+--- The found-it jingle / the menu click (the engine's own sound effects).
+function Gen1.playSuccess()
+  local Sound = load("src.core.Sound")
+  local data = Gen1.data()
+  if not (Sound and Sound.play and data) then return false end
+  pcall(Sound.play, data, "Get_Item1")
+  return true
+end
+
+function Gen1.playSelect()
+  local Sound = load("src.core.Sound")
+  local data = Gen1.data()
+  if not (Sound and Sound.play and data) then return false end
+  pcall(Sound.play, data, "Press_AB")
+  return true
+end
+
+--- Width in px of `text` in the engine's font (every glyph is 8 px in Gen 1's,
+--- but pen codes make Font.width the one true answer).
+function Gen1.measureText(text)
+  local Font = load("src.render.Font")
+  if not (Font and Font.width) then return 0 end
+  local ok, w = pcall(Font.width, tostring(text or ""))
+  return ok and tonumber(w) or 0
+end
+
+--- Draws `text` with the engine's font at (x, y), top-left, in the dark text
+--- colour the engine's own menus use; returns the width.
+function Gen1.drawText(text, x, y)
+  local Font = load("src.render.Font")
+  if not (Font and Font.draw) then return 0 end
+  local g = love and love.graphics
+  if not g then return 0 end
+  local r, gr, b, a = g.getColor()
+  g.setColor(0, 0, 0, 1)
+  pcall(Font.draw, tostring(text or ""), x, y)
+  g.setColor(r, gr, b, a)
+  return Gen1.measureText(text)
+end
+
+--- The engine's little dust puff (one 8x8 tile) as the sheet shape
+--- lib/hit_effect.lua reads; its three frame indexes all land on the one frame.
+local dustSheet
+function Gen1.dustSheet()
+  if dustSheet ~= nil then return dustSheet or nil end
+  dustSheet = false
+  local data = Gen1.data()
+  local smoke = data and data.field and data.field.overworldFx and data.field.overworldFx.smoke
+  if not (smoke and smoke.path and love and love.graphics) then return nil end
+  local Assets = load("src.render.Assets")
+  local ok, sheet = pcall(function()
+    local path = Assets and Assets.resolve and Assets.resolve(smoke.path) or smoke.path
+    local img = love.graphics.newImage(path)
+    local iw, ih = img:getDimensions()
+    local fh = tonumber(smoke.height) or 8
+    local n = math.max(1, math.floor(ih / fh))
+    local quads = {}
+    for i = 0, 2 do
+      local f = math.min(i, n - 1)
+      quads[i] = love.graphics.newQuad(0, f * fh, iw, fh, iw, ih)
+    end
+    return { image = img, quads = quads, fw = iw, fh = fh, frames = 3 }
+  end)
+  if ok and sheet then dustSheet = sheet end
+  return dustSheet or nil
 end
 
 --- The mon's display name: its nickname, else the species name.

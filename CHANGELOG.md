@@ -4,6 +4,16 @@
 
 ### Added
 
+- **The partner's jobs come to Red, Blue and Yellow.** The party menu's A-list gains a ROLE
+  row: pick FOLLOW, FORAGE or FIGHT from a little windowed list and the line prints in the
+  menu's own bottom box. The Battler charges wild Pokemon near you and fights with the game's
+  real Gen 1 moves, stats, type chart and damage formula (quirks and all), spends real PP,
+  earns a share of the real EXP and levels up on the game's own growth curves. The Forager
+  sniffs out finds on routes and in caves and digs real items into the 20-slot bag -- heals,
+  balls, affordable TMs, even an evolution stone when it adores you. A level-up out in the
+  world asks before anything is lost: "New move ready!" and "Ready to evolve!" float over its
+  head, and the talk menu's Learn Move and Evolve rows open the game's own forget screen and
+  evolution scene.
 - **Pet, Play and Talk come to Red, Blue and Yellow.** Face your follower and press A: its
   portrait and report open over the game's own text box, with the Pet / Play / Talk rows in a
   windowed menu, the mood effects over its head, and the same anti-fuss limits as on Gen 3.
@@ -30,6 +40,12 @@
 - **3D world mods.** With TERRARIUM, Potato Voxel or Dramaless (Red, Blue, Yellow) or Stadium2
   (Gold, Silver, Crystal) on, the wild Pokemon and your follower stand in the 3D world as cards of
   their own art at their own size, sunk into the grass and water like its own characters.
+
+### Fixed
+
+- **Show Wild Mons off now stays off.** Switching the option off mid-map cleared the wild
+  Pokemon, but the very next moment quietly placed new ones; now none appear until it is
+  switched back on. (Every game.)
 
 ## 1.8.0 (2026-10-15)
 

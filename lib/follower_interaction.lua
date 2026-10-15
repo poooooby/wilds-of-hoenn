@@ -278,7 +278,10 @@ function FollowerInteraction.labels(name, rows)
     end
   end
   if #arrowed == 0 then return out end
-  local arrow = measure(RIGHT)
+  -- the pixel-placed arrow rides the Gen 3 font's pen codes; the Game Boy font
+  -- ("gb") has none, so it takes the plain space-padded branch below
+  local gbFont = EnginePatch.fontLayout ~= nil and EnginePatch.fontLayout() == "gb"
+  local arrow = not gbFont and measure(RIGHT) or 0
   if arrow > 0 then
     local arrowX = math.min(255, math.floor(measure(rows[widest][1]) + ARROW_GAP))
     local tiles = math.ceil((arrowX + arrow + 14) / 8)

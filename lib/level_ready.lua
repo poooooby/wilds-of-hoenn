@@ -17,7 +17,9 @@
 -- recalling the Pokemon, swapping it out for another, depositing it in the PC and
 -- taking it out again, and a save / load (mod.save, like lib/companion.lua).
 -- Pure: the engine questions are injected (EnginePatch.movesLearnedAt /
--- knowsMove / evolutionTarget).
+-- knowsMove / evolutionTarget; a game with no personality injects
+-- deps.identityOf = EnginePatch.monIdentity, and its move / species ids may be
+-- strings -- Gen 1 moves are "TACKLE", not numbers).
 local LevelReady = {}
 LevelReady.__index = LevelReady
 
@@ -42,9 +44,13 @@ function LevelReady:_load()
       if type(v) == "table" then
         local moves = {}
         for _, id in ipairs(type(v.moves) == "table" and v.moves or {}) do
-          if tonumber(id) then moves[#moves + 1] = tonumber(id) end
+          -- a move id is a number (Gen 3) or a string key (Gen 1 / Gen 2)
+          if tonumber(id) then moves[#moves + 1] = tonumber(id)
+          elseif type(id) == "string" and id ~= "" then moves[#moves + 1] = id end
         end
-        self.state[tostring(k)] = { moves = moves, evolveFrom = tonumber(v.evolveFrom) }
+        local evo = tonumber(v.evolveFrom)
+        if evo == nil and type(v.evolveFrom) == "string" and v.evolveFrom ~= "" then evo = v.evolveFrom end
+        self.state[tostring(k)] = { moves = moves, evolveFrom = evo }
       end
     end
   end
@@ -62,13 +68,18 @@ function LevelReady:reset()
   self.version = (self.version or 0) + 1
 end
 
-local function keyOf(mon)
-  if type(mon) ~= "table" or mon.personality == nil then return nil end
+local function keyOf(self, mon)
+  if type(mon) ~= "table" then return nil end
+  if self.deps.identityOf then
+    local ok, id = pcall(self.deps.identityOf, mon)
+    return (ok and id ~= nil) and tostring(id) or nil
+  end
+  if mon.personality == nil then return nil end
   return tostring(tonumber(mon.personality) or mon.personality)
 end
 
 local function speciesOf(mon)
-  return tonumber(mon.species or mon.speciesId)
+  return tonumber(mon.species or mon.speciesId) or mon.species
 end
 
 local function has(list, id)
@@ -79,7 +90,7 @@ end
 --- `mon` just went from `fromLevel` to `toLevel`: remember the moves it would
 --- have learned on the way and whether it can now evolve.
 function LevelReady:record(mon, fromLevel, toLevel)
-  local key = keyOf(mon)
+  local key = keyOf(self, mon)
   local from, to = tonumber(fromLevel), tonumber(toLevel)
   if not (key and from and to and to > from) then return end
   self:_load()
@@ -87,7 +98,7 @@ function LevelReady:record(mon, fromLevel, toLevel)
   local changed = false
   for level = from + 1, to do
     for _, id in ipairs(self.deps.movesLearnedAt and self.deps.movesLearnedAt(mon, level) or {}) do
-      id = tonumber(id)
+      id = tonumber(id) or id
       if id and not has(entry.moves, id) and not (self.deps.knowsMove and self.deps.knowsMove(mon, id)) then
         entry.moves[#entry.moves + 1] = id
         changed = true
@@ -108,7 +119,7 @@ end
 --- it has since made). `evolve` is only true while the engine offers a target
 --- right now (an Everstone holder has none, so it neither shows nor freezes EXP).
 function LevelReady:pending(mon)
-  local key = keyOf(mon)
+  local key = keyOf(self, mon)
   if not key then return nil end
   self:_load()
   local entry = self.state[key]
@@ -141,7 +152,7 @@ end
 --- Pokemon waiting for good). A declined evolution is asked again at its next level-up,
 --- as in the games (record() sees the engine offer a target again).
 function LevelReady:dismiss(mon, kind)
-  local key = keyOf(mon)
+  local key = keyOf(self, mon)
   if not key then return end
   self:_load()
   local entry = self.state[key]

@@ -828,7 +828,16 @@ function EngineGb.partyMons()
   local a = A()
   if not a then return {} end
   local party = a.party(EngineGb._world)
-  return type(party) == "table" and party or {}
+  if type(party) ~= "table" then return {} end
+  -- the roles' combat and health bars read `maxHp`, which a GB mon does not carry
+  -- (its maximum lives in stats.hp): mirrored here, the way friendship mirrors
+  -- onto `happiness` (lib/gb_friendship.lua)
+  for _, mon in ipairs(party) do
+    if type(mon) == "table" and type(mon.stats) == "table" and tonumber(mon.stats.hp) then
+      mon.maxHp = mon.stats.hp
+    end
+  end
+  return party
 end
 
 function EngineGb.leadPartyMon()
@@ -1057,13 +1066,125 @@ function EngineGb.playCry(species)
 end
 
 --- The engine sheets the mod's little drawings use. Gen 1 has the emote bubbles ("!" and
---- "?", lib/wild_emote.lua); every other name answers nil (a code-drawn fallback).
+--- "?", lib/wild_emote.lua) and the dust puff (lib/hit_effect.lua); every other name
+--- answers nil (a code-drawn fallback).
 function EngineGb.fieldEffectSheet(name)
-  if name ~= "exclamation_question_mark" then return nil end
   local a = A()
-  if not (a and a.emoteSheet) then return nil end
-  local ok, sheet = pcall(a.emoteSheet)
+  if not a then return nil end
+  local fn
+  if name == "exclamation_question_mark" then fn = a.emoteSheet
+  elseif name == "ground_impact_dust" then fn = a.dustSheet end
+  if not fn then return nil end
+  local ok, sheet = pcall(fn)
   return ok and sheet or nil
+end
+
+-- ------------------------------------------------------------------ roles
+-- The Battler, the Forager and the level-up follow-through (lib/overworld_battle.lua,
+-- lib/forage_source.lua, lib/level_ready.lua): each engine fact is the adapter's
+-- (lib/gb/gen1.lua; Gen 2 has none yet, so everything answers "nothing" there).
+
+function EngineGb.moveNumber(m)
+  return (adapterCall("moveNumber", m))
+end
+
+function EngineGb.moveRow(id)
+  local row = adapterCall("moveRow", id)
+  return type(row) == "table" and row or nil
+end
+
+function EngineGb.battlerOf(mon)
+  return (adapterCall("battlerOf", mon))
+end
+
+function EngineGb.moveDamage(attacker, defender, moveId, rng, noCrit)
+  local dmg, info = adapterCall("moveDamage", attacker, defender, moveId, rng, noCrit)
+  if dmg == nil then return nil end
+  return tonumber(dmg), info
+end
+
+function EngineGb.buildWildFighter(species, level, personality)
+  return (adapterCall("buildWildFighter", species, level, personality))
+end
+
+function EngineGb.expGain(species, level)
+  return tonumber(adapterCall("expGain", species, level)) or 0
+end
+
+function EngineGb.expApply(mon, amount)
+  local result = adapterCall("expApply", mon, amount)
+  return type(result) == "table" and result or nil
+end
+
+function EngineGb.movesLearnedAt(mon, level)
+  local list = adapterCall("movesLearnedAt", mon, level)
+  return type(list) == "table" and list or {}
+end
+
+function EngineGb.knowsMove(mon, moveId)
+  return adapterCall("knowsMove", mon, moveId) == true
+end
+
+function EngineGb.evolutionTarget(mon)
+  return (adapterCall("evolutionTarget", mon))
+end
+
+function EngineGb.startEvolution(mon, target, onDone)
+  return adapterCall("startEvolution", mon, target, onDone) == true
+end
+
+function EngineGb.startMoveLearn(mon, moveIds, onDone)
+  return adapterCall("startMoveLearn", mon, moveIds, onDone) == true
+end
+
+function EngineGb.itemCatalog(_mod)
+  local catalog = adapterCall("itemCatalog")
+  return type(catalog) == "table" and catalog or {}
+end
+
+function EngineGb.bagAdd(id, qty)
+  return adapterCall("bagAdd", id, qty) == true
+end
+
+function EngineGb.bagCanAdd(id, qty)
+  return adapterCall("bagCanAdd", id, qty) == true
+end
+
+--- May the Forager set out here: an allowed map type (routes and caves), the
+--- player neither surfing nor standing in water. The same rule Gen 3 applies
+--- (there is no Safari Zone session on a GB boot).
+function EngineGb.forageAllowed(allowedTypes)
+  local mt = EngineGb.mapType()
+  if not (mt and allowedTypes and allowedTypes[mt]) then return false end
+  local surf = EngineGb.playerSurfState()
+  if surf.surfing or surf.dismounting then return false end
+  local cell = EngineGb.playerCell()
+  if cell and EngineGb.isWater(cell.x, cell.y) then return false end
+  return true
+end
+
+function EngineGb.playSuccess()
+  return adapterCall("playSuccess") == true
+end
+
+function EngineGb.playSelect()
+  return adapterCall("playSelect") == true
+end
+
+--- The engine font, for the little overworld labels (lib/popup_text.lua). The
+--- layout name "gb" tells the shared drawing code the glyphs sit at the pen
+--- position (no Gen 3 cell drop, no pen codes).
+function EngineGb.measureText(text, _opts)
+  return tonumber(adapterCall("measureText", text)) or 0
+end
+
+function EngineGb.drawText(text, x, y, _opts)
+  return tonumber(adapterCall("drawText", text, x, y)) or 0
+end
+
+function EngineGb.fontLayout()
+  local a = A()
+  return (a and a.measureText) and "gb" or nil
 end
 
 -- ------------------------------------------------------------------ stubs
@@ -1073,12 +1194,8 @@ end
 local STUBS = {
   "hmUsable", "sweetScentFail", "setFoeStage", "encounters", "collision", "pokemon",
   "trainerIds", "isShiny", "genderOf", "grassSheet", "reflectionKind", "reflectiveAt",
-  "reflectionWobble", "coverReflections", "startRipple", "fieldEffectSheet", "buildWildFighter",
-  "battlerOf", "moveRow", "moveDamage", "moveDisplayName", "expGain", "expApply",
-  "movesLearnedAt", "knowsMove", "evolutionTarget", "startEvolution", "startMoveLearn",
-  "speciesTypes", "eggGroups", "forageAllowed", "bagAdd", "bagCanAdd", "itemCatalog",
-  "playSuccess", "playSelect", "drawText", "partyMenu", "playerPose", "moveNumber",
-  "grassRustle",
+  "reflectionWobble", "coverReflections", "startRipple", "moveDisplayName",
+  "speciesTypes", "eggGroups", "partyMenu", "playerPose", "grassRustle",
 }
 for _, name in ipairs(STUBS) do
   if EngineGb[name] == nil then EngineGb[name] = function() return nil end end

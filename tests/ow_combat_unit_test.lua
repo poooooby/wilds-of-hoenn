@@ -159,6 +159,25 @@ do
   eq(OwCombat.expReward({ species = 5, level = 10 }, newDeps({ expGain = function() return 0 end }), 0.5), 0, "nothing when the engine gives none")
 end
 
+-- ------- Gen 1 / Gen 2 shapes: PP lives in the move slots, speed under stats
+do
+  local deps = newDeps()
+  -- built by hand: a GB mon has NO pp list and NO flat speed (mon() would keep them)
+  local gbMon = { species = 1, level = 10, hp = 50, maxHp = 50, stats = { speed = 40 },
+                  moves = { { id = 1, pp = 2 }, { id = 3, pp = 5 } } }
+  local usable = OwCombat.usableMoves(gbMon, deps)
+  eq(#usable, 1, "slot PP counts (the status move still never attacks)")
+  gbMon.moves[1].pp = 0
+  eq(#OwCombat.usableMoves(gbMon, deps), 0, "an empty slot is spent")
+  gbMon.moves[1].pp = 2
+  local wild = { species = 2, level = 10, hp = 30, maxHp = 30, stats = { speed = 10 },
+                 moves = { { id = 1, pp = 5 } } }
+  local fight = OwCombat.new(gbMon, wild, deps)
+  eq(fight.first, "ally", "speed read from stats: the faster side acts first")
+  fight:turn()
+  eq(gbMon.moves[1].pp, 1, "a use drains the slot's own PP")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

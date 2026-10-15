@@ -145,6 +145,62 @@ function PartyRoles:onInput(menu, input)
   return false
 end
 
+-- ------------------------------------------------------------------ Gen 1 / Gen 2
+-- The GB party menu is simpler and friendlier: its submenu list is built through the
+-- engine's own `ui.party.submenu` hook (PartyMenu.lua:898), and an injected row
+-- carries `onSelect(mon, game)` instead of an action id. One ROLE row is added (the
+-- submenu can hold at most ~9 rows -- four field moves plus three role rows would
+-- overflow the 144 px screen), whose onSelect opens the mod's small windowed list
+-- (EnginePatch.showChoice, the same one the follower talk menu uses).
+
+local GB_ROLES = { "FOLLOW", "FORAGE", "FIGHT", "BACK" }
+
+--- The `ui.party.submenu` hook's list (main.lua wraps it on a GB boot): adds the
+--- ROLE row before STATS/SWITCH/CANCEL. Returns the list it was handed.
+function PartyRoles:gbRows(items, mon, ctx)
+  if type(items) ~= "table" or type(mon) ~= "table" then return items end
+  if ctx and ctx.battle then return items end
+  if EnginePatch.battleActive() then return items end
+  if mon.isEgg or mon.egg then return items end
+  for _, row in ipairs(items) do
+    if type(row) == "table" and row._wildsRole then return items end
+  end
+  local at = #items + 1
+  for i, row in ipairs(items) do
+    local action = type(row) == "table" and row.action
+    if action == "stats" or action == "switch" or action == "cancel" then at = i break end
+  end
+  local roles = self
+  table.insert(items, at, { label = "ROLE", _wildsRole = true,
+    onSelect = function(m, game) roles:gbOpenRoleMenu(m, game) end })
+  return items
+end
+
+--- A on the ROLE row: the windowed FOLLOW / FORAGE / FIGHT / BACK list over the
+--- party menu. A pick sets the companion and prints the usual line in the party
+--- menu's own bottom box; BACK (or B) just closes the list.
+function PartyRoles:gbOpenRoleMenu(mon, game)
+  -- the party menu, for its bottom message once a role is picked
+  local menu = game and game.stack and game.stack.top and game.stack:top()
+  EnginePatch.playSelect()
+  EnginePatch.showChoice(GB_ROLES, 0, function(index)
+    local label = GB_ROLES[(tonumber(index) or -1) + 1]
+    local role = label and ROLE_OF[label]
+    if not role then return end -- BACK or B: the submenu stays up behind
+    local line
+    if self.companion:set(mon, role) then
+      line = string.format(LINES[role], EnginePatch.displayName(mon))
+    else
+      line = "Nothing happened."
+    end
+    EnginePatch.playSelect()
+    if type(menu) == "table" and menu.setMessage then
+      pcall(menu.setMessage, menu, line)
+      menu.submenu = nil -- back to the party list, the line in the bottom box
+    end
+  end)
+end
+
 --- FieldMoves.fromMenu's first look: a result table for our rows, else nil.
 function PartyRoles:fromMenu(label, ctx)
   local role = ROLE_OF[label]

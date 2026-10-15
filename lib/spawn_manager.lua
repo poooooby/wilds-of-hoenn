@@ -627,8 +627,11 @@ function SpawnManager:tick(game)
   for _, id in ipairs(gone or {}) do
     if type(id) == "table" then self:despawn(id.takeoff, { animate = true }) else self:despawn(id) end
   end
-  self:refill("land")
-  self:refill("water")
+  -- switched off, the option's clear must stay cleared: this refill undid it every tick
+  if Config.enabled(self.mod) then
+    self:refill("land")
+    self:refill("water")
+  end
 end
 
 --- Appends one actor per live entity (engine_patch's `collectActors` hook).

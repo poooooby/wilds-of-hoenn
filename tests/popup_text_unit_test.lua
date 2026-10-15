@@ -186,6 +186,7 @@ do
   eq(textY(nil), rsOffset, "an unknown layout keeps the Ruby / Sapphire / Emerald drop")
   check(frlgOffset > rsOffset, "FireRed / LeafGreen's text is drawn lower than RSE's pen offset (less drop), so it is not cut off")
   eq(frlgOffset - rsOffset, 4, "by the difference between the two drops")
+  eq(textY("gb") - rsOffset, 8, "the Game Boy font takes no drop at all (glyphs sit at the pen)")
   E.fontLayout = nil
 end
 

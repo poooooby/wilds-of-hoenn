@@ -12,6 +12,9 @@
 -- Pokemon's personality value (stable across party reordering, box moves and
 -- evolution). When nothing was chosen, or the chosen Pokemon is gone, fainted
 -- or an egg, the lead healthy Pokemon follows -- exactly the old behaviour.
+-- A game with no personality (Gen 1 / Gen 2) injects `identityOf(mon)` instead
+-- (EnginePatch.monIdentity: dex + DVs -- NOT stable across evolution, so an
+-- evolved companion simply falls back to the lead until picked again).
 --
 -- A new lead takes over: when a different Pokemon is put first in the party, it becomes
 -- the follower (role follow), whatever was out before -- the way the lead walks behind
@@ -32,8 +35,18 @@ local function healthy(mon)
     and (tonumber(mon.hp) or tonumber(mon.currentHp) or 1) > 0
 end
 
-function Companion.new(mod)
-  return setmetatable({ mod = mod, state = nil, loaded = false }, Companion)
+function Companion.new(mod, identityOf)
+  return setmetatable({ mod = mod, idOf = identityOf, state = nil, loaded = false }, Companion)
+end
+
+-- the mon's stable number: the injected identity, else its personality
+local function identity(self, mon)
+  if type(mon) ~= "table" then return nil end
+  if self.idOf then
+    local ok, v = pcall(self.idOf, mon)
+    return (ok and tonumber(v)) or nil
+  end
+  return tonumber(mon.personality)
 end
 
 function Companion:_load()
@@ -45,7 +58,7 @@ function Companion:_load()
   local ok, value = pcall(save.get, save, KEY)
   if ok and type(value) == "table" and VALID[value.role] and tonumber(value.personality) then
     self.state = { role = value.role, personality = tonumber(value.personality),
-                   species = tonumber(value.species), lead = tonumber(value.lead) }
+                   species = tonumber(value.species) or value.species, lead = tonumber(value.lead) }
   end
 end
 
@@ -62,11 +75,12 @@ end
 
 --- Make `mon` the companion with `role`. Returns false for a bad role / mon.
 function Companion:set(mon, role)
-  if not VALID[role] or type(mon) ~= "table" or mon.personality == nil then return false end
+  local id = identity(self, mon)
+  if not VALID[role] or id == nil then return false end
   self:_load()
   local lead = self.state and self.state.lead
-  self.state = { role = role, personality = tonumber(mon.personality) or 0,
-                 species = tonumber(mon.species), lead = lead }
+  self.state = { role = role, personality = id,
+                 species = tonumber(mon.species) or mon.species, lead = lead }
   self:_persist()
   return true
 end
@@ -75,16 +89,16 @@ end
 -- header). The first lead ever seen (an old save, a new game) is only remembered.
 function Companion:_followLead(party)
   local lead = type(party) == "table" and party[1]
-  local p = type(lead) == "table" and tonumber(lead.personality)
+  local p = identity(self, lead)
   if not p or not healthy(lead) then return end
   local s = self.state
   if s and s.lead == p then return end
   if not s then
-    self.state = { role = "follow", personality = p, species = tonumber(lead.species), lead = p }
+    self.state = { role = "follow", personality = p, species = tonumber(lead.species) or lead.species, lead = p }
   elseif s.lead == nil or s.personality == p then
     s.lead = p -- first sight of a lead, or the companion itself moved to the front: its job stands
   else
-    self.state = { role = "follow", personality = p, species = tonumber(lead.species), lead = p }
+    self.state = { role = "follow", personality = p, species = tonumber(lead.species) or lead.species, lead = p }
   end
   self:_persist()
 end
@@ -93,7 +107,7 @@ end
 function Companion:savedRole(mon)
   self:_load()
   local s = self.state
-  if s and mon and tonumber(mon.personality) == s.personality then return s.role end
+  if s and mon and identity(self, mon) == s.personality then return s.role end
   return nil
 end
 
@@ -105,7 +119,7 @@ function Companion:resolve(party)
   local s = self.state
   if s and type(party) == "table" then
     for _, mon in ipairs(party) do
-      if healthy(mon) and tonumber(mon.personality) == s.personality then
+      if healthy(mon) and identity(self, mon) == s.personality then
         return mon, s.role
       end
     end

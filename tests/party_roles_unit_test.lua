@@ -228,6 +228,57 @@ do
   check(res and res.ok == false, "a Pokemon that cannot be saved still answers (no crash)")
 end
 
+-- ------- the Gen 1 / Gen 2 path: one ROLE row through ui.party.submenu
+do
+  local choice
+  E.showChoice = function(options, _idx, cb)
+    choice = { options = options, cb = cb }
+    return true
+  end
+  local gbStore = {}
+  local gbMod = { save = { get = function(_, k) return gbStore[k] end, set = function(_, k, v) gbStore[k] = v end } }
+  local companion = Companion.new(gbMod, function(m) return m.dv end)
+  local roles = PartyRoles.new(companion)
+  local mon = { species = "PIKACHU", dv = 77, hp = 10 }
+  local items = { { label = "CUT", action = "cut" }, { label = "STATS", action = "stats" },
+                  { label = "SWITCH", action = "switch" }, { label = "CANCEL", action = "cancel" } }
+  local out = roles:gbRows(items, mon, { battle = false })
+  eq(out, items, "gbRows hands the engine's list back")
+  eq(#items, 5, "...one row added")
+  eq(items[2].label, "ROLE", "...ROLE before STATS, after the field moves")
+  check(type(items[2].onSelect) == "function", "...as a hook row (onSelect)")
+  roles:gbRows(items, mon, { battle = false })
+  eq(#items, 5, "run twice (the hook fires every open): still one ROLE row")
+  local inBattle = roles:gbRows({ { label = "SWITCH", action = "battle_switch" } }, mon, { battle = true })
+  eq(#inBattle, 1, "a battle's list is left alone")
+  local eggList = roles:gbRows({ { label = "STATS", action = "stats" } }, { isEgg = true }, {})
+  eq(#eggList, 1, "an egg gets no ROLE row")
+  E.battle = true
+  local busyList = roles:gbRows({ { label = "STATS", action = "stats" } }, mon, {})
+  eq(#busyList, 1, "mid-battle the list is left alone")
+  E.battle = false
+
+  -- A on the ROLE row: the windowed list; a pick sets the role and prints the line
+  local menu = { setMessage = function(self, text) self.message = text end, submenu = true }
+  local game = { stack = { top = function() return menu end } }
+  items[2].onSelect(mon, game)
+  check(choice and choice.options[1] == "FOLLOW" and choice.options[3] == "FIGHT" and choice.options[4] == "BACK",
+    "the role list opens (FOLLOW / FORAGE / FIGHT / BACK)")
+  choice.cb(2) -- FIGHT
+  eq(select(2, companion:resolve({ mon })), "battle", "picking FIGHT makes the mon the Battler")
+  check(menu.message and menu.message:find("battle"), "...the line lands in the party menu's bottom box")
+  eq(menu.submenu, nil, "...and the submenu closes back to the list")
+  -- BACK (or B) changes nothing
+  menu.submenu, menu.message = true, nil
+  items[2].onSelect(mon, game)
+  choice.cb(3) -- BACK
+  eq(menu.message, nil, "BACK says nothing")
+  eq(menu.submenu, true, "...and leaves the submenu up")
+  choice.cb(127) -- B
+  eq(select(2, companion:resolve({ mon })), "battle", "...and B keeps the role")
+  E.showChoice = nil
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

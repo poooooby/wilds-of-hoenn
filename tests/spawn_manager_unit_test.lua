@@ -183,6 +183,18 @@ smOff:onMapEntered("ROUTE_1", {})
 eq(smOff:count(), 0, "Show Wild Mons off -> no spawns")
 optionStore.enabled = true
 
+-- ------- switched off mid-map, the clear stays cleared (the tick's refill must not undo it)
+local smMid = SpawnManager.new(mod)
+smMid:onMapEntered("ROUTE_1", {})
+check(smMid:count() > 0, "spawns placed while on")
+optionStore.enabled = false
+smMid:onMapExited() -- what main.lua's options_changed handler does
+smMid:tick({})
+eq(smMid:count(), 0, "off mid-map: the next tick refills nothing")
+optionStore.enabled = true
+smMid:tick({})
+check(smMid:count() > 0, "...and back on, it fills again")
+
 -- ------- a species the engine can't convert to a national dex is skipped,
 -- not spawned with a broken sprite lookup
 fakeEngine.rollSweetScent = function() return { species = 111222, level = 5, personality = 1 } end
