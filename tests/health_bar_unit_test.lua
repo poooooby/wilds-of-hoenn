@@ -30,7 +30,7 @@ eq(HealthBar.fillWidth("x", true), 1, "garbage reads as empty (but alive)")
 local function color(r) return { HealthBar.colorFor(r) } end
 check(color(1)[2] > color(1)[1], "healthy is green")
 check(color(0.4)[1] > 0.9 and color(0.4)[2] > 0.7, "under half is yellow")
-check(color(0.1)[1] > 0.8 and color(0.1)[2] < 0.3, "under a fifth is red")
+check(color(0.1)[1] > 0.8 and color(0.1)[2] < 0.4, "under a fifth is red")
 
 -- ------- the actor
 local a = HealthBar.actor(64, 48, 15, 30, 20, 3, 2)
@@ -48,14 +48,22 @@ love = { graphics = {
 } }
 a.draw(a, 0, 0)
 love = saved
-eq(#rects, 3, "outline, track and fill")
-eq(rects[3][4], 8, "the fill is half wide for half health")
+eq(#rects, 5, "outline, the empty band (shade + white row) and the fill band (shade + bright row)")
+eq(rects[1][5], 5, "the outline wraps three rows")
+eq(rects[2][4], 8, "the empty part is the other half")
+eq(rects[2][2], rects[4][2] + 8, "...right of the fill")
+eq(rects[4][4], 8, "the fill is half wide for half health")
+eq(rects[4][5], 3, "the fill is three rows tall")
+check(rects[5][3] == rects[4][3] + 1 and rects[5][5] == 1, "its bright row is the middle one")
 local empty = HealthBar.actor(0, 0, 0, 30, 20)
 rects = {}
 love = { graphics = { setColor = function() end, rectangle = function(m, x, y, w, h) rects[#rects + 1] = { m, x, y, w, h } end } }
 empty.draw(empty, 0, 0)
 love = saved
-eq(#rects, 2, "a defeated fighter draws no fill")
+eq(#rects, 3, "a defeated fighter draws no fill")
+eq(rects[2][4], 16, "...only the empty band, full width")
+local p = HealthBar.paletteFor(1)
+check(p.light[2] > p.dark[2], "the middle row is brighter than its shade")
 
 -- ------- recall maths (shared by both renderers)
 eq(RecallMath.ease(0), 0, "ease(0)")

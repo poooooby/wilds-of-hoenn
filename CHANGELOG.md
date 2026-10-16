@@ -20,6 +20,9 @@
   through a doorway), and when it gives up it walks back to its own grass. One that can't find
   its way back slips away, so none is ever left stranded on the path.
 
+- **Battler health bars look like the battle screen's.** A bright middle stripe between darker
+  edges, white where health is gone, turning from green to yellow to red as it drops.
+
 ## 1.8.0 (2026-10-15)
 
 ### Added

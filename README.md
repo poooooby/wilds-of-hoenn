@@ -48,8 +48,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   music notes, a rain cloud, an anger mark, sleepy Zs and more. Petting can even cure a
   status. Squeezed under a roof's edge, it lets you know it's cramped.
 - ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. It fights with
-  its real moves, stats and PP, on land or swimming out over water, and earns EXP. Health bars
-  and hit effects show on both sides, and the knockout blow bursts with its move's type: a burst of
+  its real moves, stats and PP, on land or swimming out over water, and earns EXP. Battle-style
+  health bars and hit effects show on both sides, and the knockout blow bursts with its move's type: a burst of
   water, flames, flying leaves, a lightning bolt, ice shards, Fairy sparkles and hearts, a fading
   Ghost — every type has its own look and battle sound (Fairy with National Dex Gen 3), at your
   SFX volume. When it levels up, it tells you a new move or evolution
