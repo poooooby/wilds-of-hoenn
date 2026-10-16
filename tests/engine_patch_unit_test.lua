@@ -390,6 +390,25 @@ do
   eq(row.accuracy, 100, "...and accuracy")
   eq(row.contact, true, "...and whether it makes contact (flag bit 0: Tackle)")
   eq(EnginePatch.moveRow(55).contact, false, "...a ranged move does not (Water Gun)")
+
+  -- a wild Pokemon's held item, the game's own roll
+  local enc, mons = fake["src.core.game3.encounters"], fake["src.core.game3.pokemon"]
+  local realRules, realMeta = enc.rules, mons.speciesMeta
+  local asked
+  enc.rules = function() return { wildHeldItem = function(sp) asked = sp return sp == 1 and 139 or 0 end } end
+  eq(EnginePatch.wildHeldItem(1), 139, "RSE: the encounter rules' own wildHeldItem answers")
+  eq(asked, 1, "...asked about that species")
+  eq(EnginePatch.wildHeldItem(2), nil, "...0 = holds nothing")
+  enc.rules = function() return {} end
+  mons.speciesMeta = function(sp) return sp == 1 and { itemCommon = 139, itemRare = 0 } or {} end
+  local got = {}
+  for _ = 1, 400 do got[EnginePatch.wildHeldItem(1) or 0] = true end
+  check(got[139] and got[0], "FRLG: the species' common item about half the time, else nothing")
+  eq(EnginePatch.wildHeldItem(2), nil, "...a species with no held items never has one")
+  enc.rules, mons.speciesMeta = realRules, realMeta
+  eq(EnginePatch.wildHeldItem(nil), nil, "no species: nothing")
+  eq(EnginePatch.itemName(13), "POTION", "itemName: the game's own name")
+  eq(EnginePatch.itemName(999), nil, "...nil for an unknown item")
   eq(EnginePatch.moveRow(404), nil, "an unknown move is nil, never an error")
   eq(EnginePatch.moveNumber({ id = 55 }), 55, "moves may be tables")
   local dmg, info = EnginePatch.moveDamage(b, b, 33, function() return 1 end, true)

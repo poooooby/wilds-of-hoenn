@@ -58,7 +58,10 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   water, flames, flying leaves, a lightning bolt, ice shards, Fairy sparkles and hearts, a fading
   Ghost — every type has its own look and battle sound (Fairy with National Dex Gen 3), at your
   SFX volume. A fiery, watery, earthy, rocky, icy or grassy knockout leaves its mark on the
-  ground for a few seconds: a scorch, a puddle, a small crater, rubble, frost or clippings. When it levels up, it tells you a new move or evolution
+  ground for a few seconds: a scorch, a puddle, a small crater, rubble, frost or clippings.
+  Now and then a knocked-out Pokémon drops the item it was holding — the same held items
+  (and odds) as a wild battle, like a Pikachu's Oran Berry or a rare Light Ball — and your
+  partner picks it up for your bag. When it levels up, it tells you a new move or evolution
   is ready, and you can open the game's own screens from its menu. It never faints: worn out,
   it returns to you to rest.
 - 🍂 **Forager:** On routes and in caves, every 1-3 minutes of walking it catches a scent,

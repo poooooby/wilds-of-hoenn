@@ -1858,6 +1858,45 @@ function EnginePatch.bagAdd(id, qty)
   return ok and added == true
 end
 
+--- The item a wild `species` holds, rolled the game's own way: Ruby / Sapphire / Emerald ask
+--- the encounter rules' `wildHeldItem` (pokeemerald CreateWildMon: 45% none, 50% the
+--- species' common item, 5% its rare one, Compound Eyes 20 / 60 / 20); FireRed / LeafGreen
+--- roll it the way battle/init.lua does when it builds a wild battle (50% common, 5% rare,
+--- from speciesMeta). nil = holds nothing (or anything unreadable).
+function EnginePatch.wildHeldItem(species)
+  species = tonumber(species)
+  if not species then return nil end
+  local Encounters = EnginePatch.encounters()
+  local okR, rules = pcall(function() return Encounters and Encounters.rules and Encounters.rules() end)
+  if okR and type(rules) == "table" and type(rules.wildHeldItem) == "function" then
+    local ok, item = pcall(rules.wildHeldItem, species)
+    item = ok and tonumber(item) or nil
+    return (item and item ~= 0) and item or nil
+  end
+  local Pokemon = loadModule(EnginePatch.READONLY.speciesMeta.mod)
+  local ok, meta = pcall(Pokemon and Pokemon.speciesMeta, species)
+  if not (ok and type(meta) == "table") then return nil end
+  local common, rare = tonumber(meta.itemCommon) or 0, tonumber(meta.itemRare) or 0
+  local r = math.random(0, 99)
+  local item
+  if common ~= 0 and rare ~= 0 then
+    if r < 50 then item = common elseif r < 55 then item = rare end
+  elseif common ~= 0 then
+    if r < 50 then item = common end
+  elseif rare ~= 0 then
+    if r < 5 then item = rare end
+  end
+  return item
+end
+
+--- An item's name as the game shows it ("ORAN BERRY"), or nil.
+function EnginePatch.itemName(id)
+  local ItemsData = loadModule(EnginePatch.READONLY.itemInfo.mod)
+  local ok, info = pcall(ItemsData and ItemsData.info, tonumber(id))
+  if ok and type(info) == "table" and type(info.name) == "string" and info.name ~= "" then return info.name end
+  return nil
+end
+
 --- Would `qty` of item `id` fit in the player's bag right now? False with no
 --- session / bag or an unknown id. Nothing is added.
 function EnginePatch.bagCanAdd(id, qty)

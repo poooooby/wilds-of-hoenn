@@ -30,6 +30,7 @@ local ActorRenderer = V.require("actor_renderer")
 local HealthBar = V.require("health_bar")
 local HitEffect = V.require("hit_effect")
 local PopupText = V.require("popup_text")
+local ForageSparkle = V.require("forage_sparkle")
 local FinisherFx = V.require("finisher_fx")
 
 local OverworldBattle = {}
@@ -67,6 +68,8 @@ function OverworldBattle:reset()
   self.facing = nil
   self.fight, self.turn, self.wild, self.target = nil, nil, nil, nil
   self.popup, self.popupAge = nil, 0
+  self.popupNext = nil
+  self.drop = nil
   self.hits = {}
   self.finisher = nil
   self.barRaise = 0
@@ -241,7 +244,16 @@ function OverworldBattle:step(env)
   if self.flash > 0 then self.flash = self.flash - 1 end
   if self.popup then
     self.popupAge = self.popupAge + 1
-    if self.popupAge >= cfg.popupTicks then self.popup = nil end
+    if self.popupAge >= cfg.popupTicks then
+      self.popup = nil
+      -- a second label waiting (a held item found after the EXP)
+      local nxt = self.popupNext
+      if nxt then
+        self.popupNext = nil
+        self.popup, self.popupAge = nxt.text, 0
+        if nxt.sound and self.deps.playFound then pcall(self.deps.playFound) end
+      end
+    end
   end
   for i = #self.hits, 1, -1 do
     self.hits[i].age = self.hits[i].age + 1
@@ -252,6 +264,7 @@ function OverworldBattle:step(env)
     m.age = m.age + 1
     if m.age >= FinisherFx.MARK_TICKS then table.remove(self.marks, i) end
   end
+  if self.drop then self.drop.age = self.drop.age + 1 end
   local fin = self.finisher
   if fin then
     fin.age = fin.age + 1
@@ -266,6 +279,7 @@ function OverworldBattle:step(env)
     or (self.deps.alive and not self.deps.alive(self.target)))
   if gone then
     if self.mode == "chase" or self.mode == "fight" or self.mode == "win" then
+      self.drop = nil -- nothing is bagged until it is picked up
       self:_release()
       self.fight, self.wild = nil, nil
       self.mode = "return"
@@ -429,6 +443,7 @@ function OverworldBattle:_startFinisher(ev, e)
   local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
   local kind = FinisherFx.kindFor(row and row.type)
   self.finisher = { kind = kind, age = 0, x = e.px, y = e.py }
+  self:_rollDrop(e)
   -- a mark left on the ground (never on water; one per tile, the newest)
   if FinisherFx.leavesMark(kind) and e.terrain ~= "water" then
     for i = #self.marks, 1, -1 do
@@ -443,6 +458,37 @@ function OverworldBattle:_startFinisher(ev, e)
     e.renderer.shade = recipe.shade
     self.shadedBy = e
   end
+end
+
+-- The knockout may shake loose the wild Pokemon's held item: `dropChance` % of knockouts,
+-- then the game's own held-item roll for its species (most hold nothing). Only an item
+-- that fits in the bag drops; it is bagged when the Battler picks it up (end of the win).
+function OverworldBattle:_rollDrop(e)
+  self.drop = nil
+  local d = self.deps
+  if not (d.heldItem and d.bagAdd) then return end
+  local rng = d.rng or math.random
+  if rng(1, 100) > (self.cfg.dropChance or 0) then return end
+  local ok, item = pcall(d.heldItem, e.species)
+  if not (ok and item) then return end
+  if d.bagCanAdd and not d.bagCanAdd(item) then return end
+  -- it lands a little toward the Battler, in front of the fallen Pokemon (on its own tile
+  -- the sprite would hide the glint)
+  local function toward(a, b) return (b > a and 1) or (b < a and -1) or 0 end
+  local bx, by = self.baseX or e.px, self.baseY or e.py
+  self.drop = { item = item, age = 0, elevation = e.elevation, sortY = e.py + 1,
+    x = e.px + toward(e.px, bx) * 6, y = e.py + toward(e.py, by) * 6 + 3 }
+end
+
+-- Picks the dropped item up: into the bag, "Found X!" after the EXP label.
+function OverworldBattle:_pickUpDrop()
+  local drop = self.drop
+  self.drop = nil
+  if not drop then return end
+  local ok, added = pcall(self.deps.bagAdd, drop.item, 1)
+  if not (ok and added) then return end
+  local name = self.deps.itemName and self.deps.itemName(drop.item) or "an item"
+  self.popupNext = { text = "Found " .. tostring(name) .. "!", sound = true }
 end
 
 -- Takes the wind-up glow off whoever had it.
@@ -512,6 +558,12 @@ function OverworldBattle:_mode_win(env)
     if self.deps.defeat then self.deps.defeat(id) end
     self.fight, self.wild = nil, nil
     self.popup, self.popupAge = text, 0
+    self:_pickUpDrop()
+    if not self.popup and self.popupNext then
+      -- no EXP label: the find shows at once
+      self.popup, self.popupAge, self.popupNext = self.popupNext.text, 0, nil
+      if self.deps.playFound then pcall(self.deps.playFound) end
+    end
     self.mode, self.t = "return", 0
     return self:_mode_return(env)
   end
@@ -623,6 +675,12 @@ function OverworldBattle:collectActors(actors)
       OverworldBattle.barLift(env.renderer) + math.floor((self.barRaise or 0) + 0.5), 3, 1)
     actors[#actors + 1] = HealthBar.actor(e.px, e.py, self.shownWild, self.wild.maxHp,
       OverworldBattle.barLift(e.renderer), 3, 2)
+  end
+  local drop = self.drop
+  if drop and drop.age >= (self.cfg.dropShowAt or 0) then
+    local a = ForageSparkle.actor(drop.x, drop.y, drop.age - (self.cfg.dropShowAt or 0), drop.elevation or 3, 7)
+    a.sortY = math.max(a.sortY, drop.sortY or a.sortY) -- over the fallen Pokemon's feet
+    actors[#actors + 1] = a
   end
   for i, m in ipairs(self.marks) do
     local a = FinisherFx.markActor(m.kind, m.age, m.x, m.y, m.elevation or 3, i)

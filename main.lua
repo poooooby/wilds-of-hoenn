@@ -189,6 +189,10 @@ return function(mod)
     playCry = EnginePatch.playCry,
     -- the knockout's move sound (lib/finisher_fx.lua), at the game's SFX volume
     playSe = EnginePatch.playSeNamed,
+    -- a knockout can shake loose the wild Pokemon's REAL held item (the game's own roll)
+    heldItem = EnginePatch.wildHeldItem, itemName = EnginePatch.itemName,
+    bagAdd = EnginePatch.bagAdd, bagCanAdd = EnginePatch.bagCanAdd,
+    playFound = EnginePatch.playSuccess,
     levelUp = function(mon, from, to) levelReady:record(mon, from, to) end,
     expFrozen = function(mon) return levelReady:pending(mon) ~= nil end,
     rng = math.random,

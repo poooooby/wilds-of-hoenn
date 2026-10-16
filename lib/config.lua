@@ -277,6 +277,8 @@ Config.OW_BATTLE = {
   restCheck = 30,       -- ticks between "healed yet?" checks while resting
   popupTicks = 110,     -- "+EXP" label time
   expShare = 0.5,       -- fraction of the engine's EXP value a win is worth
+  dropChance = 25,      -- % of knockouts that shake loose the wild Pokemon's held item (if it holds one)
+  dropShowAt = 18,      -- ticks after the knockout before the dropped item glints on the ground
   resumeFrac = 0.25,    -- healed past this share of max HP (with PP) it may fight again
 }
 

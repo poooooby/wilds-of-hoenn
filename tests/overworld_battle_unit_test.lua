@@ -539,6 +539,46 @@ do
   eq(b.barRaise, 0, "...and settled back once the fight was over")
 end
 
+-- ------- a knockout can shake loose the wild Pokemon's real held item
+do
+  local function koWith(opts)
+    reset()
+    local wild = wildEntity(1, 13, 10)
+    local bagged, sounds = {}, 0
+    local b = newBattler({
+      heldItem = function(sp) return opts.item end,
+      bagCanAdd = function() return opts.fits ~= false end,
+      bagAdd = function(id, n) bagged[#bagged + 1] = id return true end,
+      itemName = function(id) return id == 139 and "ORAN BERRY" or nil end,
+      playFound = function() sounds = sounds + 1 end,
+      rng = function() return opts.roll or 1 end,
+    })
+    local mon = newMon()
+    local glint, labels, dropAtWin = false, {}, false
+    for _ = 1, 2500 do
+      b:step(env(mon))
+      if b.mode == "win" and b.drop then dropAtWin = true end
+      local actors = {}
+      b:collectActors(actors)
+      for _, a in ipairs(actors) do if a.kind == "ow_forage_sparkle" then glint = true end end
+      if b.popup and labels[#labels] ~= b.popup then labels[#labels + 1] = b.popup end
+      if #defeated > 0 and b.mode == "idle" and not b.popup then break end
+    end
+    return { bagged = bagged, sounds = sounds, glint = glint, labels = labels, drop = dropAtWin }
+  end
+  local r = koWith({ item = 139 })
+  eq(#r.bagged, 1, "a knockout that rolls the drop bags the species' held item once")
+  eq(r.bagged[1], 139, "...that item")
+  check(r.drop, "...lying on the ground while the Pokemon goes down")
+  check(r.glint, "...glinting there like a Forager find")
+  eq(r.labels[#r.labels], "Found ORAN BERRY!", "...then \"Found ORAN BERRY!\" after the EXP")
+  check(#r.labels >= 2, "...the EXP label first (" .. table.concat(r.labels, " / ") .. ")")
+  eq(r.sounds, 1, "...with the found sound")
+  eq(#koWith({ item = nil }).bagged, 0, "a Pokemon holding nothing drops nothing")
+  eq(#koWith({ item = 139, fits = false }).bagged, 0, "an item that will not fit in the bag is not dropped")
+  eq(#koWith({ item = 139, roll = 26 }).bagged, 0, "most knockouts drop nothing (dropChance %)")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

@@ -25,6 +25,11 @@
 - **Knockouts leave a mark on the ground.** Fire, Water, Ground, Rock, Ice and Grass knockouts
   leave a scorch, a puddle, a small crater, rubble, frost or grass clippings where the wild
   Pokemon stood, fading after a few seconds (never on water).
+- **Knocked-out Pokemon can drop their held item.** A quarter of Battler knockouts shake
+  loose what the wild Pokemon was holding, rolled exactly as the game rolls a wild Pokemon's
+  held item (so most hold nothing, a Pikachu sometimes an Oran Berry and rarely a Light Ball).
+  It glints on the ground while the Pokemon goes down, then your partner picks it up: "Found
+  ORAN BERRY!" after the EXP, straight into your bag. Nothing drops if it would not fit.
 
 ### Changed
 
