@@ -972,9 +972,9 @@ do
   f.readyPending = { moves = {}, evolve = true }
   check(has(partsNow(), "sparkle"), "ready to evolve: sparkles drift up round it")
   f.readyPending = nil
-  f.moodKind, f.moodAge = "happy", 8
-  check(has(partsNow(), "ember"), "while you Pet / Play / Talk with a Fire type: embers")
-  f.moodKind = nil
+  f.withYouAge = 8
+  check(has(partsNow(), "ember"), "while you Pet / Play / Talk with a Fire type: embers (whatever its mood)")
+  f.withYouAge = nil
   optionStore.type_aura = true
   check(has(partsNow(), "ember"), "with Type Aura on: an ember puff now and then")
   f.fxClock = 100

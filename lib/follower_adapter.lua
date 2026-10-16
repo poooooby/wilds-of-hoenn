@@ -528,6 +528,13 @@ function FollowerAdapter:tick()
     self.moodAge = self.moodAge + 1
   end
   self.fxClock = (self.fxClock or 0) + 1
+  -- with you (Pet / Play / Talk: its message, the menu, the scene): its type's puff runs
+  local st = self.interaction and self.interaction.state
+  if st == "report" or st == "menu" or st == "anim" or st == "result" then
+    self.withYouAge = (self.withYouAge or -1) + 1
+  else
+    self.withYouAge = nil
+  end
   local mon, role
   if self.companion then
     mon, role = self.companion:resolve(EnginePatch.partyMons())
@@ -838,8 +845,8 @@ function FollowerAdapter:collectActors(actors)
     local species = self.disp and self.disp.species
     if species ~= self.fxSpecies then self.fxSpecies, self.fxKind = species, species and PartnerFx.kindFor(species) end
     local puff
-    if self.fxKind and self.moodKind then
-      puff = PartnerFx.typePuffParts(self.fxKind, self.moodAge or 0, PartnerFx.PUFF_PERIOD)
+    if self.fxKind and self.withYouAge then
+      puff = PartnerFx.typePuffParts(self.fxKind, self.withYouAge, PartnerFx.PUFF_PERIOD)
     elseif self.fxKind and Config.typeAura(self.mod) and not self.action then
       puff = PartnerFx.typePuffParts(self.fxKind, self.fxClock or 0, PartnerFx.AURA_PERIOD)
     end
