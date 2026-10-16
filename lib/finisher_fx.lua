@@ -739,4 +739,15 @@ function FinisherFx.markActor(kind, age, x, y, elevation, id)
   }
 end
 
+--- Draws a list of parts (the shapes `particles` and friends return) centred on screen (cx, cy),
+--- 1 px lines, the colour and line width put back after. For other effect modules.
+function FinisherFx.drawParts(g, parts, cx, cy)
+  local r, gg, b, a = g.getColor()
+  local lw = g.getLineWidth and g.getLineWidth()
+  if g.setLineWidth then g.setLineWidth(1) end
+  for _, p in ipairs(parts) do drawPart(g, p, cx, cy) end
+  if lw and g.setLineWidth then g.setLineWidth(lw) end
+  g.setColor(r, gg, b, a)
+end
+
 return FinisherFx

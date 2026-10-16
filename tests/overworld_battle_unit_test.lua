@@ -539,6 +539,26 @@ do
   eq(b.barRaise, 0, "...and settled back once the fight was over")
 end
 
+-- ------- a level-up shows a gold ring and sparkles round the Battler
+do
+  reset()
+  wildEntity(1, 13, 10)
+  local b = newBattler()
+  local mon = newMon({ exp = 90 })
+  local sawLevel, sawFx = false, false
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    if b.popup and b.popup:find("^Lv") then sawLevel = true end
+    local actors = {}
+    b:collectActors(actors)
+    for _, a in ipairs(actors) do if a.kind == "ow_partner_fx" then sawFx = true end end
+    if #defeated > 0 and b.mode == "idle" and not b.popup then break end
+  end
+  check(sawLevel, "the win levelled it up")
+  check(sawFx, "...with the level-up flourish round it")
+  eq(b.levelAge, nil, "...which ends on its own")
+end
+
 -- ------- a knockout can shake loose the wild Pokemon's real held item
 do
   local function koWith(opts)

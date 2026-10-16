@@ -28,6 +28,7 @@ local SweatDrop = V.require("sweat_drop")
 local MoodFx = V.require("mood_fx")
 local PopupText = V.require("popup_text")
 local ShinySparkle = V.require("shiny_sparkle")
+local PartnerFx = V.require("partner_fx")
 local FollowerSwap = V.require("follower_swap")
 
 local FollowerAdapter = {}
@@ -526,6 +527,7 @@ function FollowerAdapter:tick()
   elseif moodKind then
     self.moodAge = self.moodAge + 1
   end
+  self.fxClock = (self.fxClock or 0) + 1
   local mon, role
   if self.companion then
     mon, role = self.companion:resolve(EnginePatch.partyMons())
@@ -821,6 +823,30 @@ function FollowerAdapter:collectActors(actors)
     local lift = (sr:headLift() or CELL) * (1 - (sr.duck or 0))
     local a = ShinySparkle.actor(self.sparkleAge, 0, npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0),
       feetY - lift, lift * 0.85, ShinySparkle.bodyWidth(sr) * 0.5 * 0.8, feetY + 1, npc.elevation)
+    if a then actors[#actors + 1] = a end
+  end
+  -- its own touches (lib/partner_fx.lua): sparkles while it is ready to evolve; a puff of its
+  -- type while you Pet / Play / Talk with it, or now and then with the Type Aura option
+  if sr and npc.px and npc.py and (sr.recall or 1) >= 1 and sr.headLift and not underPlayer then
+    local act = sr.act
+    local x = npc.px + (sr.pushX or 0) + ((act and act.dx) or 0)
+    local y = npc.py + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
+    local lift = (sr:headLift() or CELL) * (1 - (sr.duck or 0))
+    local parts
+    local pending = self.readyPending
+    if pending and pending.evolve then parts = PartnerFx.evolveParts(self.fxClock or 0) end
+    local species = self.disp and self.disp.species
+    if species ~= self.fxSpecies then self.fxSpecies, self.fxKind = species, species and PartnerFx.kindFor(species) end
+    local puff
+    if self.fxKind and self.moodKind then
+      puff = PartnerFx.typePuffParts(self.fxKind, self.moodAge or 0, PartnerFx.PUFF_PERIOD)
+    elseif self.fxKind and Config.typeAura(self.mod) and not self.action then
+      puff = PartnerFx.typePuffParts(self.fxKind, self.fxClock or 0, PartnerFx.AURA_PERIOD)
+    end
+    if puff and #puff > 0 then
+      if parts then for _, p in ipairs(puff) do parts[#parts + 1] = p end else parts = puff end
+    end
+    local a = parts and PartnerFx.actor(parts, x, y, lift, npc.elevation, 3)
     if a then actors[#actors + 1] = a end
   end
   -- crouching under a roof's edge: a sweat drop at the top corner of its (squashed) head

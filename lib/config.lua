@@ -16,6 +16,7 @@ Config.DEFAULTS = {
   wild_reacts = true,
   water_life = true,
   local_scenes = true,
+  type_aura = false,
 }
 
 Config.STATE = {
@@ -548,6 +549,12 @@ end
 --- The Portraits option: the partner's portrait above its messages (lib/portrait_ui.lua).
 function Config.portraitsEnabled(mod)
   return optGet(mod, "portraits") ~= false
+end
+
+--- The Type Aura option: a soft puff of your partner's type now and then (embers, droplets,
+--- leaves ...). Off unless switched on.
+function Config.typeAura(mod)
+  return optGet(mod, "type_aura") == true
 end
 
 function Config.smoothFollow(mod)

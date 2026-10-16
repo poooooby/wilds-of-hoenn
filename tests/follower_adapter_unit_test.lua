@@ -949,6 +949,44 @@ do
   for _, k in ipairs(names) do fakeEngine[k] = kept[k] end
 end
 
+-- ------- its own touches (lib/partner_fx.lua): evolve sparkles, type puffs, Type Aura
+do
+  fakeEngine.speciesTypes = function() return 10, 10 end -- a Fire type
+  fakeEngine.typeName = function(t) return t == 10 and "FIRE" or "NORMAL" end
+  optionStore.sprite_style = "pokemmo"
+  npc = { sprite = nil, moving = false, cellX = 4, cellY = 4, px = 64, py = 64, facing = "down", elevation = 3 }
+  local f = FollowerAdapter.new(mod)
+  f:tick()
+  local function partsNow()
+    local actors, out = {}, nil
+    f:collectActors(actors)
+    for _, a in ipairs(actors) do if a.kind == "ow_partner_fx" then out = a.parts end end
+    return out
+  end
+  local function has(parts, shape)
+    for _, p in ipairs(parts or {}) do if p[2] == shape then return true end end
+    return false
+  end
+  f.fxClock = 10
+  eq(partsNow(), nil, "nothing going on: no touches (Type Aura is off by default)")
+  f.readyPending = { moves = {}, evolve = true }
+  check(has(partsNow(), "sparkle"), "ready to evolve: sparkles drift up round it")
+  f.readyPending = nil
+  f.moodKind, f.moodAge = "happy", 8
+  check(has(partsNow(), "ember"), "while you Pet / Play / Talk with a Fire type: embers")
+  f.moodKind = nil
+  optionStore.type_aura = true
+  check(has(partsNow(), "ember"), "with Type Aura on: an ember puff now and then")
+  f.fxClock = 100
+  eq(partsNow(), nil, "...with long rests in between")
+  optionStore.type_aura = nil
+  f.renderer.recall = 0
+  f.readyPending = { evolve = true }
+  f.fxClock = 10
+  eq(partsNow(), nil, "nothing while it is inside the player")
+  fakeEngine.speciesTypes, fakeEngine.typeName = nil, nil
+end
+
 -- ------- the "waiting to learn / evolve" label over the follower's head
 do
   local asked = 0

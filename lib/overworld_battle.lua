@@ -31,6 +31,7 @@ local HealthBar = V.require("health_bar")
 local HitEffect = V.require("hit_effect")
 local PopupText = V.require("popup_text")
 local ForageSparkle = V.require("forage_sparkle")
+local PartnerFx = V.require("partner_fx")
 local FinisherFx = V.require("finisher_fx")
 
 local OverworldBattle = {}
@@ -70,6 +71,7 @@ function OverworldBattle:reset()
   self.popup, self.popupAge = nil, 0
   self.popupNext = nil
   self.drop = nil
+  self.levelAge = nil
   self.hits = {}
   self.finisher = nil
   self.barRaise = 0
@@ -265,6 +267,10 @@ function OverworldBattle:step(env)
     if m.age >= FinisherFx.MARK_TICKS then table.remove(self.marks, i) end
   end
   if self.drop then self.drop.age = self.drop.age + 1 end
+  if self.levelAge then
+    self.levelAge = self.levelAge + 1
+    if self.levelAge >= PartnerFx.LEVEL_TICKS then self.levelAge = nil end
+  end
   local fin = self.finisher
   if fin then
     fin.age = fin.age + 1
@@ -547,6 +553,7 @@ function OverworldBattle:_mode_win(env)
       text = "+" .. amount .. " EXP"
       if result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel then
         text = "Lv." .. result.toLevel .. "!"
+        self.levelAge = 0 -- a gold ring and sparkles round it (lib/partner_fx.lua)
         -- it cannot learn or evolve mid-walk: tell the owner, which asks the player
         if self.deps.levelUp then pcall(self.deps.levelUp, env.mon, result.fromLevel, result.toLevel) end
       end
@@ -675,6 +682,11 @@ function OverworldBattle:collectActors(actors)
       OverworldBattle.barLift(env.renderer) + math.floor((self.barRaise or 0) + 0.5), 3, 1)
     actors[#actors + 1] = HealthBar.actor(e.px, e.py, self.shownWild, self.wild.maxHp,
       OverworldBattle.barLift(e.renderer), 3, 2)
+  end
+  if self.levelAge then
+    local a = PartnerFx.actor(PartnerFx.levelUpParts(self.levelAge), self.wx, self.wy,
+      OverworldBattle.barLift(env.renderer) - 2, 3, 1)
+    if a then actors[#actors + 1] = a end
   end
   local drop = self.drop
   if drop and drop.age >= (self.cfg.dropShowAt or 0) then

@@ -30,6 +30,13 @@
   held item (so most hold nothing, a Pikachu sometimes an Oran Berry and rarely a Light Ball).
   It glints on the ground while the Pokemon goes down, then your partner picks it up: "Found
   ORAN BERRY!" after the EXP, straight into your bag. Nothing drops if it would not fit.
+- **Your partner shows its type and milestones.** A Battler that levels up gets a gold ring and
+  sparkles rising round it; a partner ready to evolve has sparkles drifting up round it until
+  it does. While you Pet, Play or Talk with it, it gives off a little puff of its own type
+  (embers, droplets, leaves, sparks, snow, wisps ...; a Normal / Flying type like Pidgey puffs
+  Flying).
+- **Type Aura option** (off by default): your partner gives off that puff of its type now and
+  then as it follows you.
 
 ### Changed
 
