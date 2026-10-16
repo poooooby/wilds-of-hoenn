@@ -46,6 +46,8 @@ local CELL = 16
 ---   defeat(id)                  remove a defeated wild Pokemon
 ---   chainRecord(species, result) optional: count a win toward a shiny chain
 ---   playCry(species)            the engine cry
+---   playSe(name)                optional: an engine sound effect by SE_* name (the
+---                               knockout's move sound; the game's SFX volume applies)
 ---   rng() -> [0,1)              optional
 ---   cfg                         optional (Config.OW_BATTLE)
 --- }
@@ -396,6 +398,7 @@ function OverworldBattle:_startFinisher(ev, e)
   self.finisher = { kind = kind, age = 0, x = e.px, y = e.py }
   local recipe = FinisherFx.recipe(kind)
   self.koFades = recipe.fade == true -- outlives the drawn effect: the whole win
+  if recipe.se and self.deps.playSe then pcall(self.deps.playSe, recipe.se) end
   if e.renderer and recipe.shade then
     e.renderer.shade = recipe.shade
     self.shadedBy = e

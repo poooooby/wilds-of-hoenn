@@ -187,6 +187,8 @@ return function(mod)
     defeat = function(id) spawnManager:despawn(id) end,
     chainRecord = ModernSpawns.chainRecord,
     playCry = EnginePatch.playCry,
+    -- the knockout's move sound (lib/finisher_fx.lua), at the game's SFX volume
+    playSe = EnginePatch.playSeNamed,
     levelUp = function(mon, from, to) levelReady:record(mon, from, to) end,
     expFrozen = function(mon) return levelReady:pending(mon) ~= nil end,
     rng = math.random,

@@ -8,8 +8,10 @@
   final blow shows the type of the move that landed it: a splash of water exploding outward, a
   burst of flame, leaves flung everywhere, a lightning bolt, shards of ice or rock, a dust cloud,
   psychic rings, Fairy sparkles and hearts, and so on for every type, Fairy included when
-  National Dex Gen 3 is installed. Some tint the defeated Pokemon as it goes down, and a Ghost
-  move makes it fade away instead of sinking.
+  National Dex Gen 3 is installed. Each plays the matching battle sound from the game itself
+  (Waterfall's splash, Thunderbolt's crack, Charm for Fairy ...) at the game's SFX volume, so
+  the options menu's slider applies, down to silent. Some tint the defeated Pokemon as it goes
+  down, and a Ghost move makes it fade away instead of sinking.
 
 ### Changed
 

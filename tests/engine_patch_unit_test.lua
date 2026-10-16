@@ -927,6 +927,23 @@ do
   _G.require = realRequire
 end
 
+-- ------- playSeNamed: a sound by name through the engine's own Audio.playSe (which applies
+-- the options menu's SFX volume itself)
+do
+  local asked
+  local Audio = { playSe = function(name, opts) asked = { name, opts } return true end }
+  _G.require = function(n)
+    if n == "src.core.game3.audio" then return Audio end
+    return realRequire(n)
+  end
+  eq(EnginePatch.playSeNamed("SE_M_ROCK_THROW"), true, "playSeNamed plays through Audio.playSe")
+  eq(asked and asked[1], "SE_M_ROCK_THROW", "...by name (the engine resolves it for the running game)")
+  eq(EnginePatch.playSeNamed(nil), false, "no name: nothing")
+  Audio.playSe = function() error("boom") end
+  eq(EnginePatch.playSeNamed("SE_M_BITE"), false, "an engine error is false, never thrown")
+  _G.require = realRequire
+end
+
 -- ------- typeName: a type's name from its id; Fairy once National Dex registers it
 do
   local Types = { ID = { NORMAL = 0, FIRE = 10, WATER = 11, MYSTERY = 9 } }

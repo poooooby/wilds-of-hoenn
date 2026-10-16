@@ -8,7 +8,8 @@
 -- sparkle ...) plus code-drawn particles (lib/pixel_shapes.lua shapes, lines, rings).
 -- Every recipe looks right with the code-drawn part alone -- the Game Boy games and an
 -- engine without the sheet get exactly that. `shade` tints the defeated Pokemon while it
--- goes down; `fade` makes it fade out instead of sinking (Ghost).
+-- goes down; `fade` makes it fade out instead of sinking (Ghost); `se` is the matching
+-- battle move sound, played as the blow lands.
 --
 -- `FinisherFx.particles(kind, age)` is pure (tested); `FinisherFx.actor` draws it as one
 -- untagged field actor (gen3-hd-sprites spends no layer on it).
@@ -188,8 +189,10 @@ end
 -- ------------------------------------------------------------------ recipes
 -- sheet = { name, fw, fh, frames, every (ticks a frame), dy (px down from the body's centre),
 --           tint }; shade = {r, g, b} on the defeated Pokemon; fade = it fades, not sinks
+-- se = the engine's own move sound (an SE_* name, played through the game's SFX volume)
 local RECIPES = {
   WATER = {
+    se = "SE_M_WATERFALL",
     sheet = { "jump_big_splash", 16, 16, 4, 6, 2 },
     particles = function(out, age)
       -- a splash exploding outward: two waves of droplets, no falling back
@@ -200,6 +203,7 @@ local RECIPES = {
     end,
   },
   FIRE = {
+    se = "SE_M_FLAME_WHEEL",
     sheet = { "ash", 16, 16, 5, 6, -2, { 1.0, 0.62, 0.40 } },
     shade = { 1.0, 0.62, 0.45 },
     particles = function(out, age)
@@ -209,6 +213,7 @@ local RECIPES = {
     end,
   },
   GRASS = {
+    se = "SE_M_PETAL_DANCE",
     sheet = { "cut_grass", 8, 8, 1, 30, 0 },
     particles = function(out, age)
       burst(out, age, "leaf", 7, 0.55, 26, 8, 0)
@@ -216,6 +221,7 @@ local RECIPES = {
     end,
   },
   ELECTRIC = {
+    se = "SE_M_THUNDERBOLT",
     shade = { 1.0, 1.0, 0.55 },
     particles = function(out, age)
       bolt(out, age, 16)
@@ -224,6 +230,7 @@ local RECIPES = {
     end,
   },
   ICE = {
+    se = "SE_M_ICY_WIND",
     shade = { 0.62, 0.84, 1.0 },
     particles = function(out, age)
       flash(out, age, 0.80, 0.94, 1.0, 12, 0.7)
@@ -232,6 +239,7 @@ local RECIPES = {
     end,
   },
   GROUND = {
+    se = "SE_M_EARTHQUAKE",
     sheet = { "ground_impact_dust", 16, 8, 3, 6, 6 },
     particles = function(out, age)
       -- the ground bursts: rocks and dust blasted straight out
@@ -242,14 +250,17 @@ local RECIPES = {
     end,
   },
   ROCK = {
+    se = "SE_M_ROCK_THROW",
     sheet = { "deoxys_rock_fragments", 8, 8, 4, 6, 0 },
     particles = function(out, age)
       flash(out, age, 0.85, 0.78, 0.66, 10, 0.6)
-      burst(out, age, "rock", 8, 0.6, 30, 22, 0, 1.5)
-      burst(out, age, "rock", 5, 0.4, 26, 14, 4, 1)
+      -- rocks blasted straight out (no falling: they would drop off the bottom of the view)
+      burst(out, age, "rock", 8, 0.9, 30, 0, 0, 1.5)
+      burst(out, age, "rock", 6, 1.2, 26, 0, 4, 1, 0)
     end,
   },
   FAIRY = {
+    se = "SE_M_CHARM",
     sheet = { "sparkle", 16, 16, 6, 5, -4 },
     shade = { 1.0, 0.82, 0.94 },
     particles = function(out, age)
@@ -259,6 +270,7 @@ local RECIPES = {
     end,
   },
   PSYCHIC = {
+    se = "SE_M_PSYBEAM",
     shade = { 1.0, 0.72, 0.94 },
     particles = function(out, age)
       rings(out, age, 3, 0.95, 0.45, 0.85, 26, 22, 7)
@@ -266,6 +278,7 @@ local RECIPES = {
     end,
   },
   GHOST = {
+    se = "SE_M_NIGHTMARE",
     shade = { 0.62, 0.46, 0.82 }, fade = true,
     particles = function(out, age)
       rise(out, age, "wisp", 6, 7, 24, 40, 0)
@@ -273,6 +286,7 @@ local RECIPES = {
     end,
   },
   POISON = {
+    se = "SE_M_TOXIC",
     sheet = { "bubbles", 16, 32, 8, 5, -8, { 0.85, 0.55, 1.0 } },
     shade = { 0.86, 0.62, 1.0 },
     particles = function(out, age)
@@ -281,6 +295,7 @@ local RECIPES = {
     end,
   },
   BUG = {
+    se = "SE_M_STRING_SHOT",
     particles = function(out, age)
       burst(out, age, "speck", 8, 0.5, 24, 4, 0)
       rise(out, age, "speck", 4, 6, 14, 26, 8)
@@ -288,12 +303,14 @@ local RECIPES = {
     end,
   },
   FLYING = {
+    se = "SE_M_WING_ATTACK",
     particles = function(out, age)
       streaks(out, age, 4, 16, 8, 1, 1, 1, 0.25)
       fall(out, age, "feather", 4, 10, 36, 8)
     end,
   },
   FIGHTING = {
+    se = "SE_M_BRICK_BREAK",
     particles = function(out, age)
       flash(out, age, 1, 1, 0.85, 10, 0.8)
       burst(out, age, "star", 1, 0, 18, 0, 0, 2)
@@ -301,6 +318,7 @@ local RECIPES = {
     end,
   },
   DRAGON = {
+    se = "SE_M_DRAGON_RAGE",
     shade = { 0.72, 0.68, 1.0 },
     particles = function(out, age)
       flash(out, age, 0.40, 0.36, 0.95, 12, 0.6)
@@ -309,6 +327,7 @@ local RECIPES = {
     end,
   },
   DARK = {
+    se = "SE_M_BITE",
     shade = { 0.48, 0.40, 0.58 },
     particles = function(out, age)
       streaks(out, age, 3, 14, 10, 0.22, 0.12, 0.30, -0.8)
@@ -316,6 +335,7 @@ local RECIPES = {
     end,
   },
   STEEL = {
+    se = "SE_M_VICEGRIP",
     shade = { 0.86, 0.90, 1.0 },
     particles = function(out, age)
       flash(out, age, 0.95, 0.97, 1.0, 10, 0.85)
@@ -324,6 +344,7 @@ local RECIPES = {
     end,
   },
   NORMAL = {
+    se = "SE_M_TAKE_DOWN",
     particles = function(out, age)
       flash(out, age, 1, 1, 0.9, 8, 0.6)
       burst(out, age, "star", 1, 0, 14, 0, 0, 1)
@@ -340,6 +361,9 @@ function FinisherFx.kindFor(t)
 end
 
 function FinisherFx.recipe(kind) return RECIPES[kind] or RECIPES.NORMAL end
+
+--- The sound effect for `kind` (an SE_* name; NORMAL's for an unknown kind).
+function FinisherFx.soundFor(kind) return FinisherFx.recipe(kind).se end
 
 --- The code-drawn parts `age` ticks into `kind`'s effect. Pure.
 function FinisherFx.particles(kind, age)

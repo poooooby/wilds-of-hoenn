@@ -1925,6 +1925,18 @@ function EnginePatch.playSelect()
   return (pcall(function() Audio.playSe(Ids.resolve("SE_SELECT")) end))
 end
 
+--- A sound effect by its SE_* name ("SE_M_ROCK_THROW"), through the engine's own player:
+--- Audio.playSe resolves the name for the running game (se_ids.lua, selected per game at
+--- boot -- FireRed and Emerald number them differently) and scales it by the options
+--- menu's SFX VOL (Audio._sfxVolume), so the game's slider -- muted included -- applies.
+--- False when the audio pieces or the sound are absent.
+function EnginePatch.playSeNamed(name, opts)
+  local Audio = loadModule(EnginePatch.READONLY.playSe.mod)
+  if not (Audio and Audio.playSe and type(name) == "string") then return false end
+  local ok, played = pcall(Audio.playSe, name, opts)
+  return ok and played ~= false
+end
+
 --- Width in px of `text` in the engine's dialogue font (0 when unavailable).
 function EnginePatch.measureText(text, opts)
   local Font = loadModule(EnginePatch.READONLY.fontMeasure.mod)

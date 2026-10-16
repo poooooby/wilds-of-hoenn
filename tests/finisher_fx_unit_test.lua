@@ -73,6 +73,17 @@ for kind in pairs(FinisherFx.RECIPES) do
   if not drew then everyKindDraws = false check(false, kind .. " draws nothing without a sheet") end
 end
 check(everyKindDraws, "every finisher draws its code-drawn part with no engine sheet (the Game Boy games)")
+-- nothing falls away from the Pokemon: every part stays within ~a tile below it (a strong
+-- gravity once dropped Rock's rocks 50 px down, off the bottom of the view)
+for kind in pairs(FinisherFx.RECIPES) do
+  local low = -math.huge
+  for age = 0, FinisherFx.TICKS - 1 do
+    for _, p in ipairs(FinisherFx.particles(kind, age)) do
+      if p[1] == "shape" and p[4] > low then low = p[4] end
+    end
+  end
+  check(low <= 20, kind .. ": no part falls more than 20 px below the Pokemon (" .. math.floor(low) .. ")")
+end
 eq(#FinisherFx.particles("WATER", FinisherFx.TICKS), 0, "after TICKS: nothing")
 local a1 = FinisherFx.particles("FIRE", 10)
 local a2 = FinisherFx.particles("FIRE", 10)
@@ -83,6 +94,16 @@ eq(FinisherFx.sheetFrame("WATER", 0), 0, "the water splash starts on its first f
 eq(FinisherFx.sheetFrame("WATER", 7), 1, "...and moves on")
 eq(FinisherFx.sheetFrame("WATER", 200), nil, "...and ends")
 eq(FinisherFx.sheetFrame("PSYCHIC", 0), nil, "a recipe without engine art has no sheet frame")
+
+-- every finisher has its battle move sound
+local soundsOk = true
+for kind, r in pairs(FinisherFx.RECIPES) do
+  if type(r.se) ~= "string" or not r.se:find("^SE_M_") then soundsOk = false check(false, kind .. " has no move sound") end
+end
+check(soundsOk, "every finisher has an engine move sound (SE_M_*)")
+eq(FinisherFx.soundFor("WATER"), "SE_M_WATERFALL", "Water sounds like Waterfall")
+eq(FinisherFx.soundFor("FAIRY"), "SE_M_CHARM", "Fairy sounds like Charm")
+eq(FinisherFx.soundFor("SOUND"), FinisherFx.soundFor("NORMAL"), "an unknown kind sounds like NORMAL")
 
 -- the look of a few
 check(FinisherFx.recipe("GHOST").fade == true, "a Ghost knockout fades the Pokemon away")

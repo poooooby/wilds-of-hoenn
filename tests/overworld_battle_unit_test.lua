@@ -403,11 +403,13 @@ end
 do
   local NAMES = { [0] = "NORMAL", [7] = "GHOST", [11] = "WATER", [18] = "FAIRY" }
   E.typeName = function(t) return NAMES[t] or "NORMAL" end
+  local played = {}
   local function fight(moveType)
     reset()
+    played = {}
     MOVES[2].type = moveType
     local wild = wildEntity(1, 13, 10)
-    local b = newBattler()
+    local b = newBattler({ playSe = function(name) played[#played + 1] = name end })
     local mon = newMon()
     local log = { kinds = {}, hitsAtKo = nil, finisherActor = false, alphaSeen = false, sinkSeen = false }
     for _ = 1, 2500 do
@@ -432,6 +434,8 @@ do
 
   local w = fight(11)
   check(w.kinds.WATER, "a Water move's knockout plays the WATER finisher")
+  eq(#played, 1, "...with one sound, on the knockout only (the earlier hit was silent)")
+  eq(played[1], V.require("finisher_fx").soundFor("WATER"), "...Water's move sound")
   check(w.finisherActor, "...drawn as a field actor")
   check(w.hitsAtKo == 0 or w.hitsAtKo == 1, "...in place of the plain impact (no extra hit effect for the KO)")
   eq(#defeated, 1, "...and the wild Pokemon is still defeated and removed")
@@ -440,6 +444,7 @@ do
 
   local f = fight(18)
   check(f.kinds.FAIRY, "a Fairy move (type 18, National Dex) plays the FAIRY finisher")
+  eq(played[1], V.require("finisher_fx").soundFor("FAIRY"), "...with Fairy's sound")
   check(f.shade, "...tinting the defeated Pokemon")
   eq(f.wild.renderer.shade, nil, "...a tint cleared once it is gone")
 
