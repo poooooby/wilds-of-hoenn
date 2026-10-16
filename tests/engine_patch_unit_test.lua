@@ -345,7 +345,9 @@ eq(fake["src.core.game3.field"].finishSweetScent(ssPayload), "engine sweet scent
   "Sweet Scent: the engine's own runs when the hook declines")
 eq(calls.sweetScent, ssPayload, "...and the hook got the payload first")
 calls.takeSweetScent = true
+fake["src.core.game3.field"].locked = true
 eq(fake["src.core.game3.field"].finishSweetScent(ssPayload), nil, "the hook handled it: no engine battle")
+eq(fake["src.core.game3.field"].locked, false, "...and the field lock the engine kept through it is released")
 calls.takeSweetScent = nil
 
 -- party menu seam: the update hook runs after the original, with the menu module

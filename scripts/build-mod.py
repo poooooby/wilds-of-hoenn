@@ -258,6 +258,21 @@ def build_variant(name: str, args, version: str, mod_id: str, out_dir: Path) -> 
     return zip_path
 
 
+def lower_priority() -> None:
+    """Runs this process (and, on Windows, every process it starts) at below-normal
+    priority, so a build never competes with the rest of the machine. Best effort."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            BELOW_NORMAL_PRIORITY_CLASS = 0x4000
+            k32 = ctypes.windll.kernel32
+            k32.SetPriorityClass(k32.GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS)
+        else:
+            os.nice(10)
+    except Exception:
+        pass
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--variant", choices=("both", "hgss", "pmd"), default="both",
@@ -271,6 +286,8 @@ def main() -> int:
     ap.add_argument("--rebake-pmd", action="store_true",
                     help="rewrite every PMDCollab sheet, not just the missing ones (after updating SpriteCollab)")
     args = ap.parse_args()
+    # the bake, the atlas and the zip run below normal priority (children inherit it on Windows)
+    lower_priority()
 
     # .modkitignore must list every test / tool / script / doc (modkit matches exact
     # paths): refuse to build a release while it is out of date

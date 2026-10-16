@@ -431,7 +431,13 @@ function EnginePatch.install(hooks, log)
   originals.finishSweetScent = FieldSS and FieldSS.finishSweetScent
   if type(originals.finishSweetScent) == "function" then
     FieldSS.finishSweetScent = function(payload, ...)
-      if hooks.sweetScent and safeCall(log, "sweetScent", hooks.sweetScent, payload) == true then return end
+      if hooks.sweetScent and safeCall(log, "sweetScent", hooks.sweetScent, payload) == true then
+        -- The engine keeps the field locked through Sweet Scent and releases it in its own
+        -- battle / fail-message paths (gen1recomp 6ef00a7b; it used to unlock before this
+        -- call), so a call we handle has to let go of it here, or the player cannot move.
+        FieldSS.locked = false
+        return
+      end
       return originals.finishSweetScent(payload, ...)
     end
   end

@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- **Sweet Scent works with the latest Gen1Recomp.** On the newest engine, using Sweet Scent
+  where wild Pokemon answer it could leave you unable to move afterwards. You are free again as
+  soon as the scent fades.
 - **No more getting stuck after a wild battle fails to open.** Using Sweet Scent in a cave (and
   sometimes just standing in one) could leave you unable to move or open the menu while the
   music played on. A wild Pokemon could wander onto the tile you were standing on and start a
