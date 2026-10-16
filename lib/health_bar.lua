@@ -30,11 +30,16 @@ function HealthBar.colorFor(ratio)
   return c[1], c[2], c[3]
 end
 
--- A three-row band: the shade over all three, the bright row in the middle.
+-- The whole bar is drawn a little see-through, so every pixel is drawn once
+-- (overlapping translucent rects would darken where they cross).
+local ALPHA = 0.8
+
+-- A three-row band: the shade on the top and bottom rows, the bright row between.
 local function band(g, x, y, w, colours)
-  g.setColor(colours.dark[1], colours.dark[2], colours.dark[3], 1)
-  g.rectangle("fill", x, y, w, 3)
-  g.setColor(colours.light[1], colours.light[2], colours.light[3], 1)
+  g.setColor(colours.dark[1], colours.dark[2], colours.dark[3], ALPHA)
+  g.rectangle("fill", x, y, w, 1)
+  g.rectangle("fill", x, y + 2, w, 1)
+  g.setColor(colours.light[1], colours.light[2], colours.light[3], ALPHA)
   g.rectangle("fill", x, y + 1, w, 1)
 end
 
@@ -65,8 +70,11 @@ function HealthBar.actor(wx, wy, hp, maxHp, lift, elevation, id)
       local x = math.floor(gx - camX - WIDTH / 2)
       local y = math.floor(gy - camY)
       local g = love.graphics
-      g.setColor(OUTLINE[1], OUTLINE[2], OUTLINE[3], 1)
-      g.rectangle("fill", x - 1, y - 1, WIDTH + 2, 5)
+      g.setColor(OUTLINE[1], OUTLINE[2], OUTLINE[3], ALPHA)
+      g.rectangle("fill", x - 1, y - 1, WIDTH + 2, 1)
+      g.rectangle("fill", x - 1, y + 3, WIDTH + 2, 1)
+      g.rectangle("fill", x - 1, y, 1, 3)
+      g.rectangle("fill", x + WIDTH, y, 1, 3)
       local w = HealthBar.fillWidth(ratio, hp > 0)
       if w < WIDTH then band(g, x + w, y, WIDTH - w, EMPTY) end
       if w > 0 then band(g, x, y, w, HealthBar.paletteFor(ratio)) end
@@ -76,5 +84,6 @@ function HealthBar.actor(wx, wy, hp, maxHp, lift, elevation, id)
 end
 
 HealthBar.WIDTH = WIDTH
+HealthBar.ALPHA = ALPHA
 
 return HealthBar

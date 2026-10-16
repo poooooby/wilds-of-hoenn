@@ -21,7 +21,8 @@
   its way back slips away, so none is ever left stranded on the path.
 
 - **Battler health bars look like the battle screen's.** A bright middle stripe between darker
-  edges, white where health is gone, turning from green to yellow to red as it drops.
+  edges, white where health is gone, turning from green to yellow to red as it drops. They are slightly see-through so they
+  hide less of the field.
 
 ## 1.8.0 (2026-10-15)
 

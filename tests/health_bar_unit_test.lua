@@ -41,27 +41,38 @@ check(a.sortY > 48, "sorts in front of the sprites")
 eq(a.i, 90702, "own id")
 check(pcall(a.draw, a, 0, 0), "drawing without love.graphics is harmless")
 
-local rects, saved = {}, love
-love = { graphics = {
-  setColor = function() end,
-  rectangle = function(mode, x, y, w, h) rects[#rects + 1] = { mode, x, y, w, h } end,
-} }
-a.draw(a, 0, 0)
-love = saved
-eq(#rects, 5, "outline, the empty band (shade + white row) and the fill band (shade + bright row)")
-eq(rects[1][5], 5, "the outline wraps three rows")
-eq(rects[2][4], 8, "the empty part is the other half")
-eq(rects[2][2], rects[4][2] + 8, "...right of the fill")
-eq(rects[4][4], 8, "the fill is half wide for half health")
-eq(rects[4][5], 3, "the fill is three rows tall")
-check(rects[5][3] == rects[4][3] + 1 and rects[5][5] == 1, "its bright row is the middle one")
+-- every pixel drawn exactly once, all at the bar's alpha (translucent rects must not overlap)
+local function paint(actor)
+  local px, alphas, n = {}, {}, 0
+  local saved = love
+  love = { graphics = {
+    setColor = function(_, _, _, al) alphas[#alphas + 1] = al end,
+    rectangle = function(_, x, y, w, h)
+      n = n + 1
+      for yy = y, y + h - 1 do for xx = x, x + w - 1 do
+        local k = xx .. "," .. yy
+        px[k] = (px[k] or 0) + 1
+      end end
+    end,
+  } }
+  actor.draw(actor, 0, 0)
+  love = saved
+  return px, alphas, n
+end
+local px, alphas = paint(a)
+local cells, twice = 0, 0
+for _, c in pairs(px) do cells = cells + 1 if c > 1 then twice = twice + 1 end end
+eq(cells, 18 * 5, "the bar covers its outline box (18 x 5)")
+eq(twice, 0, "no pixel is drawn twice (would darken at 80% alpha)")
+local allAlpha = true
+for i = 1, #alphas - 1 do if alphas[i] ~= HealthBar.ALPHA then allAlpha = false end end
+check(allAlpha and HealthBar.ALPHA == 0.8, "everything is drawn 80% opaque")
+eq(alphas[#alphas], 1, "the colour is reset afterwards")
 local empty = HealthBar.actor(0, 0, 0, 30, 20)
-rects = {}
-love = { graphics = { setColor = function() end, rectangle = function(m, x, y, w, h) rects[#rects + 1] = { m, x, y, w, h } end } }
-empty.draw(empty, 0, 0)
-love = saved
-eq(#rects, 3, "a defeated fighter draws no fill")
-eq(rects[2][4], 16, "...only the empty band, full width")
+local epx = paint(empty)
+cells, twice = 0, 0
+for _, c in pairs(epx) do cells = cells + 1 if c > 1 then twice = twice + 1 end end
+check(cells == 90 and twice == 0, "a defeated fighter: the empty band fills the bar, once")
 local p = HealthBar.paletteFor(1)
 check(p.light[2] > p.dark[2], "the middle row is brighter than its shade")
 
