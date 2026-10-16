@@ -411,7 +411,7 @@ do
     local wild = wildEntity(1, 13, 10)
     local b = newBattler({ playSe = function(name) played[#played + 1] = name end })
     local mon = newMon()
-    local log = { kinds = {}, hitsAtKo = nil, finisherActor = false, alphaSeen = false, sinkSeen = false }
+    local log = { kinds = {}, hitKinds = {}, hitsAtKo = nil, finisherActor = false, alphaSeen = false, sinkSeen = false }
     for _ = 1, 2500 do
       b:step(env(mon))
       if b.finisher then
@@ -425,7 +425,11 @@ do
       end
       local actors = {}
       b:collectActors(actors)
-      for _, a in ipairs(actors) do if a.kind == "ow_finisher_fx" then log.finisherActor = true end end
+      for _, a in ipairs(actors) do
+        if a.kind == "ow_finisher_fx" then log.finisherActor = true end
+        if a.kind == "ow_hit_spark" then log.hitSpark = true end
+      end
+      for _, h in ipairs(b.hits) do if h.kind then log.hitKinds[h.kind] = h.power end end
       if #defeated > 0 and b.mode == "idle" and not b.finisher then break end
     end
     log.b, log.wild = b, wild
@@ -434,8 +438,18 @@ do
 
   local w = fight(11)
   check(w.kinds.WATER, "a Water move's knockout plays the WATER finisher")
-  eq(#played, 1, "...with one sound, on the knockout only (the earlier hit was silent)")
-  eq(played[1], V.require("finisher_fx").soundFor("WATER"), "...Water's move sound")
+  local moveSounds, hitSounds = {}, 0
+  for _, name in ipairs(played) do
+    if name:find("^SE_M_") then moveSounds[#moveSounds + 1] = name
+    elseif name == "SE_EFFECTIVE" then hitSounds = hitSounds + 1 end
+  end
+  eq(#moveSounds, 1, "...with one move sound, on the knockout only")
+  eq(moveSounds[1], V.require("finisher_fx").soundFor("WATER"), "...Water's move sound")
+  eq(played[#played], moveSounds[1], "...the last sound of the fight")
+  check(hitSounds >= 1, "every ordinary hit plays the battle's own hit sound (" .. hitSounds .. ")")
+  eq(hitSounds + 1, #played, "...and nothing else makes a sound")
+  eq(w.hitKinds.WATER, "normal", "an ordinary Water hit shows a Water spark, landed normally")
+  check(w.hitSpark, "...drawn as a field actor")
   check(w.finisherActor, "...drawn as a field actor")
   check(w.hitsAtKo == 0 or w.hitsAtKo == 1, "...in place of the plain impact (no extra hit effect for the KO)")
   eq(#defeated, 1, "...and the wild Pokemon is still defeated and removed")
@@ -444,7 +458,7 @@ do
 
   local f = fight(18)
   check(f.kinds.FAIRY, "a Fairy move (type 18, National Dex) plays the FAIRY finisher")
-  eq(played[1], V.require("finisher_fx").soundFor("FAIRY"), "...with Fairy's sound")
+  eq(played[#played], V.require("finisher_fx").soundFor("FAIRY"), "...with Fairy's sound")
   check(f.shade, "...tinting the defeated Pokemon")
   eq(f.wild.renderer.shade, nil, "...a tint cleared once it is gone")
 

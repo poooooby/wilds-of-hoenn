@@ -12,6 +12,11 @@
   (Waterfall's splash, Thunderbolt's crack, Charm for Fairy ...) at the game's SFX volume, so
   the options menu's slider applies, down to silent. Some tint the defeated Pokemon as it goes
   down, and a Ghost move makes it fade away instead of sinking.
+- **Every Battler hit shows its type.** Ordinary blows spark with a little of their move's type
+  (droplets, embers, leaves, sparks ...) on top of the impact: a bigger burst and brighter flash
+  when it is super effective, dimmed and grey when it is not very effective, just a grey puff when
+  it has no effect, and a star on a critical hit. Each plays the battle's own hit sound for how
+  well it landed, at your SFX volume.
 
 ### Changed
 

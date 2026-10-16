@@ -374,6 +374,101 @@ function FinisherFx.particles(kind, age)
   return out
 end
 
+-- ------------------------------------------------------------------ every hit
+-- An ordinary blow gets a small spark of its move's type (a few droplets, embers, leaves
+-- ...), sized by how well it landed, as the real battle's hit sound picks: super effective
+-- bigger and brighter, not very effective small and greyed, no effect just a grey puff.
+-- A critical hit adds a star and a white pulse.
+FinisherFx.HIT_TICKS = 18
+
+-- per type: the shape flung out (or "ring" / "streak" for a type drawn without one), how
+-- it moves ("burst" out, "rise" up) and the colour of its flash
+local SPARKS = {
+  WATER = { "droplet", hue = { 0.55, 0.78, 1.0 } },
+  FIRE = { "ember", hue = { 1.0, 0.55, 0.15 } },
+  GRASS = { "leaf", hue = { 0.45, 0.80, 0.30 } },
+  ELECTRIC = { "spark", hue = { 1.0, 0.95, 0.45 } },
+  ICE = { "crystal", hue = { 0.80, 0.94, 1.0 } },
+  GROUND = { "dust", hue = { 0.78, 0.62, 0.38 } },
+  ROCK = { "rock", hue = { 0.85, 0.78, 0.66 } },
+  FAIRY = { "sparkle", hue = { 1.0, 0.80, 0.92 } },
+  PSYCHIC = { "ring", hue = { 0.95, 0.45, 0.85 } },
+  GHOST = { "wisp", mode = "rise", hue = { 0.62, 0.46, 0.82 } },
+  POISON = { "bubble", mode = "rise", hue = { 0.70, 0.30, 0.85 } },
+  BUG = { "speck", hue = { 0.70, 0.86, 0.30 } },
+  FLYING = { "feather", hue = { 1.0, 1.0, 1.0 } },
+  FIGHTING = { "star", hue = { 1.0, 1.0, 0.85 } },
+  DRAGON = { "dragonflame", hue = { 0.40, 0.36, 0.95 } },
+  DARK = { "streak", hue = { 0.22, 0.12, 0.30 } },
+  STEEL = { "metal", hue = { 0.95, 0.97, 1.0 } },
+  NORMAL = { "star", hue = { 1.0, 1.0, 0.90 } },
+}
+FinisherFx.SPARKS = SPARKS
+
+local GREY = { 0.62, 0.62, 0.66 }
+-- how a blow landed -> { pieces, speed, scale, flash peak, greyed }
+local POWER = {
+  super = { 6, 0.95, 1, 0.75 },
+  normal = { 4, 0.70, 1, 0.45 },
+  weak = { 3, 0.45, 1, 0.20, true },
+}
+
+--- "super" | "normal" | "weak" | "immune" for an effectiveness multiplier (the engine's own
+--- cut-offs, battle/anim_seq.lua effectiveness_se).
+function FinisherFx.powerFor(eff)
+  eff = tonumber(eff) or 1
+  if eff == 0 then return "immune" end
+  if eff >= 2 then return "super" end
+  if eff < 1 then return "weak" end
+  return "normal"
+end
+
+--- The engine's hit sound for an effectiveness multiplier, as the real battle plays it
+--- (nil: a move with no effect plays none).
+function FinisherFx.hitSound(eff)
+  local p = FinisherFx.powerFor(eff)
+  if p == "immune" then return nil end
+  if p == "super" then return "SE_SUPER_EFFECTIVE" end
+  if p == "weak" then return "SE_NOT_EFFECTIVE" end
+  return "SE_EFFECTIVE"
+end
+
+--- The code-drawn parts `age` ticks into an ordinary hit of `kind`, landed with `power`
+--- (FinisherFx.powerFor), `crit` = a critical hit. Pure.
+function FinisherFx.hitParticles(kind, age, power, crit)
+  local out = {}
+  age = math.max(0, math.floor(tonumber(age) or 0))
+  if age >= FinisherFx.HIT_TICKS then return out end
+  if power == "immune" then
+    rings(out, age, 1, GREY[1], GREY[2], GREY[3], 14, 10)
+    burst(out, age, "dust", 3, 0.3, 14, 0, 0, nil, 0)
+    for _, p in ipairs(out) do if p[1] == "shape" then p[7] = GREY end end
+    return out
+  end
+  local pw = POWER[power] or POWER.normal
+  local s = SPARKS[kind] or SPARKS.NORMAL
+  local hue = pw[5] and GREY or s.hue
+  local life = FinisherFx.HIT_TICKS - 2
+  flash(out, age, hue[1], hue[2], hue[3], 8, pw[4])
+  if s[1] == "ring" then
+    rings(out, age, power == "super" and 2 or 1, hue[1], hue[2], hue[3], life, 6 + pw[1] * 2, 5)
+  elseif s[1] == "streak" then
+    streaks(out, age, math.max(2, pw[1] - 2), life, 6, hue[1], hue[2], hue[3], -0.8)
+  elseif s.mode == "rise" then
+    rise(out, age, s[1], pw[1] - 1, 4, 12, life - 4, 0)
+  else
+    burst(out, age, s[1], pw[1], pw[2], life, 0, 0, pw[3])
+  end
+  if pw[5] then
+    for _, p in ipairs(out) do if p[1] == "shape" then p[5], p[7] = p[5] * 0.8, GREY end end
+  end
+  if crit then
+    flash(out, age, 1, 1, 1, 6, 0.95)
+    burst(out, age, "star", 1, 0, 12, 0, 0, 1.5)
+  end
+  return out
+end
+
 --- The engine sheet frame `age` ticks in (0-based), or nil when its animation is over.
 function FinisherFx.sheetFrame(kind, age)
   local s = FinisherFx.recipe(kind).sheet
@@ -399,7 +494,7 @@ local function drawPart(g, p, cx, cy)
   if kind == "shape" then
     local w, h = PixelShapes.size(p[2])
     local sc = p[6] or 1
-    PixelShapes.draw(g, p[2], math.floor(cx + p[3] - w * sc / 2), math.floor(cy + p[4] - h * sc / 2), p[5], nil, sc)
+    PixelShapes.draw(g, p[2], math.floor(cx + p[3] - w * sc / 2), math.floor(cy + p[4] - h * sc / 2), p[5], p[7], sc)
   elseif kind == "line" then
     g.setColor(p[6], p[7], p[8], p[9])
     g.line(math.floor(cx + p[2]) + 0.5, math.floor(cy + p[3]) + 0.5, math.floor(cx + p[4]) + 0.5, math.floor(cy + p[5]) + 0.5)
@@ -438,6 +533,27 @@ function FinisherFx.actor(kind, age, x, y, elevation, id)
         g.draw(sheet.image, sheet.quads[frame], cx - math.floor(spec[2] / 2), cy - math.floor(spec[3] / 2) + (spec[6] or 0))
       end
       for _, p in ipairs(FinisherFx.particles(kind, age)) do drawPart(g, p, cx, cy) end
+      if lw and g.setLineWidth then g.setLineWidth(lw) end
+      g.setColor(r, gg, b, a)
+    end,
+  }
+end
+
+--- An ordinary hit's type spark as one field actor (see FinisherFx.hitParticles).
+function FinisherFx.hitActor(kind, age, x, y, power, crit, elevation, id)
+  if (tonumber(age) or 0) >= FinisherFx.HIT_TICKS then return nil end
+  return {
+    kind = "ow_hit_spark", elevation = elevation or 3, oamPriority = 1,
+    sortY = y + 95, x = x + 8, y = y + 8,
+    i = 90950 + (tonumber(id) or 0),
+    draw = function(_, camX, camY)
+      if not (love and love.graphics and love.graphics.rectangle) then return end
+      local g = love.graphics
+      local r, gg, b, a = g.getColor()
+      local lw = g.getLineWidth and g.getLineWidth()
+      if g.setLineWidth then g.setLineWidth(1) end
+      local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
+      for _, p in ipairs(FinisherFx.hitParticles(kind, age, power, crit)) do drawPart(g, p, cx, cy) end
       if lw and g.setLineWidth then g.setLineWidth(lw) end
       g.setColor(r, gg, b, a)
     end,

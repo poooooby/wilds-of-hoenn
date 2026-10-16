@@ -110,6 +110,60 @@ check(FinisherFx.recipe("GHOST").fade == true, "a Ghost knockout fades the Pokem
 check(FinisherFx.recipe("ICE").shade ~= nil, "an Ice knockout tints it icy")
 check(FinisherFx.recipe("FAIRY").sheet ~= nil, "Fairy uses the engine's sparkle art where it has it")
 
+-- ------- every hit: a small spark of the move's type, sized by how well it landed
+eq(FinisherFx.powerFor(2), "super", "2x: super effective")
+eq(FinisherFx.powerFor(4), "super", "4x too")
+eq(FinisherFx.powerFor(1), "normal", "1x: normal")
+eq(FinisherFx.powerFor(0.5), "weak", "0.5x: not very effective")
+eq(FinisherFx.powerFor(0), "immune", "0x: no effect")
+eq(FinisherFx.powerFor(nil), "normal", "unknown: normal")
+eq(FinisherFx.hitSound(2), "SE_SUPER_EFFECTIVE", "the real battle's sounds: super effective")
+eq(FinisherFx.hitSound(1), "SE_EFFECTIVE", "...normal")
+eq(FinisherFx.hitSound(0.25), "SE_NOT_EFFECTIVE", "...not very effective")
+eq(FinisherFx.hitSound(0), nil, "...and none for no effect")
+local function count(parts, what)
+  local n = 0
+  for _, p in ipairs(parts) do if p[1] == what then n = n + 1 end end
+  return n
+end
+local sparksOk = true
+for kind in pairs(FinisherFx.RECIPES) do
+  check(FinisherFx.SPARKS[kind] ~= nil, kind .. " has its own hit spark")
+  for _, power in ipairs({ "super", "normal", "weak", "immune" }) do
+    local drew = false
+    for age = 0, FinisherFx.HIT_TICKS - 1 do
+      for _, p in ipairs(FinisherFx.hitParticles(kind, age, power, age % 2 == 0)) do
+        drew = true
+        if p[1] == "shape" then
+          if not PixelShapes.get(p[2]) then sparksOk = false check(false, kind .. " spark: unknown shape " .. p[2]) end
+          if math.abs(p[3]) > 40 or math.abs(p[4]) > 30 then sparksOk = false check(false, kind .. " spark flies too far") end
+        end
+      end
+    end
+    if not drew then sparksOk = false check(false, kind .. " " .. power .. " hit draws nothing") end
+  end
+end
+check(sparksOk, "every type's spark draws at every power, small and near the Pokemon")
+local function shapesAt(kind, power, crit)
+  local n = 0
+  for age = 0, FinisherFx.HIT_TICKS - 1 do n = n + count(FinisherFx.hitParticles(kind, age, power, crit), "shape") end
+  return n
+end
+check(shapesAt("WATER", "super") > shapesAt("WATER", "normal"), "a super-effective hit throws more")
+check(shapesAt("WATER", "normal") > shapesAt("WATER", "weak"), "...a not-very-effective one fewer")
+local weakPart
+for _, p in ipairs(FinisherFx.hitParticles("FIRE", 4, "weak")) do if p[1] == "shape" then weakPart = p end end
+check(weakPart and weakPart[7] ~= nil, "...greyed out")
+local immuneShapes = {}
+for _, p in ipairs(FinisherFx.hitParticles("FIRE", 4, "immune")) do if p[1] == "shape" then immuneShapes[p[2]] = true end end
+check(not immuneShapes.ember and immuneShapes.dust, "no effect: just a grey puff, none of the type")
+local critStar = false
+for _, p in ipairs(FinisherFx.hitParticles("WATER", 2, "normal", true)) do if p[2] == "star" then critStar = true end end
+check(critStar, "a critical hit adds a star")
+eq(#FinisherFx.hitParticles("WATER", FinisherFx.HIT_TICKS, "super"), 0, "a spark is over after HIT_TICKS")
+check(FinisherFx.hitActor("WATER", 3, 0, 0, "super", true).kind == "ow_hit_spark", "the spark is a field actor")
+eq(FinisherFx.hitActor("WATER", FinisherFx.HIT_TICKS, 0, 0, "super"), nil, "...gone when it is over")
+
 -- the actor: built, drawn headless without trouble, gone after TICKS
 local a = FinisherFx.actor("WATER", 5, 32, 48, 3, 0)
 check(a and a.kind == "ow_finisher_fx" and a.oamPriority == 1, "the actor is a plain field actor over the map")
@@ -118,7 +172,10 @@ local calls = 0
 love = { graphics = setmetatable({ getColor = function() return 1, 1, 1, 1 end }, {
   __index = function() return function() calls = calls + 1 end end }) }
 for kind in pairs(FinisherFx.RECIPES) do
-  local ok, err = pcall(function() FinisherFx.actor(kind, 6, 32, 48).draw(nil, 0, 0) end)
+  local ok, err = pcall(function()
+    FinisherFx.actor(kind, 6, 32, 48).draw(nil, 0, 0)
+    FinisherFx.hitActor(kind, 4, 32, 48, "weak", true).draw(nil, 0, 0)
+  end)
   if not ok then check(false, kind .. " draw errors: " .. tostring(err)) end
 end
 check(calls > 0, "every finisher draws (pixel by pixel without image support)")

@@ -243,7 +243,7 @@ function OverworldBattle:step(env)
   end
   for i = #self.hits, 1, -1 do
     self.hits[i].age = self.hits[i].age + 1
-    if self.hits[i].age >= HitEffect.LIFE then table.remove(self.hits, i) end
+    if self.hits[i].age >= math.max(HitEffect.LIFE, FinisherFx.HIT_TICKS) then table.remove(self.hits, i) end
   end
   local fin = self.finisher
   if fin then
@@ -362,8 +362,16 @@ function OverworldBattle:_mode_fight(env)
       local defenderIsWild = attackerIsAlly
       local hx, hy = self.baseX, self.baseY
       if defenderIsWild then hx, hy = e.px, e.py end
+      -- the plain impact, plus a small spark of the move's type sized by how well it
+      -- landed, and the real battle's hit sound for it (lib/finisher_fx.lua)
+      local c = self.combatDeps
+      local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
+      local power = FinisherFx.powerFor(ev.effectiveness)
       self.hits[#self.hits + 1] = { x = hx, y = hy, age = 0,
-        heavy = (ev.effectiveness or 1) > 1 or ev.critical or false }
+        heavy = (ev.effectiveness or 1) > 1 or ev.critical or false,
+        kind = FinisherFx.kindFor(row and row.type), power = power, crit = ev.critical == true }
+      local se = FinisherFx.hitSound(ev.effectiveness)
+      if se and self.deps.playSe then pcall(self.deps.playSe, se) end
       if defenderIsWild then
         self.wildFlash = cfg.flashTicks
       else
@@ -580,6 +588,8 @@ function OverworldBattle:collectActors(actors)
   for i, h in ipairs(self.hits) do
     local a = HitEffect.actor(h.x, h.y, h.age, h.heavy, 3, i)
     if a then actors[#actors + 1] = a end
+    local sp = h.kind and FinisherFx.hitActor(h.kind, h.age, h.x, h.y, h.power, h.crit, 3, i)
+    if sp then actors[#actors + 1] = sp end
   end
   local fin = self.finisher
   if fin then

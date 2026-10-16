@@ -229,8 +229,13 @@ do
     for kind, r in pairs(FinisherFx.RECIPES) do
       if not (okT and type(t) == "table" and t[r.se]) then missingSe[#missingSe + 1] = kind .. "=" .. tostring(r.se) end
     end
+    -- the ordinary hits' sounds (FinisherFx.hitSound), the real battle's own
+    for _, eff in ipairs({ 2, 1, 0.5 }) do
+      local se = FinisherFx.hitSound(eff)
+      if not (okT and type(t) == "table" and t[se]) then missingSe[#missingSe + 1] = "hit=" .. tostring(se) end
+    end
     check(#missingSe == 0, game .. ": every finisher's sound is in the game's own table ("
-      .. (#missingSe == 0 and "all 18" or table.concat(missingSe, ", ")) .. ")")
+      .. (#missingSe == 0 and "all 18 + 3 hit sounds" or table.concat(missingSe, ", ")) .. ")")
   end
 end
 
