@@ -127,7 +127,7 @@ Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option
 
 Select a Pokémon in the party menu and choose its job. Your party's leader follows you: put a
 different Pokémon first and it takes over as your follower. Pick someone else in the menu any
-time, and they stay out until you change your leader again. One partner is out at a time.
+time, and they stay out until you change your leader again. One partner is out at a time; giving the one already out a new job switches it on the spot.
 
 | Row | What it does |
 |---|---|

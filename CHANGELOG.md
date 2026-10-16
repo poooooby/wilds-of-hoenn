@@ -15,6 +15,10 @@
 
 ### Changed
 
+- **Changing your partner's job no longer puts it back in its ball.** Picking a new role for
+  the Pokemon already out lets it switch jobs on the spot; the ball only comes out when a
+  different Pokemon takes over, or one is recalled or sent out.
+
 - **Angry wild Pokemon chase you out of the grass.** Stepping onto the path no longer shakes off
   a Wild Reacts chaser: it follows you across open ground to catch you (never into the water or
   through a doorway), and when it gives up it walks back to its own grass. One that can't find

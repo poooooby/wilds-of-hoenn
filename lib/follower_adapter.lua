@@ -436,11 +436,20 @@ local function monShiny(mon)
 end
 
 local function dispOf(mon, role)
+  local id = tostring(mon and (mon.personality or ("species" .. tostring(mon.species))))
   return {
     mon = mon, role = role, species = mon and tonumber(mon.species) or nil,
     shiny = monShiny(mon),
-    key = tostring(mon and (mon.personality or ("species" .. tostring(mon.species)))) .. ":" .. tostring(role),
+    id = id .. ":" .. tostring(mon and mon.species),
+    key = id .. ":" .. tostring(role),
   }
+end
+
+-- The same Pokemon, out in the field before and after, only its job changed (follow ->
+-- battle ...): nothing to put away or send out, it just takes up the new role.
+local function sameMonNewJob(disp, target, renderer)
+  return disp.id == target.id and disp.role ~= "recall" and target.role ~= "recall"
+    and renderer ~= nil and (renderer.recall or 1) > 0.5
 end
 
 --- May a swap scene begin now? (No menu, message or fade, and the player
@@ -541,7 +550,9 @@ function FollowerAdapter:tick()
   elseif self.swap then
     self:_tickSwap()
   elseif target.key ~= self.disp.key then
-    if not (EnginePatch.screenBusy and EnginePatch.canStartInteraction) then
+    if sameMonNewJob(self.disp, target, self.renderer) then
+      self.disp = target
+    elseif not (EnginePatch.screenBusy and EnginePatch.canStartInteraction) then
       self.disp = target -- no engine to hold a scene in: just change over
     elseif FollowerAdapter.canSwap() and not self.action then
       self:_beginSwap(target)

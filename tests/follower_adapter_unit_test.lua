@@ -920,11 +920,23 @@ do
   eq(fs.renderer.recall, 1, "choosing a job brings it back out")
   eq(poses, 1, "...with one raise of the ball")
 
-  -- a job change on the same Pokemon is a swap too
+  -- a job change on the same Pokemon, already out: it just takes the new job, no ball
   poses = 0
+  local lockedBefore = locks
   saved = { personality = 222, role = "follow" }
-  for _ = 1, 200 do fs:tick() if poses > 0 and not fs:isBusy() then break end end
-  eq(poses, 2, "changing the job recalls and sends the same Pokemon out again")
+  busy = true -- even with the party menu still open
+  fs:tick()
+  busy = false
+  local shrank = false
+  for _ = 1, 60 do
+    fs:tick()
+    if fs:isBusy() and fs.swap then shrank = true end
+    if (fs.renderer.recall or 1) < 1 then shrank = true end
+  end
+  eq(poses, 0, "changing the job of the Pokemon already out raises no ball")
+  check(not shrank, "...it is never put away and sent out again")
+  eq(locks, lockedBefore, "...and the field is not held")
+  eq(fs.role, "follow", "...it simply has the new job")
 
   -- a map change drops a scene in progress, releasing the field
   saved = { personality = 111, role = "follow" }
