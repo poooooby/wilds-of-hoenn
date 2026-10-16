@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # What the mod needs to run, plus the licence / attribution / docs it ships with.
 SHIPPED_FILES = {
     "manifest.json", "main.lua", "options.lua",
-    "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "CHANGELOG.md",
+    "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "CHANGELOG.md", "COMMUNITY.md",
 }
 SHIPPED_DIRS = {"lib", "assets"}
 
@@ -44,7 +44,7 @@ EXCLUDED_DIRS = [
 # local build output (names change with every build, so these go stale harmlessly)
 BUILD_DIRS = ["dist"]  # every build goes to dist/ (scripts/build-mod.py default)
 # local notes, the developer guide and the README banner image
-EXCLUDED_FILES = ["CLAUDE.md", "DEVELOPMENT.md", "WoH.png"]
+EXCLUDED_FILES = ["CLAUDE.md", "DEVELOPMENT.md", "TODO.md", "WoH.png"]
 
 SKIP_DIR_NAMES = {"__pycache__", ".git", ".modkit", ".vscode"}
 

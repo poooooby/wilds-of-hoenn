@@ -30,7 +30,7 @@ eq(HealthBar.fillWidth("x", true), 1, "garbage reads as empty (but alive)")
 local function color(r) return { HealthBar.colorFor(r) } end
 check(color(1)[2] > color(1)[1], "healthy is green")
 check(color(0.4)[1] > 0.9 and color(0.4)[2] > 0.7, "under half is yellow")
-check(color(0.1)[1] > 0.8 and color(0.1)[2] < 0.3, "under a fifth is red")
+check(color(0.1)[1] > 0.8 and color(0.1)[2] < 0.4, "under a fifth is red")
 
 -- ------- the actor
 local a = HealthBar.actor(64, 48, 15, 30, 20, 3, 2)
@@ -41,21 +41,40 @@ check(a.sortY > 48, "sorts in front of the sprites")
 eq(a.i, 90702, "own id")
 check(pcall(a.draw, a, 0, 0), "drawing without love.graphics is harmless")
 
-local rects, saved = {}, love
-love = { graphics = {
-  setColor = function() end,
-  rectangle = function(mode, x, y, w, h) rects[#rects + 1] = { mode, x, y, w, h } end,
-} }
-a.draw(a, 0, 0)
-love = saved
-eq(#rects, 3, "outline, track and fill")
-eq(rects[3][4], 8, "the fill is half wide for half health")
+-- every pixel drawn exactly once, all at the bar's alpha (translucent rects must not overlap)
+local function paint(actor)
+  local px, alphas, n = {}, {}, 0
+  local saved = love
+  love = { graphics = {
+    setColor = function(_, _, _, al) alphas[#alphas + 1] = al end,
+    rectangle = function(_, x, y, w, h)
+      n = n + 1
+      for yy = y, y + h - 1 do for xx = x, x + w - 1 do
+        local k = xx .. "," .. yy
+        px[k] = (px[k] or 0) + 1
+      end end
+    end,
+  } }
+  actor.draw(actor, 0, 0)
+  love = saved
+  return px, alphas, n
+end
+local px, alphas = paint(a)
+local cells, twice = 0, 0
+for _, c in pairs(px) do cells = cells + 1 if c > 1 then twice = twice + 1 end end
+eq(cells, 18 * 5, "the bar covers its outline box (18 x 5)")
+eq(twice, 0, "no pixel is drawn twice (would darken at 80% alpha)")
+local allAlpha = true
+for i = 1, #alphas - 1 do if alphas[i] ~= HealthBar.ALPHA then allAlpha = false end end
+check(allAlpha and HealthBar.ALPHA == 0.8, "everything is drawn 80% opaque")
+eq(alphas[#alphas], 1, "the colour is reset afterwards")
 local empty = HealthBar.actor(0, 0, 0, 30, 20)
-rects = {}
-love = { graphics = { setColor = function() end, rectangle = function(m, x, y, w, h) rects[#rects + 1] = { m, x, y, w, h } end } }
-empty.draw(empty, 0, 0)
-love = saved
-eq(#rects, 2, "a defeated fighter draws no fill")
+local epx = paint(empty)
+cells, twice = 0, 0
+for _, c in pairs(epx) do cells = cells + 1 if c > 1 then twice = twice + 1 end end
+check(cells == 90 and twice == 0, "a defeated fighter: the empty band fills the bar, once")
+local p = HealthBar.paletteFor(1)
+check(p.light[2] > p.dark[2], "the middle row is brighter than its shade")
 
 -- ------- recall maths (shared by both renderers)
 eq(RecallMath.ease(0), 0, "ease(0)")

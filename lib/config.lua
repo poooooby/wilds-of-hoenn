@@ -16,6 +16,7 @@ Config.DEFAULTS = {
   wild_reacts = true,
   water_life = true,
   local_scenes = true,
+  type_aura = false,
 }
 
 Config.STATE = {
@@ -31,6 +32,22 @@ Config.STATE = {
 -- rustle, surfacing with a ripple on water, a fade anywhere else; the same reversed when
 -- one leaves. Ticks at 60 per second.
 Config.SPAWN_FX = { appearTicks = 26, leaveTicks = 22 }
+
+-- Water spawns as live swimmers (lib/behavior.lua swim, lib/spawn_manager.lua):
+--   runs   every one swims (none just float): a heading held for runMin..runMax tiles at
+--          stepFrames a tile (16 = walking pace), a pause of pauseMin..pauseMax ticks between
+--          runs; a blocked heading tries the other directions (turning back last)
+--   bob    a gentle rise and fall at the surface, bobAmp px, one cycle every bobTicks
+--   wake   a small ring left on each tile it swims off (r0 -> r1 px, life ticks)
+--   dive   every diveMin..diveMax ticks (when more than clearRadius tiles from the player)
+--          it sinks (sinkTicks), stays under underMin..underMax ticks, and surfaces in
+--          rings 1..hop tiles away (the arrival effect); nobody can touch it while under
+Config.SWIM = {
+  stepFrames = 22, runMin = 2, runMax = 5, pauseMin = 180, pauseMax = 360,
+  bobAmp = 1, bobTicks = 96,
+  wake = { life = 28, r0 = 3, r1 = 10 },
+  dive = { min = 600, max = 2700, sinkTicks = 22, underMin = 60, underMax = 180, hop = 3, clearRadius = 2 },
+}
 
 -- Density, per terrain (land and water each): MIN_VISIBLE plus one more Pokemon for
 -- every TILES_PER_ADDITIONAL eligible tiles, at most MAX_VISIBLE. These are the
@@ -118,7 +135,7 @@ Config.FLYERS = {
 -- angry and chases; an even match in between is not bothered.
 Config.REACT = {
   radius = 4, bikeRadius = 5,     -- how close the running / biking player has to come
-  aggroRadius = 2, bikeAggroRadius = 3, -- ...for a stronger one to get angry: much closer
+  aggroRadius = 1, bikeAggroRadius = 2, -- ...for a stronger one to get angry: right beside it
   weakRatio = 0.7, strongRatio = 1.3,
   -- how likely it reacts at all, by how far past its threshold the ratio is: `minChance` %
   -- just past it, rising evenly to 100% at `weakSure` (fleeing) / `strongSure` (chasing).
@@ -131,14 +148,18 @@ Config.REACT = {
   hopTicks = 12, hopPx = 3,       -- a startled little hop
   -- running pace; at the end of its run, `vanishChance` % of them disappear -- in grass
   -- shrinking into it with a rustle, in a cave fading out (lib/spawn_manager.lua fleeVanish)
-  flee = { steps = { 3, 6 }, frames = 8, vanishChance = 30 },
+  flee = { steps = { 1, 3 }, frames = 8, vanishChance = 30 },
   chase = { frames = 7,           -- a touch faster than a running player (8)
-            leash = { 4, 10 },    -- tiles it follows before giving up: rolled every chase
+            leash = { 2, 4 },     -- tiles it follows before giving up: rolled every chase
             -- PMDCollab: it charges with its Attack animation while it chases and on until
             -- its battle opens; no battle within `chargeTicks` of catching up -> it calms down
             chargeTicks = 90,
             secondsPerTile = 1.2, -- the matching time limit (leash x this)
-            noPathTicks = 60, returnSteps = { 2, 4 } },
+            noPathTicks = 60, returnSteps = { 2, 4 },
+            -- a land chaser follows the player off its own grass onto any open ground
+            -- (never water or a doorway); afterwards it walks home onto its terrain,
+            -- planning up to `homeSearch` cells, or leaves with the fade if it can't
+            anyGround = true, homeSearch = 24 },
   cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
 }
 
@@ -273,6 +294,8 @@ Config.OW_BATTLE = {
   restCheck = 30,       -- ticks between "healed yet?" checks while resting
   popupTicks = 110,     -- "+EXP" label time
   expShare = 0.5,       -- fraction of the engine's EXP value a win is worth
+  dropChance = 25,      -- % of knockouts that shake loose the wild Pokemon's held item (if it holds one)
+  dropShowAt = 18,      -- ticks after the knockout before the dropped item glints on the ground
   resumeFrac = 0.25,    -- healed past this share of max HP (with PP) it may fight again
 }
 
@@ -389,6 +412,10 @@ Config.PMD_FOLLOWER_GAP = 4
 Config.FOLLOWER_DUCK = { nudge = 4, minScale = 0.5, widen = 0.15, ease = 0.2, sweatFrom = 0.03, sweatMax = 3 }
 Config.PMD_FOLLOWER_IDLE_DELAY = 300
 Config.PMD_FOLLOWER_IDLE_SPEED = 0.5
+-- Resting on Idle's first frame, the follower is nudged so that frame's feet sit on its
+-- ground line (PmdRenderer.restLift); once the loop plays the nudge eases out over this
+-- many ticks instead of snapping.
+Config.PMD_REST_EASE_TICKS = 12
 Config.PMD_WILD_IDLE_SPEED = 0.75
 
 -- Follower interaction (lib/follower_interaction.lua, lib/interaction_limiter.lua).
@@ -542,6 +569,12 @@ end
 --- The Portraits option: the partner's portrait above its messages (lib/portrait_ui.lua).
 function Config.portraitsEnabled(mod)
   return optGet(mod, "portraits") ~= false
+end
+
+--- The Type Aura option: a soft puff of your partner's type now and then (embers, droplets,
+--- leaves ...). Off unless switched on.
+function Config.typeAura(mod)
+  return optGet(mod, "type_aura") == true
 end
 
 function Config.smoothFollow(mod)

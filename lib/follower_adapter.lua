@@ -28,12 +28,14 @@ local SweatDrop = V.require("sweat_drop")
 local MoodFx = V.require("mood_fx")
 local PopupText = V.require("popup_text")
 local ShinySparkle = V.require("shiny_sparkle")
+local PartnerFx = V.require("partner_fx")
 local FollowerSwap = V.require("follower_swap")
 
 local FollowerAdapter = {}
 FollowerAdapter.__index = FollowerAdapter
 
 local CELL = 16
+local POPUP_GAP = 3 -- px of air between the top of its head and a label's tail
 local SWAP_LOCK = "wilds_of_hoenn_follower_swap"
 FollowerAdapter.STEP_TICKS = 16 -- logic ticks per one-tile step
 
@@ -436,11 +438,20 @@ local function monShiny(mon)
 end
 
 local function dispOf(mon, role)
+  local id = tostring(mon and (mon.personality or ("species" .. tostring(mon.species))))
   return {
     mon = mon, role = role, species = mon and tonumber(mon.species) or nil,
     shiny = monShiny(mon),
-    key = tostring(mon and (mon.personality or ("species" .. tostring(mon.species)))) .. ":" .. tostring(role),
+    id = id .. ":" .. tostring(mon and mon.species),
+    key = id .. ":" .. tostring(role),
   }
+end
+
+-- The same Pokemon, out in the field before and after, only its job changed (follow ->
+-- battle ...): nothing to put away or send out, it just takes up the new role.
+local function sameMonNewJob(disp, target, renderer)
+  return disp.id == target.id and disp.role ~= "recall" and target.role ~= "recall"
+    and renderer ~= nil and (renderer.recall or 1) > 0.5
 end
 
 --- May a swap scene begin now? (No menu, message or fade, and the player
@@ -517,6 +528,14 @@ function FollowerAdapter:tick()
   elseif moodKind then
     self.moodAge = self.moodAge + 1
   end
+  self.fxClock = (self.fxClock or 0) + 1
+  -- with you (Pet / Play / Talk: its message, the menu, the scene): its type's puff runs
+  local st = self.interaction and self.interaction.state
+  if st == "report" or st == "menu" or st == "anim" or st == "result" then
+    self.withYouAge = (self.withYouAge or -1) + 1
+  else
+    self.withYouAge = nil
+  end
   local mon, role
   if self.companion then
     mon, role = self.companion:resolve(EnginePatch.partyMons())
@@ -541,7 +560,9 @@ function FollowerAdapter:tick()
   elseif self.swap then
     self:_tickSwap()
   elseif target.key ~= self.disp.key then
-    if not (EnginePatch.screenBusy and EnginePatch.canStartInteraction) then
+    if sameMonNewJob(self.disp, target, self.renderer) then
+      self.disp = target
+    elseif not (EnginePatch.screenBusy and EnginePatch.canStartInteraction) then
       self.disp = target -- no engine to hold a scene in: just change over
     elseif FollowerAdapter.canSwap() and not self.action then
       self:_beginSwap(target)
@@ -588,7 +609,7 @@ function FollowerAdapter:tick()
     if r.idleDelay ~= Config.PMD_FOLLOWER_IDLE_DELAY then
       -- first tick of a new sprite: it waits the full delay before idling too
       r.idleDelay = Config.PMD_FOLLOWER_IDLE_DELAY
-      if r.anim == "idle" then r.idleHold = r.idleDelay end
+      if r.anim == "idle" then r.idleHold, r.restEase = r.idleDelay, 1 end
     end
     r.idleSpeed = Config.PMD_FOLLOWER_IDLE_SPEED
     local moving = npc.moving or false
@@ -790,9 +811,16 @@ function FollowerAdapter:collectActors(actors)
     local r = self.renderer
     local act = r and r.act
     local state = self.actState or {}
+    -- just over its head as drawn (headLift: the highest point its art reaches, Species Sizes
+    -- included; squashed under an eave), not a fixed height
+    local head = (r and r.headLift and r:headLift()) or CELL
+    head = head * (1 - ((r and r.duck) or 0))
+    local lift = math.max(2, math.floor(head - CELL + POPUP_GAP + 0.5))
     local a = PopupText.actor(popup and popup.text or ready,
       npc.px + ((r and r.pushX) or 0) + ((act and act.dx) or state.dx or 0),
-      npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or state.dy or 0), npc.elevation, 22, popup and 0 or 1)
+      npc.py + ((r and r.pushY) or 0) + ((r and r.duckDy) or 0) + ((act and act.dy) or state.dy or 0),
+      npc.elevation, lift, popup and 0 or 1,
+      popup and popup.age or self.readyClock) -- its age animates a level-up
     if a then actors[#actors + 1] = a end
   end
   -- a shiny partner twinkles now and then (not while recalled into the player, nor while it
@@ -810,6 +838,30 @@ function FollowerAdapter:collectActors(actors)
     local lift = (sr:headLift() or CELL) * (1 - (sr.duck or 0))
     local a = ShinySparkle.actor(self.sparkleAge, 0, npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0),
       feetY - lift, lift * 0.85, ShinySparkle.bodyWidth(sr) * 0.5 * 0.8, feetY + 1, npc.elevation)
+    if a then actors[#actors + 1] = a end
+  end
+  -- its own touches (lib/partner_fx.lua): sparkles while it is ready to evolve; a puff of its
+  -- type while you Pet / Play / Talk with it, or now and then with the Type Aura option
+  if sr and npc.px and npc.py and (sr.recall or 1) >= 1 and sr.headLift and not underPlayer then
+    local act = sr.act
+    local x = npc.px + (sr.pushX or 0) + ((act and act.dx) or 0)
+    local y = npc.py + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
+    local lift = (sr:headLift() or CELL) * (1 - (sr.duck or 0))
+    local parts
+    local pending = self.readyPending
+    if pending and pending.evolve then parts = PartnerFx.evolveParts(self.fxClock or 0) end
+    local species = self.disp and self.disp.species
+    if species ~= self.fxSpecies then self.fxSpecies, self.fxKind = species, species and PartnerFx.kindFor(species) end
+    local puff
+    if self.fxKind and self.withYouAge then
+      puff = PartnerFx.typePuffParts(self.fxKind, self.withYouAge, PartnerFx.PUFF_PERIOD)
+    elseif self.fxKind and Config.typeAura(self.mod) and not self.action then
+      puff = PartnerFx.typePuffParts(self.fxKind, self.fxClock or 0, PartnerFx.AURA_PERIOD)
+    end
+    if puff and #puff > 0 then
+      if parts then for _, p in ipairs(puff) do parts[#parts + 1] = p end else parts = puff end
+    end
+    local a = parts and PartnerFx.actor(parts, x, y, lift, npc.elevation, 3)
     if a then actors[#actors + 1] = a end
   end
   -- crouching under a roof's edge: a sweat drop at the top corner of its (squashed) head

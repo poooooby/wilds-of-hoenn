@@ -399,6 +399,206 @@ do
   eq(OverworldBattle._restingCell(w), 12, "its resting cell is its destination (x)")
 end
 
+-- ------- the knockout blow: the finishing move's TYPE effect (lib/finisher_fx.lua)
+do
+  local NAMES = { [0] = "NORMAL", [7] = "GHOST", [11] = "WATER", [18] = "FAIRY" }
+  E.typeName = function(t) return NAMES[t] or "NORMAL" end
+  local played = {}
+  local allyR
+  local function fight(moveType, terrain)
+    reset()
+    played = {}
+    MOVES[2].type = moveType
+    local wild = wildEntity(1, 13, 10)
+    wild.terrain = terrain or "land"
+    local b = newBattler({ playSe = function(name) played[#played + 1] = name end })
+    local mon = newMon()
+    local log = { kinds = {}, hitKinds = {}, hitsAtKo = nil, finisherActor = false, alphaSeen = false, sinkSeen = false }
+    allyR = {}
+    for _ = 1, 2500 do
+      b:step(env(mon, { renderer = allyR }))
+      if b.finisher then
+        log.kinds[b.finisher.kind] = true
+        if not log.hitsAtKo then log.hitsAtKo = #b.hits end
+        log.shade = log.shade or (wild.renderer.shade and true)
+      end
+      if b.mode == "win" then
+        if wild.renderer.alpha and wild.renderer.alpha < 1 then log.alphaSeen = true end
+        if wild.renderer.act and (wild.renderer.act.sink or 0) > 0 then log.sinkSeen = true end
+      end
+      local actors = {}
+      b:collectActors(actors)
+      for _, a in ipairs(actors) do
+        if a.kind == "ow_finisher_fx" then log.finisherActor = true end
+        if a.kind == "ow_hit_spark" then log.hitSpark = true end
+      end
+      for _, h in ipairs(b.hits) do if h.kind then log.hitKinds[h.kind] = h.power end end
+      for _, a in ipairs(actors) do
+        if a.kind == "ow_move_fx" then log.moveFx = true end
+        if a.kind == "ow_ko_mark" then log.mark = true end
+      end
+      if b.turn and b.turn.ev.actor == "ally" and b.turn.t >= 3 and b.turn.t <= 10 then
+        if allyR.shade then log.allyGlow = true end
+      end
+      if b.mode == "idle" and allyR.shade then log.glowLeft = true end
+      if #defeated > 0 and b.mode == "idle" and not b.finisher then break end
+    end
+    log.b, log.wild = b, wild
+    return log
+  end
+
+  local w = fight(11)
+  check(w.kinds.WATER, "a Water move's knockout plays the WATER finisher")
+  local moveSounds, hitSounds = {}, 0
+  for _, name in ipairs(played) do
+    if name:find("^SE_M_") then moveSounds[#moveSounds + 1] = name
+    elseif name == "SE_EFFECTIVE" then hitSounds = hitSounds + 1 end
+  end
+  eq(#moveSounds, 1, "...with one move sound, on the knockout only")
+  eq(moveSounds[1], V.require("finisher_fx").soundFor("WATER"), "...Water's move sound")
+  eq(played[#played], moveSounds[1], "...the last sound of the fight")
+  check(hitSounds >= 1, "every ordinary hit plays the battle's own hit sound (" .. hitSounds .. ")")
+  eq(hitSounds + 1, #played, "...and nothing else makes a sound")
+  eq(w.hitKinds.WATER, "normal", "an ordinary Water hit shows a Water spark, landed normally")
+  check(w.hitSpark, "...drawn as a field actor")
+  check(w.moveFx, "each move shows its type's effect round the attacker while it is used")
+  check(w.allyGlow, "...and the Battler glows its colour over the wind-up")
+  check(not w.glowLeft, "...a glow that never outlasts the fight")
+  check(w.mark, "a Water knockout leaves a puddle where the Pokemon stood")
+  eq(#w.b.marks, 1, "...one mark, kept after the fight")
+  for _ = 1, V.require("finisher_fx").MARK_TICKS do w.b:step(env(newMon())) end
+  eq(#w.b.marks, 0, "...until it fades")
+  check(w.finisherActor, "...drawn as a field actor")
+  check(w.hitsAtKo == 0 or w.hitsAtKo == 1, "...in place of the plain impact (no extra hit effect for the KO)")
+  eq(#defeated, 1, "...and the wild Pokemon is still defeated and removed")
+  check(w.sinkSeen, "...sinking into the ground as before")
+  eq(w.b.finisher, nil, "the effect ends on its own")
+
+  local f = fight(18)
+  check(f.kinds.FAIRY, "a Fairy move (type 18, National Dex) plays the FAIRY finisher")
+  eq(played[#played], V.require("finisher_fx").soundFor("FAIRY"), "...with Fairy's sound")
+  check(f.shade, "...tinting the defeated Pokemon")
+  eq(f.wild.renderer.shade, nil, "...a tint cleared once it is gone")
+
+  local ps = fight(14)
+  check(not ps.mark, "a Psychic knockout leaves no mark")
+  local wet = fight(11, "water")
+  check(wet.kinds.WATER and not wet.mark, "nor does a knockout on the water (it still plays its finisher)")
+
+  local g = fight(7)
+  check(g.kinds.GHOST, "a Ghost move plays the GHOST finisher")
+  check(g.alphaSeen, "...the defeated Pokemon fades")
+  check(not g.sinkSeen, "...instead of sinking")
+
+  local n = fight(nil)
+  check(n.kinds.NORMAL, "a move with no type reads as NORMAL")
+
+  MOVES[2].type = nil
+  E.typeName = nil
+end
+
+-- ------- health bars sit just over the head
+do
+  local tall = { headLift = function() return 40 end, visualHeight = function() return 60 end }
+  eq(OverworldBattle.barLift(tall), 42, "a bar floats 2 px over the art's real top (headLift)")
+  eq(OverworldBattle.barLift({ visualHeight = function() return 30 end }), 32,
+    "...the visible height when the renderer has no headLift")
+  eq(OverworldBattle.barLift({}), 22, "...20 px when it can tell neither")
+  eq(OverworldBattle.barLift({ headLift = function() return 300 end }), 98, "a giant is capped")
+  eq(OverworldBattle.barLift(nil), 22, "no renderer at all")
+end
+
+-- ------- side by side, the Battler's bar goes over the wild one's
+do
+  local R = OverworldBattle.barRaise
+  eq(R(0, 0, 22, 16, 0, 22), 6, "equal heights side by side: up a bar and a row of air")
+  eq(R(0, 0, 22, 32, 0, 22), 0, "two tiles apart they do not touch")
+  eq(R(0, 0, 22, 0, 16, 22), 0, "the wild one a tile below: already clear")
+  eq(R(0, 0, 22, 16, 0, 25), 9, "a slightly taller wild one: higher still")
+  eq(R(0, 0, 40, 16, 0, 22), 0, "a much taller Battler is already above it")
+  eq(R(nil, 0, 22, 16, 0, 22), 0, "nothing to compare")
+end
+do
+  reset()
+  wildEntity(1, 13, 10)
+  local b = newBattler()
+  local mon = newMon()
+  local top, jump, prev, fought = 0, 0, 0, false
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    local r = b.barRaise or 0
+    if r > top then top = r end
+    if math.abs(r - prev) > jump then jump = math.abs(r - prev) end
+    prev = r
+    if b.mode == "fight" then fought = true end
+    if fought and b.mode == "idle" then break end
+  end
+  check(fought, "a real skirmish ran")
+  eq(top, 6, "side by side in a fight, the Battler's bar rose over the wild one's")
+  check(jump < 3, "...smoothly, a little each tick (largest step " .. jump .. ")")
+  eq(b.barRaise, 0, "...and settled back once the fight was over")
+end
+
+-- ------- a level-up shows a gold ring and sparkles round the Battler
+do
+  reset()
+  wildEntity(1, 13, 10)
+  local b = newBattler()
+  local mon = newMon({ exp = 90 })
+  local sawLevel, sawFx = false, false
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    if b.popup and b.popup:find("^Lv") then sawLevel = true end
+    local actors = {}
+    b:collectActors(actors)
+    for _, a in ipairs(actors) do if a.kind == "ow_partner_fx" then sawFx = true end end
+    if #defeated > 0 and b.mode == "idle" and not b.popup then break end
+  end
+  check(sawLevel, "the win levelled it up")
+  check(sawFx, "...with the level-up flourish round it")
+  eq(b.levelAge, nil, "...which ends on its own")
+end
+
+-- ------- a knockout can shake loose the wild Pokemon's real held item
+do
+  local function koWith(opts)
+    reset()
+    local wild = wildEntity(1, 13, 10)
+    local bagged, sounds = {}, 0
+    local b = newBattler({
+      heldItem = function(sp) return opts.item end,
+      bagCanAdd = function() return opts.fits ~= false end,
+      bagAdd = function(id, n) bagged[#bagged + 1] = id return true end,
+      itemName = function(id) return id == 139 and "ORAN BERRY" or nil end,
+      playFound = function() sounds = sounds + 1 end,
+      rng = function() return opts.roll or 1 end,
+    })
+    local mon = newMon()
+    local glint, labels, dropAtWin = false, {}, false
+    for _ = 1, 2500 do
+      b:step(env(mon))
+      if b.mode == "win" and b.drop then dropAtWin = true end
+      local actors = {}
+      b:collectActors(actors)
+      for _, a in ipairs(actors) do if a.kind == "ow_forage_sparkle" then glint = true end end
+      if b.popup and labels[#labels] ~= b.popup then labels[#labels + 1] = b.popup end
+      if #defeated > 0 and b.mode == "idle" and not b.popup then break end
+    end
+    return { bagged = bagged, sounds = sounds, glint = glint, labels = labels, drop = dropAtWin }
+  end
+  local r = koWith({ item = 139 })
+  eq(#r.bagged, 1, "a knockout that rolls the drop bags the species' held item once")
+  eq(r.bagged[1], 139, "...that item")
+  check(r.drop, "...lying on the ground while the Pokemon goes down")
+  check(r.glint, "...glinting there like a Forager find")
+  eq(r.labels[#r.labels], "Found ORAN BERRY!", "...then \"Found ORAN BERRY!\" after the EXP")
+  check(#r.labels >= 2, "...the EXP label first (" .. table.concat(r.labels, " / ") .. ")")
+  eq(r.sounds, 1, "...with the found sound")
+  eq(#koWith({ item = nil }).bagged, 0, "a Pokemon holding nothing drops nothing")
+  eq(#koWith({ item = 139, fits = false }).bagged, 0, "an item that will not fit in the bag is not dropped")
+  eq(#koWith({ item = 139, roll = 26 }).bagged, 0, "most knockouts drop nothing (dropChance %)")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

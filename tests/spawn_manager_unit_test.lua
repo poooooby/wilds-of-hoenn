@@ -971,6 +971,48 @@ do
   fakeEngine.playerIsRunning, fakeEngine.leadPartyMon = nil, nil
 end
 
+-- ------- a chaser left out on the path (its chase cut short) goes home; with Wild Reacts
+-- off it fades away instead
+do
+  local saved = {}
+  for _, k in ipairs({ "playerCell", "mapBounds", "terrainAt", "cellFree", "fieldBusy" }) do saved[k] = fakeEngine[k] end
+  fakeEngine.mapBounds = function() return 40, 5 end
+  -- grass x < 20, a path beyond it
+  fakeEngine.terrainAt = function(x) if x < 20 then return "land" end return nil end
+  fakeEngine.cellFree = function(x, y) return x >= 0 and y >= 0 and x < 40 and y < 5 end
+  local player = { x = 39, y = 4, moving = false }
+  fakeEngine.playerCell = function() return player end
+  local smS = SpawnManager.new(mod)
+  smS:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local stray
+  for _, e in pairs(smS.entities) do stray = stray or e end
+  -- it chased out onto the path, then the chase was cut short (no reaction running)
+  stray.cellX, stray.cellY, stray.px, stray.py = 23, 2, 23 * 16, 2 * 16
+  stray.chaseHome, stray.react, stray.fx = { x = 15, y = 2 }, nil, nil
+  smS:tick(smS.game)
+  check(stray.react and stray.react.mode == "return", "a stray on the path is sent home")
+  for _ = 1, 600 do
+    if not stray.react then break end
+    smS:tick(smS.game)
+  end
+  check(stray.cellX < 20, "...it walked back onto its grass (" .. stray.cellX .. ")")
+  eq(stray.chaseHome, nil, "...and forgot the way")
+  eq(smS:get(stray.id), stray, "...still there")
+
+  -- Wild Reacts off: nothing walks it home, so it fades out (once the field is free)
+  stray.cellX, stray.px, stray.chaseHome = 25, 25 * 16, { x = 15, y = 2 }
+  optionStore.wild_reacts = false
+  fakeEngine.fieldBusy = function() return true end
+  smS:tick(smS.game)
+  local STATE = V.require("config").STATE
+  eq(stray.state, STATE.AVAILABLE, "Wild Reacts off, the field busy: it waits")
+  fakeEngine.fieldBusy = function() return false end
+  smS:tick(smS.game)
+  eq(stray.state, STATE.LEAVING, "...then it fades away, never stuck on the path")
+  optionStore.wild_reacts = nil
+  for k, v in pairs(saved) do fakeEngine[k] = v end
+end
+
 -- ------- under the sea (a Dive map): fish swim in as a shadow; everything is drawn whole
 do
   local WaterLife = V.require("water_life")
@@ -1024,6 +1066,74 @@ do
   for k, v in pairs(saved) do fakeEngine[k] = v end
 end
 
+-- ------- swimmers: they bob, leave a wake, and now and then dive and come up elsewhere
+do
+  local Config = V.require("config")
+  local realT, realW, realPC = fakeEngine.terrainAt, fakeEngine.isWater, fakeEngine.playerCell
+  local ripples = 0
+  fakeEngine.startRipple = function() ripples = ripples + 1 end
+  local smW = SpawnManager.new(mod)
+  smW:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local e
+  for _, x in pairs(smW.entities) do e = e or x end
+  for id, x in pairs(smW.entities) do if x ~= e then smW:despawn(id) end end
+  fakeEngine.terrainAt = function(_x, y) return y == 0 and "water" or "land" end
+  fakeEngine.isWater = function() return true end
+  fakeEngine.playerCell = function() return { x = 30, y = 30 } end
+  e.terrain, e.cellX, e.cellY, e.px, e.py = "water", 2, 0, 32, 0
+
+  -- the bob
+  smW.ticks = 0
+  e.diveIn = 9999
+  smW:_swimLife(e)
+  local b0 = e.renderer.bobDy
+  smW.ticks = math.floor(Config.SWIM.bobTicks / 4)
+  smW:_swimLife(e)
+  check(b0 ~= e.renderer.bobDy and math.abs(e.renderer.bobDy) <= Config.SWIM.bobAmp, "a swimmer bobs, within bobAmp")
+
+  -- a wake where a step set off
+  e.moving, e.progress, e.fromX, e.fromY = true, 0, 2, 0
+  smW:_wakeOnStep(e)
+  eq(#e.wakes, 1, "a step on the water leaves a wake ring")
+  eq(e.wakes[1].x, 32, "...on the tile it left")
+  for _ = 1, Config.SWIM.wake.life do smW:_ageWakes(e) end
+  eq(e.wakes, nil, "...which fades away")
+  smW.underwater = true
+  smW:_wakeOnStep(e)
+  eq(e.wakes, nil, "under the sea: no wake (no surface)")
+  smW.underwater, e.moving, e.progress = nil, false, nil
+
+  -- the player right beside it: no dive yet
+  fakeEngine.playerCell = function() return { x = 3, y = 0 } end
+  e.diveIn = 1
+  smW:_swimLife(e)
+  eq(e.fx, nil, "it does not dive with the player right there")
+  fakeEngine.playerCell = function() return { x = 30, y = 30 } end
+
+  e.diveIn = 1
+  smW:_swimLife(e)
+  check(e.fx and e.fx.dive and e.fx.kind == "leave", "its time comes: it dives")
+  check(e.rings ~= nil and ripples > 0, "...in rings and a ripple")
+  eq(#smW:fightTargets(), 0, "a diving Pokemon is no Battler target")
+  for _ = 1, Config.SWIM.dive.sinkTicks do smW:_stepDive(e) end
+  check(e.fx.under and e.fx.under >= Config.SWIM.dive.underMin, "sunk: it stays under a while")
+  eq(e.renderer.act and e.renderer.act.sink, 1, "...out of sight")
+  eq(smW:entityAt(2, 0), nil, "...and nobody bumps into it there")
+  e.fx.under = 1
+  smW:_stepDive(e)
+  check(e.fx and e.fx.kind == "appear" and not e.fx.dive, "then it surfaces like a new arrival")
+  check(e.cellX ~= 2 and math.abs(e.cellX - 2) <= Config.SWIM.dive.hop and e.cellY == 0,
+    "...on open water a few tiles off (" .. e.cellX .. "," .. e.cellY .. ")")
+  eq(e.px, e.cellX * 16, "...drawn there")
+
+  -- despawned while under: gone at once, nothing to watch leave
+  e.fx = { kind = "leave", mode = "water", dive = true, under = 50, t = 0, n = 1 }
+  smW:despawn(e.id, { animate = true })
+  eq(smW.entities[e.id], nil, "despawned while under: removed at once")
+
+  fakeEngine.terrainAt, fakeEngine.isWater, fakeEngine.playerCell = realT, realW, realPC
+  fakeEngine.startRipple = nil
+end
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

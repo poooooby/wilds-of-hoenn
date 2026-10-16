@@ -85,7 +85,7 @@ return function(mod)
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.8.0"
+  mod.exports.version = "1.9.2"
   mod.exports.engineReady = false
   -- Public extension points for consumers; defaults stay unchanged.
   mod.exports.spriteAtlas = SpriteAtlas
@@ -187,6 +187,12 @@ return function(mod)
     defeat = function(id) spawnManager:despawn(id) end,
     chainRecord = ModernSpawns.chainRecord,
     playCry = EnginePatch.playCry,
+    -- the knockout's move sound (lib/finisher_fx.lua), at the game's SFX volume
+    playSe = EnginePatch.playSeNamed,
+    -- a knockout can shake loose the wild Pokemon's REAL held item (the game's own roll)
+    heldItem = EnginePatch.wildHeldItem, itemName = EnginePatch.itemName,
+    bagAdd = EnginePatch.bagAdd, bagCanAdd = EnginePatch.bagCanAdd,
+    playFound = EnginePatch.playSuccess,
     levelUp = function(mon, from, to) levelReady:record(mon, from, to) end,
     expFrozen = function(mon) return levelReady:pending(mon) ~= nil end,
     rng = math.random,

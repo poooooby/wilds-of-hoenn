@@ -1,5 +1,97 @@
 # Changelog
 
+## 1.9.2 (2026-10-16)
+
+### Fixed
+
+- **Sweet Scent works with the latest Gen1Recomp.** On the newest engine, using Sweet Scent
+  where wild Pokemon answer it could leave you unable to move afterwards. You are free again as
+  soon as the scent fades.
+- **No more getting stuck after a wild battle fails to open.** Using Sweet Scent in a cave (and
+  sometimes just standing in one) could leave you unable to move or open the menu while the
+  music played on. A wild Pokemon could wander onto the tile you were standing on and start a
+  battle by itself, and if that battle never opened (another mod getting in the way), you were
+  held in place for good. Wild Pokemon no longer walk onto you, and a battle that doesn't open is
+  dropped within a moment (at most 5 seconds) so you can move again.
+
+## 1.9.0 (2026-10-16)
+
+### Added
+
+- **Livelier Pokemon in the water.** Wild Pokemon on lakes and the sea swim about in short
+  runs, a few tiles one way, a pause, then off another way. They bob gently on the surface,
+  leave a small ring of wake on each tile they swim off, and every so often dive under and come
+  up a few tiles away inside spreading rings. Nothing can bump into one while it is under.
+
+- **Knockout effects for the Battler.** When your partner finishes off a wild Pokemon, the
+  final blow shows the type of the move that landed it: a splash of water exploding outward, a
+  burst of flame, leaves flung everywhere, a lightning bolt, shards of ice or rock, a dust cloud,
+  psychic rings, Fairy sparkles and hearts, and so on for every type, Fairy included when
+  National Dex Gen 3 is installed. Each plays the matching battle sound from the game itself
+  (Waterfall's splash, Thunderbolt's crack, Charm for Fairy ...) at the game's SFX volume, so
+  the options menu's slider applies, down to silent. Some tint the defeated Pokemon as it goes
+  down, and a Ghost move makes it fade away instead of sinking.
+- **Every Battler hit shows its type.** Ordinary blows spark with a little of their move's type
+  (droplets, embers, leaves, sparks ...) on top of the impact: a bigger burst and brighter flash
+  when it is super effective, dimmed and grey when it is not very effective, just a grey puff when
+  it has no effect, and a star on a critical hit. Each plays the battle's own hit sound for how
+  well it landed, at your SFX volume.
+- **Battler moves show their type as they are used.** The attacker glows its move's colour as it
+  winds up. A move that doesn't make contact (Water Gun, Ember, Confusion ...) gathers a few of
+  its type's particles, then flies across to the target as a projectile of its type, landing
+  just as the hit does; a contact move (Tackle, Scratch ...) simply lunges, leaving a trail of
+  puffs behind it (dust for Normal and Fighting). Which is which comes from the game's own move data.
+- **Knockouts leave a mark on the ground.** Fire, Water, Ground, Rock, Ice and Grass knockouts
+  leave a scorch, a puddle, a small crater, rubble, frost or grass clippings where the wild
+  Pokemon stood, fading after a few seconds (never on water).
+- **Knocked-out Pokemon can drop their held item.** A quarter of Battler knockouts shake
+  loose what the wild Pokemon was holding, rolled exactly as the game rolls a wild Pokemon's
+  held item (so most hold nothing, a Pikachu sometimes an Oran Berry and rarely a Light Ball).
+  It glints on the ground while the Pokemon goes down, then your partner picks it up: "Found
+  ORAN BERRY!" after the EXP, straight into your bag. Nothing drops if it would not fit.
+- **Your partner shows its type and milestones.** A Battler that levels up gets a gold ring and
+  sparkles rising round it; a partner ready to evolve has sparkles drifting up round it until
+  it does. While you Pet, Play or Talk with it, it gives off a little puff of its own type
+  (embers, droplets, leaves, sparks, snow, wisps ...; a Normal / Flying type like Pidgey puffs
+  Flying).
+- **New look for the labels over your partner.** EXP, finds and "New move ready!" / "Ready to
+  evolve!" pop up in a white speech bubble pointing down at your Pokemon, just over its head
+  (however tall it is) instead of floating high above it; a level-up ("Lv.12!") is rainbow
+  letters rising and falling in a wave over a soft glow. (The Game Boy games keep the plain
+  label.)
+- **Type Aura option** (off by default): your partner gives off that puff of its type now and
+  then as it follows you.
+
+### Changed
+
+- **Wild Reacts is less dramatic.** A startled Pokemon runs 1-3 tiles instead of 3-6. A
+  stronger one only gets angry when you run right up beside it (within a tile, 2 on a bike), and
+  gives up the chase after 2-4 tiles instead of 4-10.
+
+- **Changing your partner's job no longer puts it back in its ball.** Picking a new role for
+  the Pokemon already out lets it switch jobs on the spot; the ball only comes out when a
+  different Pokemon takes over, or one is recalled or sent out.
+
+- **Angry wild Pokemon chase you out of the grass.** Stepping onto the path no longer shakes off
+  a Wild Reacts chaser: it follows you across open ground to catch you (never into the water or
+  through a doorway), and when it gives up it walks back to its own grass. One that can't find
+  its way back slips away, so none is ever left stranded on the path.
+
+- **Battler health bars look like the battle screen's.** A bright middle stripe between darker
+  edges, white where health is gone, turning from green to yellow to red as it drops. They are slightly see-through so they
+  hide less of the field, and float just over each Pokemon's head, however tall it is;
+  when the two would overlap, your partner's bar glides up to sit above the wild one's.
+
+### Fixed
+
+- **Wild Pokemon in the water can move.** Water spawns never took a single step: the game's
+  surfing rules refused every one. They swim now (and a startled one can swim away).
+- **PMDCollab partners rest on their feet.** After stopping, a PMDCollab style partner holds
+  the first pose of its idle animation for a few seconds. For some species (Charmander, Altaria,
+  Noctowl ...) that pose reaches a little lower than how they stand, so they sat a pixel or
+  three into the ground; for others (Sawk, Drednaw ...) it stood a little high. The resting pose
+  now sits on the ground like the player's feet, easing back as the idle animation starts.
+
 ## 1.8.0 (2026-10-15)
 
 ### Added

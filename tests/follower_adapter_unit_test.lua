@@ -780,6 +780,16 @@ do
   for _, a in ipairs(actors) do if a.kind == "follower_popup" then popup = a end end
   check(popup ~= nil, "a find's label becomes a field actor")
   eq(popup.x, 64 + 16 + 8, "...above the follower's offset position")
+  local function liftWith(h)
+    fb.renderer.headLift = function() return h end
+    local acts = {}
+    fb:collectActors(acts)
+    for _, a in ipairs(acts) do if a.kind == "follower_popup" then return a.lift end end
+  end
+  eq(liftWith(30), 30 - 16 + 3, "...its tail just over the top of the head (3 px of air)")
+  eq(liftWith(60), 60 - 16 + 3, "...higher over a tall Pokemon")
+  eq(liftWith(12), 2, "...never down into a small one")
+  fb.renderer.headLift = nil
   popupOn = false
 
   -- the behaviour is told whether foraging is allowed here (routes / caves only)
@@ -920,11 +930,23 @@ do
   eq(fs.renderer.recall, 1, "choosing a job brings it back out")
   eq(poses, 1, "...with one raise of the ball")
 
-  -- a job change on the same Pokemon is a swap too
+  -- a job change on the same Pokemon, already out: it just takes the new job, no ball
   poses = 0
+  local lockedBefore = locks
   saved = { personality = 222, role = "follow" }
-  for _ = 1, 200 do fs:tick() if poses > 0 and not fs:isBusy() then break end end
-  eq(poses, 2, "changing the job recalls and sends the same Pokemon out again")
+  busy = true -- even with the party menu still open
+  fs:tick()
+  busy = false
+  local shrank = false
+  for _ = 1, 60 do
+    fs:tick()
+    if fs:isBusy() and fs.swap then shrank = true end
+    if (fs.renderer.recall or 1) < 1 then shrank = true end
+  end
+  eq(poses, 0, "changing the job of the Pokemon already out raises no ball")
+  check(not shrank, "...it is never put away and sent out again")
+  eq(locks, lockedBefore, "...and the field is not held")
+  eq(fs.role, "follow", "...it simply has the new job")
 
   -- a map change drops a scene in progress, releasing the field
   saved = { personality = 111, role = "follow" }
@@ -935,6 +957,44 @@ do
   eq(unlocks, locks, "...and every lock was released")
 
   for _, k in ipairs(names) do fakeEngine[k] = kept[k] end
+end
+
+-- ------- its own touches (lib/partner_fx.lua): evolve sparkles, type puffs, Type Aura
+do
+  fakeEngine.speciesTypes = function() return 10, 10 end -- a Fire type
+  fakeEngine.typeName = function(t) return t == 10 and "FIRE" or "NORMAL" end
+  optionStore.sprite_style = "pokemmo"
+  npc = { sprite = nil, moving = false, cellX = 4, cellY = 4, px = 64, py = 64, facing = "down", elevation = 3 }
+  local f = FollowerAdapter.new(mod)
+  f:tick()
+  local function partsNow()
+    local actors, out = {}, nil
+    f:collectActors(actors)
+    for _, a in ipairs(actors) do if a.kind == "ow_partner_fx" then out = a.parts end end
+    return out
+  end
+  local function has(parts, shape)
+    for _, p in ipairs(parts or {}) do if p[2] == shape then return true end end
+    return false
+  end
+  f.fxClock = 10
+  eq(partsNow(), nil, "nothing going on: no touches (Type Aura is off by default)")
+  f.readyPending = { moves = {}, evolve = true }
+  check(has(partsNow(), "sparkle"), "ready to evolve: sparkles drift up round it")
+  f.readyPending = nil
+  f.withYouAge = 8
+  check(has(partsNow(), "ember"), "while you Pet / Play / Talk with a Fire type: embers (whatever its mood)")
+  f.withYouAge = nil
+  optionStore.type_aura = true
+  check(has(partsNow(), "ember"), "with Type Aura on: an ember puff now and then")
+  f.fxClock = 100
+  eq(partsNow(), nil, "...with long rests in between")
+  optionStore.type_aura = nil
+  f.renderer.recall = 0
+  f.readyPending = { evolve = true }
+  f.fxClock = 10
+  eq(partsNow(), nil, "nothing while it is inside the player")
+  fakeEngine.speciesTypes, fakeEngine.typeName = nil, nil
 end
 
 -- ------- the "waiting to learn / evolve" label over the follower's head

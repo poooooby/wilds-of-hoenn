@@ -6,8 +6,10 @@
 --   fight    short turns (lib/ow_combat.lua: real moves, damage, PP); each turn
 --            the attacker leans in, the blow lands with a hit flash + impact,
 --            the target plays its hurt animation, the health bars drop ->
---   win      the wild Pokemon cries and sinks into the ground and is gone; the
---            Battler earns a share of the EXP ->  return -> idle
+--   win      the knockout blow shows an effect of the finishing move's TYPE (a water
+--            splash, flames, leaves, Fairy sparkles ... lib/finisher_fx.lua); the wild
+--            Pokemon cries and sinks into the ground (a Ghost blow: fades) and is gone;
+--            the Battler earns a share of the EXP ->  return -> idle
 --   (exhausted) the Battler is at 1 HP / out of attacks: the wild Pokemon is
 --            let go, the Battler runs back to the player, cries and shrinks
 --            into them (retreat -> cry -> recall -> rest); it stays inside until
@@ -28,6 +30,9 @@ local ActorRenderer = V.require("actor_renderer")
 local HealthBar = V.require("health_bar")
 local HitEffect = V.require("hit_effect")
 local PopupText = V.require("popup_text")
+local ForageSparkle = V.require("forage_sparkle")
+local PartnerFx = V.require("partner_fx")
+local FinisherFx = V.require("finisher_fx")
 
 local OverworldBattle = {}
 OverworldBattle.__index = OverworldBattle
@@ -43,6 +48,8 @@ local CELL = 16
 ---   defeat(id)                  remove a defeated wild Pokemon
 ---   chainRecord(species, result) optional: count a win toward a shiny chain
 ---   playCry(species)            the engine cry
+---   playSe(name)                optional: an engine sound effect by SE_* name (the
+---                               knockout's move sound; the game's SFX volume applies)
 ---   rng() -> [0,1)              optional
 ---   cfg                         optional (Config.OW_BATTLE)
 --- }
@@ -62,7 +69,13 @@ function OverworldBattle:reset()
   self.facing = nil
   self.fight, self.turn, self.wild, self.target = nil, nil, nil, nil
   self.popup, self.popupAge = nil, 0
+  self.popupNext = nil
+  self.drop = nil
+  self.levelAge = nil
   self.hits = {}
+  self.finisher = nil
+  self.barRaise = 0
+  self.marks = {}
   self.flash = 0
   self.away = false
   self.path, self.pathIdx = nil, 0
@@ -77,8 +90,14 @@ function OverworldBattle:_release()
   local e = self.target
   if e then
     e.engaged, e.owPose = false, nil
-    if e.renderer then e.renderer.act = nil end
+    if e.renderer then
+      e.renderer.act = nil
+      -- a knockout's tint / fade (lib/finisher_fx.lua) never outlives the fight
+      if self.shadedBy == e then e.renderer.shade, e.renderer.alpha = nil, nil end
+    end
   end
+  self.shadedBy, self.koFades = nil, nil
+  self:_clearAura()
   self.target = nil
 end
 
@@ -227,13 +246,38 @@ function OverworldBattle:step(env)
   if self.flash > 0 then self.flash = self.flash - 1 end
   if self.popup then
     self.popupAge = self.popupAge + 1
-    if self.popupAge >= cfg.popupTicks then self.popup = nil end
+    if self.popupAge >= cfg.popupTicks then
+      self.popup = nil
+      -- a second label waiting (a held item found after the EXP)
+      local nxt = self.popupNext
+      if nxt then
+        self.popupNext = nil
+        self.popup, self.popupAge = nxt.text, 0
+        if nxt.sound and self.deps.playFound then pcall(self.deps.playFound) end
+      end
+    end
   end
   for i = #self.hits, 1, -1 do
     self.hits[i].age = self.hits[i].age + 1
-    if self.hits[i].age >= HitEffect.LIFE then table.remove(self.hits, i) end
+    if self.hits[i].age >= math.max(HitEffect.LIFE, FinisherFx.HIT_TICKS) then table.remove(self.hits, i) end
+  end
+  for i = #self.marks, 1, -1 do
+    local m = self.marks[i]
+    m.age = m.age + 1
+    if m.age >= FinisherFx.MARK_TICKS then table.remove(self.marks, i) end
+  end
+  if self.drop then self.drop.age = self.drop.age + 1 end
+  if self.levelAge then
+    self.levelAge = self.levelAge + 1
+    if self.levelAge >= PartnerFx.LEVEL_TICKS then self.levelAge = nil end
+  end
+  local fin = self.finisher
+  if fin then
+    fin.age = fin.age + 1
+    if fin.age >= FinisherFx.TICKS then self.finisher = nil end
   end
   self.dx, self.dy = self.wx - env.fpx, self.wy - env.fpy
+  self:_tickBarRaise(env)
 
   -- a skirmish whose wild Pokemon vanished (the player started their own battle
   -- with it, it was despawned ...) is dropped
@@ -241,6 +285,7 @@ function OverworldBattle:step(env)
     or (self.deps.alive and not self.deps.alive(self.target)))
   if gone then
     if self.mode == "chase" or self.mode == "fight" or self.mode == "win" then
+      self.drop = nil -- nothing is bagged until it is picked up
       self:_release()
       self.fight, self.wild = nil, nil
       self.mode = "return"
@@ -314,6 +359,13 @@ function OverworldBattle:_mode_fight(env)
       return self:_finishFight(env)
     end
     self.turn = { ev = ev, t = 0 }
+    -- the move's look while it is used (lib/finisher_fx.lua moveParticles): its type, and
+    -- whether it makes contact (a lunge with a trail) or not (a projectile)
+    local c = self.combatDeps
+    local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
+    if row and not ev.skipped then
+      self.turn.kind, self.turn.contact = FinisherFx.kindFor(row.type), row.contact ~= false
+    end
   end
   local turn = self.turn
   turn.t = turn.t + 1
@@ -336,12 +388,24 @@ function OverworldBattle:_mode_fight(env)
 
   -- the blow lands
   if turn.t == cfg.windup and not ev.skipped then
-    if ev.hit then
+    if ev.hit and attackerIsAlly and ev.result == "win" then
+      -- the knockout: the finishing move's type effect instead of the plain impact
+      self:_startFinisher(ev, e)
+      self.wildFlash = cfg.flashTicks
+    elseif ev.hit then
       local defenderIsWild = attackerIsAlly
       local hx, hy = self.baseX, self.baseY
       if defenderIsWild then hx, hy = e.px, e.py end
+      -- the plain impact, plus a small spark of the move's type sized by how well it
+      -- landed, and the real battle's hit sound for it (lib/finisher_fx.lua)
+      local c = self.combatDeps
+      local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
+      local power = FinisherFx.powerFor(ev.effectiveness)
       self.hits[#self.hits + 1] = { x = hx, y = hy, age = 0,
-        heavy = (ev.effectiveness or 1) > 1 or ev.critical or false }
+        heavy = (ev.effectiveness or 1) > 1 or ev.critical or false,
+        kind = FinisherFx.kindFor(row and row.type), power = power, crit = ev.critical == true }
+      local se = FinisherFx.hitSound(ev.effectiveness)
+      if se and self.deps.playSe then pcall(self.deps.playSe, se) end
       if defenderIsWild then
         self.wildFlash = cfg.flashTicks
       else
@@ -364,9 +428,82 @@ function OverworldBattle:_mode_fight(env)
   local flashRatio = (self.wildFlash or 0) / cfg.flashTicks
   self:_wildVisual(wildAnim, cfg.attackSpeed, wildLeanX, wildLeanY, flashRatio, nil)
 
+  -- the attacker glows its move's colour over the wind-up
+  local attackerR = attackerIsAlly and env.renderer or e.renderer
+  local aura = turn.kind and FinisherFx.auraShade(turn.kind, turn.t, cfg.windup)
+  if aura and attackerR and self.shadedBy ~= e then
+    attackerR.shade, self.auraOn = aura, attackerR
+  else
+    self:_clearAura()
+  end
+
   if turn.t >= cfg.turnTicks then self.turn = nil end
   return state(self, env, { moving = false, anim = allyAnim or "idle", animSpeed = cfg.attackSpeed,
     bounce = allyAnim ~= nil, flapTicks = 4 })
+end
+
+--- The knockout blow's effect: the finishing move's type (lib/finisher_fx.lua), on the
+--- defeated Pokemon's tile; its tint goes on the Pokemon while it goes down.
+function OverworldBattle:_startFinisher(ev, e)
+  local c = self.combatDeps
+  local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
+  local kind = FinisherFx.kindFor(row and row.type)
+  self.finisher = { kind = kind, age = 0, x = e.px, y = e.py }
+  self:_rollDrop(e)
+  -- a mark left on the ground (never on water; one per tile, the newest)
+  if FinisherFx.leavesMark(kind) and e.terrain ~= "water" then
+    for i = #self.marks, 1, -1 do
+      if self.marks[i].x == e.px and self.marks[i].y == e.py then table.remove(self.marks, i) end
+    end
+    self.marks[#self.marks + 1] = { kind = kind, age = 0, x = e.px, y = e.py, elevation = e.elevation }
+  end
+  local recipe = FinisherFx.recipe(kind)
+  self.koFades = recipe.fade == true -- outlives the drawn effect: the whole win
+  if recipe.se and self.deps.playSe then pcall(self.deps.playSe, recipe.se) end
+  if e.renderer and recipe.shade then
+    e.renderer.shade = recipe.shade
+    self.shadedBy = e
+  end
+end
+
+-- The knockout may shake loose the wild Pokemon's held item: `dropChance` % of knockouts,
+-- then the game's own held-item roll for its species (most hold nothing). Only an item
+-- that fits in the bag drops; it is bagged when the Battler picks it up (end of the win).
+function OverworldBattle:_rollDrop(e)
+  self.drop = nil
+  local d = self.deps
+  if not (d.heldItem and d.bagAdd) then return end
+  local rng = d.rng or math.random
+  if rng(1, 100) > (self.cfg.dropChance or 0) then return end
+  local ok, item = pcall(d.heldItem, e.species)
+  if not (ok and item) then return end
+  if d.bagCanAdd and not d.bagCanAdd(item) then return end
+  -- it lands a little toward the Battler, in front of the fallen Pokemon (on its own tile
+  -- the sprite would hide the glint)
+  local function toward(a, b) return (b > a and 1) or (b < a and -1) or 0 end
+  local bx, by = self.baseX or e.px, self.baseY or e.py
+  self.drop = { item = item, age = 0, elevation = e.elevation, sortY = e.py + 1,
+    x = e.px + toward(e.px, bx) * 6, y = e.py + toward(e.py, by) * 6 + 3 }
+end
+
+-- Picks the dropped item up: into the bag, "Found X!" after the EXP label.
+function OverworldBattle:_pickUpDrop()
+  local drop = self.drop
+  self.drop = nil
+  if not drop then return end
+  local ok, added = pcall(self.deps.bagAdd, drop.item, 1)
+  if not (ok and added) then return end
+  local name = self.deps.itemName and self.deps.itemName(drop.item) or "an item"
+  self.popupNext = { text = "Found " .. tostring(name) .. "!", sound = true }
+end
+
+-- Takes the wind-up glow off whoever had it.
+function OverworldBattle:_clearAura()
+  local r = self.auraOn
+  if r then
+    if r ~= (self.shadedBy and self.shadedBy.renderer) then r.shade = nil end
+    self.auraOn = nil
+  end
 end
 
 function OverworldBattle:_finishFight(env)
@@ -396,7 +533,14 @@ function OverworldBattle:_mode_win(env)
   self.wx, self.wy = self.baseX, self.baseY
   local sink = 0
   if self.t > cfg.winPause then sink = math.min(1, (self.t - cfg.winPause) / cfg.sinkTicks) end
-  self:_wildVisual("idle", 1, 0, 0, nil, sink)
+  -- a Ghost-type knockout: it fades away where it stood instead of sinking
+  if self.koFades and e.renderer then
+    e.renderer.alpha = 1 - sink
+    self.shadedBy = e
+    self:_wildVisual("idle", 1, 0, 0, nil, nil)
+  else
+    self:_wildVisual("idle", 1, 0, 0, nil, sink)
+  end
   if sink >= 1 then
     -- gone; the EXP
     local amount = OwCombat.expReward(self.wild, self.combatDeps, cfg.expShare)
@@ -409,6 +553,7 @@ function OverworldBattle:_mode_win(env)
       text = "+" .. amount .. " EXP"
       if result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel then
         text = "Lv." .. result.toLevel .. "!"
+        self.levelAge = 0 -- a gold ring and sparkles round it (lib/partner_fx.lua)
         -- it cannot learn or evolve mid-walk: tell the owner, which asks the player
         if self.deps.levelUp then pcall(self.deps.levelUp, env.mon, result.fromLevel, result.toLevel) end
       end
@@ -420,6 +565,12 @@ function OverworldBattle:_mode_win(env)
     if self.deps.defeat then self.deps.defeat(id) end
     self.fight, self.wild = nil, nil
     self.popup, self.popupAge = text, 0
+    self:_pickUpDrop()
+    if not self.popup and self.popupNext then
+      -- no EXP label: the find shows at once
+      self.popup, self.popupAge, self.popupNext = self.popupNext.text, 0, nil
+      if self.deps.playFound then pcall(self.deps.playFound) end
+    end
     self.mode, self.t = "return", 0
     return self:_mode_return(env)
   end
@@ -481,6 +632,45 @@ end
 
 -- ---------------------------------------------------------------- overlays
 
+--- How high a health bar floats: just over the top of the art as drawn (`headLift`, the
+--- highest point any Walk / Idle frame reaches, Species Sizes included -- what the emotes
+--- and shiny sparkle use), `HEAD_GAP` px of air between. Pure; for testing.
+local HEAD_GAP = 2
+function OverworldBattle.barLift(r)
+  local h = r and ((r.headLift and r:headLift()) or (r.visualHeight and r:visualHeight()))
+  h = tonumber(h) or 20
+  return math.max(10, math.min(96, h)) + HEAD_GAP
+end
+
+--- How many px the Battler's own health bar has to rise to clear the wild one's: two
+--- fighters side by side at about the same height would draw their bars over each other,
+--- so the Battler's goes on top, a row of air between. 0 when they do not touch.
+--- (ax, ay) / (wx, wy) = the fighters' tiles (world px), lifts from `barLift`. Pure.
+local BAR_W, BAR_H = HealthBar.WIDTH + 2, 5
+function OverworldBattle.barRaise(ax, ay, aLift, wx, wy, wLift)
+  if not (ax and ay and wx and wy) then return 0 end
+  local aTop, wTop = ay - aLift, wy - wLift
+  if math.abs(ax - wx) >= BAR_W or math.abs(aTop - wTop) > BAR_H then return 0 end
+  return math.max(0, aTop - (wTop - BAR_H - 1))
+end
+
+-- Eases `barRaise` toward where the Battler's bar has to sit: quickly, but never a jump.
+function OverworldBattle:_tickBarRaise(env)
+  local e = self.target
+  local goal = 0
+  if self.fight and e and (self.mode == "fight" or self.mode == "chase") then
+    goal = OverworldBattle.barRaise(self.wx, self.wy, OverworldBattle.barLift(env.renderer),
+      e.px, e.py, OverworldBattle.barLift(e.renderer))
+  end
+  local cur = self.barRaise or 0
+  local diff = goal - cur
+  if math.abs(diff) <= 0.5 then
+    self.barRaise = goal
+  else
+    self.barRaise = cur + diff * (self.cfg.barEase or 0.3)
+  end
+end
+
 --- Health bars, hit effects and the "+EXP" label as field actors.
 function OverworldBattle:collectActors(actors)
   local env = self.env
@@ -488,16 +678,46 @@ function OverworldBattle:collectActors(actors)
   local fighting = self.fight ~= nil and (self.mode == "fight" or self.mode == "chase")
   if fighting and self.target then
     local e = self.target
-    local lift = 20
-    local r = env.renderer
-    if r and r.visualHeight then lift = math.max(14, math.min(48, (r:visualHeight() or 20))) end
-    actors[#actors + 1] = HealthBar.actor(self.wx, self.wy, self.shownAlly, env.mon.maxHp, lift + 4, 3, 1)
-    local wlift = 20
-    if e.renderer and e.renderer.visualHeight then wlift = math.max(14, math.min(48, e.renderer:visualHeight() or 20)) end
-    actors[#actors + 1] = HealthBar.actor(e.px, e.py, self.shownWild, self.wild.maxHp, wlift + 4, 3, 2)
+    actors[#actors + 1] = HealthBar.actor(self.wx, self.wy, self.shownAlly, env.mon.maxHp,
+      OverworldBattle.barLift(env.renderer) + math.floor((self.barRaise or 0) + 0.5), 3, 1)
+    actors[#actors + 1] = HealthBar.actor(e.px, e.py, self.shownWild, self.wild.maxHp,
+      OverworldBattle.barLift(e.renderer), 3, 2)
+  end
+  if self.levelAge then
+    local a = PartnerFx.actor(PartnerFx.levelUpParts(self.levelAge), self.wx, self.wy,
+      OverworldBattle.barLift(env.renderer) - 2, 3, 1)
+    if a then actors[#actors + 1] = a end
+  end
+  local drop = self.drop
+  if drop and drop.age >= (self.cfg.dropShowAt or 0) then
+    local a = ForageSparkle.actor(drop.x, drop.y, drop.age - (self.cfg.dropShowAt or 0), drop.elevation or 3, 7)
+    a.sortY = math.max(a.sortY, drop.sortY or a.sortY) -- over the fallen Pokemon's feet
+    actors[#actors + 1] = a
+  end
+  for i, m in ipairs(self.marks) do
+    local a = FinisherFx.markActor(m.kind, m.age, m.x, m.y, m.elevation or 3, i)
+    if a then actors[#actors + 1] = a end
+  end
+  local turn = self.turn
+  if turn and turn.kind and self.target and self.mode == "fight" then
+    local e = self.target
+    local ax, ay, tx, ty = self.baseX, self.baseY, e.px, e.py
+    if turn.ev.actor ~= "ally" then ax, ay, tx, ty = e.px, e.py, self.baseX, self.baseY end
+    if ax and tx then
+      local a = FinisherFx.moveActor(turn.kind, turn.contact, turn.t, self.cfg.windup, ax, ay,
+        tx - ax, ty - ay, self.cfg.lunge, 3, 1)
+      if a then actors[#actors + 1] = a end
+    end
   end
   for i, h in ipairs(self.hits) do
     local a = HitEffect.actor(h.x, h.y, h.age, h.heavy, 3, i)
+    if a then actors[#actors + 1] = a end
+    local sp = h.kind and FinisherFx.hitActor(h.kind, h.age, h.x, h.y, h.power, h.crit, 3, i)
+    if sp then actors[#actors + 1] = sp end
+  end
+  local fin = self.finisher
+  if fin then
+    local a = FinisherFx.actor(fin.kind, fin.age, fin.x, fin.y, 3, 0)
     if a then actors[#actors + 1] = a end
   end
 end

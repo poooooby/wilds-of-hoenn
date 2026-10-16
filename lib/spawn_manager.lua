@@ -489,6 +489,8 @@ function SpawnManager:_reactContext()
   end
   ctx.takeoff = ctx.takeoff or function(e) self:despawn(e.id, { animate = true, fly = true }) end
   ctx.fleeVanish = ctx.fleeVanish or function(e) self:fleeVanish(e) end
+  -- a chaser stuck off its grass with no way home leaves (its tile's leave fx: a fade)
+  ctx.strand = ctx.strand or function(e) self:despawn(e.id, { animate = true }) end
   ctx.onContact = ctx.onContact or function(e) if self.onContact then self.onContact(e) end end
   return ctx
 end
@@ -533,6 +535,7 @@ function SpawnManager:tick(game)
       e.rings.age = e.rings.age + 1
       if e.rings.age >= SpawnFx.ringsTicks() then e.rings = nil end
     end
+    if e and e.wakes then self:_ageWakes(e) end
     if e and e.rustle then -- a landing / take-off's rustle, on its own clock too
       e.rustle.age = e.rustle.age + 1
       if not SpawnFx.rustleFrame(e.rustle.frames, e.rustle.age) then e.rustle = nil end
@@ -550,6 +553,11 @@ function SpawnManager:tick(game)
       elseif done then
         self:_touchDown(e)
       end
+    elseif e and e.fx and e.fx.dive then
+      -- diving (Config.SWIM.dive): sinking, under, then surfacing somewhere near
+      if e.moving then Behavior._advanceMove(e) end
+      if e.renderer and e.renderer.advance then e.renderer:advance(e.moving) end
+      self:_stepDive(e)
     elseif e and e.fx then
       -- arriving / leaving (lib/spawn_fx.lua): it finishes a step it was on, nothing else
       if e.moving then Behavior._advanceMove(e) end
@@ -583,9 +591,22 @@ function SpawnManager:tick(game)
         else
           WildReactions.finish(e, self.ticks, Config.REACT.cooldown)
         end
+      elseif e.chaseHome and not e.moving and Behavior.offTerrain(e) then
+        -- a chaser left out on open ground (its chase cut short): home it goes, quietly;
+        -- with Wild Reacts switched off it fades away instead (once the field is free)
+        if reactCtx then
+          WildReactions.sendHome(e)
+        elseif not (EnginePatch.fieldBusy and EnginePatch.fieldBusy())
+            and not (EnginePatch.battleActive and EnginePatch.battleActive()) then
+          e.chaseHome = nil
+          self:despawn(e.id, { animate = true })
+        end
       else
+        if e.chaseHome and not Behavior.offTerrain(e) then e.chaseHome = nil end
         Behavior.tick(e, self.game)
+        self:_swimLife(e)
       end
+      self:_wakeOnStep(e)
       local r = e.renderer
       if r and r.isPmd and ((e.react and e.react.mode == "chase") or e.charging) then
         -- an angry one charges at the player with its Attack animation (Walk without one),
@@ -691,6 +712,10 @@ function SpawnManager:collectActors(actors, camX, camY)
         if a then actors[#actors + 1] = a end
       end
     elseif e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) then
+      for _, w in ipairs(e.wakes or {}) do
+        local a = SpawnFx.wakeActor(w.age, Config.SWIM.wake, w.x, w.y, e.elevation, id)
+        if a then actors[#actors + 1] = a end
+      end
       local pose = poseOf(e)
       actors[#actors + 1] = {
         kind = "wild_mon", i = id,
@@ -751,7 +776,7 @@ function SpawnManager:entityAt(tx, ty)
     local e = self.entities[id]
     -- one still in the air (arriving by sky) is not there yet
     if e and e.state == Config.STATE.AVAILABLE and e.cellX == tx and e.cellY == ty
-      and not travelling(e) then
+      and not travelling(e) and not (e.fx and e.fx.under) then
       return e
     end
   end
@@ -792,6 +817,96 @@ end
 function SpawnManager:markEncounterStarting(id)
   local e = self.entities[id]
   if e then e.state = Config.STATE.ENCOUNTER_STARTING end
+end
+
+-- ---------------------------------------------------------------- swimmers (Config.SWIM)
+
+-- a water spawn at the surface (not under the sea, where they swim as shadows)
+function SpawnManager:_atSurface(e)
+  return e.terrain == "water" and not self.underwater
+end
+
+--- Per tick for a swimmer left to itself: its bob, and now and then a dive.
+function SpawnManager:_swimLife(e)
+  if not self:_atSurface(e) then return end
+  local cfg = Config.SWIM
+  local r = e.renderer
+  if r then
+    local phase = ((self.ticks or 0) + e.id * 37) / cfg.bobTicks * math.pi * 2
+    r.bobDy = math.sin(phase) * cfg.bobAmp
+  end
+  local d = cfg.dive
+  if not e.diveIn then e.diveIn = math.random(d.min, d.max) end
+  e.diveIn = e.diveIn - 1
+  if e.diveIn > 0 or e.moving or e.roamer or e.isFlyer or e.lured or e.react or e.engaged or e.charging then
+    return
+  end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p and math.max(math.abs(p.x - e.cellX), math.abs(p.y - e.cellY)) <= d.clearRadius then
+    e.diveIn = 120 -- the player is right there: later
+    return
+  end
+  e.diveIn = nil
+  e.fx = SpawnFx.new("leave", "water", d.sinkTicks)
+  e.fx.dive = true
+  e.rings = { age = 0 }
+  if EnginePatch.startRipple then EnginePatch.startRipple(e.cellX, e.cellY) end
+  if r then r.bobDy = 0 end
+  self:_applyFx(e)
+end
+
+--- One tick of a dive: sinking (the leave effect), under (hidden, `fx.under` ticks), then
+--- up again 1..hop tiles away on open water nobody stands on (or where it went down),
+--- surfacing in rings like a new arrival.
+function SpawnManager:_stepDive(e)
+  local fx, d = e.fx, Config.SWIM.dive
+  if fx.under then
+    fx.under = fx.under - 1
+    if fx.under > 0 then return end
+    local spots = {}
+    for dy = -d.hop, d.hop do
+      for dx = -d.hop, d.hop do
+        local x, y = e.cellX + dx, e.cellY + dy
+        if (dx ~= 0 or dy ~= 0) and EnginePatch.terrainAt(x, y) == "water"
+          and (not EnginePatch.isWater or EnginePatch.isWater(x, y + 1)) and self:_cellFree(x, y) then
+          spots[#spots + 1] = { x = x, y = y }
+        end
+      end
+    end
+    if #spots > 0 then
+      local c = spots[math.random(1, #spots)]
+      e.cellX, e.cellY, e.px, e.py = c.x, c.y, c.x * 16, c.y * 16
+    end
+    e.facing = ({ "up", "down", "left", "right" })[math.random(1, 4)]
+    e.swim = nil
+    e.wakes = nil
+    e.fx = SpawnFx.new("appear", "water", (Config.SPAWN_FX or {}).appearTicks)
+    e.rings = { age = 0 }
+    if EnginePatch.startRipple then EnginePatch.startRipple(e.cellX, e.cellY) end
+    self:_applyFx(e)
+    return
+  end
+  local done = SpawnFx.step(fx)
+  self:_applyFx(e)
+  if done then fx.under = math.random(d.underMin, d.underMax) end -- stays sunk (act.sink 1)
+end
+
+--- A step just began on the water: a small ring where it set off.
+function SpawnManager:_wakeOnStep(e)
+  if not (e.moving and e.progress == 0 and self:_atSurface(e)) then return end
+  e.wakes = e.wakes or {}
+  if #e.wakes >= 4 then table.remove(e.wakes, 1) end
+  e.wakes[#e.wakes + 1] = { x = e.fromX * 16, y = e.fromY * 16, age = 0 }
+end
+
+function SpawnManager:_ageWakes(e)
+  local life = Config.SWIM.wake.life
+  for i = #e.wakes, 1, -1 do
+    local w = e.wakes[i]
+    w.age = w.age + 1
+    if w.age >= life then table.remove(e.wakes, i) end
+  end
+  if #e.wakes == 0 then e.wakes = nil end
 end
 
 --- How a Pokemon on this tile arrives / leaves: "water", "grass" or "fade".
@@ -870,6 +985,9 @@ end
 function SpawnManager:despawn(id, opts)
   local e = self.entities[id]
   if not e then return end
+  if opts and opts.animate and e.fx and e.fx.dive and e.fx.under then
+    opts = nil -- under the water already: nothing to see leave
+  end
   if opts and opts.animate and e.state == Config.STATE.AVAILABLE then
     if travelling(e) then
       -- still arriving: it turns round and leaves

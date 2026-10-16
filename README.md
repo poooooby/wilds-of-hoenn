@@ -45,12 +45,26 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 - 🫂 **Friendship you can see:** Face your partner and press A to **Pet**, **Play** fetch or
   **Talk**. Each one raises its friendship, and its portrait shows how it really feels from
   its HP, status and bond with you, with a little effect over its head to match: hearts,
-  music notes, a rain cloud, an anger mark, sleepy Zs and more. Petting can even cure a
-  status. Squeezed under a roof's edge, it lets you know it's cramped.
+  music notes, a rain cloud, an anger mark, sleepy Zs and more, plus a little puff of its own
+  type: embers from a Fire type, droplets from a Water type, leaves, sparks ... Petting can even
+  cure a status. Squeezed under a roof's edge, it lets you know it's cramped.
 - ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. It fights with
-  its real moves, stats and PP, on land or swimming out over water, and earns EXP. Health bars
-  and hit effects show on both sides. When it levels up, it tells you a new move or evolution
-  is ready, and you can open the game's own screens from its menu. It never faints: worn out,
+  its real moves, stats and PP, on land or swimming out over water, and earns EXP. Battle-style
+  health bars show on both sides. Each move glows in its type's colour as it winds up; moves
+  that don't touch the target fly across as a splash, an ember or a psychic ring, and
+  contact moves leave a trail behind the lunge. Every hit sparks with its move's type (droplets, embers,
+  leaves ...), bigger when it is super effective, dimmed when it is not very effective, a grey
+  puff when it has no effect, a star on a critical hit, each with the battle's own hit sound.
+  The knockout blow bursts with its move's type: a burst of
+  water, flames, flying leaves, a lightning bolt, ice shards, Fairy sparkles and hearts, a fading
+  Ghost — every type has its own look and battle sound (Fairy with National Dex Gen 3), at your
+  SFX volume. A fiery, watery, earthy, rocky, icy or grassy knockout leaves its mark on the
+  ground for a few seconds: a scorch, a puddle, a small crater, rubble, frost or clippings.
+  Now and then a knocked-out Pokémon drops the item it was holding — the same held items
+  (and odds) as a wild battle, like a Pikachu's Oran Berry or a rare Light Ball — and your
+  partner picks it up for your bag. When it levels up, a gold ring and sparkles rise round
+  it, and it tells you a new move or evolution is ready (sparkles drift up round it while it
+  waits to evolve), and you can open the game's own screens from its menu. It never faints: worn out,
   it returns to you to rest.
 - 🍂 **Forager:** On routes and in caves, every 1-3 minutes of walking it catches a scent,
   dashes to a glint on the ground and always digs something up. The fonder it is, the sooner it
@@ -65,13 +79,17 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 
 - 🎨 **Two sprite styles:** **HGSS / PokeMMO** art for the whole National Dex, or fully
   animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
-- 🌊 **Water that feels like water:** Pokémon swim with a foam line on the water, leave ripples
-  on ponds and puddles, and cast reflections like the player and NPCs do.
+- 🌊 **Water that feels like water:** wild Pokémon in the water swim about in little runs,
+  bob gently on the surface, leave a ring of wake behind them, and now and then dive under and
+  pop up again a few tiles away. They swim with a foam line on the water, leave ripples on ponds
+  and puddles, and cast reflections like the player and NPCs do.
 - 🏃 **They notice you:** run or bike close by and wild Pokémon react. Ones weaker than your
   lead Pokémon jump with a "!" and run off (small birds fly away), and sometimes vanish at the end
   of their run, ducking down into the grass or slipping away into a cave's dark; stronger ones, if
   you come right up to them, turn on you angrily and charge (in PMDCollab style, attacking as they
-  come), and if they catch you, the battle starts. Each one gives up at its own distance. The
+  come) — stepping out of the grass won't save you, they follow you onto the path (never into
+  the water or through a door) — and if they catch you, the battle starts. Each one gives up at
+  its own distance and heads back to its grass. The
   bigger the gap in strength, the likelier they react: a near match often lets you pass.
   An even match isn't bothered, and walking past calmly disturbs nobody.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
@@ -111,6 +129,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
 | **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
 | **Smooth Follow** | ON / OFF | ON | Your partner keeps its distance behind you either way. On: it glides round turns. Off: it snaps straight to its place, step for step like the original games. |
+| **Type Aura** | ON / OFF | OFF | Now and then your partner gives off a little puff of its type: embers, droplets, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it. |
 | **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
 | **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
 | **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs Gen 3 HD Sprites. |
@@ -122,7 +141,7 @@ Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option
 
 Select a Pokémon in the party menu and choose its job. Your party's leader follows you: put a
 different Pokémon first and it takes over as your follower. Pick someone else in the menu any
-time, and they stay out until you change your leader again. One partner is out at a time.
+time, and they stay out until you change your leader again. One partner is out at a time; giving the one already out a new job switches it on the spot.
 
 | Row | What it does |
 |---|---|
@@ -160,6 +179,9 @@ time, and they stay out until you change your leader again. One partner is out a
   build as `assets/pmd/CREDITS.txt`.
 - **Zygarde 100% overworld sprite:** [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion)
   (Liamjd14, kittenchilly).
+
+- **Ideas from the community:** many features started as suggestions from players on Discord.
+  See [COMMUNITY.md](COMMUNITY.md) for everyone who helped shape the mod. Thank you! 💚
 
 ## 💡 Inspirations
 

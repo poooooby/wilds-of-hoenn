@@ -23,6 +23,7 @@ tests/eave_duck_unit_test.lua
 tests/encounter_source_unit_test.lua
 tests/engine_patch_probe_test.lua
 tests/engine_patch_unit_test.lua
+tests/finisher_fx_unit_test.lua
 tests/flight_path_unit_test.lua
 tests/follower_actions_unit_test.lua
 tests/follower_adapter_unit_test.lua
@@ -49,8 +50,10 @@ tests/mon_mood_unit_test.lua
 tests/mood_fx_unit_test.lua
 tests/overworld_battle_unit_test.lua
 tests/ow_combat_unit_test.lua
+tests/partner_fx_unit_test.lua
 tests/party_roles_unit_test.lua
 tests/perch_spots_unit_test.lua
+tests/pixel_shapes_unit_test.lua
 tests/pmd_renderer_unit_test.lua
 tests/pmd_water_unit_test.lua
 tests/popup_text_unit_test.lua
@@ -82,6 +85,7 @@ tools/generate_pmd_sprites.py
 tools/generate_pmd_water.py
 tools/generate_sprite_atlases.py
 tools/generate_true_size_18frame.py
+tools/stress_bake.py
 tools/validate_option_labels.py
 tools/validate_pmd_sprites.py
 tools/validate_release_version.py
@@ -105,60 +109,14 @@ showcase/shots_emerald.lua
 showcase/shots_firered.lua
 
 # local Claude Code settings and skills (gitignored)
-.claude/settings.json
 .claude/skills/lua-developer/SKILL.md
 
 # local notes and the README banner image (not needed to run)
 CLAUDE.md
 DEVELOPMENT.md
+TODO.md
 WoH.png
 
 # local build output
-dist/wilds-of-hoenn-v0.1.0.zip
-dist/wilds-of-hoenn-v1.0.1-hgss.zip
-dist/wilds-of-hoenn-v1.1.0-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.1.0-hgss.zip
-dist/wilds-of-hoenn-v1.1.1-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.1.1-hgss.zip
-dist/wilds-of-hoenn-v1.2.0-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.2.0-hgss.zip
-dist/wilds-of-hoenn-v1.2.1-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.2.1-hgss.zip
-dist/wilds-of-hoenn-v1.2.2-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.2.2-hgss.zip
-dist/wilds-of-hoenn-v1.3.0-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.3.0-hgss.zip
-dist/wilds-of-hoenn-v1.4.0-hgss-pmd-superseded.zip
-dist/wilds-of-hoenn-v1.4.0-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.4.0-hgss-superseded.zip
-dist/wilds-of-hoenn-v1.4.0-hgss.zip
-dist/wilds-of-hoenn-v1.5.0-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.5.0-hgss.zip
-dist/wilds-of-hoenn-v1.6.0-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.6.0-hgss.zip
-dist/wilds-of-hoenn-v1.6.1-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.6.1-hgss.zip
-dist/wilds-of-hoenn-v1.6.2-beta.1-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.6.2-beta.1-hgss.zip
-dist/wilds-of-hoenn-v1.6.2-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.6.2-hgss.zip
-dist/wilds-of-hoenn-v1.7.0-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.7.0-hgss.zip
-dist/wilds-of-hoenn-v1.7.1-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.7.1-hgss.zip
-dist/wilds-of-hoenn-v1.7.2-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.7.2-hgss.zip
-dist/wilds-of-hoenn-v1.7.3-beta.1-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.7.3-beta.1-hgss.zip
-dist/wilds-of-hoenn-v1.7.3-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.7.3-hgss.zip
-dist/wilds-of-hoenn-v1.7.4-beta.1-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.7.4-beta.1-hgss.zip
-dist/wilds-of-hoenn-v1.7.4-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.7.4-hgss.zip
-dist/wilds-of-hoenn-v1.7.5-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.7.5-hgss.zip
-dist/wilds-of-hoenn-v1.8.0-beta.1-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.8.0-beta.1-hgss.zip
-dist/wilds-of-hoenn-v1.8.0-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.8.0-hgss.zip
+dist/wilds-of-hoenn-v1.9.2-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.9.2-hgss.zip

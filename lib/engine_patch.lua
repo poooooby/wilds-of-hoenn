@@ -431,7 +431,13 @@ function EnginePatch.install(hooks, log)
   originals.finishSweetScent = FieldSS and FieldSS.finishSweetScent
   if type(originals.finishSweetScent) == "function" then
     FieldSS.finishSweetScent = function(payload, ...)
-      if hooks.sweetScent and safeCall(log, "sweetScent", hooks.sweetScent, payload) == true then return end
+      if hooks.sweetScent and safeCall(log, "sweetScent", hooks.sweetScent, payload) == true then
+        -- The engine keeps the field locked through Sweet Scent and releases it in its own
+        -- battle / fail-message paths (gen1recomp 6ef00a7b; it used to unlock before this
+        -- call), so a call we handle has to let go of it here, or the player cannot move.
+        FieldSS.locked = false
+        return
+      end
       return originals.finishSweetScent(payload, ...)
     end
   end
@@ -1436,8 +1442,10 @@ function EnginePatch.moveRow(moveId)
   if not (Moves and id) then return nil end
   local ok, row = pcall(Moves.get, id)
   if not ok or type(row) ~= "table" then return nil end
+  -- contact: the move row's FLAG_MAKES_CONTACT (bit 0, as battle/abilities.lua reads it)
   return { power = tonumber(row.power) or 0, accuracy = tonumber(row.accuracy) or 0,
-           type = tonumber(row.type) or 0, pp = tonumber(row.pp) or 0 }
+           type = tonumber(row.type) or 0, pp = tonumber(row.pp) or 0,
+           contact = (tonumber(row.flags) or 0) % 2 == 1 }
 end
 
 --- The engine's damage formula between two battlers; `rng(lo, hi)` picks the
@@ -1596,6 +1604,33 @@ function EnginePatch.speciesTypes(species)
   local ok, t = pcall(Pokemon.types, species)
   if not (ok and type(t) == "table") then return 0, 0 end
   return tonumber(t[1]) or 0, tonumber(t[2]) or 0
+end
+
+--- A type's NAME ("WATER", "FAIRY") from its id (battle/types.lua Types.ID: Fairy is 18,
+--- registered there by National Dex Gen 3 when it is installed) or from a name (upper-
+--- cased as is). Unknown ids and MYSTERY (the ??? type) read as "NORMAL". The reverse map
+--- is rebuilt whenever Types.ID grows (Nat Dex adds Fairy after this mod has loaded).
+local typeNames, typeNamesSize = nil, -1
+function EnginePatch.typeName(t)
+  if type(t) == "string" then
+    local name = t:upper()
+    return (name == "MYSTERY" or name == "???" or name == "") and "NORMAL" or name
+  end
+  local id = tonumber(t)
+  if not id then return "NORMAL" end
+  local Types = loadModule("src.core.game3.battle.types")
+  local ID = Types and type(Types.ID) == "table" and Types.ID or nil
+  if ID then
+    local n = 0
+    for _ in pairs(ID) do n = n + 1 end
+    if n ~= typeNamesSize then
+      typeNames, typeNamesSize = {}, n
+      for name, num in pairs(ID) do typeNames[num] = name end
+    end
+  end
+  local name = typeNames and typeNames[id]
+  if not name or name == "MYSTERY" then return "NORMAL" end
+  return name
 end
 
 --- pokedex_data.lua: a species' Pokedex height in decimetres, by the engine's INTERNAL
@@ -1829,6 +1864,45 @@ function EnginePatch.bagAdd(id, qty)
   return ok and added == true
 end
 
+--- The item a wild `species` holds, rolled the game's own way: Ruby / Sapphire / Emerald ask
+--- the encounter rules' `wildHeldItem` (pokeemerald CreateWildMon: 45% none, 50% the
+--- species' common item, 5% its rare one, Compound Eyes 20 / 60 / 20); FireRed / LeafGreen
+--- roll it the way battle/init.lua does when it builds a wild battle (50% common, 5% rare,
+--- from speciesMeta). nil = holds nothing (or anything unreadable).
+function EnginePatch.wildHeldItem(species)
+  species = tonumber(species)
+  if not species then return nil end
+  local Encounters = EnginePatch.encounters()
+  local okR, rules = pcall(function() return Encounters and Encounters.rules and Encounters.rules() end)
+  if okR and type(rules) == "table" and type(rules.wildHeldItem) == "function" then
+    local ok, item = pcall(rules.wildHeldItem, species)
+    item = ok and tonumber(item) or nil
+    return (item and item ~= 0) and item or nil
+  end
+  local Pokemon = loadModule(EnginePatch.READONLY.speciesMeta.mod)
+  local ok, meta = pcall(Pokemon and Pokemon.speciesMeta, species)
+  if not (ok and type(meta) == "table") then return nil end
+  local common, rare = tonumber(meta.itemCommon) or 0, tonumber(meta.itemRare) or 0
+  local r = math.random(0, 99)
+  local item
+  if common ~= 0 and rare ~= 0 then
+    if r < 50 then item = common elseif r < 55 then item = rare end
+  elseif common ~= 0 then
+    if r < 50 then item = common end
+  elseif rare ~= 0 then
+    if r < 5 then item = rare end
+  end
+  return item
+end
+
+--- An item's name as the game shows it ("ORAN BERRY"), or nil.
+function EnginePatch.itemName(id)
+  local ItemsData = loadModule(EnginePatch.READONLY.itemInfo.mod)
+  local ok, info = pcall(ItemsData and ItemsData.info, tonumber(id))
+  if ok and type(info) == "table" and type(info.name) == "string" and info.name ~= "" then return info.name end
+  return nil
+end
+
 --- Would `qty` of item `id` fit in the player's bag right now? False with no
 --- session / bag or an unknown id. Nothing is added.
 function EnginePatch.bagCanAdd(id, qty)
@@ -1898,6 +1972,18 @@ function EnginePatch.playSelect()
   return (pcall(function() Audio.playSe(Ids.resolve("SE_SELECT")) end))
 end
 
+--- A sound effect by its SE_* name ("SE_M_ROCK_THROW"), through the engine's own player:
+--- Audio.playSe resolves the name for the running game (se_ids.lua, selected per game at
+--- boot -- FireRed and Emerald number them differently) and scales it by the options
+--- menu's SFX VOL (Audio._sfxVolume), so the game's slider -- muted included -- applies.
+--- False when the audio pieces or the sound are absent.
+function EnginePatch.playSeNamed(name, opts)
+  local Audio = loadModule(EnginePatch.READONLY.playSe.mod)
+  if not (Audio and Audio.playSe and type(name) == "string") then return false end
+  local ok, played = pcall(Audio.playSe, name, opts)
+  return ok and played ~= false
+end
+
 --- Width in px of `text` in the engine's dialogue font (0 when unavailable).
 function EnginePatch.measureText(text, opts)
   local Font = loadModule(EnginePatch.READONLY.fontMeasure.mod)
@@ -1926,11 +2012,13 @@ function EnginePatch.drawText(text, x, y, opts)
   local ok, w = pcall(Font.measure, text, opts)
   local width = ok and tonumber(w) or 0
   -- the engine's default text colour is white (made for its dark message frames):
-  -- unless the caller picked one, use the dark "normal" colours so it reads on a light plate
+  -- unless the caller picked one, use the dark "normal" colours so it reads on a light plate;
+  -- `colorName` picks one of the font's own colour sets by name ("WHITE" on a dark plate)
   if not (opts and (opts.colors or opts.color)) and Font.COLOR and Font.COLOR.NORMAL then
     local copy = {}
     for k, v in pairs(opts or {}) do copy[k] = v end
-    copy.colors = Font.COLOR.NORMAL
+    copy.colors = (copy.colorName and Font.COLOR[copy.colorName]) or Font.COLOR.NORMAL
+    copy.colorName = nil
     opts = copy
   end
   pcall(Font.draw, text, x, y, opts)
@@ -1996,6 +2084,17 @@ function EnginePatch.battleActive()
   if not (Battle and Battle.isActive) then return false end
   local ok, active = pcall(Battle.isActive)
   return ok and active == true
+end
+
+--- Is the battle transition (the swirl / flash before a battle opens) playing? nil when
+--- this engine cannot say (no BattleTransition module): callers fall back to a time limit.
+--- battle_transition.lua isActive; BattleBridge.start plays it, then Battle.start.
+function EnginePatch.battleTransitionActive()
+  local BT = loadModule("src.core.game3.battle_transition")
+  if not (BT and BT.isActive) then return nil end
+  local ok, active = pcall(BT.isActive)
+  if not ok then return nil end
+  return active == true
 end
 
 function EnginePatch.leadPartySpecies()

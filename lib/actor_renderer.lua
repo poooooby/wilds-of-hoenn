@@ -295,6 +295,22 @@ function ActorRenderer:visualWidth()
   return w * HdField.scaleOfPath(self.mod, path)
 end
 
+--- A sheet's pixels (ImageData) for measuring its art: the per-file sheet first, then the
+--- atlas (lib/sprite_atlas.lua), like loadImage. nil when unreadable (no love context,
+--- missing sheet). Not cached: callers cache what they measure.
+function ActorRenderer.sheetData(mod, path)
+  if not (love and love.image and love.image.newImageData) then return nil end
+  local full = mod and mod.assets and type(mod.assets.path) == "function"
+    and select(2, pcall(mod.assets.path, mod.assets, path)) or path
+  local ok, d = pcall(love.image.newImageData, full)
+  if ok and d then return d end
+  if mod and SpriteAtlas.installed() then
+    local okA, a = pcall(SpriteAtlas.sheetData, mod, path)
+    if okA and a then return a end
+  end
+  return nil
+end
+
 --- The highest row (from a frame's top) that any frame of a sheet's art reaches, read
 --- from its pixels once and cached per sheet: `frameCount` frames stacked top to bottom.
 --- nil when the pixels cannot be read (no love context, missing sheet). Per-file sheet
@@ -304,16 +320,7 @@ function ActorRenderer.artTopOf(mod, path, frameCount)
   local hit = artTopCache[path]
   if hit ~= nil then return hit or nil end
   artTopCache[path] = false
-  if not (love and love.image and love.image.newImageData) then return nil end
-  local data
-  local full = mod and mod.assets and type(mod.assets.path) == "function"
-    and select(2, pcall(mod.assets.path, mod.assets, path)) or path
-  local ok, d = pcall(love.image.newImageData, full)
-  if ok and d then data = d end
-  if not data and mod and SpriteAtlas.installed() then
-    local okA, a = pcall(SpriteAtlas.sheetData, mod, path)
-    if okA and a then data = a end
-  end
+  local data = ActorRenderer.sheetData(mod, path)
   if not data then return nil end
   local w, h = data:getDimensions()
   local fh = math.floor(h / (frameCount or 18))
@@ -354,16 +361,7 @@ function ActorRenderer.artBottomPadOf(mod, path, frameCount)
   local hit = artBottomCache[path]
   if hit ~= nil then return hit or nil end
   artBottomCache[path] = false
-  if not (love and love.image and love.image.newImageData) then return nil end
-  local data
-  local full = mod and mod.assets and type(mod.assets.path) == "function"
-    and select(2, pcall(mod.assets.path, mod.assets, path)) or path
-  local ok, d = pcall(love.image.newImageData, full)
-  if ok and d then data = d end
-  if not data and mod and SpriteAtlas.installed() then
-    local okA, a = pcall(SpriteAtlas.sheetData, mod, path)
-    if okA and a then data = a end
-  end
+  local data = ActorRenderer.sheetData(mod, path)
   if not data then return nil end
   local w, h = data:getDimensions()
   local n = frameCount or 18
@@ -511,7 +509,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
 
   if act then pushX, pushY = pushX + (act.dx or 0), pushY + (act.dy or 0) end
   -- ducking under an eave (a follower, lib/eave_duck.lua): moved down a little
-  pushY = pushY + (self.duckDy or 0)
+  pushY = pushY + (self.duckDy or 0) + (self.bobDy or 0) -- (bobDy: a swimmer bobbing)
 
   -- recalled into the player (a Battler out of strength): shrink and slide
   -- toward them; sinking into the ground: squash toward the feet

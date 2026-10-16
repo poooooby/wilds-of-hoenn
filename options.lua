@@ -78,6 +78,13 @@ return {
     description = "Your partner is always spaced out behind you by its size. On: it glides round when you turn. Off: it snaps straight to its place behind you, step for step like the original games.",
   },
   {
+    key = "type_aura",
+    label = "Type Aura",
+    type = "toggle",
+    default = false,
+    description = "Now and then your partner gives off a little puff of its type: embers from a Fire type, droplets from a Water type, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it.",
+  },
+  {
     key = "classic_enc",
     label = "Classic Enc",
     type = "toggle",
