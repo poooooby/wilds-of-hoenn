@@ -248,12 +248,22 @@ JOBS = default_jobs()
 
 def lower_priority() -> None:
     """Runs this process (and, on Windows, every process it starts) at below-normal
-    priority, so a build never competes with the rest of the machine. Best effort."""
+    priority, so a build never competes with the rest of the machine. Best effort.
+    WOH_BUILD_PRIORITY=normal leaves it at normal priority (tools/stress_bake.py: the
+    full-power bake that once crashed the machine, for stress testing it)."""
+    if os.environ.get("WOH_BUILD_PRIORITY", "").strip().lower() == "normal":
+        return
     try:
         if sys.platform == "win32":
             import ctypes
+            from ctypes import wintypes
             BELOW_NORMAL_PRIORITY_CLASS = 0x4000
-            k32 = ctypes.windll.kernel32
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            # typed: GetCurrentProcess's pseudo-handle (-1) passed as a plain int arrived
+            # as an invalid handle, so the call failed silently and nothing was lowered
+            k32.GetCurrentProcess.restype = wintypes.HANDLE
+            k32.SetPriorityClass.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+            k32.SetPriorityClass.restype = wintypes.BOOL
             k32.SetPriorityClass(k32.GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS)
         else:
             os.nice(10)
