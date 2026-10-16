@@ -55,6 +55,15 @@ local function canStep(entity, game, tx, ty, anyGround)
   -- reason to even make the engine call for a direction this Pokemon
   -- could never actually take.
   local onWater = entity.terrain == "water"
+  -- Never onto the player (or the tile they are stepping into): the player is not an engine
+  -- object, so the engine's canEnter never sees them, and a wild Pokemon wandering onto a
+  -- player standing still started a battle by itself -- in a cave, where the whole floor is
+  -- encounter ground, all the time (and with another mod keeping that battle from opening,
+  -- the player was held for good: lib/battle_trigger.lua's give-up).
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p and ((p.x == tx and p.y == ty) or (p.moving and p.targetX == tx and p.targetY == ty)) then
+    return false
+  end
   if anyGround and not onWater then
     if not openGround(tx, ty) then return false end
   elseif EnginePatch.terrainAt(tx, ty) ~= entity.terrain then

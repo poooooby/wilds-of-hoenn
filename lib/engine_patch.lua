@@ -2080,6 +2080,17 @@ function EnginePatch.battleActive()
   return ok and active == true
 end
 
+--- Is the battle transition (the swirl / flash before a battle opens) playing? nil when
+--- this engine cannot say (no BattleTransition module): callers fall back to a time limit.
+--- battle_transition.lua isActive; BattleBridge.start plays it, then Battle.start.
+function EnginePatch.battleTransitionActive()
+  local BT = loadModule("src.core.game3.battle_transition")
+  if not (BT and BT.isActive) then return nil end
+  local ok, active = pcall(BT.isActive)
+  if not ok then return nil end
+  return active == true
+end
+
 function EnginePatch.leadPartySpecies()
   local mon = EnginePatch.leadPartyMon()
   return mon and tonumber(mon.species) or nil

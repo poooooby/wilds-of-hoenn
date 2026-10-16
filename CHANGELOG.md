@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **No more getting stuck after a wild battle fails to open.** Using Sweet Scent in a cave (and
+  sometimes just standing in one) could leave you unable to move or open the menu while the
+  music played on. A wild Pokemon could wander onto the tile you were standing on and start a
+  battle by itself, and if that battle never opened (another mod getting in the way), you were
+  held in place for good. Wild Pokemon no longer walk onto you, and a battle that doesn't open is
+  dropped within a moment (at most 5 seconds) so you can move again.
+
 ## 1.9.0 (2026-10-16)
 
 ### Added

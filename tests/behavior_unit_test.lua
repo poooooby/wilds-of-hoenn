@@ -244,6 +244,26 @@ do
   Config.SWIM = realSwim
 end
 
+-- ------- never onto the player, or the tile they are stepping into (the player is not an
+-- engine object: canEnter alone let a wanderer walk into a standing player and start a battle)
+do
+  fakeEngine.canEnter = function() return true end
+  fakeEngine.terrainAt = function() return "land" end
+  fakeEngine.isWater = function() return false end
+  fakeEngine.playerCell = function() return { x = 2, y = 3 } end
+  local m = { cellX = 2, cellY = 2, facing = "down", terrain = "land", elevation = 3 }
+  check(not Behavior._canStep(m, {}, 2, 3), "a wild Pokemon will not step onto the player")
+  check(Behavior._canStep(m, {}, 3, 2), "...other tiles are fine")
+  fakeEngine.playerCell = function() return { x = 5, y = 5, moving = true, targetX = 3, targetY = 2 } end
+  check(not Behavior._canStep(m, {}, 3, 2), "...nor onto the tile the player is stepping into")
+  fakeEngine.terrainAt = function() return "water" end
+  fakeEngine.isWater = function() return true end
+  fakeEngine.playerCell = function() return { x = 2, y = 3 } end
+  check(not Behavior._canStep({ cellX = 2, cellY = 2, facing = "down", terrain = "water", elevation = 3 }, {}, 2, 3),
+    "...a swimmer neither (a surfing player)")
+  fakeEngine.playerCell, fakeEngine.isWater = nil, nil
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
