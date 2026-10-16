@@ -53,7 +53,13 @@ footage. Wild battles are off for the whole reel, so nothing interrupts a shot.
 
 **Emerald** (`shots_emerald.lua`): Petalburg City from above with birds on the roofs ·
 wild Pokemon rising out of the grass · walking and running with your partner · Pet (portrait,
-hearts) · Play (the ball) · the Battle job (a fight, EXP) · the Forage job (a find) · a shiny
+hearts) · Play (the ball) · the Battle job (a fight, EXP) · three type battles, each Hoenn
+starter in the widest open ground of its own type's area against a slightly weaker foe
+(Blaziken v Metagross in Fiery Path, Swampert v Aggron on Route 109's beach -- the Aggron is
+placed on the sand by hand -- and Sceptile v Hariyama in Petalburg Woods; each landed hit is
+capped for the reel so both sides trade attacks instead of a one- or two-hit knockout) · a
+level-up (Swampert: the rainbow "Lv.", gold ring and "New move ready!", the player stepping
+aside so it shows clear) · the Forage job (a find) · a shiny
 partner twinkling · weaker Pokemon fleeing · a stronger one giving chase · Sweet Scent ·
 a Taillow swooping in to land · sea life (leaping fish, a diving bird, Wailmer) · a Finizen
 pod and a lone Finizen · Petalburg Woods · Fortree's Tropius · under the sea · finale ·

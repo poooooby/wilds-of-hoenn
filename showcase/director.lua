@@ -199,6 +199,19 @@ return function(game)
     end
   end
 
+  --- A wild Pokemon of national dex `dex` on exactly cell (x, y), counted as `terrain`
+  --- ("land" / "water") whatever the tile is -- staged by hand, e.g. on a beach, where the
+  --- game itself never spawns one. It cannot wander off a tile that is not its terrain.
+  function ctx.spawnAt(dex, level, x, y, terrain)
+    local before = {}
+    for id in pairs(sm.entities) do before[id] = true end
+    local enc = sm:encounterFor(EP.speciesForNational(dex), level or 10)
+    if not sm:_place(terrain or "land", { x = x, y = y }, enc, true) then return nil end
+    for id, e in pairs(sm.entities) do
+      if not before[id] then return e end
+    end
+  end
+
   --- A walkable, non-grass, dry cell near (x, y) with at least `minGrass` encounter-grass
   --- cells within `r` tiles, nearest first: a path beside the grass for the camera.
   function ctx.pathBesideGrass(x, y, minGrass, r, search)

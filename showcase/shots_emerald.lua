@@ -157,6 +157,148 @@ return function(ctx)
     ctx.hidePeople()
   end
 
+  -- ------- the type battles: a fully evolved starter takes on a wild Pokemon in the widest
+  -- open ground of an area of its own type, then the knockout, EXP and any drop -----------
+  local function walkable(x, y)
+    return EP.cellFree(x, y) and not EP.isWater(x, y) and not (EP.isWarpCell and EP.isWarpCell(x, y))
+  end
+  -- the cell near (x0, y0) with the most walkable ground round it (radius 3), among cells
+  -- `ok` accepts: the arena's centre
+  local function widest(x0, y0, ok, search)
+    local best, bestN
+    for y = y0 - (search or 14), y0 + (search or 14) do
+      for x = x0 - (search or 14), x0 + (search or 14) do
+        if walkable(x, y) and ok(x, y) then
+          local n = 0
+          for dy = -3, 3 do for dx = -3, 3 do
+            if walkable(x + dx, y + dy) then n = n + 1 end
+          end end
+          if not bestN or n > bestN then best, bestN = { x = x, y = y }, n end
+        end
+      end
+    end
+    return best
+  end
+  -- the foe's cell: 3 tiles out from the player, `ok` for its ground, with the most open
+  -- ground round it (so the fight has room)
+  local function foeCell(ok)
+    local p = EP.playerCell()
+    local best, bestN
+    for y = p.y - 3, p.y + 3 do
+      for x = p.x - 3, p.x + 3 do
+        if math.max(math.abs(x - p.x), math.abs(y - p.y)) == 3 and walkable(x, y) and ok(x, y) then
+          local n = 0
+          for dy = -2, 2 do for dx = -2, 2 do
+            if walkable(x + dx, y + dy) then n = n + 1 end
+          end end
+          if not bestN or n > bestN then best, bestN = { x = x, y = y }, n end
+        end
+      end
+    end
+    return best
+  end
+  -- both fighters in frame: the midpoint of the partner (where the Battler has it) and its
+  -- foe, the partner alone once the foe is gone
+  local battleFoe
+  local function battleCam()
+    local b = woh.battler
+    local px, py
+    if b and b.wx then px, py = b.wx + 8, b.wy + 8 else px, py = partner() end
+    local e = battleFoe and sm.entities[battleFoe.id] == battleFoe and battleFoe
+    if e then
+      local ex, ey = ctx.centreOf(e)
+      return between(px, py, ex, ey)
+    end
+    return px, py
+  end
+  -- after a map load the partner stands on the player: a step away from the arena's open
+  -- side puts it behind them, then turn back to face the open ground
+  local function stepOffPartner()
+    local p = EP.playerCell()
+    local dir = openRun(p.x, p.y)
+    ctx.walk(dir, 1)
+    ctx.wait(30)
+    return dir
+  end
+  -- a whole type battle: arena = { map, x, y, ground = fn(x, y) for the arena centre,
+  -- foeGround = fn(x, y), foeTerrain }, partner = { dex, level, nick }, foe = { dex, level }
+  local evenFight -- below: caps each landed hit so both sides trade attacks
+  local function typeBattle(name, arena, mon, foe)
+    return {
+      name = name,
+      stage = function()
+        ctx.party({ { mon[1], mon[2], friendship = 220, nick = mon.nick } })
+        role("battle")
+        ctx.go(arena.map, arena.x, arena.y, "down")
+        local c = widest(arena.x, arena.y, arena.ground or function() return true end)
+        if c then ctx.go(arena.map, c.x, c.y, "down") end
+        ctx.hidePeople()
+        ctx.clearWild(false)
+        battleFoe = nil
+        stepOffPartner()
+        cam:set({ at = { partner() }, zoom = 1.3 })
+      end,
+      roll = function()
+        local cell = foeCell(arena.foeGround or function() return true end)
+        local e = cell and ctx.spawnAt(foe[1], foe[2], cell.x, cell.y, arena.foeTerrain or "land")
+        if not e then print("[showcase] " .. name .. ": no cell for the foe") return end
+        e.behavior = "idle" -- it waits where it is placed: the fight stays in frame
+        battleFoe = e
+        cam:move({ at = { battleCam() }, zoom = 1.5, frames = 60 })
+        cam:track(battleCam, { zoom = 1.5, lag = 0.05 })
+        local b = woh.battler
+        -- the fight (both sides trading attacks), then the win (knockout, EXP, any drop)
+        evenFight(true)
+        ctx.waitUntil(function() return b and b.mode == "win" end, 2400)
+        evenFight(false)
+        ctx.waitUntil(function() return b and b.mode ~= "win" end, 600)
+        cam:still()
+        ctx.wait(90)
+      end,
+    }
+  end
+  -- An even fight, for the reel only: the type matchups knock the foe out in a hit or two,
+  -- so each landed hit is capped -- the partner's at ~30% of the foe's max HP (three or four
+  -- hits), the foe's at ~12% of the partner's -- and both sides trade attacks. The partner
+  -- still picks its move by real damage (the capped call is only the one that lands), so its
+  -- type effects stay real.
+  local combat = woh.battler and woh.battler.combatDeps
+  local realDamage = combat and combat.moveDamage
+  local evenOn = false
+  if combat and realDamage then
+    combat.moveDamage = function(att, def, id, r, noCrit, ...)
+      local dmg, info = realDamage(att, def, id, r, noCrit, ...)
+      if not evenOn or noCrit or not dmg then return dmg, info end
+      local foeSide = att and att.mon and att.mon == ctx.session.party[1]
+      local maxHp = def and def.mon and tonumber(def.mon.maxHp) or 0
+      if maxHp > 0 then
+        local share = foeSide and (0.26 + math.random() * 0.08) or (0.10 + math.random() * 0.04)
+        dmg = math.min(dmg, math.max(1, math.floor(maxHp * share)))
+      end
+      return dmg, info
+    end
+  end
+  evenFight = function(on) evenOn = on end
+
+  local function isLand(x, y) return EP.terrainAt(x, y) == "land" end
+  local function isDry(x, y) return EP.terrainAt(x, y) == nil end
+
+  -- a level for `dex` whose next level brings a new move (so "New move ready!" follows
+  -- the level-up), from `from` up
+  local function levelBeforeMove(dex, from)
+    local probe = { species = EP.speciesForNational(dex) }
+    for lv = from, from + 20 do
+      if #(EP.movesLearnedAt(probe, lv + 1) or {}) > 0 then return lv end
+    end
+    return from
+  end
+  -- just short of the next level: one win tips it over
+  local function nearLevelUp(mon)
+    local Experience = require("src.core.game3.battle.experience")
+    local SummaryData = require("src.core.game3.summary_data")
+    mon.exp = SummaryData.expForLevel(Experience.growthRate(mon), mon.level + 1) - 1
+  end
+
   return {
     -- 1. Establishing: Petalburg City from up high, birds on the roofs and passing over
     {
@@ -298,6 +440,55 @@ return function(ctx)
         end
         cam:still()
         ctx.wait(60)
+      end,
+    },
+    -- 4c-2. Type battles: each Hoenn starter in an area of its own type, against a slightly
+    -- weaker wild Pokemon, in the widest open ground there
+    typeBattle("battle_fiery_path",
+      { map = "MAP_FIERY_PATH", x = 18, y = 14, ground = isLand, foeGround = isLand },
+      { 257, 55, nick = "BLAZIKEN" }, { 376, 47 }),
+    -- Route 109's beach has no wild Pokemon of its own: the Aggron is placed on the sand
+    typeBattle("battle_beach",
+      { map = "MAP_ROUTE109", x = 11, y = 16, ground = isDry, foeGround = isDry },
+      { 260, 55, nick = "SWAMPERT" }, { 306, 47 }),
+    typeBattle("battle_woods",
+      { map = "MAP_PETALBURG_WOODS", x = 16, y = 35, foeGround = isLand },
+      { 254, 55, nick = "SCEPTILE" }, { 297, 47 }),
+    -- 4c-3. A level-up: a quick win tips it over (gold ring, sparkles, the rainbow "Lv."),
+    -- then "New move ready!" floats over it
+    {
+      name = "level_up",
+      stage = function()
+        local lv = levelBeforeMove(260, 40)
+        ctx.party({ { 260, lv, friendship = 200, nick = "SWAMPERT" } })
+        nearLevelUp(ctx.session.party[1])
+        role("battle")
+        goField()
+        ctx.clearWild(false)
+        cam:set({ at = { partner() }, zoom = 1.4 })
+      end,
+      roll = function()
+        local lv = ctx.session.party[1].level
+        battleFoe = ctx.spawn(264, math.max(2, lv - 8), { radius = 3 })
+        if battleFoe then battleFoe.behavior = "idle" end
+        cam:track(battleCam, { zoom = 1.6, lag = 0.05 })
+        local b = woh.battler
+        ctx.waitUntil(function() return b and b.levelAge end, 1500)
+        ctx.waitUntil(function() return b and b.mode ~= "win" end, 600)
+        -- step aside so the partner stands beside the player, not hidden behind them,
+        -- and turn back to it: "New move ready!" floats clear over its head
+        local p = EP.playerCell()
+        local side = "left"
+        for _, d in ipairs({ "left", "right" }) do
+          local dx = d == "left" and -1 or 1
+          if walkable(p.x + dx, p.y) and walkable(p.x + 2 * dx, p.y) then side = d break end
+        end
+        ctx.walk(side, 2)
+        ctx.wait(20)
+        ctx.face(BACK[side])
+        cam:track(partner, { zoom = 1.8, lag = 0.05 })
+        ctx.wait(300) -- "New move ready!" / its sparkles
+        cam:still()
       end,
     },
     -- 4d. The Forage job: it perks up, dashes off, digs, and finds something
