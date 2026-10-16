@@ -10,10 +10,14 @@
 --   strong  (ratio > strongRatio) turns, an anger mark, then CHASES the player a touch
 --                                 faster than they can run. Reaching them (on or next to
 --                                 their tile, while they stand) starts the normal wild
---                                 battle. Every chase rolls its own leash: it gives up
---                                 past that many tiles, after leash x secondsPerTile, or
---                                 with no way through for a moment, shows "?" and walks
---                                 back a few steps.
+--                                 battle. A land chaser follows the player OFF its own
+--                                 grass (chase.anyGround: any open ground the engine's
+--                                 collision allows -- never water or a doorway). Every
+--                                 chase rolls its own leash: it gives up past that many
+--                                 tiles, after leash x secondsPerTile, or with no way
+--                                 through for a moment, shows "?" and walks back: home
+--                                 to its own terrain first (no way back -> it leaves
+--                                 with the fade, ctx.strand), then a few steps more.
 -- Whether it reacts at all is one roll as the player comes in range (chance()): a near
 -- match only sometimes (Config.REACT.minChance), a lopsided one always (past weakSure /
 -- strongSure); a miss leaves it be for missCooldown ticks.
@@ -21,7 +25,8 @@
 -- field is busy (a cutscene, a trainer, a message), in a battle, or in the Safari Zone,
 -- and Sweet Scent's lured Pokemon, ones in a Battler skirmish, arriving / leaving ones and
 -- the roaming legendary are left alone. Movement goes through Behavior.tryStep: the same
--- legality as wandering (its own encounter terrain, the engine's collision).
+-- legality as wandering (its own encounter terrain, the engine's collision), widened to
+-- open ground for a chase and the walk home (`anyGround`).
 --
 -- State lives on the entity as `e.react`; lib/spawn_manager.lua calls scan() once a tick
 -- and tick(e) instead of Behavior.tick while `e.react` is set.
@@ -149,13 +154,30 @@ local function finish(e, now, cooldown, rng)
 end
 WildReactions.finish = finish
 
+-- Does this chase leave the spawn area? A land Pokemon's does (chase.anyGround); a
+-- swimmer stays in its water.
+local function anyGround(e)
+  return Config.REACT.chase.anyGround ~= false and e.terrain ~= "water"
+end
+WildReactions.anyGround = anyGround
+
+-- may a chase path cross (x, y)? Its own terrain, or (anyGround) any open dry ground
+local function pathCell(e, x, y, wide)
+  if EnginePatch.terrainAt(x, y) == e.terrain then return true end
+  if not wide then return false end
+  if not (EnginePatch.cellFree and EnginePatch.cellFree(x, y)) then return false end
+  return Behavior._openGround(x, y)
+end
+
 -- the next step toward the player's (resting) cell along a path over this Pokemon's own
--- terrain, past other wild Pokemon; nil when there is no way
+-- terrain -- or any open ground, for a land chaser -- past other wild Pokemon; nil when
+-- there is no way
 local function chaseDir(e, gx, gy, ctx, leash)
+  local wide = anyGround(e)
   local res = CellPath.search(e.cellX, e.cellY, {
     free = function(x, y)
       if x == gx and y == gy then return true end
-      if EnginePatch.terrainAt(x, y) ~= e.terrain then return false end
+      if not pathCell(e, x, y, wide) then return false end
       return not (ctx.occupied and ctx.occupied(x, y, e))
     end,
     maxDepth = leash + 4,
@@ -170,7 +192,15 @@ local function giveUp(e, ctx)
   local cfg, rng = Config.REACT, ctx.rng or math.random
   local r = e.react
   e.react = { mode = "return", t = 0, emote = "?", emoteAge = 0, kind = r.kind,
-              home = r.home, steps = rngRange(rng, cfg.chase.returnSteps) }
+              home = r.home or e.chaseHome, steps = rngRange(rng, cfg.chase.returnSteps), blocked = 0 }
+end
+
+--- A chaser left standing off its own terrain with no reaction running (its chase was
+--- cut short: a busy field, a contact that could not start): walk it home, quietly (no
+--- "?"). lib/spawn_manager.lua calls this.
+function WildReactions.sendHome(e)
+  e.react = { mode = "return", t = 20, emoteAge = 0, kind = "strong",
+              home = e.chaseHome, steps = 0, blocked = 0 }
 end
 
 --- One tick of `e`'s reaction. `ctx` = { now, rng, game, player = playerCell(),
@@ -218,6 +248,8 @@ function WildReactions.tick(e, ctx)
       local leash = rngRange(rng, cfg.chase.leash)
       r.mode, r.leash, r.limit = "chase", leash, math.floor(leash * cfg.chase.secondsPerTile * 60)
       r.home, r.noPath, r.t = { x = e.cellX, y = e.cellY }, 0, 0
+      -- where to walk back to if it ends up off its grass (kept past the reaction)
+      e.chaseHome = r.home
     else
       finish(e, ctx.now, cfg.cooldown, rng)
     end
@@ -264,7 +296,7 @@ function WildReactions.tick(e, ctx)
       return
     end
     local dir = chaseDir(e, gx, gy, ctx, r.leash)
-    if dir and Behavior.tryStep(e, ctx.game, dir, cfg.chase.frames) then
+    if dir and Behavior.tryStep(e, ctx.game, dir, cfg.chase.frames, { anyGround = anyGround(e) }) then
       r.noPath = 0
     else
       r.noPath = r.noPath + 1
@@ -274,15 +306,30 @@ function WildReactions.tick(e, ctx)
   end
 
   if r.mode == "return" then
-    -- a few steps back toward where it set off from, at walking pace
+    -- back toward where it set off from, at walking pace: all the way onto its own
+    -- terrain first, then up to `steps` more
     if r.t < 20 then return end -- the "?" first
-    if r.steps <= 0 or not r.home or (e.cellX == r.home.x and e.cellY == r.home.y) then
+    local off = Behavior.offTerrain(e)
+    local home = r.home
+    local atHome = home and e.cellX == home.x and e.cellY == home.y
+    if not off and (r.steps <= 0 or not home or atHome) then
+      e.chaseHome = nil
       return finish(e, ctx.now, cfg.chaseCooldown, rng)
     end
-    local dir = chaseDir(e, r.home.x, r.home.y, ctx, 12)
-    if dir and Behavior.tryStep(e, ctx.game, dir, Behavior.STEP_FRAMES) then
-      r.steps = r.steps - 1
+    local dir = home and not atHome and chaseDir(e, home.x, home.y, ctx, cfg.chase.homeSearch or 24)
+    if dir and Behavior.tryStep(e, ctx.game, dir, Behavior.STEP_FRAMES, { anyGround = anyGround(e) }) then
+      if not off then r.steps = r.steps - 1 end
+      r.blocked = 0
+    elseif off then
+      -- stuck out on open ground: wait a moment (someone in the way), then leave
+      r.blocked = (r.blocked or 0) + 1
+      if r.blocked > cfg.chase.noPathTicks then
+        e.chaseHome = nil
+        finish(e, ctx.now, cfg.chaseCooldown, rng)
+        if ctx.strand then ctx.strand(e) end
+      end
     else
+      e.chaseHome = nil
       return finish(e, ctx.now, cfg.chaseCooldown, rng)
     end
   end

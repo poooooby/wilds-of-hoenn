@@ -138,7 +138,11 @@ Config.REACT = {
             -- its battle opens; no battle within `chargeTicks` of catching up -> it calms down
             chargeTicks = 90,
             secondsPerTile = 1.2, -- the matching time limit (leash x this)
-            noPathTicks = 60, returnSteps = { 2, 4 } },
+            noPathTicks = 60, returnSteps = { 2, 4 },
+            -- a land chaser follows the player off its own grass onto any open ground
+            -- (never water or a doorway); afterwards it walks home onto its terrain,
+            -- planning up to `homeSearch` cells, or leaves with the fade if it can't
+            anyGround = true, homeSearch = 24 },
   cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
 }
 

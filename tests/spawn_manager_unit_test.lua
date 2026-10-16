@@ -971,6 +971,48 @@ do
   fakeEngine.playerIsRunning, fakeEngine.leadPartyMon = nil, nil
 end
 
+-- ------- a chaser left out on the path (its chase cut short) goes home; with Wild Reacts
+-- off it fades away instead
+do
+  local saved = {}
+  for _, k in ipairs({ "playerCell", "mapBounds", "terrainAt", "cellFree", "fieldBusy" }) do saved[k] = fakeEngine[k] end
+  fakeEngine.mapBounds = function() return 40, 5 end
+  -- grass x < 20, a path beyond it
+  fakeEngine.terrainAt = function(x) if x < 20 then return "land" end return nil end
+  fakeEngine.cellFree = function(x, y) return x >= 0 and y >= 0 and x < 40 and y < 5 end
+  local player = { x = 39, y = 4, moving = false }
+  fakeEngine.playerCell = function() return player end
+  local smS = SpawnManager.new(mod)
+  smS:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local stray
+  for _, e in pairs(smS.entities) do stray = stray or e end
+  -- it chased out onto the path, then the chase was cut short (no reaction running)
+  stray.cellX, stray.cellY, stray.px, stray.py = 23, 2, 23 * 16, 2 * 16
+  stray.chaseHome, stray.react, stray.fx = { x = 15, y = 2 }, nil, nil
+  smS:tick(smS.game)
+  check(stray.react and stray.react.mode == "return", "a stray on the path is sent home")
+  for _ = 1, 600 do
+    if not stray.react then break end
+    smS:tick(smS.game)
+  end
+  check(stray.cellX < 20, "...it walked back onto its grass (" .. stray.cellX .. ")")
+  eq(stray.chaseHome, nil, "...and forgot the way")
+  eq(smS:get(stray.id), stray, "...still there")
+
+  -- Wild Reacts off: nothing walks it home, so it fades out (once the field is free)
+  stray.cellX, stray.px, stray.chaseHome = 25, 25 * 16, { x = 15, y = 2 }
+  optionStore.wild_reacts = false
+  fakeEngine.fieldBusy = function() return true end
+  smS:tick(smS.game)
+  local STATE = V.require("config").STATE
+  eq(stray.state, STATE.AVAILABLE, "Wild Reacts off, the field busy: it waits")
+  fakeEngine.fieldBusy = function() return false end
+  smS:tick(smS.game)
+  eq(stray.state, STATE.LEAVING, "...then it fades away, never stuck on the path")
+  optionStore.wild_reacts = nil
+  for k, v in pairs(saved) do fakeEngine[k] = v end
+end
+
 -- ------- under the sea (a Dive map): fish swim in as a shadow; everything is drawn whole
 do
   local WaterLife = V.require("water_life")

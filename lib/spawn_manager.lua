@@ -489,6 +489,8 @@ function SpawnManager:_reactContext()
   end
   ctx.takeoff = ctx.takeoff or function(e) self:despawn(e.id, { animate = true, fly = true }) end
   ctx.fleeVanish = ctx.fleeVanish or function(e) self:fleeVanish(e) end
+  -- a chaser stuck off its grass with no way home leaves (its tile's leave fx: a fade)
+  ctx.strand = ctx.strand or function(e) self:despawn(e.id, { animate = true }) end
   ctx.onContact = ctx.onContact or function(e) if self.onContact then self.onContact(e) end end
   return ctx
 end
@@ -583,7 +585,18 @@ function SpawnManager:tick(game)
         else
           WildReactions.finish(e, self.ticks, Config.REACT.cooldown)
         end
+      elseif e.chaseHome and not e.moving and Behavior.offTerrain(e) then
+        -- a chaser left out on open ground (its chase cut short): home it goes, quietly;
+        -- with Wild Reacts switched off it fades away instead (once the field is free)
+        if reactCtx then
+          WildReactions.sendHome(e)
+        elseif not (EnginePatch.fieldBusy and EnginePatch.fieldBusy())
+            and not (EnginePatch.battleActive and EnginePatch.battleActive()) then
+          e.chaseHome = nil
+          self:despawn(e.id, { animate = true })
+        end
       else
+        if e.chaseHome and not Behavior.offTerrain(e) then e.chaseHome = nil end
         Behavior.tick(e, self.game)
       end
       local r = e.renderer

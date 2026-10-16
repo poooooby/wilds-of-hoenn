@@ -19,7 +19,26 @@ function Behavior.pick(rng)
   return rng() < 0.5 and Behavior.IDLE or Behavior.ROAM
 end
 
-local function canStep(entity, game, tx, ty)
+-- A chaser may leave its spawn area (Config.REACT.chase.anyGround): open ground anywhere
+-- -- dry, walkable, the engine's collision allowing it -- but never water (a land chaser
+-- does not wade in), a doorway (it would stand in a warp), or the player's own cell.
+local function openGround(tx, ty)
+  if EnginePatch.isWater and EnginePatch.isWater(tx, ty) then return false end
+  if EnginePatch.isWarpCell and EnginePatch.isWarpCell(tx, ty) then return false end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p and ((p.x == tx and p.y == ty) or (p.moving and p.targetX == tx and p.targetY == ty)) then
+    return false
+  end
+  return true
+end
+Behavior._openGround = openGround
+
+--- Is `entity` standing off its own encounter terrain (a chaser that left the grass)?
+function Behavior.offTerrain(entity)
+  return EnginePatch.terrainAt(entity.cellX, entity.cellY) ~= entity.terrain
+end
+
+local function canStep(entity, game, tx, ty, anyGround)
   -- Checked BEFORE canEnter, not after: a roaming wild Pokemon must stay
   -- on its OWN encounter terrain -- not just "not water" (that alone lets
   -- a land spawn wander onto any walkable non-water tile: paths, doodads,
@@ -34,8 +53,12 @@ local function canStep(entity, game, tx, ty)
   -- against misfiring a battle regardless of order, but there is no
   -- reason to even make the engine call for a direction this Pokemon
   -- could never actually take.
-  if EnginePatch.terrainAt(tx, ty) ~= entity.terrain then return false end
   local onWater = entity.terrain == "water"
+  if anyGround and not onWater then
+    if not openGround(tx, ty) then return false end
+  elseif EnginePatch.terrainAt(tx, ty) ~= entity.terrain then
+    return false
+  end
   -- a swimmer keeps off the last water row before a bank (EncounterSource.openWater)
   if onWater and EnginePatch.isWater and not EnginePatch.isWater(tx, ty + 1) then return false end
   return EnginePatch.canEnter(game, tx, ty, {
@@ -89,12 +112,14 @@ end
 --- Turns `entity` toward `dir` and starts a one-tile step there taking `frames` ticks
 --- (16 = walking pace, fewer = faster), when its own legality allows it. True when the
 --- step began. Shared by Roam and the startled flee / chase (lib/wild_reactions.lua).
-function Behavior.tryStep(entity, game, dir, frames)
+--- `opts.anyGround`: a land Pokemon may step off its own terrain onto open ground (a
+--- chaser, and its walk home).
+function Behavior.tryStep(entity, game, dir, frames, opts)
   local d = DELTA[dir]
   if not d then return false end
   local tx, ty = entity.cellX + d[1], entity.cellY + d[2]
   entity.facing = dir
-  if not canStep(entity, game, tx, ty) then return false end
+  if not canStep(entity, game, tx, ty, opts and opts.anyGround) then return false end
   entity.fromX, entity.fromY = entity.cellX, entity.cellY
   entity.targetX, entity.targetY = tx, ty
   entity.progress = 0

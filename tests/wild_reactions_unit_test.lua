@@ -273,6 +273,137 @@ do
   check(n >= 4, "different chases follow different distances (" .. n .. " leash lengths seen)")
 end
 
+-- ------- chasers leave the grass (chase.anyGround): open ground yes; water, doors, no
+do
+  -- grass x 0..8, an open path x 9..19, water x >= 20; a doorway at (12, 8)
+  local saved = {}
+  for _, k in ipairs({ "terrainAt", "canEnter", "isWater", "cellFree", "isWarpCell", "playerCell" }) do
+    saved[k] = fake[k]
+  end
+  local DOOR_X, DOOR_Y = 12, 8
+  local function inMap(x, y) return x >= 0 and y >= 0 and x < 30 and y < 30 end
+  fake.terrainAt = function(x, y)
+    if not inMap(x, y) then return nil end
+    if x <= 8 then return "land" end
+    if x >= 20 then return "water" end
+    return nil -- the path: no encounters
+  end
+  fake.isWater = function(x, y) return inMap(x, y) and x >= 20 end
+  fake.isWarpCell = function(x, y) return x == DOOR_X and y == DOOR_Y end
+  fake.cellFree = function(x, y) return inMap(x, y) and x < 20 end
+  fake.canEnter = function(_, x, y, opts)
+    if not inMap(x, y) then return false end
+    if opts and opts.surfing then return x >= 20 end
+    return x < 20
+  end
+  local livePlayer
+  fake.playerCell = function() return livePlayer end
+
+  local visited
+  local function runTracked(e, ctx, n)
+    for _ = 1, n do
+      if not e.react then return end
+      WR.tick(e, ctx)
+      ctx.now = ctx.now + 1
+      visited[#visited + 1] = { x = e.cellX, y = e.cellY }
+    end
+  end
+  local function noWaterNoDoor()
+    for _, c in ipairs(visited) do
+      if c.x >= 20 or (c.x == DOOR_X and c.y == DOOR_Y) then return false end
+    end
+    return true
+  end
+  local function angry(e, player, ctx)
+    WR.scan({ e }, ctx)
+    runTracked(e, ctx, cfg.turnTicks + cfg.angerTicks + 2)
+    check(e.react and e.react.mode == "chase", "an angry one sets off")
+    e.react.leash, e.react.limit = 20, 20 * 72
+  end
+
+  -- 1. it follows the player out of the grass and catches them on the path
+  contacts, visited = {}, {}
+  local e = entity(8, 8, 40)
+  local player = { x = 10, y = 8, moving = true }
+  livePlayer = player
+  local ctx = ctxFor(player, 10)
+  angry(e, player, ctx)
+  player.x, player.y, player.moving = 15, 8, false -- standing on the path, past the doorway
+  runTracked(e, ctx, 1500)
+  eq(contacts[#contacts], e, "a chaser follows the player off the grass and catches them on the path")
+  check(e.cellX > 8, "...standing off its grass (" .. e.cellX .. "," .. e.cellY .. ")")
+  check(noWaterNoDoor(), "...it never stepped into the water or onto the doorway")
+  check(e.chaseHome ~= nil, "...and remembers where home is")
+
+  -- 2. never into the water: a surfing player is safe from a land chaser
+  contacts, visited = {}, {}
+  local e2 = entity(18, 15, 40)
+  local surfer = { x = 20, y = 15, moving = true }
+  livePlayer = surfer
+  local ctx2 = ctxFor(surfer, 10)
+  angry(e2, surfer, ctx2)
+  surfer.x, surfer.moving = 23, false
+  runTracked(e2, ctx2, 400)
+  eq(#contacts, 0, "a land chaser never wades in after a surfing player")
+  check(noWaterNoDoor(), "...it stays on dry ground")
+
+  -- 3. giving up off the grass: it walks all the way home onto its terrain
+  visited = {}
+  local e3 = entity(8, 20, 40)
+  local p3 = { x = 10, y = 20, moving = true }
+  livePlayer = p3
+  local ctx3 = ctxFor(p3, 10)
+  angry(e3, p3, ctx3)
+  p3.x, p3.moving = 14, false
+  e3.react.leash = 20
+  for _ = 1, 400 do -- out onto the path after them
+    if e3.cellX >= 11 and not e3.moving then break end
+    runTracked(e3, ctx3, 1)
+  end
+  check(e3.cellX >= 11, "it is out on the path (" .. e3.cellX .. ")")
+  p3.x = 29 -- gone (a bike)
+  livePlayer = nil
+  e3.react.leash = 2
+  runTracked(e3, ctx3, 1200)
+  eq(e3.react, nil, "beyond its leash it gives up and calms down")
+  check(e3.cellX <= 8, "...back on its own grass (" .. e3.cellX .. "," .. e3.cellY .. ")")
+  eq(e3.chaseHome, nil, "...home again, nothing to remember")
+
+  -- 4. stranded: no way home -> it leaves (ctx.strand: the despawn with its fade)
+  local stranded = {}
+  local e4 = entity(14, 25, 40)
+  e4.chaseHome = { x = 4, y = 25 }
+  local ctx4 = ctxFor(nil, 10, { strand = function(x) stranded[#stranded + 1] = x end,
+    occupied = function(x, y) return x == 13 or x == 15 or y == 24 or y == 26 end }) -- boxed in
+  WR.sendHome(e4)
+  check(e4.react and e4.react.mode == "return", "a stray off its grass is sent home")
+  run(e4, ctx4, cfg.chase.noPathTicks + 30)
+  eq(stranded[1], e4, "no way back: it leaves with the fade")
+  eq(e4.react, nil, "...its reaction over")
+
+  -- 5. switched off (chase.anyGround = false): the old way, it stays on its grass
+  contacts, visited = {}, {}
+  cfg.chase.anyGround = false
+  local e5 = entity(8, 12, 40)
+  local p5 = { x = 10, y = 12, moving = true }
+  livePlayer = p5
+  local ctx5 = ctxFor(p5, 10)
+  angry(e5, p5, ctx5)
+  p5.x, p5.moving = 14, false
+  runTracked(e5, ctx5, 600)
+  local stayed = true
+  for _, c in ipairs(visited) do if c.x > 8 then stayed = false end end
+  check(stayed, "anyGround off: a chaser keeps to its grass")
+  eq(#contacts, 0, "...so the player on the path is safe")
+  cfg.chase.anyGround = true
+
+  -- 6. a water chaser never leaves its water either way
+  check(not WR.anyGround({ terrain = "water" }), "a swimmer's chase stays in the water")
+  check(WR.anyGround({ terrain = "land" }), "a land one's may leave its grass")
+
+  for k, v in pairs(saved) do fake[k] = v end
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

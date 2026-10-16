@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Angry wild Pokemon chase you out of the grass.** Stepping onto the path no longer shakes off
+  a Wild Reacts chaser: it follows you across open ground to catch you (never into the water or
+  through a doorway), and when it gives up it walks back to its own grass. One that can't find
+  its way back slips away, so none is ever left stranded on the path.
+
 ## 1.8.0 (2026-10-15)
 
 ### Added
