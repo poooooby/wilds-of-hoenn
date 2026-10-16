@@ -23,6 +23,7 @@ tests/eave_duck_unit_test.lua
 tests/encounter_source_unit_test.lua
 tests/engine_patch_probe_test.lua
 tests/engine_patch_unit_test.lua
+tests/finisher_fx_unit_test.lua
 tests/flight_path_unit_test.lua
 tests/follower_actions_unit_test.lua
 tests/follower_adapter_unit_test.lua
@@ -51,6 +52,7 @@ tests/overworld_battle_unit_test.lua
 tests/ow_combat_unit_test.lua
 tests/party_roles_unit_test.lua
 tests/perch_spots_unit_test.lua
+tests/pixel_shapes_unit_test.lua
 tests/pmd_renderer_unit_test.lua
 tests/pmd_water_unit_test.lua
 tests/popup_text_unit_test.lua

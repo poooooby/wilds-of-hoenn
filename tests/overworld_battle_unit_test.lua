@@ -399,6 +399,62 @@ do
   eq(OverworldBattle._restingCell(w), 12, "its resting cell is its destination (x)")
 end
 
+-- ------- the knockout blow: the finishing move's TYPE effect (lib/finisher_fx.lua)
+do
+  local NAMES = { [0] = "NORMAL", [7] = "GHOST", [11] = "WATER", [18] = "FAIRY" }
+  E.typeName = function(t) return NAMES[t] or "NORMAL" end
+  local function fight(moveType)
+    reset()
+    MOVES[2].type = moveType
+    local wild = wildEntity(1, 13, 10)
+    local b = newBattler()
+    local mon = newMon()
+    local log = { kinds = {}, hitsAtKo = nil, finisherActor = false, alphaSeen = false, sinkSeen = false }
+    for _ = 1, 2500 do
+      b:step(env(mon))
+      if b.finisher then
+        log.kinds[b.finisher.kind] = true
+        if not log.hitsAtKo then log.hitsAtKo = #b.hits end
+        log.shade = log.shade or (wild.renderer.shade and true)
+      end
+      if b.mode == "win" then
+        if wild.renderer.alpha and wild.renderer.alpha < 1 then log.alphaSeen = true end
+        if wild.renderer.act and (wild.renderer.act.sink or 0) > 0 then log.sinkSeen = true end
+      end
+      local actors = {}
+      b:collectActors(actors)
+      for _, a in ipairs(actors) do if a.kind == "ow_finisher_fx" then log.finisherActor = true end end
+      if #defeated > 0 and b.mode == "idle" and not b.finisher then break end
+    end
+    log.b, log.wild = b, wild
+    return log
+  end
+
+  local w = fight(11)
+  check(w.kinds.WATER, "a Water move's knockout plays the WATER finisher")
+  check(w.finisherActor, "...drawn as a field actor")
+  check(w.hitsAtKo == 0 or w.hitsAtKo == 1, "...in place of the plain impact (no extra hit effect for the KO)")
+  eq(#defeated, 1, "...and the wild Pokemon is still defeated and removed")
+  check(w.sinkSeen, "...sinking into the ground as before")
+  eq(w.b.finisher, nil, "the effect ends on its own")
+
+  local f = fight(18)
+  check(f.kinds.FAIRY, "a Fairy move (type 18, National Dex) plays the FAIRY finisher")
+  check(f.shade, "...tinting the defeated Pokemon")
+  eq(f.wild.renderer.shade, nil, "...a tint cleared once it is gone")
+
+  local g = fight(7)
+  check(g.kinds.GHOST, "a Ghost move plays the GHOST finisher")
+  check(g.alphaSeen, "...the defeated Pokemon fades")
+  check(not g.sinkSeen, "...instead of sinking")
+
+  local n = fight(nil)
+  check(n.kinds.NORMAL, "a move with no type reads as NORMAL")
+
+  MOVES[2].type = nil
+  E.typeName = nil
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

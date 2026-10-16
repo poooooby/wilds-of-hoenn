@@ -6,8 +6,10 @@
 --   fight    short turns (lib/ow_combat.lua: real moves, damage, PP); each turn
 --            the attacker leans in, the blow lands with a hit flash + impact,
 --            the target plays its hurt animation, the health bars drop ->
---   win      the wild Pokemon cries and sinks into the ground and is gone; the
---            Battler earns a share of the EXP ->  return -> idle
+--   win      the knockout blow shows an effect of the finishing move's TYPE (a water
+--            splash, flames, leaves, Fairy sparkles ... lib/finisher_fx.lua); the wild
+--            Pokemon cries and sinks into the ground (a Ghost blow: fades) and is gone;
+--            the Battler earns a share of the EXP ->  return -> idle
 --   (exhausted) the Battler is at 1 HP / out of attacks: the wild Pokemon is
 --            let go, the Battler runs back to the player, cries and shrinks
 --            into them (retreat -> cry -> recall -> rest); it stays inside until
@@ -28,6 +30,7 @@ local ActorRenderer = V.require("actor_renderer")
 local HealthBar = V.require("health_bar")
 local HitEffect = V.require("hit_effect")
 local PopupText = V.require("popup_text")
+local FinisherFx = V.require("finisher_fx")
 
 local OverworldBattle = {}
 OverworldBattle.__index = OverworldBattle
@@ -63,6 +66,7 @@ function OverworldBattle:reset()
   self.fight, self.turn, self.wild, self.target = nil, nil, nil, nil
   self.popup, self.popupAge = nil, 0
   self.hits = {}
+  self.finisher = nil
   self.flash = 0
   self.away = false
   self.path, self.pathIdx = nil, 0
@@ -77,8 +81,13 @@ function OverworldBattle:_release()
   local e = self.target
   if e then
     e.engaged, e.owPose = false, nil
-    if e.renderer then e.renderer.act = nil end
+    if e.renderer then
+      e.renderer.act = nil
+      -- a knockout's tint / fade (lib/finisher_fx.lua) never outlives the fight
+      if self.shadedBy == e then e.renderer.shade, e.renderer.alpha = nil, nil end
+    end
   end
+  self.shadedBy, self.koFades = nil, nil
   self.target = nil
 end
 
@@ -233,6 +242,11 @@ function OverworldBattle:step(env)
     self.hits[i].age = self.hits[i].age + 1
     if self.hits[i].age >= HitEffect.LIFE then table.remove(self.hits, i) end
   end
+  local fin = self.finisher
+  if fin then
+    fin.age = fin.age + 1
+    if fin.age >= FinisherFx.TICKS then self.finisher = nil end
+  end
   self.dx, self.dy = self.wx - env.fpx, self.wy - env.fpy
 
   -- a skirmish whose wild Pokemon vanished (the player started their own battle
@@ -336,7 +350,11 @@ function OverworldBattle:_mode_fight(env)
 
   -- the blow lands
   if turn.t == cfg.windup and not ev.skipped then
-    if ev.hit then
+    if ev.hit and attackerIsAlly and ev.result == "win" then
+      -- the knockout: the finishing move's type effect instead of the plain impact
+      self:_startFinisher(ev, e)
+      self.wildFlash = cfg.flashTicks
+    elseif ev.hit then
       local defenderIsWild = attackerIsAlly
       local hx, hy = self.baseX, self.baseY
       if defenderIsWild then hx, hy = e.px, e.py end
@@ -369,6 +387,21 @@ function OverworldBattle:_mode_fight(env)
     bounce = allyAnim ~= nil, flapTicks = 4 })
 end
 
+--- The knockout blow's effect: the finishing move's type (lib/finisher_fx.lua), on the
+--- defeated Pokemon's tile; its tint goes on the Pokemon while it goes down.
+function OverworldBattle:_startFinisher(ev, e)
+  local c = self.combatDeps
+  local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
+  local kind = FinisherFx.kindFor(row and row.type)
+  self.finisher = { kind = kind, age = 0, x = e.px, y = e.py }
+  local recipe = FinisherFx.recipe(kind)
+  self.koFades = recipe.fade == true -- outlives the drawn effect: the whole win
+  if e.renderer and recipe.shade then
+    e.renderer.shade = recipe.shade
+    self.shadedBy = e
+  end
+end
+
 function OverworldBattle:_finishFight(env)
   local result = self.fight and self.fight:outcome()
   if result == "win" then
@@ -396,7 +429,14 @@ function OverworldBattle:_mode_win(env)
   self.wx, self.wy = self.baseX, self.baseY
   local sink = 0
   if self.t > cfg.winPause then sink = math.min(1, (self.t - cfg.winPause) / cfg.sinkTicks) end
-  self:_wildVisual("idle", 1, 0, 0, nil, sink)
+  -- a Ghost-type knockout: it fades away where it stood instead of sinking
+  if self.koFades and e.renderer then
+    e.renderer.alpha = 1 - sink
+    self.shadedBy = e
+    self:_wildVisual("idle", 1, 0, 0, nil, nil)
+  else
+    self:_wildVisual("idle", 1, 0, 0, nil, sink)
+  end
   if sink >= 1 then
     -- gone; the EXP
     local amount = OwCombat.expReward(self.wild, self.combatDeps, cfg.expShare)
@@ -498,6 +538,11 @@ function OverworldBattle:collectActors(actors)
   end
   for i, h in ipairs(self.hits) do
     local a = HitEffect.actor(h.x, h.y, h.age, h.heavy, 3, i)
+    if a then actors[#actors + 1] = a end
+  end
+  local fin = self.finisher
+  if fin then
+    local a = FinisherFx.actor(fin.kind, fin.age, fin.x, fin.y, 3, 0)
     if a then actors[#actors + 1] = a end
   end
 end

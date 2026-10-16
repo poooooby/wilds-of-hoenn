@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- **Knockout effects for the Battler.** When your partner finishes off a wild Pokemon, the
+  final blow shows the type of the move that landed it: a splash of water exploding outward, a
+  burst of flame, leaves flung everywhere, a lightning bolt, shards of ice or rock, a dust cloud,
+  psychic rings, Fairy sparkles and hearts, and so on for every type, Fairy included when
+  National Dex Gen 3 is installed. Some tint the defeated Pokemon as it goes down, and a Ghost
+  move makes it fade away instead of sinking.
+
 ### Changed
 
 - **Angry wild Pokemon chase you out of the grass.** Stepping onto the path no longer shakes off

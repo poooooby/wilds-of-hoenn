@@ -927,6 +927,23 @@ do
   _G.require = realRequire
 end
 
+-- ------- typeName: a type's name from its id; Fairy once National Dex registers it
+do
+  local Types = { ID = { NORMAL = 0, FIRE = 10, WATER = 11, MYSTERY = 9 } }
+  _G.require = function(n)
+    if n == "src.core.game3.battle.types" then return Types end
+    return realRequire(n)
+  end
+  eq(EnginePatch.typeName(11), "WATER", "typeName: id 11 -> WATER")
+  eq(EnginePatch.typeName(9), "NORMAL", "...the ??? type reads as NORMAL")
+  eq(EnginePatch.typeName(18), "NORMAL", "...an id the game does not know (no Fairy yet) -> NORMAL")
+  Types.ID.FAIRY = 18 -- National Dex Gen 3 adds it at runtime
+  eq(EnginePatch.typeName(18), "FAIRY", "...Fairy once National Dex Gen 3 registers it")
+  eq(EnginePatch.typeName("fire"), "FIRE", "a type name passes through (the Game Boy games)")
+  eq(EnginePatch.typeName(nil), "NORMAL", "no type -> NORMAL")
+  _G.require = realRequire
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

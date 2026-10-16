@@ -1598,6 +1598,33 @@ function EnginePatch.speciesTypes(species)
   return tonumber(t[1]) or 0, tonumber(t[2]) or 0
 end
 
+--- A type's NAME ("WATER", "FAIRY") from its id (battle/types.lua Types.ID: Fairy is 18,
+--- registered there by National Dex Gen 3 when it is installed) or from a name (upper-
+--- cased as is). Unknown ids and MYSTERY (the ??? type) read as "NORMAL". The reverse map
+--- is rebuilt whenever Types.ID grows (Nat Dex adds Fairy after this mod has loaded).
+local typeNames, typeNamesSize = nil, -1
+function EnginePatch.typeName(t)
+  if type(t) == "string" then
+    local name = t:upper()
+    return (name == "MYSTERY" or name == "???" or name == "") and "NORMAL" or name
+  end
+  local id = tonumber(t)
+  if not id then return "NORMAL" end
+  local Types = loadModule("src.core.game3.battle.types")
+  local ID = Types and type(Types.ID) == "table" and Types.ID or nil
+  if ID then
+    local n = 0
+    for _ in pairs(ID) do n = n + 1 end
+    if n ~= typeNamesSize then
+      typeNames, typeNamesSize = {}, n
+      for name, num in pairs(ID) do typeNames[num] = name end
+    end
+  end
+  local name = typeNames and typeNames[id]
+  if not name or name == "MYSTERY" then return "NORMAL" end
+  return name
+end
+
 --- pokedex_data.lua: a species' Pokedex height in decimetres, by the engine's INTERNAL
 --- species id (the entries are keyed by it: 304 = Taillow); nil when the Pokedex has no
 --- entry for it.
