@@ -57,7 +57,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   The knockout blow bursts with its move's type: a burst of
   water, flames, flying leaves, a lightning bolt, ice shards, Fairy sparkles and hearts, a fading
   Ghost — every type has its own look and battle sound (Fairy with National Dex Gen 3), at your
-  SFX volume. When it levels up, it tells you a new move or evolution
+  SFX volume. A fiery, watery, earthy, rocky, icy or grassy knockout leaves its mark on the
+  ground for a few seconds: a scorch, a puddle, a small crater, rubble, frost or clippings. When it levels up, it tells you a new move or evolution
   is ready, and you can open the game's own screens from its menu. It never faints: worn out,
   it returns to you to rest.
 - 🍂 **Forager:** On routes and in caves, every 1-3 minutes of walking it catches a scent,

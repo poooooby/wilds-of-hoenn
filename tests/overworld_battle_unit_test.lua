@@ -405,11 +405,12 @@ do
   E.typeName = function(t) return NAMES[t] or "NORMAL" end
   local played = {}
   local allyR
-  local function fight(moveType)
+  local function fight(moveType, terrain)
     reset()
     played = {}
     MOVES[2].type = moveType
     local wild = wildEntity(1, 13, 10)
+    wild.terrain = terrain or "land"
     local b = newBattler({ playSe = function(name) played[#played + 1] = name end })
     local mon = newMon()
     local log = { kinds = {}, hitKinds = {}, hitsAtKo = nil, finisherActor = false, alphaSeen = false, sinkSeen = false }
@@ -432,7 +433,10 @@ do
         if a.kind == "ow_hit_spark" then log.hitSpark = true end
       end
       for _, h in ipairs(b.hits) do if h.kind then log.hitKinds[h.kind] = h.power end end
-      for _, a in ipairs(actors) do if a.kind == "ow_move_fx" then log.moveFx = true end end
+      for _, a in ipairs(actors) do
+        if a.kind == "ow_move_fx" then log.moveFx = true end
+        if a.kind == "ow_ko_mark" then log.mark = true end
+      end
       if b.turn and b.turn.ev.actor == "ally" and b.turn.t >= 3 and b.turn.t <= 10 then
         if allyR.shade then log.allyGlow = true end
       end
@@ -460,6 +464,10 @@ do
   check(w.moveFx, "each move shows its type's effect round the attacker while it is used")
   check(w.allyGlow, "...and the Battler glows its colour over the wind-up")
   check(not w.glowLeft, "...a glow that never outlasts the fight")
+  check(w.mark, "a Water knockout leaves a puddle where the Pokemon stood")
+  eq(#w.b.marks, 1, "...one mark, kept after the fight")
+  for _ = 1, V.require("finisher_fx").MARK_TICKS do w.b:step(env(newMon())) end
+  eq(#w.b.marks, 0, "...until it fades")
   check(w.finisherActor, "...drawn as a field actor")
   check(w.hitsAtKo == 0 or w.hitsAtKo == 1, "...in place of the plain impact (no extra hit effect for the KO)")
   eq(#defeated, 1, "...and the wild Pokemon is still defeated and removed")
@@ -471,6 +479,11 @@ do
   eq(played[#played], V.require("finisher_fx").soundFor("FAIRY"), "...with Fairy's sound")
   check(f.shade, "...tinting the defeated Pokemon")
   eq(f.wild.renderer.shade, nil, "...a tint cleared once it is gone")
+
+  local ps = fight(14)
+  check(not ps.mark, "a Psychic knockout leaves no mark")
+  local wet = fight(11, "water")
+  check(wet.kinds.WATER and not wet.mark, "nor does a knockout on the water (it still plays its finisher)")
 
   local g = fight(7)
   check(g.kinds.GHOST, "a Ghost move plays the GHOST finisher")

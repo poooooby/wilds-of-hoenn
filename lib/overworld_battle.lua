@@ -70,6 +70,7 @@ function OverworldBattle:reset()
   self.hits = {}
   self.finisher = nil
   self.barRaise = 0
+  self.marks = {}
   self.flash = 0
   self.away = false
   self.path, self.pathIdx = nil, 0
@@ -245,6 +246,11 @@ function OverworldBattle:step(env)
   for i = #self.hits, 1, -1 do
     self.hits[i].age = self.hits[i].age + 1
     if self.hits[i].age >= math.max(HitEffect.LIFE, FinisherFx.HIT_TICKS) then table.remove(self.hits, i) end
+  end
+  for i = #self.marks, 1, -1 do
+    local m = self.marks[i]
+    m.age = m.age + 1
+    if m.age >= FinisherFx.MARK_TICKS then table.remove(self.marks, i) end
   end
   local fin = self.finisher
   if fin then
@@ -423,6 +429,13 @@ function OverworldBattle:_startFinisher(ev, e)
   local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
   local kind = FinisherFx.kindFor(row and row.type)
   self.finisher = { kind = kind, age = 0, x = e.px, y = e.py }
+  -- a mark left on the ground (never on water; one per tile, the newest)
+  if FinisherFx.leavesMark(kind) and e.terrain ~= "water" then
+    for i = #self.marks, 1, -1 do
+      if self.marks[i].x == e.px and self.marks[i].y == e.py then table.remove(self.marks, i) end
+    end
+    self.marks[#self.marks + 1] = { kind = kind, age = 0, x = e.px, y = e.py, elevation = e.elevation }
+  end
   local recipe = FinisherFx.recipe(kind)
   self.koFades = recipe.fade == true -- outlives the drawn effect: the whole win
   if recipe.se and self.deps.playSe then pcall(self.deps.playSe, recipe.se) end
@@ -610,6 +623,10 @@ function OverworldBattle:collectActors(actors)
       OverworldBattle.barLift(env.renderer) + math.floor((self.barRaise or 0) + 0.5), 3, 1)
     actors[#actors + 1] = HealthBar.actor(e.px, e.py, self.shownWild, self.wild.maxHp,
       OverworldBattle.barLift(e.renderer), 3, 2)
+  end
+  for i, m in ipairs(self.marks) do
+    local a = FinisherFx.markActor(m.kind, m.age, m.x, m.y, m.elevation or 3, i)
+    if a then actors[#actors + 1] = a end
   end
   local turn = self.turn
   if turn and turn.kind and self.target and self.mode == "fight" then

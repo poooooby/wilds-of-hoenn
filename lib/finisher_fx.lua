@@ -93,6 +93,10 @@ PixelShapes.defineAll({
     },
     colours = { { 0.34, 0.20, 0.72 }, { 0.46, 0.46, 0.96 }, { 0.80, 0.86, 1.0 } },
   },
+  clipping = {
+    rows = { { 0, 0, 1 }, { 0, 1, 2 }, { 1, 2, 0 }, { 2, 0, 0 } },
+    colours = { { 0.90, 0.96, 0.58 }, { 0.62, 0.78, 0.30 } },
+  },
   metal = {
     rows = { { 0, 1, 0 }, { 1, 2, 1 }, { 0, 1, 0 } },
     colours = { { 0.62, 0.66, 0.74 }, { 1, 1, 1 } },
@@ -469,6 +473,65 @@ function FinisherFx.hitParticles(kind, age, power, crit)
   return out
 end
 
+-- ------------------------------------------------------------------ marks on the ground
+-- Some knockouts leave a mark where the Pokemon stood, under the sprites, fading over
+-- MARK_TICKS: a scorch, a puddle, a small crater, frost, rubble, a few leaves. Cosmetic
+-- and never on water. Parts are centred on the tile's ground point.
+FinisherFx.MARK_TICKS = 300
+local MARK_FADE = 90 -- the last ticks fade it out
+
+local MARKS = {
+  FIRE = function(out, a)
+    out[#out + 1] = { "blot", 8, 3, 0.20, 0.14, 0.10, 0.55 * a }
+    out[#out + 1] = { "blot", 5, 2, 0.10, 0.07, 0.05, 0.45 * a }
+    out[#out + 1] = { "shape", "ember", -4, -1, a * 0.8 }
+  end,
+  WATER = function(out, a)
+    out[#out + 1] = { "blot", 9, 3, 0.36, 0.62, 1.0, 0.45 * a }
+    out[#out + 1] = { "ring", 7, 0.86, 0.95, 1.0, 0.6 * a, 0, -4 }
+  end,
+  GROUND = function(out, a)
+    out[#out + 1] = { "blot", 7, 3, 0.36, 0.28, 0.18, 0.55 * a }
+    out[#out + 1] = { "ring", 7, 0.62, 0.48, 0.30, 0.8 * a, 0, -4 }
+    out[#out + 1] = { "shape", "dust", -8, 0, a }
+    out[#out + 1] = { "shape", "dust", 8, -1, a }
+  end,
+  ROCK = function(out, a)
+    out[#out + 1] = { "shape", "rock", -5, 0, a }
+    out[#out + 1] = { "shape", "rock", 4, 1, a, 0.75 }
+    out[#out + 1] = { "shape", "rock", 1, -2, a, 0.75 }
+  end,
+  ICE = function(out, a)
+    out[#out + 1] = { "blot", 8, 3, 0.86, 0.95, 1.0, 0.55 * a }
+    out[#out + 1] = { "shape", "crystal", -4, -2, a }
+    out[#out + 1] = { "shape", "crystal", 5, -1, a, 0.75 }
+  end,
+  GRASS = function(out, a)
+    -- pale cut clippings (green leaves vanish on green grass)
+    out[#out + 1] = { "blot", 7, 2, 0.84, 0.90, 0.50, 0.35 * a }
+    out[#out + 1] = { "shape", "clipping", -5, 0, a }
+    out[#out + 1] = { "shape", "clipping", 4, 1, a }
+    out[#out + 1] = { "shape", "clipping", 0, -2, a }
+    out[#out + 1] = { "shape", "leaf", -1, 1, a, 0.75 }
+  end,
+}
+FinisherFx.MARKS = MARKS
+
+--- Does a `kind` knockout leave a mark?
+function FinisherFx.leavesMark(kind) return MARKS[kind] ~= nil end
+
+--- The mark's parts `age` ticks after the knockout (empty for a kind without one, or once
+--- it has faded). Pure.
+function FinisherFx.markParts(kind, age)
+  local out = {}
+  age = tonumber(age) or 0
+  local f = MARKS[kind]
+  if not f or age < 0 or age >= FinisherFx.MARK_TICKS then return out end
+  local a = math.min(1, age / 8, (FinisherFx.MARK_TICKS - age) / MARK_FADE)
+  f(out, a)
+  return out
+end
+
 -- ------------------------------------------------------------------ the attacker
 -- A move being used: a few of its type's particles gather round the attacker over the
 -- wind-up (it glows its type's colour meanwhile, `auraShade`), then a move that does not
@@ -570,6 +633,9 @@ local function drawPart(g, p, cx, cy)
   elseif kind == "ring" then
     g.setColor(p[3], p[4], p[5], p[6])
     g.ellipse("line", math.floor(cx + (p[7] or 0)) + 0.5, math.floor(cy + 4 + (p[8] or 0)) + 0.5, p[2], p[2] * 0.6)
+  elseif kind == "blot" then
+    g.setColor(p[4], p[5], p[6], p[7])
+    g.ellipse("fill", math.floor(cx + (p[8] or 0)), math.floor(cy + (p[9] or 0)), p[2], p[3])
   elseif kind == "flash" then
     g.setColor(p[2], p[3], p[4], p[5] * 0.6)
     g.circle("fill", cx, cy, 10)
@@ -646,6 +712,27 @@ function FinisherFx.moveActor(kind, contact, t, windup, x, y, dx, dy, lunge, ele
       for _, p in ipairs(FinisherFx.moveParticles(kind, contact, t, windup, dx, dy, lunge)) do
         drawPart(g, p, cx, cy)
       end
+      if lw and g.setLineWidth then g.setLineWidth(lw) end
+      g.setColor(r, gg, b, a)
+    end,
+  }
+end
+
+--- A knockout's mark on the ground as a field actor, under the sprites on its tile (world x, y).
+function FinisherFx.markActor(kind, age, x, y, elevation, id)
+  if not MARKS[kind] or (tonumber(age) or 0) >= FinisherFx.MARK_TICKS then return nil end
+  return {
+    kind = "ow_ko_mark", elevation = elevation or 3,
+    sortY = y - 0.5, x = x + 8, y = y + 13,
+    i = 90990 + (tonumber(id) or 0),
+    draw = function(_, camX, camY)
+      if not (love and love.graphics and love.graphics.rectangle) then return end
+      local g = love.graphics
+      local r, gg, b, a = g.getColor()
+      local lw = g.getLineWidth and g.getLineWidth()
+      if g.setLineWidth then g.setLineWidth(1) end
+      local cx, cy = math.floor(x + 8 - camX), math.floor(y + 13 - camY)
+      for _, p in ipairs(FinisherFx.markParts(kind, age)) do drawPart(g, p, cx, cy) end
       if lw and g.setLineWidth then g.setLineWidth(lw) end
       g.setColor(r, gg, b, a)
     end,

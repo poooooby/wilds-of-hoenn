@@ -164,6 +164,31 @@ eq(#FinisherFx.hitParticles("WATER", FinisherFx.HIT_TICKS, "super"), 0, "a spark
 check(FinisherFx.hitActor("WATER", 3, 0, 0, "super", true).kind == "ow_hit_spark", "the spark is a field actor")
 eq(FinisherFx.hitActor("WATER", FinisherFx.HIT_TICKS, 0, 0, "super"), nil, "...gone when it is over")
 
+-- ------- marks left on the ground
+do
+  for _, kind in ipairs({ "FIRE", "WATER", "GROUND", "ROCK", "ICE", "GRASS" }) do
+    check(FinisherFx.leavesMark(kind), kind .. " leaves a mark")
+    local parts = FinisherFx.markParts(kind, 40)
+    local ok = #parts > 0
+    for _, p in ipairs(parts) do
+      if p[1] == "shape" and not PixelShapes.get(p[2]) then ok = false end
+    end
+    check(ok, "...drawn from known parts")
+  end
+  check(not FinisherFx.leavesMark("PSYCHIC"), "a Psychic knockout leaves none")
+  eq(#FinisherFx.markParts("PSYCHIC", 40), 0, "...so nothing is drawn")
+  local function alphaOf(age)
+    local p = FinisherFx.markParts("WATER", age)[1]
+    return p and p[7] or 0
+  end
+  check(alphaOf(2) < alphaOf(40), "a mark appears quickly")
+  check(alphaOf(FinisherFx.MARK_TICKS - 10) < alphaOf(100), "...and fades out at the end")
+  eq(#FinisherFx.markParts("WATER", FinisherFx.MARK_TICKS), 0, "...gone after MARK_TICKS")
+  local a = FinisherFx.markActor("FIRE", 10, 32, 48, 3, 1)
+  check(a and a.kind == "ow_ko_mark" and a.sortY < 48, "a mark sorts under the sprites on its tile")
+  eq(FinisherFx.markActor("PSYCHIC", 10, 32, 48), nil, "no actor for a kind without a mark")
+end
+
 -- ------- the attacker: gathering particles, a projectile or a lunge trail, a glow
 do
   local W = 10
@@ -218,6 +243,8 @@ for kind in pairs(FinisherFx.RECIPES) do
     FinisherFx.hitActor(kind, 4, 32, 48, "weak", true).draw(nil, 0, 0)
     FinisherFx.moveActor(kind, false, 6, 10, 32, 48, 16, 0, 7).draw(nil, 0, 0)
     FinisherFx.moveActor(kind, true, 6, 10, 32, 48, 16, 0, 7).draw(nil, 0, 0)
+    local m = FinisherFx.markActor(kind, 30, 32, 48)
+    if m then m.draw(nil, 0, 0) end
   end)
   if not ok then check(false, kind .. " draw errors: " .. tostring(err)) end
 end

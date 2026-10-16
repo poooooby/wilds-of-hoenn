@@ -22,6 +22,9 @@
   contact (Water Gun, Ember, Confusion ...) flies across to the target as a projectile of its
   type, landing just as the hit does; a contact move (Tackle, Scratch ...) leaves a trail of
   puffs behind its lunge. Which is which comes from the game's own move data.
+- **Knockouts leave a mark on the ground.** Fire, Water, Ground, Rock, Ice and Grass knockouts
+  leave a scorch, a puddle, a small crater, rubble, frost or grass clippings where the wild
+  Pokemon stood, fading after a few seconds (never on water).
 
 ### Changed
 
