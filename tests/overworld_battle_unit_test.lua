@@ -460,6 +460,48 @@ do
   E.typeName = nil
 end
 
+-- ------- health bars sit just over the head
+do
+  local tall = { headLift = function() return 40 end, visualHeight = function() return 60 end }
+  eq(OverworldBattle.barLift(tall), 42, "a bar floats 2 px over the art's real top (headLift)")
+  eq(OverworldBattle.barLift({ visualHeight = function() return 30 end }), 32,
+    "...the visible height when the renderer has no headLift")
+  eq(OverworldBattle.barLift({}), 22, "...20 px when it can tell neither")
+  eq(OverworldBattle.barLift({ headLift = function() return 300 end }), 98, "a giant is capped")
+  eq(OverworldBattle.barLift(nil), 22, "no renderer at all")
+end
+
+-- ------- side by side, the Battler's bar goes over the wild one's
+do
+  local R = OverworldBattle.barRaise
+  eq(R(0, 0, 22, 16, 0, 22), 6, "equal heights side by side: up a bar and a row of air")
+  eq(R(0, 0, 22, 32, 0, 22), 0, "two tiles apart they do not touch")
+  eq(R(0, 0, 22, 0, 16, 22), 0, "the wild one a tile below: already clear")
+  eq(R(0, 0, 22, 16, 0, 25), 9, "a slightly taller wild one: higher still")
+  eq(R(0, 0, 40, 16, 0, 22), 0, "a much taller Battler is already above it")
+  eq(R(nil, 0, 22, 16, 0, 22), 0, "nothing to compare")
+end
+do
+  reset()
+  wildEntity(1, 13, 10)
+  local b = newBattler()
+  local mon = newMon()
+  local top, jump, prev, fought = 0, 0, 0, false
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    local r = b.barRaise or 0
+    if r > top then top = r end
+    if math.abs(r - prev) > jump then jump = math.abs(r - prev) end
+    prev = r
+    if b.mode == "fight" then fought = true end
+    if fought and b.mode == "idle" then break end
+  end
+  check(fought, "a real skirmish ran")
+  eq(top, 6, "side by side in a fight, the Battler's bar rose over the wild one's")
+  check(jump < 3, "...smoothly, a little each tick (largest step " .. jump .. ")")
+  eq(b.barRaise, 0, "...and settled back once the fight was over")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

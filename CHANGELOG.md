@@ -22,7 +22,8 @@
 
 - **Battler health bars look like the battle screen's.** A bright middle stripe between darker
   edges, white where health is gone, turning from green to yellow to red as it drops. They are slightly see-through so they
-  hide less of the field.
+  hide less of the field, and float just over each Pokemon's head, however tall it is;
+  when the two would overlap, your partner's bar glides up to sit above the wild one's.
 
 ## 1.8.0 (2026-10-15)
 

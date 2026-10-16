@@ -69,6 +69,7 @@ function OverworldBattle:reset()
   self.popup, self.popupAge = nil, 0
   self.hits = {}
   self.finisher = nil
+  self.barRaise = 0
   self.flash = 0
   self.away = false
   self.path, self.pathIdx = nil, 0
@@ -250,6 +251,7 @@ function OverworldBattle:step(env)
     if fin.age >= FinisherFx.TICKS then self.finisher = nil end
   end
   self.dx, self.dy = self.wx - env.fpx, self.wy - env.fpy
+  self:_tickBarRaise(env)
 
   -- a skirmish whose wild Pokemon vanished (the player started their own battle
   -- with it, it was despawned ...) is dropped
@@ -524,6 +526,45 @@ end
 
 -- ---------------------------------------------------------------- overlays
 
+--- How high a health bar floats: just over the top of the art as drawn (`headLift`, the
+--- highest point any Walk / Idle frame reaches, Species Sizes included -- what the emotes
+--- and shiny sparkle use), `HEAD_GAP` px of air between. Pure; for testing.
+local HEAD_GAP = 2
+function OverworldBattle.barLift(r)
+  local h = r and ((r.headLift and r:headLift()) or (r.visualHeight and r:visualHeight()))
+  h = tonumber(h) or 20
+  return math.max(10, math.min(96, h)) + HEAD_GAP
+end
+
+--- How many px the Battler's own health bar has to rise to clear the wild one's: two
+--- fighters side by side at about the same height would draw their bars over each other,
+--- so the Battler's goes on top, a row of air between. 0 when they do not touch.
+--- (ax, ay) / (wx, wy) = the fighters' tiles (world px), lifts from `barLift`. Pure.
+local BAR_W, BAR_H = HealthBar.WIDTH + 2, 5
+function OverworldBattle.barRaise(ax, ay, aLift, wx, wy, wLift)
+  if not (ax and ay and wx and wy) then return 0 end
+  local aTop, wTop = ay - aLift, wy - wLift
+  if math.abs(ax - wx) >= BAR_W or math.abs(aTop - wTop) > BAR_H then return 0 end
+  return math.max(0, aTop - (wTop - BAR_H - 1))
+end
+
+-- Eases `barRaise` toward where the Battler's bar has to sit: quickly, but never a jump.
+function OverworldBattle:_tickBarRaise(env)
+  local e = self.target
+  local goal = 0
+  if self.fight and e and (self.mode == "fight" or self.mode == "chase") then
+    goal = OverworldBattle.barRaise(self.wx, self.wy, OverworldBattle.barLift(env.renderer),
+      e.px, e.py, OverworldBattle.barLift(e.renderer))
+  end
+  local cur = self.barRaise or 0
+  local diff = goal - cur
+  if math.abs(diff) <= 0.5 then
+    self.barRaise = goal
+  else
+    self.barRaise = cur + diff * (self.cfg.barEase or 0.3)
+  end
+end
+
 --- Health bars, hit effects and the "+EXP" label as field actors.
 function OverworldBattle:collectActors(actors)
   local env = self.env
@@ -531,13 +572,10 @@ function OverworldBattle:collectActors(actors)
   local fighting = self.fight ~= nil and (self.mode == "fight" or self.mode == "chase")
   if fighting and self.target then
     local e = self.target
-    local lift = 20
-    local r = env.renderer
-    if r and r.visualHeight then lift = math.max(14, math.min(48, (r:visualHeight() or 20))) end
-    actors[#actors + 1] = HealthBar.actor(self.wx, self.wy, self.shownAlly, env.mon.maxHp, lift + 4, 3, 1)
-    local wlift = 20
-    if e.renderer and e.renderer.visualHeight then wlift = math.max(14, math.min(48, e.renderer:visualHeight() or 20)) end
-    actors[#actors + 1] = HealthBar.actor(e.px, e.py, self.shownWild, self.wild.maxHp, wlift + 4, 3, 2)
+    actors[#actors + 1] = HealthBar.actor(self.wx, self.wy, self.shownAlly, env.mon.maxHp,
+      OverworldBattle.barLift(env.renderer) + math.floor((self.barRaise or 0) + 0.5), 3, 1)
+    actors[#actors + 1] = HealthBar.actor(e.px, e.py, self.shownWild, self.wild.maxHp,
+      OverworldBattle.barLift(e.renderer), 3, 2)
   end
   for i, h in ipairs(self.hits) do
     local a = HitEffect.actor(h.x, h.y, h.age, h.heavy, 3, i)
