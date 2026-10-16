@@ -35,6 +35,11 @@
   it does. While you Pet, Play or Talk with it, it gives off a little puff of its own type
   (embers, droplets, leaves, sparks, snow, wisps ...; a Normal / Flying type like Pidgey puffs
   Flying).
+- **New look for the labels over your partner.** EXP, finds and "New move ready!" / "Ready to
+  evolve!" pop up in a white speech bubble pointing down at your Pokemon, just over its head
+  (however tall it is) instead of floating high above it; a level-up ("Lv.12!") is rainbow
+  letters rising and falling in a wave over a soft glow. (The Game Boy games keep the plain
+  label.)
 - **Type Aura option** (off by default): your partner gives off that puff of its type now and
   then as it follows you.
 

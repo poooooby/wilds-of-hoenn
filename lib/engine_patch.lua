@@ -2006,11 +2006,13 @@ function EnginePatch.drawText(text, x, y, opts)
   local ok, w = pcall(Font.measure, text, opts)
   local width = ok and tonumber(w) or 0
   -- the engine's default text colour is white (made for its dark message frames):
-  -- unless the caller picked one, use the dark "normal" colours so it reads on a light plate
+  -- unless the caller picked one, use the dark "normal" colours so it reads on a light plate;
+  -- `colorName` picks one of the font's own colour sets by name ("WHITE" on a dark plate)
   if not (opts and (opts.colors or opts.color)) and Font.COLOR and Font.COLOR.NORMAL then
     local copy = {}
     for k, v in pairs(opts or {}) do copy[k] = v end
-    copy.colors = Font.COLOR.NORMAL
+    copy.colors = (copy.colorName and Font.COLOR[copy.colorName]) or Font.COLOR.NORMAL
+    copy.colorName = nil
     opts = copy
   end
   pcall(Font.draw, text, x, y, opts)

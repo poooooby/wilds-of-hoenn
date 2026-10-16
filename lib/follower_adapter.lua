@@ -35,6 +35,7 @@ local FollowerAdapter = {}
 FollowerAdapter.__index = FollowerAdapter
 
 local CELL = 16
+local POPUP_GAP = 3 -- px of air between the top of its head and a label's tail
 local SWAP_LOCK = "wilds_of_hoenn_follower_swap"
 FollowerAdapter.STEP_TICKS = 16 -- logic ticks per one-tile step
 
@@ -810,9 +811,16 @@ function FollowerAdapter:collectActors(actors)
     local r = self.renderer
     local act = r and r.act
     local state = self.actState or {}
+    -- just over its head as drawn (headLift: the highest point its art reaches, Species Sizes
+    -- included; squashed under an eave), not a fixed height
+    local head = (r and r.headLift and r:headLift()) or CELL
+    head = head * (1 - ((r and r.duck) or 0))
+    local lift = math.max(2, math.floor(head - CELL + POPUP_GAP + 0.5))
     local a = PopupText.actor(popup and popup.text or ready,
       npc.px + ((r and r.pushX) or 0) + ((act and act.dx) or state.dx or 0),
-      npc.py + ((r and r.pushY) or 0) + ((act and act.dy) or state.dy or 0), npc.elevation, 22, popup and 0 or 1)
+      npc.py + ((r and r.pushY) or 0) + ((r and r.duckDy) or 0) + ((act and act.dy) or state.dy or 0),
+      npc.elevation, lift, popup and 0 or 1,
+      popup and popup.age or self.readyClock) -- its age animates a level-up
     if a then actors[#actors + 1] = a end
   end
   -- a shiny partner twinkles now and then (not while recalled into the player, nor while it

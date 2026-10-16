@@ -780,6 +780,16 @@ do
   for _, a in ipairs(actors) do if a.kind == "follower_popup" then popup = a end end
   check(popup ~= nil, "a find's label becomes a field actor")
   eq(popup.x, 64 + 16 + 8, "...above the follower's offset position")
+  local function liftWith(h)
+    fb.renderer.headLift = function() return h end
+    local acts = {}
+    fb:collectActors(acts)
+    for _, a in ipairs(acts) do if a.kind == "follower_popup" then return a.lift end end
+  end
+  eq(liftWith(30), 30 - 16 + 3, "...its tail just over the top of the head (3 px of air)")
+  eq(liftWith(60), 60 - 16 + 3, "...higher over a tall Pokemon")
+  eq(liftWith(12), 2, "...never down into a small one")
+  fb.renderer.headLift = nil
   popupOn = false
 
   -- the behaviour is told whether foraging is allowed here (routes / caves only)

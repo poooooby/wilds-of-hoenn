@@ -92,7 +92,8 @@ fake["src.core.game3.items_data"] = {
 local fontLog = {}
 fake["src.ui.game3.frlg_font"] = {
   measure = function(text) return #text * 6 end,
-  draw = function(text, x, y) fontLog[#fontLog + 1] = { text, x, y } end,
+  draw = function(text, x, y, opts) fontLog[#fontLog + 1] = { text, x, y, opts } end,
+  COLOR = { NORMAL = { fg = "dark" }, WHITE = { fg = "light" } },
 }
 local hudBusy = false
 fake["src.ui.game3.hud"] = { busy = function() return hudBusy end }
@@ -490,6 +491,10 @@ eq(seLog[1], 25, "...the right id")
 eq(EnginePatch.measureText("abc"), 18, "measureText reads the engine font")
 eq(EnginePatch.drawText("abc", 3, 4), 18, "drawText returns the width")
 eq(fontLog[1][2], 3, "...and draws at the given point")
+eq(fontLog[1][4].colors.fg, "dark", "...in the dark NORMAL colours by default (a light plate)")
+EnginePatch.drawText("abc", 3, 4, { small = true, colorName = "WHITE" })
+eq(fontLog[2][4].colors.fg, "light", "...or a colour set of the font's own picked by name")
+eq(fontLog[2][4].colorName, nil, "...the name itself not handed on")
 check(EnginePatch.cellFree(1, 1), "an open cell is free")
 objectAtCell["1,1"] = { id = 1 }
 check(not EnginePatch.cellFree(1, 1), "a cell with something on it is not")
