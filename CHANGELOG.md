@@ -18,10 +18,10 @@
   it has no effect, and a star on a critical hit. Each plays the battle's own hit sound for how
   well it landed, at your SFX volume.
 - **Battler moves show their type as they are used.** The attacker glows its move's colour as it
-  winds up, with a few of its type's particles gathering round it. A move that doesn't make
-  contact (Water Gun, Ember, Confusion ...) flies across to the target as a projectile of its
-  type, landing just as the hit does; a contact move (Tackle, Scratch ...) leaves a trail of
-  puffs behind its lunge. Which is which comes from the game's own move data.
+  winds up. A move that doesn't make contact (Water Gun, Ember, Confusion ...) gathers a few of
+  its type's particles, then flies across to the target as a projectile of its type, landing
+  just as the hit does; a contact move (Tackle, Scratch ...) simply lunges, leaving a trail of
+  puffs behind it (dust for Normal and Fighting). Which is which comes from the game's own move data.
 - **Knockouts leave a mark on the ground.** Fire, Water, Ground, Rock, Ice and Grass knockouts
   leave a scorch, a puddle, a small crater, rubble, frost or grass clippings where the wild
   Pokemon stood, fading after a few seconds (never on water).

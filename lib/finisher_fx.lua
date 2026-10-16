@@ -549,8 +549,9 @@ function FinisherFx.moveParticles(kind, contact, t, windup, dx, dy, lunge)
   local s = SPARKS[kind] or SPARKS.NORMAL
   local hue, shape = s.hue, shapeOf(s)
   local p = t / windup
-  -- gathering: four pieces circling in
-  for i = 0, 3 do
+  -- gathering: four pieces circling in -- a move that does not make contact charges up;
+  -- a contact move is a lunge, shown by its glow and its trail alone
+  for i = 0, contact and -1 or 3 do
     local a = i * math.pi / 2 + p * 2.4
     local r = 12 * (1 - p) + 2
     if shape then
@@ -582,7 +583,9 @@ function FinisherFx.moveParticles(kind, contact, t, windup, dx, dy, lunge)
     for k = 1, 3 do
       local back = lean - k * 3
       if back > -2 then
-        out[#out + 1] = { "shape", shape or "dust", ux * back, uy * back + 3, (1 - k / 4) * p * 0.7, 0.75 }
+        -- (a star, Normal / Fighting, is too big for a trail: dust)
+        local puff = (shape and shape ~= "star") and shape or "dust"
+        out[#out + 1] = { "shape", puff, ux * back, uy * back + 3, (1 - k / 4) * p * 0.7, 0.75 }
       end
     end
   end

@@ -216,6 +216,21 @@ do
   check(far(false, W) >= 15, "a ranged move's projectile reaches the target as the blow lands")
   check(far(false, 2) < 14, "...and starts back at the attacker")
   check(far(true, W) <= 8, "a contact move throws nothing across: only its trail, behind the lunge")
+  local gathered = 0
+  for _, p in ipairs(FinisherFx.moveParticles("NORMAL", true, 4, W, 16, 0, 7)) do
+    if p[1] == "shape" and p[2] == "star" then gathered = gathered + 1 end
+  end
+  eq(gathered, 0, "a contact move does not gather (Tackle: no circling stars)")
+  local dust = false
+  for _, p in ipairs(FinisherFx.moveParticles("NORMAL", true, 8, W, 16, 0, 7)) do
+    if p[2] == "dust" then dust = true end
+  end
+  check(dust, "...its trail is dust, not stars")
+  local embers = false
+  for _, p in ipairs(FinisherFx.moveParticles("FIRE", true, 8, W, 16, 0, 7)) do
+    if p[2] == "ember" then embers = true end
+  end
+  check(embers, "...a Fire contact move (Fire Punch) trails embers")
   eq(#FinisherFx.moveParticles("WATER", false, W + 1, W, 16, 0, 7), 0, "nothing after the blow")
   local ring = false
   for _, p in ipairs(FinisherFx.moveParticles("PSYCHIC", false, W, W, 16, 0, 7)) do
