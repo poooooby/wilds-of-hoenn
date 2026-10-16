@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Tropius stays on the ground.** It no longer flies past overhead, perches on roofs or swoops
+  in to land; wild Tropius walk about like other Pokemon.
+
 ## 1.9.2 (2026-10-16)
 
 ### Fixed

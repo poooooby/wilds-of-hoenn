@@ -106,11 +106,12 @@ Config.FLYERS = {
   -- maxBirdHeightDm in the Pokedex (decimetres: Gyarados 65, Rayquaza 70), and none of
   -- `notBirds` (national dex): the flightless Doduo, Dodrio, Delibird, and those the flyer
   -- audit ruled out (no art that reads as flying; tools/generate_pmd_sprites.py FLY_SOURCE
-  -- holds what the others fly with)
+  -- holds what the others fly with), and Tropius (357: a big long-necked walker, not a bird
+  -- overhead -- it walks the Fortree treetops instead)
   notBirds = {
     [6] = true, [36] = true, [84] = true, [85] = true, [163] = true, [178] = true, [225] = true,
     [587] = true, [629] = true, [641] = true, [642] = true, [645] = true, [732] = true,
-    [733] = true, [905] = true, [993] = true,
+    [733] = true, [905] = true, [993] = true, [357] = true,
   },
   maxBirdHeightDm = 30,
   -- the real birds (national dex): only these dive into the sea (a Water / sea Flying type
