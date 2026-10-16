@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # What the mod needs to run, plus the licence / attribution / docs it ships with.
 SHIPPED_FILES = {
     "manifest.json", "main.lua", "options.lua",
-    "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "CHANGELOG.md",
+    "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "CHANGELOG.md", "COMMUNITY.md",
 }
 SHIPPED_DIRS = {"lib", "assets"}
 

@@ -180,6 +180,9 @@ time, and they stay out until you change your leader again. One partner is out a
 - **Zygarde 100% overworld sprite:** [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion)
   (Liamjd14, kittenchilly).
 
+- **Ideas from the community:** many features started as suggestions from players on Discord.
+  See [COMMUNITY.md](COMMUNITY.md) for everyone who helped shape the mod. Thank you! 💚
+
 ## 💡 Inspirations
 
 - **TTiN** and **Untamed Tohjo**: friendship-weighted foraging and shiny chains (used with
