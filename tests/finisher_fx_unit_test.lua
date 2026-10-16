@@ -164,6 +164,47 @@ eq(#FinisherFx.hitParticles("WATER", FinisherFx.HIT_TICKS, "super"), 0, "a spark
 check(FinisherFx.hitActor("WATER", 3, 0, 0, "super", true).kind == "ow_hit_spark", "the spark is a field actor")
 eq(FinisherFx.hitActor("WATER", FinisherFx.HIT_TICKS, 0, 0, "super"), nil, "...gone when it is over")
 
+-- ------- the attacker: gathering particles, a projectile or a lunge trail, a glow
+do
+  local W = 10
+  local okMove = true
+  for kind in pairs(FinisherFx.RECIPES) do
+    for _, contact in ipairs({ true, false }) do
+      for t = 0, W do
+        for _, p in ipairs(FinisherFx.moveParticles(kind, contact, t, W, 16, 0, 7)) do
+          if p[1] == "shape" and not PixelShapes.get(p[2]) then okMove = false check(false, kind .. ": unknown shape " .. p[2]) end
+          for i = 3, 5 do
+            if p[1] == "shape" and (type(p[i]) ~= "number" or p[i] ~= p[i]) then okMove = false check(false, kind .. ": bad number") end
+          end
+        end
+      end
+    end
+  end
+  check(okMove, "every type's move effect uses known shapes and finite numbers, contact or not")
+  local function far(contact, t)
+    local best = 0
+    for _, p in ipairs(FinisherFx.moveParticles("WATER", contact, t, W, 16, 0, 7)) do
+      if p[1] == "shape" and p[3] > best then best = p[3] end
+    end
+    return best
+  end
+  check(far(false, W) >= 15, "a ranged move's projectile reaches the target as the blow lands")
+  check(far(false, 2) < 14, "...and starts back at the attacker")
+  check(far(true, W) <= 8, "a contact move throws nothing across: only its trail, behind the lunge")
+  eq(#FinisherFx.moveParticles("WATER", false, W + 1, W, 16, 0, 7), 0, "nothing after the blow")
+  local ring = false
+  for _, p in ipairs(FinisherFx.moveParticles("PSYCHIC", false, W, W, 16, 0, 7)) do
+    if p[1] == "ring" and p[7] and p[7] > 10 then ring = true end
+  end
+  check(ring, "a Psychic projectile is a ring flying over")
+  eq(FinisherFx.auraShade("FIRE", 0, W), nil, "no glow before the wind-up begins")
+  local mid, peak = FinisherFx.auraShade("FIRE", 5, W), FinisherFx.auraShade("FIRE", W, W)
+  check(mid and peak and peak[3] < mid[3] and mid[3] < 1, "the attacker glows warmer toward the blow (Fire)")
+  eq(FinisherFx.auraShade("FIRE", W + 7, W), nil, "...and is back to normal just after it")
+  check(FinisherFx.moveActor("WATER", false, 3, W, 0, 0, 16, 0, 7).kind == "ow_move_fx", "it is a field actor")
+  eq(FinisherFx.moveActor("WATER", false, W + 1, W, 0, 0, 16, 0, 7), nil, "...gone after the blow")
+end
+
 -- the actor: built, drawn headless without trouble, gone after TICKS
 local a = FinisherFx.actor("WATER", 5, 32, 48, 3, 0)
 check(a and a.kind == "ow_finisher_fx" and a.oamPriority == 1, "the actor is a plain field actor over the map")
@@ -175,6 +216,8 @@ for kind in pairs(FinisherFx.RECIPES) do
   local ok, err = pcall(function()
     FinisherFx.actor(kind, 6, 32, 48).draw(nil, 0, 0)
     FinisherFx.hitActor(kind, 4, 32, 48, "weak", true).draw(nil, 0, 0)
+    FinisherFx.moveActor(kind, false, 6, 10, 32, 48, 16, 0, 7).draw(nil, 0, 0)
+    FinisherFx.moveActor(kind, true, 6, 10, 32, 48, 16, 0, 7).draw(nil, 0, 0)
   end)
   if not ok then check(false, kind .. " draw errors: " .. tostring(err)) end
 end

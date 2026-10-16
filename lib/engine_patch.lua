@@ -1436,8 +1436,10 @@ function EnginePatch.moveRow(moveId)
   if not (Moves and id) then return nil end
   local ok, row = pcall(Moves.get, id)
   if not ok or type(row) ~= "table" then return nil end
+  -- contact: the move row's FLAG_MAKES_CONTACT (bit 0, as battle/abilities.lua reads it)
   return { power = tonumber(row.power) or 0, accuracy = tonumber(row.accuracy) or 0,
-           type = tonumber(row.type) or 0, pp = tonumber(row.pp) or 0 }
+           type = tonumber(row.type) or 0, pp = tonumber(row.pp) or 0,
+           contact = (tonumber(row.flags) or 0) % 2 == 1 }
 end
 
 --- The engine's damage formula between two battlers; `rng(lo, hi)` picks the

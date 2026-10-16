@@ -404,6 +404,7 @@ do
   local NAMES = { [0] = "NORMAL", [7] = "GHOST", [11] = "WATER", [18] = "FAIRY" }
   E.typeName = function(t) return NAMES[t] or "NORMAL" end
   local played = {}
+  local allyR
   local function fight(moveType)
     reset()
     played = {}
@@ -412,8 +413,9 @@ do
     local b = newBattler({ playSe = function(name) played[#played + 1] = name end })
     local mon = newMon()
     local log = { kinds = {}, hitKinds = {}, hitsAtKo = nil, finisherActor = false, alphaSeen = false, sinkSeen = false }
+    allyR = {}
     for _ = 1, 2500 do
-      b:step(env(mon))
+      b:step(env(mon, { renderer = allyR }))
       if b.finisher then
         log.kinds[b.finisher.kind] = true
         if not log.hitsAtKo then log.hitsAtKo = #b.hits end
@@ -430,6 +432,11 @@ do
         if a.kind == "ow_hit_spark" then log.hitSpark = true end
       end
       for _, h in ipairs(b.hits) do if h.kind then log.hitKinds[h.kind] = h.power end end
+      for _, a in ipairs(actors) do if a.kind == "ow_move_fx" then log.moveFx = true end end
+      if b.turn and b.turn.ev.actor == "ally" and b.turn.t >= 3 and b.turn.t <= 10 then
+        if allyR.shade then log.allyGlow = true end
+      end
+      if b.mode == "idle" and allyR.shade then log.glowLeft = true end
       if #defeated > 0 and b.mode == "idle" and not b.finisher then break end
     end
     log.b, log.wild = b, wild
@@ -450,6 +457,9 @@ do
   eq(hitSounds + 1, #played, "...and nothing else makes a sound")
   eq(w.hitKinds.WATER, "normal", "an ordinary Water hit shows a Water spark, landed normally")
   check(w.hitSpark, "...drawn as a field actor")
+  check(w.moveFx, "each move shows its type's effect round the attacker while it is used")
+  check(w.allyGlow, "...and the Battler glows its colour over the wind-up")
+  check(not w.glowLeft, "...a glow that never outlasts the fight")
   check(w.finisherActor, "...drawn as a field actor")
   check(w.hitsAtKo == 0 or w.hitsAtKo == 1, "...in place of the plain impact (no extra hit effect for the KO)")
   eq(#defeated, 1, "...and the wild Pokemon is still defeated and removed")

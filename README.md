@@ -49,7 +49,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   status. Squeezed under a roof's edge, it lets you know it's cramped.
 - ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. It fights with
   its real moves, stats and PP, on land or swimming out over water, and earns EXP. Battle-style
-  health bars show on both sides, and every hit sparks with its move's type (droplets, embers,
+  health bars show on both sides. Each move glows in its type's colour as it winds up; moves
+  that don't touch the target fly across as a splash, an ember or a psychic ring, and
+  contact moves leave a trail behind the lunge. Every hit sparks with its move's type (droplets, embers,
   leaves ...), bigger when it is super effective, dimmed when it is not very effective, a grey
   puff when it has no effect, a star on a critical hit, each with the battle's own hit sound.
   The knockout blow bursts with its move's type: a burst of

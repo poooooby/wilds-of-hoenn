@@ -469,6 +469,75 @@ function FinisherFx.hitParticles(kind, age, power, crit)
   return out
 end
 
+-- ------------------------------------------------------------------ the attacker
+-- A move being used: a few of its type's particles gather round the attacker over the
+-- wind-up (it glows its type's colour meanwhile, `auraShade`), then a move that does not
+-- make contact (the move row's own flag) flies a projectile of its type to the target,
+-- landing as the blow does; a contact move leaves a trail of puffs behind its lunge.
+local function shapeOf(s) return (s[1] ~= "ring" and s[1] ~= "streak") and s[1] or nil end
+
+--- The parts `t` ticks into a turn whose blow lands at `windup`, relative to the attacker's
+--- centre; (dx, dy) = from it to the target's (px), `lunge` = how far it leans in. Pure.
+function FinisherFx.moveParticles(kind, contact, t, windup, dx, dy, lunge)
+  local out = {}
+  t, windup = tonumber(t) or 0, math.max(1, tonumber(windup) or 1)
+  dx, dy = tonumber(dx) or 0, tonumber(dy) or 0
+  if t < 0 or t > windup then return out end
+  local s = SPARKS[kind] or SPARKS.NORMAL
+  local hue, shape = s.hue, shapeOf(s)
+  local p = t / windup
+  -- gathering: four pieces circling in
+  for i = 0, 3 do
+    local a = i * math.pi / 2 + p * 2.4
+    local r = 12 * (1 - p) + 2
+    if shape then
+      out[#out + 1] = { "shape", shape, math.cos(a) * r, math.sin(a) * r * 0.7 - 2, 0.85 * math.min(1, p * 2) }
+    else
+      out[#out + 1] = { "line", math.cos(a) * r, math.sin(a) * r * 0.7 - 2, math.cos(a) * (r - 2),
+        math.sin(a) * (r - 2) * 0.7 - 2, hue[1], hue[2], hue[3], math.min(1, p * 2) }
+    end
+  end
+  local len = math.sqrt(dx * dx + dy * dy)
+  if not contact then
+    -- the projectile: from 30% of the wind-up to the blow, a low arc
+    local q = clamp01((p - 0.3) / 0.7)
+    if p >= 0.3 and len > 0 then
+      local x, y = dx * q, dy * q - 4 * math.sin(math.pi * q)
+      if s[1] == "ring" then
+        out[#out + 1] = { "ring", 3 + 2 * q, hue[1], hue[2], hue[3], 0.9, x, y - 4 }
+      elseif s[1] == "streak" then
+        out[#out + 1] = { "line", x - dx / len * 6, y - dy / len * 6, x, y, hue[1], hue[2], hue[3], 0.9 }
+      else
+        out[#out + 1] = { "shape", shape, x, y, 1, 1 }
+        out[#out + 1] = { "shape", shape, x - dx / len * 5, y - dy / len * 5 + 1, 0.5 }
+      end
+    end
+  elseif len > 0 then
+    -- the trail: puffs left where it leaned from, fading
+    local ux, uy = dx / len, dy / len
+    local lean = (tonumber(lunge) or 7) * p
+    for k = 1, 3 do
+      local back = lean - k * 3
+      if back > -2 then
+        out[#out + 1] = { "shape", shape or "dust", ux * back, uy * back + 3, (1 - k / 4) * p * 0.7, 0.75 }
+      end
+    end
+  end
+  return out
+end
+
+--- The attacker's tint at `t` of a turn whose blow lands at `windup`: toward its type's
+--- colour over the wind-up, back to none just after. nil when untinted.
+function FinisherFx.auraShade(kind, t, windup)
+  t, windup = tonumber(t) or 0, math.max(1, tonumber(windup) or 1)
+  local k
+  if t <= windup then k = t / windup else k = 1 - (t - windup) / 6 end
+  if k <= 0 then return nil end
+  local hue = (SPARKS[kind] or SPARKS.NORMAL).hue
+  local m = 0.45 * math.min(1, k)
+  return { 1 + (hue[1] - 1) * m, 1 + (hue[2] - 1) * m, 1 + (hue[3] - 1) * m }
+end
+
 --- The engine sheet frame `age` ticks in (0-based), or nil when its animation is over.
 function FinisherFx.sheetFrame(kind, age)
   local s = FinisherFx.recipe(kind).sheet
@@ -500,7 +569,7 @@ local function drawPart(g, p, cx, cy)
     g.line(math.floor(cx + p[2]) + 0.5, math.floor(cy + p[3]) + 0.5, math.floor(cx + p[4]) + 0.5, math.floor(cy + p[5]) + 0.5)
   elseif kind == "ring" then
     g.setColor(p[3], p[4], p[5], p[6])
-    g.ellipse("line", math.floor(cx) + 0.5, math.floor(cy + 4) + 0.5, p[2], p[2] * 0.6)
+    g.ellipse("line", math.floor(cx + (p[7] or 0)) + 0.5, math.floor(cy + 4 + (p[8] or 0)) + 0.5, p[2], p[2] * 0.6)
   elseif kind == "flash" then
     g.setColor(p[2], p[3], p[4], p[5] * 0.6)
     g.circle("fill", cx, cy, 10)
@@ -554,6 +623,29 @@ function FinisherFx.hitActor(kind, age, x, y, power, crit, elevation, id)
       if g.setLineWidth then g.setLineWidth(1) end
       local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
       for _, p in ipairs(FinisherFx.hitParticles(kind, age, power, crit)) do drawPart(g, p, cx, cy) end
+      if lw and g.setLineWidth then g.setLineWidth(lw) end
+      g.setColor(r, gg, b, a)
+    end,
+  }
+end
+
+--- The move's effects as one field actor round the attacker's tile (world x, y).
+function FinisherFx.moveActor(kind, contact, t, windup, x, y, dx, dy, lunge, elevation, id)
+  if (tonumber(t) or 0) > (tonumber(windup) or 0) then return nil end
+  return {
+    kind = "ow_move_fx", elevation = elevation or 3, oamPriority = 1,
+    sortY = y + 94, x = x + 8, y = y + 8,
+    i = 90980 + (tonumber(id) or 0),
+    draw = function(_, camX, camY)
+      if not (love and love.graphics and love.graphics.rectangle) then return end
+      local g = love.graphics
+      local r, gg, b, a = g.getColor()
+      local lw = g.getLineWidth and g.getLineWidth()
+      if g.setLineWidth then g.setLineWidth(1) end
+      local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
+      for _, p in ipairs(FinisherFx.moveParticles(kind, contact, t, windup, dx, dy, lunge)) do
+        drawPart(g, p, cx, cy)
+      end
       if lw and g.setLineWidth then g.setLineWidth(lw) end
       g.setColor(r, gg, b, a)
     end,

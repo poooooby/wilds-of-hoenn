@@ -17,6 +17,11 @@
   when it is super effective, dimmed and grey when it is not very effective, just a grey puff when
   it has no effect, and a star on a critical hit. Each plays the battle's own hit sound for how
   well it landed, at your SFX volume.
+- **Battler moves show their type as they are used.** The attacker glows its move's colour as it
+  winds up, with a few of its type's particles gathering round it. A move that doesn't make
+  contact (Water Gun, Ember, Confusion ...) flies across to the target as a projectile of its
+  type, landing just as the hit does; a contact move (Tackle, Scratch ...) leaves a trail of
+  puffs behind its lunge. Which is which comes from the game's own move data.
 
 ### Changed
 

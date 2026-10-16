@@ -159,7 +159,8 @@ fake["src.core.game3.battle.damage"] = {
 fake["src.core.game3.battle.moves"] = {
   get = function(id)
     if id == 404 then error("no such move") end
-    return { power = 40, accuracy = 100, type = 0, pp = 35 }
+    if id == 55 then return { power = 40, accuracy = 100, type = 11, pp = 25, flags = 18 } end
+    return { power = 40, accuracy = 100, type = 0, pp = 35, flags = 19 }
   end,
 }
 local startedEvolution, evolutionOpen, relearnerOpen = nil, false, false
@@ -387,6 +388,8 @@ do
   local row = EnginePatch.moveRow(33)
   eq(row.power, 40, "moveRow reads power")
   eq(row.accuracy, 100, "...and accuracy")
+  eq(row.contact, true, "...and whether it makes contact (flag bit 0: Tackle)")
+  eq(EnginePatch.moveRow(55).contact, false, "...a ranged move does not (Water Gun)")
   eq(EnginePatch.moveRow(404), nil, "an unknown move is nil, never an error")
   eq(EnginePatch.moveNumber({ id = 55 }), 55, "moves may be tables")
   local dmg, info = EnginePatch.moveDamage(b, b, 33, function() return 1 end, true)

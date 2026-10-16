@@ -91,6 +91,7 @@ function OverworldBattle:_release()
     end
   end
   self.shadedBy, self.koFades = nil, nil
+  self:_clearAura()
   self.target = nil
 end
 
@@ -332,6 +333,13 @@ function OverworldBattle:_mode_fight(env)
       return self:_finishFight(env)
     end
     self.turn = { ev = ev, t = 0 }
+    -- the move's look while it is used (lib/finisher_fx.lua moveParticles): its type, and
+    -- whether it makes contact (a lunge with a trail) or not (a projectile)
+    local c = self.combatDeps
+    local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
+    if row and not ev.skipped then
+      self.turn.kind, self.turn.contact = FinisherFx.kindFor(row.type), row.contact ~= false
+    end
   end
   local turn = self.turn
   turn.t = turn.t + 1
@@ -394,6 +402,15 @@ function OverworldBattle:_mode_fight(env)
   local flashRatio = (self.wildFlash or 0) / cfg.flashTicks
   self:_wildVisual(wildAnim, cfg.attackSpeed, wildLeanX, wildLeanY, flashRatio, nil)
 
+  -- the attacker glows its move's colour over the wind-up
+  local attackerR = attackerIsAlly and env.renderer or e.renderer
+  local aura = turn.kind and FinisherFx.auraShade(turn.kind, turn.t, cfg.windup)
+  if aura and attackerR and self.shadedBy ~= e then
+    attackerR.shade, self.auraOn = aura, attackerR
+  else
+    self:_clearAura()
+  end
+
   if turn.t >= cfg.turnTicks then self.turn = nil end
   return state(self, env, { moving = false, anim = allyAnim or "idle", animSpeed = cfg.attackSpeed,
     bounce = allyAnim ~= nil, flapTicks = 4 })
@@ -412,6 +429,15 @@ function OverworldBattle:_startFinisher(ev, e)
   if e.renderer and recipe.shade then
     e.renderer.shade = recipe.shade
     self.shadedBy = e
+  end
+end
+
+-- Takes the wind-up glow off whoever had it.
+function OverworldBattle:_clearAura()
+  local r = self.auraOn
+  if r then
+    if r ~= (self.shadedBy and self.shadedBy.renderer) then r.shade = nil end
+    self.auraOn = nil
   end
 end
 
@@ -584,6 +610,17 @@ function OverworldBattle:collectActors(actors)
       OverworldBattle.barLift(env.renderer) + math.floor((self.barRaise or 0) + 0.5), 3, 1)
     actors[#actors + 1] = HealthBar.actor(e.px, e.py, self.shownWild, self.wild.maxHp,
       OverworldBattle.barLift(e.renderer), 3, 2)
+  end
+  local turn = self.turn
+  if turn and turn.kind and self.target and self.mode == "fight" then
+    local e = self.target
+    local ax, ay, tx, ty = self.baseX, self.baseY, e.px, e.py
+    if turn.ev.actor ~= "ally" then ax, ay, tx, ty = e.px, e.py, self.baseX, self.baseY end
+    if ax and tx then
+      local a = FinisherFx.moveActor(turn.kind, turn.contact, turn.t, self.cfg.windup, ax, ay,
+        tx - ax, ty - ay, self.cfg.lunge, 3, 1)
+      if a then actors[#actors + 1] = a end
+    end
   end
   for i, h in ipairs(self.hits) do
     local a = HitEffect.actor(h.x, h.y, h.age, h.heavy, 3, i)
