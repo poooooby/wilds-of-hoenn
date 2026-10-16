@@ -4,6 +4,11 @@
 
 ### Added
 
+- **Livelier Pokemon in the water.** Wild Pokemon on lakes and the sea swim about in short
+  runs, a few tiles one way, a pause, then off another way. They bob gently on the surface,
+  leave a small ring of wake on each tile they swim off, and every so often dive under and come
+  up a few tiles away inside spreading rings. Nothing can bump into one while it is under.
+
 - **Knockout effects for the Battler.** When your partner finishes off a wild Pokemon, the
   final blow shows the type of the move that landed it: a splash of water exploding outward, a
   burst of flame, leaves flung everywhere, a lightning bolt, shards of ice or rock, a dust cloud,
@@ -45,6 +50,10 @@
 
 ### Changed
 
+- **Wild Reacts is less dramatic.** A startled Pokemon runs 1-3 tiles instead of 3-6. A
+  stronger one only gets angry when you run right up beside it (within a tile, 2 on a bike), and
+  gives up the chase after 2-4 tiles instead of 4-10.
+
 - **Changing your partner's job no longer puts it back in its ball.** Picking a new role for
   the Pokemon already out lets it switch jobs on the spot; the ball only comes out when a
   different Pokemon takes over, or one is recalled or sent out.
@@ -61,6 +70,8 @@
 
 ### Fixed
 
+- **Wild Pokemon in the water can move.** Water spawns never took a single step: the game's
+  surfing rules refused every one. They swim now (and a startled one can swim away).
 - **PMDCollab partners rest on their feet.** After stopping, a PMDCollab style partner holds
   the first pose of its idle animation for a few seconds. For some species (Charmander, Altaria,
   Noctowl ...) that pose reaches a little lower than how they stand, so they sat a pixel or

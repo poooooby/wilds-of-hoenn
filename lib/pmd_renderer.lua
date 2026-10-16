@@ -467,7 +467,7 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x - camX, y - camY)
   end
   local rest = crop and 0 or self:restOffset(row) * scale -- resting: frame 0's feet on the line
-  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) - rest + 0.5)
+  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) + (self.bobDy or 0) - rest + 0.5)
   local scaleY, scaleX = scale, scale
   -- ducking under an eave (a follower, lib/eave_duck.lua): squashed toward its ground
   -- point and a little wider about its anchor

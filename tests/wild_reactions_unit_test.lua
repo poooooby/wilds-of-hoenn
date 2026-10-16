@@ -42,6 +42,8 @@ end
 local WR = V.require("wild_reactions")
 local Config = V.require("config")
 local cfg = Config.REACT
+-- these tests stage chases 2 tiles off (a wall between them): the anger radius as it was
+cfg.aggroRadius, cfg.bikeAggroRadius = 2, 3
 
 -- ------- strength against the lead
 do
@@ -157,7 +159,7 @@ do
   run(e, ctx, 400)
   eq(e.react, nil, "it calms down afterwards")
   local endDist = math.abs(e.cellX - player.x) + math.abs(e.cellY - player.y)
-  check(endDist >= startDist + 3, ("it ran off (%d -> %d tiles away)"):format(startDist, endDist))
+  check(endDist >= startDist + cfg.flee.steps[1], ("it ran off (%d -> %d tiles away)"):format(startDist, endDist))
   check(e.reactUntil and e.reactUntil > ctx.now, "...and rests before reacting again")
 end
 
@@ -270,7 +272,8 @@ do
   end
   local n = 0
   for _ in pairs(seen) do n = n + 1 end
-  check(n >= 4, "different chases follow different distances (" .. n .. " leash lengths seen)")
+  local span = cfg.chase.leash[2] - cfg.chase.leash[1] + 1
+  check(n >= math.min(4, span), "different chases follow different distances (" .. n .. " of " .. span .. " leash lengths seen)")
 end
 
 -- ------- chasers leave the grass (chase.anyGround): open ground yes; water, doors, no

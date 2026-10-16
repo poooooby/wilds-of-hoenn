@@ -33,6 +33,22 @@ Config.STATE = {
 -- one leaves. Ticks at 60 per second.
 Config.SPAWN_FX = { appearTicks = 26, leaveTicks = 22 }
 
+-- Water spawns as live swimmers (lib/behavior.lua swim, lib/spawn_manager.lua):
+--   runs   every one swims (none just float): a heading held for runMin..runMax tiles at
+--          stepFrames a tile (16 = walking pace), a pause of pauseMin..pauseMax ticks between
+--          runs; a blocked heading tries the other directions (turning back last)
+--   bob    a gentle rise and fall at the surface, bobAmp px, one cycle every bobTicks
+--   wake   a small ring left on each tile it swims off (r0 -> r1 px, life ticks)
+--   dive   every diveMin..diveMax ticks (when more than clearRadius tiles from the player)
+--          it sinks (sinkTicks), stays under underMin..underMax ticks, and surfaces in
+--          rings 1..hop tiles away (the arrival effect); nobody can touch it while under
+Config.SWIM = {
+  stepFrames = 22, runMin = 2, runMax = 5, pauseMin = 180, pauseMax = 360,
+  bobAmp = 1, bobTicks = 96,
+  wake = { life = 28, r0 = 3, r1 = 10 },
+  dive = { min = 600, max = 2700, sinkTicks = 22, underMin = 60, underMax = 180, hop = 3, clearRadius = 2 },
+}
+
 -- Density, per terrain (land and water each): MIN_VISIBLE plus one more Pokemon for
 -- every TILES_PER_ADDITIONAL eligible tiles, at most MAX_VISIBLE. These are the
 -- Normal values of the Spawn Amount option; SPAWN_AMOUNT holds Low and High.
@@ -119,7 +135,7 @@ Config.FLYERS = {
 -- angry and chases; an even match in between is not bothered.
 Config.REACT = {
   radius = 4, bikeRadius = 5,     -- how close the running / biking player has to come
-  aggroRadius = 2, bikeAggroRadius = 3, -- ...for a stronger one to get angry: much closer
+  aggroRadius = 1, bikeAggroRadius = 2, -- ...for a stronger one to get angry: right beside it
   weakRatio = 0.7, strongRatio = 1.3,
   -- how likely it reacts at all, by how far past its threshold the ratio is: `minChance` %
   -- just past it, rising evenly to 100% at `weakSure` (fleeing) / `strongSure` (chasing).
@@ -132,9 +148,9 @@ Config.REACT = {
   hopTicks = 12, hopPx = 3,       -- a startled little hop
   -- running pace; at the end of its run, `vanishChance` % of them disappear -- in grass
   -- shrinking into it with a rustle, in a cave fading out (lib/spawn_manager.lua fleeVanish)
-  flee = { steps = { 3, 6 }, frames = 8, vanishChance = 30 },
+  flee = { steps = { 1, 3 }, frames = 8, vanishChance = 30 },
   chase = { frames = 7,           -- a touch faster than a running player (8)
-            leash = { 4, 10 },    -- tiles it follows before giving up: rolled every chase
+            leash = { 2, 4 },     -- tiles it follows before giving up: rolled every chase
             -- PMDCollab: it charges with its Attack animation while it chases and on until
             -- its battle opens; no battle within `chargeTicks` of catching up -> it calms down
             chargeTicks = 90,

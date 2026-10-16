@@ -79,8 +79,10 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 
 - 🎨 **Two sprite styles:** **HGSS / PokeMMO** art for the whole National Dex, or fully
   animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
-- 🌊 **Water that feels like water:** Pokémon swim with a foam line on the water, leave ripples
-  on ponds and puddles, and cast reflections like the player and NPCs do.
+- 🌊 **Water that feels like water:** wild Pokémon in the water swim about in little runs,
+  bob gently on the surface, leave a ring of wake behind them, and now and then dive under and
+  pop up again a few tiles away. They swim with a foam line on the water, leave ripples on ponds
+  and puddles, and cast reflections like the player and NPCs do.
 - 🏃 **They notice you:** run or bike close by and wild Pokémon react. Ones weaker than your
   lead Pokémon jump with a "!" and run off (small birds fly away), and sometimes vanish at the end
   of their run, ducking down into the grass or slipping away into a cave's dark; stronger ones, if

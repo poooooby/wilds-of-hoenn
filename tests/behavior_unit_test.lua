@@ -105,9 +105,9 @@ local waterMon = {
   cellX = 2, cellY = 2, facing = "down", behavior = Behavior.ROAM, terrain = "water",
   elevation = 3, moving = false, ticksUntilAction = 0, px = 32, py = 32,
 }
--- dir pick index 4 = "right" (delta 1,0) steps from x=2 (water) to x=3 (land)
-Behavior.tick(waterMon, {}, seq({ 0.1, 0.99 }))
-check(waterMon.moving == false, "a water spawn refuses a step onto land")
+-- "right" (delta 1,0) steps from x=2 (water) to x=3 (land)
+check(not Behavior.tryStep(waterMon, {}, "right", 16), "a water spawn refuses a step onto land")
+check(waterMon.moving == false, "...and stays put")
 
 -- ------- a swimmer keeps off the last water row before a bank (land to its south)
 do
@@ -116,6 +116,23 @@ do
   local m = { cellX = 2, cellY = 2, facing = "down", terrain = "water", elevation = 3 }
   check(Behavior._canStep(m, {}, 2, 2), "open water (water to the south) is fine")
   check(not Behavior._canStep(m, {}, 2, 3), "the row above the bank is refused")
+  fakeEngine.isWater = nil
+end
+
+-- ------- a swimmer's step passes no elevation (spawns carry 3, water is 1: the engine would
+-- refuse every step); a walker's keeps its own
+do
+  local seen = {}
+  fakeEngine.canEnter = function(_g, _x, _y, opts) seen[#seen + 1] = opts return true end
+  fakeEngine.terrainAt = function() return "water" end
+  fakeEngine.isWater = function() return true end
+  Behavior._canStep({ cellX = 1, cellY = 1, facing = "down", terrain = "water", elevation = 3 }, {}, 1, 2)
+  eq(seen[1].elevation, nil, "swimming: no elevation")
+  eq(seen[1].surfing, true, "...as a surfer")
+  fakeEngine.terrainAt = function() return "land" end
+  fakeEngine.isWater = function() return false end
+  Behavior._canStep({ cellX = 1, cellY = 1, facing = "down", terrain = "land", elevation = 3 }, {}, 1, 2)
+  eq(seen[2].elevation, 3, "walking: its own elevation")
   fakeEngine.isWater = nil
 end
 
@@ -179,6 +196,52 @@ do
   Behavior._advanceMove(walker)
   eq(#ripples, 1, "a tile without ripples gets none")
   fakeEngine.ripplesAt, fakeEngine.startRipple = nil, nil
+end
+
+-- ------- swimmers (Config.SWIM): every water spawn swims in runs, never just floats
+do
+  local cfg = { stepFrames = 20, runMin = 3, runMax = 3, pauseMin = 10, pauseMax = 10 }
+  local Config = V.require("config")
+  local realSwim = Config.SWIM
+  Config.SWIM = cfg
+  fakeEngine.canEnter = function(_game, tx, ty) return tx >= 0 and tx < 9 and ty >= 0 and ty < 9 end
+  fakeEngine.terrainAt = function() return "water" end
+  fakeEngine.isWater = function() return true end
+  local function finish(m) while m.moving do Behavior._advanceMove(m) end end
+  local fish = { cellX = 4, cellY = 4, facing = "down", behavior = Behavior.IDLE, terrain = "water",
+    elevation = 3, moving = false, px = 64, py = 64 }
+  local rng = function() return 0 end -- shuffle keeps "down" first... deterministic
+  Behavior.tick(fish, {}, rng)
+  check(fish.moving, "even an Idle water spawn swims")
+  eq(fish.stepFrames, 20, "...at the swimming pace")
+  local first = fish.swim.dir
+  finish(fish)
+  Behavior.tick(fish, {}, rng) finish(fish)
+  Behavior.tick(fish, {}, rng) finish(fish)
+  eq(fish.swim.dir, first, "it holds its heading for the run")
+  eq(fish.swim.left, 0, "...three tiles")
+  eq(fish.swim.pause, 10, "then pauses")
+  for _ = 1, 10 do Behavior.tick(fish, {}, rng) end
+  check(not fish.moving, "...doing nothing while it pauses")
+  Behavior.tick(fish, {}, rng)
+  check(fish.moving, "then sets off again")
+
+  -- a blocked heading: the others are tried, turning back last
+  local wall = { cellX = 4, cellY = 4, facing = "down", terrain = "water", elevation = 3, moving = false,
+    px = 64, py = 64, swim = { dir = "right", left = 2, pause = 0 } }
+  fakeEngine.canEnter = function(_game, tx, ty) return tx <= 4 and ty == 4 end -- only left is open
+  Behavior.swimTick(wall, {}, function() return 0.5 end, cfg)
+  check(wall.moving and wall.swim.dir == "left", "blocked ahead: it turns to the one open way (back, last resort)")
+  local order = {}
+  fakeEngine.canEnter = function(_game, tx, ty) order[#order + 1] = tx .. "," .. ty return false end
+  local boxed = { cellX = 4, cellY = 4, facing = "up", terrain = "water", elevation = 3, moving = false,
+    px = 64, py = 64, swim = { dir = "up", left = 0, pause = 0 } }
+  Behavior.swimTick(boxed, {}, function() return 0.3 end, cfg)
+  eq(order[#order], "4,5", "...the way back is tried last")
+  check(not boxed.moving and boxed.swim.pause == 10, "boxed in: it waits a pause and tries again")
+  eq(boxed.facing, "up", "...without spinning round")
+  fakeEngine.isWater = nil
+  Config.SWIM = realSwim
 end
 
 print("")

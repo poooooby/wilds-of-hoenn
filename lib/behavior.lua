@@ -3,6 +3,7 @@
 -- the engine's own Collision.canEnter/isWater -- never reimplemented.
 local V = ...
 local EnginePatch = V.require("engine_patch")
+local Config = V.require("config")
 
 local Behavior = {}
 Behavior.IDLE = "idle"
@@ -61,9 +62,13 @@ local function canStep(entity, game, tx, ty, anyGround)
   end
   -- a swimmer keeps off the last water row before a bank (EncounterSource.openWater)
   if onWater and EnginePatch.isWater and not EnginePatch.isWater(tx, ty + 1) then return false end
+  -- A swimmer passes no elevation: spawns carry 3 (their draw layer), Gen 3 water is
+  -- elevation 1, and the engine refuses a surfing step onto water at another elevation
+  -- (collision.lua canEnter, "elevation") -- so no water spawn could ever take a step.
+  -- Its terrain is already held to water above.
   return EnginePatch.canEnter(game, tx, ty, {
     fromX = entity.cellX, fromY = entity.cellY, dir = entity.facing,
-    surfing = onWater, elevation = entity.elevation,
+    surfing = onWater, elevation = (not onWater) and entity.elevation or nil,
   })
 end
 Behavior._canStep = canStep
@@ -85,6 +90,54 @@ local function advanceMove(entity)
 end
 Behavior._advanceMove = advanceMove
 
+--- One tick of a water spawn's swimming (Config.SWIM): it holds a heading for a run of
+--- tiles, pauses, then picks a new heading -- trying every direction, turning back last,
+--- so a blocked one does not leave it sitting there. `entity.swim` keeps its state.
+local function roll(rng, lo, hi)
+  return lo + math.floor(rng() * (hi - lo + 1))
+end
+local REVERSE = { up = "down", down = "up", left = "right", right = "left" }
+
+function Behavior.swimTick(entity, game, rng, cfg)
+  local s = entity.swim
+  if not s then s = { left = 0, pause = 0 } entity.swim = s end
+  if s.pause > 0 then
+    s.pause = s.pause - 1
+    return
+  end
+  local frames = cfg.stepFrames or STEP_FRAMES
+  if s.left > 0 and s.dir and Behavior.tryStep(entity, game, s.dir, frames) then
+    s.left = s.left - 1
+    if s.left == 0 then s.pause = roll(rng, cfg.pauseMin, cfg.pauseMax) end
+    return
+  end
+  -- a new heading: the four directions in a random order, back the way it came last
+  local order = { "up", "down", "left", "right" }
+  for i = 4, 2, -1 do
+    local j = math.floor(rng() * i) + 1
+    order[i], order[j] = order[j], order[i]
+  end
+  local back = s.dir and REVERSE[s.dir]
+  if back then
+    for i, d in ipairs(order) do
+      if d == back then table.remove(order, i) order[#order + 1] = d break end
+    end
+  end
+  local facing = entity.facing
+  for _, d in ipairs(order) do
+    if Behavior.tryStep(entity, game, d, frames) then
+      s.dir = d
+      s.left = roll(rng, cfg.runMin, cfg.runMax) - 1
+      if s.left == 0 then s.pause = roll(rng, cfg.pauseMin, cfg.pauseMax) end
+      return
+    end
+  end
+  -- boxed in: look about, try again after a pause
+  entity.facing = facing
+  s.dir, s.left = nil, 0
+  s.pause = roll(rng, cfg.pauseMin, cfg.pauseMax)
+end
+
 --- Advances `entity` by one field tick. `entity` fields: cellX, cellY,
 --- facing, behavior (Behavior.IDLE|ROAM), terrain ("land"|"water"),
 --- elevation, moving, fromX/fromY/targetX/targetY/progress/stepFrames
@@ -97,6 +150,9 @@ function Behavior.tick(entity, game, rng)
     advanceMove(entity)
     return
   end
+  -- a water spawn swims (Config.SWIM) instead of idling / roaming
+  local swim = entity.terrain == "water" and Config.SWIM
+  if swim then return Behavior.swimTick(entity, game, rng, swim) end
   entity.ticksUntilAction = (entity.ticksUntilAction or 0) - 1
   if entity.ticksUntilAction > 0 then return end
   entity.ticksUntilAction = ACTION_MIN_TICKS + math.floor(rng() * ACTION_JITTER_TICKS)

@@ -509,7 +509,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
 
   if act then pushX, pushY = pushX + (act.dx or 0), pushY + (act.dy or 0) end
   -- ducking under an eave (a follower, lib/eave_duck.lua): moved down a little
-  pushY = pushY + (self.duckDy or 0)
+  pushY = pushY + (self.duckDy or 0) + (self.bobDy or 0) -- (bobDy: a swimmer bobbing)
 
   -- recalled into the player (a Battler out of strength): shrink and slide
   -- toward them; sinking into the ground: squash toward the feet
