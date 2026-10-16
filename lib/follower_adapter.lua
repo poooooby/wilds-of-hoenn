@@ -609,7 +609,7 @@ function FollowerAdapter:tick()
     if r.idleDelay ~= Config.PMD_FOLLOWER_IDLE_DELAY then
       -- first tick of a new sprite: it waits the full delay before idling too
       r.idleDelay = Config.PMD_FOLLOWER_IDLE_DELAY
-      if r.anim == "idle" then r.idleHold = r.idleDelay end
+      if r.anim == "idle" then r.idleHold, r.restEase = r.idleDelay, 1 end
     end
     r.idleSpeed = Config.PMD_FOLLOWER_IDLE_SPEED
     local moving = npc.moving or false

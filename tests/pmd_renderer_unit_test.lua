@@ -155,6 +155,37 @@ local noDelay = PmdRenderer.new({}, 252, false, { walk = { cols = 4, durations =
 noDelay:advance(true) noDelay:advance(false) noDelay:advance(false)
 eq(noDelay.clock, 1, "no idleDelay (wild Pokemon): the loop starts at once")
 
+-- ------- resting: Idle's first frame nudged onto the ground line while a follower holds it
+-- (Charmander's first frame is a breath 2-3 px under its stance; Sawk's sits 2 px over it)
+local lift = PmdRenderer.restLift({ foot = 25.5 }, { [0] = 27, [1] = 28, [2] = 29, [3] = 28 })
+eq(lift[0], 1.5, "Charmander facing down: raised 1.5 px")
+eq(lift[1], 2.5, "...facing right: 2.5 px")
+eq(lift[3], 2.5, "...facing left: 2.5 px")
+eq(lift[2], 1.5, "...facing up: the front's value (a back view reaches lower by design)")
+eq(PmdRenderer.restLift({ foot = 33 }, { [0] = 29, [1] = 31, [2] = 29, [3] = 31 })[1], -2,
+  "Sawk's first frame stands 2 px high: lowered")
+eq(PmdRenderer.restLift({}, { [0] = 27 }), nil, "no foot: no nudge")
+eq(PmdRenderer.restLift({ foot = 20 }, nil), nil, "unreadable pixels: no nudge")
+local rs = PmdRenderer.new({}, 4, false, { walk = { cols = 4, durations = W }, idle = { cols = 4, durations = { 12, 8, 8, 8 } } })
+rs.idleDelay = 3
+rs:advance(true) rs:advance(false)
+eq(rs.restEase, 1, "stopping with a delay: the nudge is on")
+for _ = 1, 3 do rs:advance(false) end
+eq(rs.restEase, 1, "...for the whole hold")
+eq(rs.clock, 0, "...on the first frame")
+rs:advance(false)
+check(rs.restEase < 1 and rs.restEase > 0, "the loop starts: the nudge eases out")
+for _ = 1, 20 do rs:advance(false) end
+eq(rs.restEase, 0, "...and is gone")
+rs:advance(true)
+eq(rs.restEase, 0, "walking: no nudge")
+local wild = PmdRenderer.new({}, 4, false, { walk = { cols = 4, durations = W }, idle = { cols = 4, durations = { 12, 8, 8, 8 } } })
+wild:advance(true) wild:advance(false)
+eq(wild.restEase, 0, "no idleDelay (a wild Pokemon): its Idle plays as drawn")
+eq(wild:restOffset(1), 0, "...no nudge, and its sheet is never scanned")
+rs.restEase = 1
+eq(rs:restOffset(1), 0, "no pixels to read (no love): no nudge")
+
 -- ------- recall: the follower shrinking into the player while they surf
 eq(PmdRenderer.ease(0), 0, "ease(0) = 0")
 eq(PmdRenderer.ease(1), 1, "ease(1) = 1")

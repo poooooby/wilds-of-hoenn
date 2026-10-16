@@ -396,6 +396,10 @@ Config.PMD_FOLLOWER_GAP = 4
 Config.FOLLOWER_DUCK = { nudge = 4, minScale = 0.5, widen = 0.15, ease = 0.2, sweatFrom = 0.03, sweatMax = 3 }
 Config.PMD_FOLLOWER_IDLE_DELAY = 300
 Config.PMD_FOLLOWER_IDLE_SPEED = 0.5
+-- Resting on Idle's first frame, the follower is nudged so that frame's feet sit on its
+-- ground line (PmdRenderer.restLift); once the loop plays the nudge eases out over this
+-- many ticks instead of snapping.
+Config.PMD_REST_EASE_TICKS = 12
 Config.PMD_WILD_IDLE_SPEED = 0.75
 
 -- Follower interaction (lib/follower_interaction.lua, lib/interaction_limiter.lua).

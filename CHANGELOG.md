@@ -59,6 +59,14 @@
   hide less of the field, and float just over each Pokemon's head, however tall it is;
   when the two would overlap, your partner's bar glides up to sit above the wild one's.
 
+### Fixed
+
+- **PMDCollab partners rest on their feet.** After stopping, a PMDCollab style partner holds
+  the first pose of its idle animation for a few seconds. For some species (Charmander, Altaria,
+  Noctowl ...) that pose reaches a little lower than how they stand, so they sat a pixel or
+  three into the ground; for others (Sawk, Drednaw ...) it stood a little high. The resting pose
+  now sits on the ground like the player's feet, easing back as the idle animation starts.
+
 ## 1.8.0 (2026-10-15)
 
 ### Added
