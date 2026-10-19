@@ -6,6 +6,8 @@
 
 - **Tropius stays on the ground.** It no longer flies past overhead, perches on roofs or swoops
   in to land; wild Tropius walk about like other Pokemon.
+- **Calmer Battler fights.** Your partner and the wild Pokemon now take their turns at a steadier
+  pace, so each attack and its effect is easy to follow.
 
 ## 1.9.2 (2026-10-16)
 
