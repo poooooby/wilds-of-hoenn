@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.9.3 (2026-10-19)
+
+### Added
+
+- **Community credits.** A thank-you to the players and the Discord community whose ideas
+  shaped the mod, with a running list of who suggested what (COMMUNITY.md, in the package).
+
+### Fixed
+
+- **Smoother on lakes and the sea.** The little wake rings behind swimming Pokemon were rebuilt
+  from scratch every frame; they are now reused, cutting about a third of the mod's memory
+  churn on water routes (fewer stutters on slower devices).
 
 ### Changed
 
