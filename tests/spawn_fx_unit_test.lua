@@ -95,6 +95,16 @@ local ra = SpawnFx.ringsActor(5, 32, 48, 48, 3, 2)
 check(ra and ra.kind == "ow_spawn_rings" and ra.sortY < 48, "drawn on the water, under the Pokemon")
 check(pcall(ra.draw, ra, 0, 0), "drawing without love never errors")
 
+-- a swimmer's wake: one small ring growing and fading on the tile it left
+do
+  local cfg = { life = 28, r0 = 3, r1 = 10 }
+  local a, b = SpawnFx.wake(2, cfg), SpawnFx.wake(20, cfg)
+  check(a and b and b.rx > a.rx and b.rx <= 10 and a.rx >= 3, "a wake ring grows from r0 toward r1")
+  check(SpawnFx.wake(27, cfg).alpha < SpawnFx.wake(8, cfg).alpha, "...fading as it spreads")
+  check(SpawnFx.wake(28, cfg) == nil, "...gone after its life")
+  check(SpawnFx.wakeActor(40, cfg, 0, 0, 3, 1) == nil, "no actor once it has faded")
+  check(SpawnFx.wakeActor(5, cfg, 0, 0, 3, 1).sortY < 0, "drawn on the water, under the Pokemon")
+end
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

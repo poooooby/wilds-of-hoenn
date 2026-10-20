@@ -112,7 +112,18 @@ end
 --- The whole pixels of a ring outline, half-widths `rx` x `ry`, around (0, 0): one
 --- crisp 1 px line like the game's own art (an anti-aliased ellipse at the field's low
 --- resolution reads as a soft blur). Pure (tested).
+local ringPixelCache, ringPixelCount = {}, 0
 function SpawnFx.ringPixels(rx, ry)
+  -- Memoized on quarter-px radii: the eased radii repeat the same handful of integer
+  -- shapes, and this runs per ring PER FRAME (a swimmer's wakes never stop coming) --
+  -- unmemoized it built ~40 small tables per ring per frame. Callers must not mutate
+  -- the returned list. The cache is bounded by the radii actually used; reset if abused.
+  local kx = math.floor((tonumber(rx) or 0) * 4 + 0.5)
+  local ky = math.floor((tonumber(ry) or 0) * 4 + 0.5)
+  local key = kx * 8192 + ky
+  local hit = ringPixelCache[key]
+  if hit then return hit end
+  rx, ry = kx / 4, ky / 4
   local seen, out = {}, {}
   local steps = math.max(32, math.floor((rx + ry) * 8)) -- dense enough for a gapless line
   for k = 0, steps - 1 do
@@ -125,6 +136,8 @@ function SpawnFx.ringPixels(rx, ry)
       out[#out + 1] = { x, y }
     end
   end
+  if ringPixelCount >= 512 then ringPixelCache, ringPixelCount = {}, 0 end
+  ringPixelCache[key], ringPixelCount = out, ringPixelCount + 1
   return out
 end
 
@@ -149,6 +162,44 @@ function SpawnFx.ringsActor(age, gx, gy, py, elevation, id)
         for _, p in ipairs(SpawnFx.ringPixels(ring.rx, ring.ry)) do
           g.rectangle("fill", ox + p[1], oy + p[2], 1, 1)
         end
+      end
+      g.setColor(r, gg, b, a)
+    end,
+  }
+end
+
+--- A wake ring `age` ticks after a swimmer left a tile: { rx, ry, alpha }, or nil once it
+--- has faded. One small ring, growing r0 -> r1 (cfg = Config.SWIM.wake). Pure (tested).
+function SpawnFx.wake(age, cfg)
+  local life = cfg and cfg.life or 28
+  age = tonumber(age) or 0
+  if age < 0 or age >= life then return nil end
+  local p = age / life
+  local grow = 1 - (1 - p) * (1 - p)
+  local r0, r1 = cfg and cfg.r0 or 3, cfg and cfg.r1 or 10
+  local rx = r0 + (r1 - r0) * grow
+  return { rx = rx, ry = rx * SpawnFx.RING_FLAT, alpha = math.min(1, p / 0.15) * (1 - p) * 0.7 }
+end
+
+--- A wake ring on the tile whose top-left is (gx, gy), as a field actor on the water, or nil.
+function SpawnFx.wakeActor(age, cfg, gx, gy, elevation, id)
+  local ring = SpawnFx.wake(age, cfg)
+  if not ring then return nil end
+  local cx, cy = gx + 8, gy + 15
+  return {
+    kind = "ow_swim_wake",
+    elevation = elevation or 3,
+    sortY = gy - 0.4,
+    x = cx, y = cy,
+    i = 91800 + (tonumber(id) or 0),
+    draw = function(_, camX, camY)
+      if not (love and love.graphics and love.graphics.rectangle) then return end
+      local g = love.graphics
+      local r, gg, b, a = g.getColor()
+      local ox, oy = math.floor(cx - camX), math.floor(cy - camY)
+      g.setColor(0.88, 0.96, 1.0, ring.alpha)
+      for _, p in ipairs(SpawnFx.ringPixels(ring.rx, ring.ry)) do
+        g.rectangle("fill", ox + p[1], oy + p[2], 1, 1)
       end
       g.setColor(r, gg, b, a)
     end,

@@ -127,7 +127,14 @@ for _, key in ipairs({ "enabled", "sprite_style", "classic_enc", "wild_silhouett
   check(byKey[key] ~= nil, "schema has " .. key)
   eq(byKey[key].default, Config.DEFAULTS[key], "schema default matches Config.DEFAULTS for " .. key)
 end
-check(byKey.follower == nil, "the Follower option is gone from the schema")
+check(byKey.follower == nil, "the old Follower key (removed in 1.2.0) stays out of the schema")
+check(byKey.show_follower ~= nil and byKey.show_follower.default == true and Config.DEFAULTS.show_follower == true,
+  "the Follower option has its own key, show_follower, on by default")
+optionStore = { follower = false }
+check(Config.followerOn(mod) == true, "an old saved follower = false does not hide the partner")
+optionStore = { show_follower = false }
+check(Config.followerOn(mod) == false, "show_follower = false keeps it in its ball")
+optionStore = {}
 
 print("")
 if failures > 0 then

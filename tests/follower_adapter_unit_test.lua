@@ -69,9 +69,9 @@ local fa = FollowerAdapter.new(mod)
 
 -- ------- shouldSpawn: always (there is no Follower option; the party menu picks who is out)
 eq(fa:shouldSpawn(), true, "shouldSpawn is always true")
-optionStore.follower = false
+optionStore.show_follower = false
 eq(fa:shouldSpawn(), true, "...even with a stale saved Follower value")
-optionStore.follower = true
+optionStore.show_follower = true
 
 -- ------- tick() with no follower spawned does nothing
 fa:tick()
@@ -780,6 +780,16 @@ do
   for _, a in ipairs(actors) do if a.kind == "follower_popup" then popup = a end end
   check(popup ~= nil, "a find's label becomes a field actor")
   eq(popup.x, 64 + 16 + 8, "...above the follower's offset position")
+  local function liftWith(h)
+    fb.renderer.headLift = function() return h end
+    local acts = {}
+    fb:collectActors(acts)
+    for _, a in ipairs(acts) do if a.kind == "follower_popup" then return a.lift end end
+  end
+  eq(liftWith(30), 30 - 16 + 3, "...its tail just over the top of the head (3 px of air)")
+  eq(liftWith(60), 60 - 16 + 3, "...higher over a tall Pokemon")
+  eq(liftWith(12), 2, "...never down into a small one")
+  fb.renderer.headLift = nil
   popupOn = false
 
   -- the behaviour is told whether foraging is allowed here (routes / caves only)
@@ -831,6 +841,94 @@ do
   check(fb:isBusy(), "a scene counts as busy too")
   fb:cancelAction()
   optionStore.sprite_style = "pokemmo"
+end
+
+-- ------- the Follower option off: in its ball all the time, both art styles
+do
+  local realPixel = fakeEngine.playerPixel
+  fakeEngine.playerPixel = function() return 40, 48 end
+  local T = V.require("config").PMD_RECALL_TICKS
+  for _, style in ipairs({ "pmd", "pokemmo" }) do
+    optionStore.sprite_style = style
+    V.mod = (style == "pmd") and pmdMod or mod
+    npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+    local fo = FollowerAdapter.new(V.mod)
+    fo:tick()
+    eq(fo.renderer.recall or 1, 1, style .. ": the Follower option on (default): it is out")
+    optionStore.show_follower = false
+    for _ = 1, T do fo:tick() end
+    eq(fo.renderer.recall, 0, style .. ": option off: it goes into its ball")
+    check(fo:isRecalled(), style .. ": ...recalled, so it cannot be talked to")
+    check(fo.surfRecall, style .. ": ...and its job pauses (as on a bike)")
+    for _ = 1, 60 do fo:tick() end
+    eq(fo.renderer.recall, 0, style .. ": ...and it stays in")
+    optionStore.show_follower = nil
+    for _ = 1, T + 1 do fo:tick() end
+    eq(fo.renderer.recall, 1, style .. ": option back on: it comes back out")
+  end
+  fakeEngine.playerPixel = realPixel
+  optionStore.sprite_style = nil
+  V.mod = mod
+end
+
+-- ------- the Follower option off: a new companion changes over unseen (no scene, no lock)
+do
+  optionStore.sprite_style = "pokemmo"
+  local party = {
+    { species = 999, personality = 111, hp = 20 },
+    { species = 998, personality = 222, hp = 20 },
+  }
+  local saved = { personality = 111, role = "follow" }
+  local comp = { resolve = function()
+    for _, m in ipairs(party) do
+      if m.personality == saved.personality then return m, saved.role end
+    end
+  end }
+  local poses, locks, unlocks = 0, 0, 0
+  local names = { "partyMons", "screenBusy", "canStartInteraction", "playerPose", "lockField",
+    "unlockField", "playCry", "playerPixel", "playerElevation", "nationalFor" }
+  local kept = {}
+  for _, k in ipairs(names) do kept[k] = fakeEngine[k] end
+  fakeEngine.partyMons = function() return party end
+  fakeEngine.screenBusy = function() return false end
+  fakeEngine.canStartInteraction = function() return true end
+  fakeEngine.playerPose = function() poses = poses + 1 return true end
+  fakeEngine.lockField = function() locks = locks + 1 return true end
+  fakeEngine.unlockField = function() unlocks = unlocks + 1 return true end
+  fakeEngine.playCry = function() return true end
+  fakeEngine.playerPixel = function() return 40, 48 end
+  fakeEngine.playerElevation = function() return 3 end
+  fakeEngine.nationalFor = function(id) return id == 999 and 252 or (id == 998 and 255 or nil) end
+
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  optionStore.show_follower = false
+  local fo = FollowerAdapter.new(mod, comp)
+  fo:tick()
+  eq(fo.renderer.recall, 0, "option off from the start: a fresh partner is already in its ball (no shrink)")
+  saved = { personality = 222, role = "follow" } -- the party order changed
+  for _ = 1, 30 do fo:tick() end
+  eq(fo.renderer.dex, 255, "a new lead becomes the partner while it is off")
+  eq(fo.renderer.recall, 0, "...still in its ball")
+  eq(poses + locks, 0, "...with no ball scene and no field lock")
+  check(not fo:isBusy(), "...nothing under way")
+
+  -- switched off in the middle of a swap scene: the scene ends, the field is let go
+  optionStore.show_follower = nil
+  for _ = 1, 40 do fo:tick() end
+  eq(fo.renderer.recall, 1, "option back on: the current partner comes out")
+  saved = { personality = 111, role = "follow" }
+  fo:tick()
+  check(fo:isBusy() and locks == 1, "back on, a party change plays the swap scene again")
+  optionStore.show_follower = false
+  fo:tick()
+  check(not fo:isBusy(), "switching the option off mid-scene ends it")
+  eq(unlocks, locks, "...and releases the field")
+  for _ = 1, 40 do fo:tick() end
+  eq(fo.renderer.dex, 252, "...the new partner is the one in its ball")
+  eq(fo.renderer.recall, 0, "...in its ball")
+
+  optionStore.show_follower = nil
+  for _, k in ipairs(names) do fakeEngine[k] = kept[k] end
 end
 
 -- ------- swapping the companion: ball scene, old goes in, new comes out
@@ -920,11 +1018,23 @@ do
   eq(fs.renderer.recall, 1, "choosing a job brings it back out")
   eq(poses, 1, "...with one raise of the ball")
 
-  -- a job change on the same Pokemon is a swap too
+  -- a job change on the same Pokemon, already out: it just takes the new job, no ball
   poses = 0
+  local lockedBefore = locks
   saved = { personality = 222, role = "follow" }
-  for _ = 1, 200 do fs:tick() if poses > 0 and not fs:isBusy() then break end end
-  eq(poses, 2, "changing the job recalls and sends the same Pokemon out again")
+  busy = true -- even with the party menu still open
+  fs:tick()
+  busy = false
+  local shrank = false
+  for _ = 1, 60 do
+    fs:tick()
+    if fs:isBusy() and fs.swap then shrank = true end
+    if (fs.renderer.recall or 1) < 1 then shrank = true end
+  end
+  eq(poses, 0, "changing the job of the Pokemon already out raises no ball")
+  check(not shrank, "...it is never put away and sent out again")
+  eq(locks, lockedBefore, "...and the field is not held")
+  eq(fs.role, "follow", "...it simply has the new job")
 
   -- a map change drops a scene in progress, releasing the field
   saved = { personality = 111, role = "follow" }
@@ -935,6 +1045,44 @@ do
   eq(unlocks, locks, "...and every lock was released")
 
   for _, k in ipairs(names) do fakeEngine[k] = kept[k] end
+end
+
+-- ------- its own touches (lib/partner_fx.lua): evolve sparkles, type puffs, Type Aura
+do
+  fakeEngine.speciesTypes = function() return 10, 10 end -- a Fire type
+  fakeEngine.typeName = function(t) return t == 10 and "FIRE" or "NORMAL" end
+  optionStore.sprite_style = "pokemmo"
+  npc = { sprite = nil, moving = false, cellX = 4, cellY = 4, px = 64, py = 64, facing = "down", elevation = 3 }
+  local f = FollowerAdapter.new(mod)
+  f:tick()
+  local function partsNow()
+    local actors, out = {}, nil
+    f:collectActors(actors)
+    for _, a in ipairs(actors) do if a.kind == "ow_partner_fx" then out = a.parts end end
+    return out
+  end
+  local function has(parts, shape)
+    for _, p in ipairs(parts or {}) do if p[2] == shape then return true end end
+    return false
+  end
+  f.fxClock = 10
+  eq(partsNow(), nil, "nothing going on: no touches (Type Aura is off by default)")
+  f.readyPending = { moves = {}, evolve = true }
+  check(has(partsNow(), "sparkle"), "ready to evolve: sparkles drift up round it")
+  f.readyPending = nil
+  f.withYouAge = 8
+  check(has(partsNow(), "ember"), "while you Pet / Play / Talk with a Fire type: embers (whatever its mood)")
+  f.withYouAge = nil
+  optionStore.type_aura = true
+  check(has(partsNow(), "ember"), "with Type Aura on: an ember puff now and then")
+  f.fxClock = 100
+  eq(partsNow(), nil, "...with long rests in between")
+  optionStore.type_aura = nil
+  f.renderer.recall = 0
+  f.readyPending = { evolve = true }
+  f.fxClock = 10
+  eq(partsNow(), nil, "nothing while it is inside the player")
+  fakeEngine.speciesTypes, fakeEngine.typeName = nil, nil
 end
 
 -- ------- the "waiting to learn / evolve" label over the follower's head

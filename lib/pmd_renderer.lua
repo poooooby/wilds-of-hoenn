@@ -15,7 +15,8 @@
 --
 -- The owner (lib/spawn_manager.lua, lib/follower_adapter.lua) calls
 -- `advance(moving)` once per field tick: walking plays the Walk loop, standing
--- still plays the Idle loop, and switching restarts the loop at frame 0.
+-- still plays the Idle loop, and switching restarts the loop at frame 0. A follower
+-- resting on Idle's first frame is nudged onto its ground line (restLift).
 local V = ...
 local Config = V.require("config")
 local SpriteSource = V.require("sprite_source")
@@ -48,6 +49,69 @@ function PmdRenderer.frameAt(durations, clock)
     t = t - d
   end
   return 0
+end
+
+--- How far Idle's first frame is drawn RAISED (px, cell scale; negative = lowered) per
+--- row, so its feet sit on the animation's ground line (`foot`) while a follower rests
+--- on it: many Idle loops start on a breath that reaches lower (Charmander's, 2-3 px) or
+--- higher (Sawk's, 2) than the stance the sprite is grounded by, which sat it in (or
+--- over) the ground for the whole rest. Measured on the front and side rows; the back
+--- row reaches lower than the front by design, so it takes the front row's value (the
+--- same breath). `bottoms[row]` = frame 0's art bottom edge in that row (nil = empty).
+--- nil without a foot. Pure; for testing.
+function PmdRenderer.restLift(entry, bottoms)
+  local foot = tonumber(entry and entry.foot)
+  if not (foot and type(bottoms) == "table") then return nil end
+  local out = {}
+  for _, r in ipairs({ ROW.down, ROW.right, ROW.left }) do
+    if bottoms[r] then out[r] = bottoms[r] - foot end
+  end
+  out[ROW.up] = out[ROW.down] or out[ROW.right]
+  return out
+end
+
+-- [path] = restLift's table (false = unreadable)
+local liftCache = {}
+
+-- frame 0's art bottom edge per row of a baked sheet (nil when unreadable)
+local function firstBottoms(mod, path, entry)
+  local data = ActorRenderer.sheetData(mod, path)
+  if not data then return nil end
+  local w, h = data:getDimensions()
+  local cw, ch = entry.cw, entry.ch
+  if not (cw and ch) or cw > w then return nil end
+  local bytes, byte = data:getString(), string.byte
+  local out = {}
+  for row = 0, math.floor(h / ch) - 1 do
+    for y = ch - 1, 0, -1 do
+      local base = ((row * ch + y) * w) * 4
+      local hit = false
+      for x = 0, cw - 1 do
+        if byte(bytes, base + x * 4 + 4) > 0 then hit = true break end
+      end
+      if hit then out[row] = y + 1 break end
+    end
+  end
+  return out
+end
+
+--- Px (cell scale) Idle's first frame is raised facing `row` while resting, x the ease
+--- (`restEase`, 1 while held, eased to 0 once the loop plays). Measured once per sheet,
+--- and only for a renderer that rests (a follower): 0 otherwise.
+function PmdRenderer:restOffset(row)
+  local ease = tonumber(self.restEase) or 0
+  if ease <= 0 or self.anim ~= "idle" then return 0 end
+  local entry = self.info and self.info.idle
+  if type(entry) ~= "table" then return 0 end
+  local path = SpriteSource.pmdPath(self.info, "idle", self.dex, self.shiny)
+  if not path then return 0 end
+  local lift = liftCache[path]
+  if lift == nil then
+    local bottoms = firstBottoms(self.mod, path, entry)
+    lift = bottoms and PmdRenderer.restLift(entry, bottoms) or false
+    liftCache[path] = lift
+  end
+  return lift and (lift[row] or 0) * ease or 0
 end
 
 --- Screen position (integer pixels) of the top-left of a cell so its ground
@@ -149,6 +213,7 @@ function PmdRenderer:advance(moving)
     -- `idleDelay` (the follower sets it): after stopping, rest on the Idle
     -- loop's first frame this many ticks before the loop starts playing.
     self.idleHold = (want == "idle") and (self.idleDelay or 0) or 0
+    self.restEase = self.idleHold > 0 and 1 or 0
     if want == "walk" then
       local walk = self.info and self.info.walk
       if walk and walk.durations then
@@ -160,8 +225,12 @@ function PmdRenderer:advance(moving)
   end
   if want == "idle" and self.idleHold > 0 then
     self.idleHold = self.idleHold - 1
+    self.restEase = 1
     return
   end
+  -- the rest is over: ease the nudge out (while frame 0 still shows) instead of snapping
+  local ease = tonumber(self.restEase) or 0
+  if ease > 0 then self.restEase = math.max(0, ease - 1 / (Config.PMD_REST_EASE_TICKS or 12)) end
   local step = (want == "walk") and (Config.PMD_WALK_SPEED or 1) * (self.walkMul or 1) or (self.idleSpeed or 1)
   self.clock = self.clock + step
 end
@@ -184,12 +253,13 @@ function PmdRenderer:advanceAs(anim, speed, fallback)
   if want ~= self.anim then
     self.anim, self.clock, self.idleHold = want, 0, 0
   end
+  self.restEase = 0
   self.clock = self.clock + rate
 end
 
 --- Holds the first frame of Idle, not playing it (a perched bird with its wings folded).
 function PmdRenderer:holdIdle()
-  self.anim, self.clock, self.idleHold = "idle", 0, 0
+  self.anim, self.clock, self.idleHold, self.restEase = "idle", 0, 0, 0
 end
 
 --- The size gen3-hd-sprites draws this sprite at on top of its own (its Species
@@ -308,7 +378,8 @@ function PmdRenderer:reflectionGeometry(x, y, facing)
   else
     dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x, y)
   end
-  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + 0.5)
+  local rest = band and 0 or self:restOffset(row) * scale
+  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY - rest + 0.5)
   if act then dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5) end
   -- gen3-hd-sprites grows it about that same point
   local px, py = dx + entry.ax * scale, dy + anchorY * scale
@@ -395,7 +466,8 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   else
     dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x - camX, y - camY)
   end
-  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) + 0.5)
+  local rest = crop and 0 or self:restOffset(row) * scale -- resting: frame 0's feet on the line
+  dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) + (self.bobDy or 0) - rest + 0.5)
   local scaleY, scaleX = scale, scale
   -- ducking under an eave (a follower, lib/eave_duck.lua): squashed toward its ground
   -- point and a little wider about its anchor

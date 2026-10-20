@@ -92,7 +92,8 @@ fake["src.core.game3.items_data"] = {
 local fontLog = {}
 fake["src.ui.game3.frlg_font"] = {
   measure = function(text) return #text * 6 end,
-  draw = function(text, x, y) fontLog[#fontLog + 1] = { text, x, y } end,
+  draw = function(text, x, y, opts) fontLog[#fontLog + 1] = { text, x, y, opts } end,
+  COLOR = { NORMAL = { fg = "dark" }, WHITE = { fg = "light" } },
 }
 local hudBusy = false
 fake["src.ui.game3.hud"] = { busy = function() return hudBusy end }
@@ -159,7 +160,8 @@ fake["src.core.game3.battle.damage"] = {
 fake["src.core.game3.battle.moves"] = {
   get = function(id)
     if id == 404 then error("no such move") end
-    return { power = 40, accuracy = 100, type = 0, pp = 35 }
+    if id == 55 then return { power = 40, accuracy = 100, type = 11, pp = 25, flags = 18 } end
+    return { power = 40, accuracy = 100, type = 0, pp = 35, flags = 19 }
   end,
 }
 local startedEvolution, evolutionOpen, relearnerOpen = nil, false, false
@@ -343,7 +345,9 @@ eq(fake["src.core.game3.field"].finishSweetScent(ssPayload), "engine sweet scent
   "Sweet Scent: the engine's own runs when the hook declines")
 eq(calls.sweetScent, ssPayload, "...and the hook got the payload first")
 calls.takeSweetScent = true
+fake["src.core.game3.field"].locked = true
 eq(fake["src.core.game3.field"].finishSweetScent(ssPayload), nil, "the hook handled it: no engine battle")
+eq(fake["src.core.game3.field"].locked, false, "...and the field lock the engine kept through it is released")
 calls.takeSweetScent = nil
 
 -- party menu seam: the update hook runs after the original, with the menu module
@@ -387,6 +391,27 @@ do
   local row = EnginePatch.moveRow(33)
   eq(row.power, 40, "moveRow reads power")
   eq(row.accuracy, 100, "...and accuracy")
+  eq(row.contact, true, "...and whether it makes contact (flag bit 0: Tackle)")
+  eq(EnginePatch.moveRow(55).contact, false, "...a ranged move does not (Water Gun)")
+
+  -- a wild Pokemon's held item, the game's own roll
+  local enc, mons = fake["src.core.game3.encounters"], fake["src.core.game3.pokemon"]
+  local realRules, realMeta = enc.rules, mons.speciesMeta
+  local asked
+  enc.rules = function() return { wildHeldItem = function(sp) asked = sp return sp == 1 and 139 or 0 end } end
+  eq(EnginePatch.wildHeldItem(1), 139, "RSE: the encounter rules' own wildHeldItem answers")
+  eq(asked, 1, "...asked about that species")
+  eq(EnginePatch.wildHeldItem(2), nil, "...0 = holds nothing")
+  enc.rules = function() return {} end
+  mons.speciesMeta = function(sp) return sp == 1 and { itemCommon = 139, itemRare = 0 } or {} end
+  local got = {}
+  for _ = 1, 400 do got[EnginePatch.wildHeldItem(1) or 0] = true end
+  check(got[139] and got[0], "FRLG: the species' common item about half the time, else nothing")
+  eq(EnginePatch.wildHeldItem(2), nil, "...a species with no held items never has one")
+  enc.rules, mons.speciesMeta = realRules, realMeta
+  eq(EnginePatch.wildHeldItem(nil), nil, "no species: nothing")
+  eq(EnginePatch.itemName(13), "POTION", "itemName: the game's own name")
+  eq(EnginePatch.itemName(999), nil, "...nil for an unknown item")
   eq(EnginePatch.moveRow(404), nil, "an unknown move is nil, never an error")
   eq(EnginePatch.moveNumber({ id = 55 }), 55, "moves may be tables")
   local dmg, info = EnginePatch.moveDamage(b, b, 33, function() return 1 end, true)
@@ -468,6 +493,10 @@ eq(seLog[1], 25, "...the right id")
 eq(EnginePatch.measureText("abc"), 18, "measureText reads the engine font")
 eq(EnginePatch.drawText("abc", 3, 4), 18, "drawText returns the width")
 eq(fontLog[1][2], 3, "...and draws at the given point")
+eq(fontLog[1][4].colors.fg, "dark", "...in the dark NORMAL colours by default (a light plate)")
+EnginePatch.drawText("abc", 3, 4, { small = true, colorName = "WHITE" })
+eq(fontLog[2][4].colors.fg, "light", "...or a colour set of the font's own picked by name")
+eq(fontLog[2][4].colorName, nil, "...the name itself not handed on")
 check(EnginePatch.cellFree(1, 1), "an open cell is free")
 objectAtCell["1,1"] = { id = 1 }
 check(not EnginePatch.cellFree(1, 1), "a cell with something on it is not")
@@ -924,6 +953,40 @@ do
   local n = EP.neighbourMapIds()
   check(#n == 2 and n[1] == "ROUTE_102" and n[2] == "ROUTE_104", "the maps joined to this one")
   eq(EP.weatherId(), 3, "the current weather")
+  _G.require = realRequire
+end
+
+-- ------- playSeNamed: a sound by name through the engine's own Audio.playSe (which applies
+-- the options menu's SFX volume itself)
+do
+  local asked
+  local Audio = { playSe = function(name, opts) asked = { name, opts } return true end }
+  _G.require = function(n)
+    if n == "src.core.game3.audio" then return Audio end
+    return realRequire(n)
+  end
+  eq(EnginePatch.playSeNamed("SE_M_ROCK_THROW"), true, "playSeNamed plays through Audio.playSe")
+  eq(asked and asked[1], "SE_M_ROCK_THROW", "...by name (the engine resolves it for the running game)")
+  eq(EnginePatch.playSeNamed(nil), false, "no name: nothing")
+  Audio.playSe = function() error("boom") end
+  eq(EnginePatch.playSeNamed("SE_M_BITE"), false, "an engine error is false, never thrown")
+  _G.require = realRequire
+end
+
+-- ------- typeName: a type's name from its id; Fairy once National Dex registers it
+do
+  local Types = { ID = { NORMAL = 0, FIRE = 10, WATER = 11, MYSTERY = 9 } }
+  _G.require = function(n)
+    if n == "src.core.game3.battle.types" then return Types end
+    return realRequire(n)
+  end
+  eq(EnginePatch.typeName(11), "WATER", "typeName: id 11 -> WATER")
+  eq(EnginePatch.typeName(9), "NORMAL", "...the ??? type reads as NORMAL")
+  eq(EnginePatch.typeName(18), "NORMAL", "...an id the game does not know (no Fairy yet) -> NORMAL")
+  Types.ID.FAIRY = 18 -- National Dex Gen 3 adds it at runtime
+  eq(EnginePatch.typeName(18), "FAIRY", "...Fairy once National Dex Gen 3 registers it")
+  eq(EnginePatch.typeName("fire"), "FIRE", "a type name passes through (the Game Boy games)")
+  eq(EnginePatch.typeName(nil), "NORMAL", "no type -> NORMAL")
   _G.require = realRequire
 end
 

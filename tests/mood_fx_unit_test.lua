@@ -15,7 +15,9 @@ local function eq(a, b, msg)
   check(a == b, string.format("%s (got %s expected %s)", msg, tostring(a), tostring(b)))
 end
 
-local MoodFx = assert(loadfile("lib/mood_fx.lua"))({})
+local V = {}
+V.require = function(name) return assert(loadfile("lib/" .. name .. ".lua"))(V) end
+local MoodFx = assert(loadfile("lib/mood_fx.lua"))(V)
 
 -- ------- which effect
 eq(MoodFx.kindFor("Inspired"), "love", "loves you: hearts and sparkles")

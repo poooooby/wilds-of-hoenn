@@ -207,6 +207,38 @@ do
   check(okG, "EnginePatch.grassRustle runs on the real engine (no sheet without a ROM: nil)")
 end
 
+-- the Battler's knockout sounds (lib/finisher_fx.lua): every SE_* name must exist in each
+-- game's own sound table, or that finisher would play silently
+do
+  local base
+  for _, rel in ipairs({ "lib/", "mods/wilds_of_hoenn/lib/" }) do
+    local f = io.open(rel .. "finisher_fx.lua", "rb")
+    if f then f:close() base = rel break end
+  end
+  local V = {}
+  local cache = { engine_patch = EnginePatch }
+  V.require = function(name)
+    if cache[name] == nil then cache[name] = assert(loadfile(base .. name .. ".lua"))(V) end
+    return cache[name]
+  end
+  local FinisherFx = V.require("finisher_fx")
+  local SE = require("src.core.game3.se_ids")
+  for _, game in ipairs({ "firered", "emerald", "ruby" }) do
+    local okT, t = pcall(SE.forVersion, game)
+    local missingSe = {}
+    for kind, r in pairs(FinisherFx.RECIPES) do
+      if not (okT and type(t) == "table" and t[r.se]) then missingSe[#missingSe + 1] = kind .. "=" .. tostring(r.se) end
+    end
+    -- the ordinary hits' sounds (FinisherFx.hitSound), the real battle's own
+    for _, eff in ipairs({ 2, 1, 0.5 }) do
+      local se = FinisherFx.hitSound(eff)
+      if not (okT and type(t) == "table" and t[se]) then missingSe[#missingSe + 1] = "hit=" .. tostring(se) end
+    end
+    check(#missingSe == 0, game .. ": every finisher's sound is in the game's own table ("
+      .. (#missingSe == 0 and "all 18 + 3 hit sounds" or table.concat(missingSe, ", ")) .. ")")
+  end
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

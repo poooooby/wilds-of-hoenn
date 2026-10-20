@@ -22,5 +22,7 @@ Thumbs.db
 
 # Local AI-assistant notes -- not part of the project
 CLAUDE.md
+# Local to-do list -- kept on this machine only
+TODO.md
 /.claude/
 __pycache__/

@@ -7,7 +7,9 @@
 -- Drawn in code (small pixel shapes, each baked once into a tiny image; pixel by pixel
 -- without image support), as a plain field actor like lib/sweat_drop.lua, so
 -- gen3-hd-sprites never spends a layer on it. `MoodFx.kindFor` and `MoodFx.particles`
--- are pure (tested).
+-- are pure (tested). The drawing itself is lib/pixel_shapes.lua's.
+local V = ...
+local PixelShapes = V.require("pixel_shapes")
 local MoodFx = {}
 
 -- ------------------------------------------------------------------ shapes
@@ -156,6 +158,7 @@ local SHAPES = {
   },
 }
 MoodFx.SHAPES = SHAPES
+PixelShapes.defineAll(SHAPES)
 
 -- ------------------------------------------------------------------ which effect
 -- by the portrait's face (lib/mon_mood.lua emotions); a pained face goes by its status
@@ -275,51 +278,6 @@ function MoodFx.particles(kind, age)
 end
 
 -- ------------------------------------------------------------------ drawing
-local images = {} -- shape name -> Image (false: no image support)
-
-local function imageFor(name)
-  local hit = images[name]
-  if hit ~= nil then return hit end
-  images[name] = false
-  local s = SHAPES[name]
-  if not (s and love and love.image and love.image.newImageData and love.graphics and love.graphics.newImage) then
-    return false
-  end
-  local ok, img = pcall(function()
-    local data = love.image.newImageData(#s.rows[1], #s.rows)
-    for row, line in ipairs(s.rows) do
-      for col, v in ipairs(line) do
-        local c = s.colours[v]
-        if c then data:setPixel(col - 1, row - 1, c[1], c[2], c[3], 1) end
-      end
-    end
-    local im = love.graphics.newImage(data)
-    im:setFilter("nearest", "nearest")
-    return im
-  end)
-  if ok and img then images[name] = img end
-  return images[name]
-end
-
-local function drawShape(g, name, x0, y0, alpha)
-  local img = imageFor(name)
-  if img then
-    g.setColor(1, 1, 1, alpha)
-    g.draw(img, x0, y0)
-    return
-  end
-  local s = SHAPES[name]
-  for row, line in ipairs(s.rows) do
-    for col, v in ipairs(line) do
-      local c = s.colours[v]
-      if c then
-        g.setColor(c[1], c[2], c[3], alpha)
-        g.rectangle("fill", x0 + col - 1, y0 + row - 1, 1, 1)
-      end
-    end
-  end
-end
-
 --- The effect as one field actor: head top centred at world (x, y), sorted at `sortY`
 --- (in front of the partner), drawn over the map's upper layer.
 function MoodFx.actor(kind, age, x, y, sortY, alphaMul)
@@ -336,7 +294,7 @@ function MoodFx.actor(kind, age, x, y, sortY, alphaMul)
         local alpha = p[4] * (alphaMul or 1)
         if s and alpha > 0 then
           local w, h = #s.rows[1], #s.rows
-          drawShape(g, p[1], math.floor(x + p[2] - w / 2 - camX), math.floor(y + p[3] - h / 2 - camY), alpha)
+          PixelShapes.draw(g, p[1], math.floor(x + p[2] - w / 2 - camX), math.floor(y + p[3] - h / 2 - camY), alpha)
         end
       end
       g.setColor(r, gg, b, a)

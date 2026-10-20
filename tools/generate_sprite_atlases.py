@@ -54,6 +54,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import os
 import re
 import shutil
 import sys
@@ -232,14 +233,53 @@ def _number_group_args(args):
     return number_group(*args)
 
 
+# Worker processes for the colour numbering. Not one per hardware thread: every core pinned at
+# 100% for minutes is the kind of load that has crashed a desktop (twice, a Ryzen 7800X3D, 16
+# threads) -- 4 keeps the build quick and the machine usable. --jobs / WOH_BUILD_JOBS override.
+def default_jobs() -> int:
+    env = os.environ.get("WOH_BUILD_JOBS")
+    if env and env.strip().isdigit() and int(env) > 0:
+        return int(env)
+    return max(1, min(4, (os.cpu_count() or 2) // 2))
+
+
+JOBS = default_jobs()
+
+
+def lower_priority() -> None:
+    """Runs this process (and, on Windows, every process it starts) at below-normal
+    priority, so a build never competes with the rest of the machine. Best effort.
+    WOH_BUILD_PRIORITY=normal leaves it at normal priority (tools/stress_bake.py: the
+    full-power bake that once crashed the machine, for stress testing it)."""
+    if os.environ.get("WOH_BUILD_PRIORITY", "").strip().lower() == "normal":
+        return
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            from ctypes import wintypes
+            BELOW_NORMAL_PRIORITY_CLASS = 0x4000
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            # typed: GetCurrentProcess's pseudo-handle (-1) passed as a plain int arrived
+            # as an invalid handle, so the call failed silently and nothing was lowered
+            k32.GetCurrentProcess.restype = wintypes.HANDLE
+            k32.SetPriorityClass.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+            k32.SetPriorityClass.restype = wintypes.BOOL
+            k32.SetPriorityClass(k32.GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS)
+        else:
+            os.nice(10)
+    except Exception:
+        pass
+
+
 def build_family_indexed(name: str, dirs: list[str], out_dir: Path, max_px: int) -> dict:
     items = collect(dirs)
     if not items:
         return {"name": name, "sprites": 0, "shards": 0, "px": 0, "src_px": 0, "dirs": dirs, "index": None}
     numbered, full = [], []  # [(dir, names, w, h, data, rows)], [(dir, name, w, h)]
     groups = colour_groups(items)
-    # numbering reads every PNG: spread it over all cores (results come back in order)
-    with ProcessPoolExecutor() as pool:
+    # numbering reads every PNG: spread it over JOBS worker processes (results come back in
+    # order), each at below-normal priority
+    with ProcessPoolExecutor(max_workers=JOBS, initializer=lower_priority) as pool:
         results = list(pool.map(_number_group_args, [(d, names) for d, names, _, _ in groups], chunksize=8))
     for (d, names, w, h), got in zip(groups, results):
         if got is None and len(names) > 1:
@@ -308,7 +348,13 @@ def main() -> int:
                     help="full-colour shards (index version 1) instead of colour numbers")
     ap.add_argument("--out", default="assets/atlas", help="output directory, repo-relative (default: %(default)s)")
     ap.add_argument("--max-shard-px", type=int, default=DEFAULT_MAX_SHARD_PX, help="approximate pixels per shard")
+    ap.add_argument("--jobs", type=int, default=None,
+                    help="worker processes for the colour numbering (default: $WOH_BUILD_JOBS, else 4)")
     args = ap.parse_args()
+    global JOBS
+    if args.jobs and args.jobs > 0:
+        JOBS = args.jobs
+    lower_priority()
 
     names = [n.strip() for n in args.families.split(",") if n.strip()]
     unknown = [n for n in names if n not in FAMILIES]

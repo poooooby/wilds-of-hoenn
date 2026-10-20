@@ -39,6 +39,15 @@ local BattleTrigger = {}
 BattleTrigger.__index = BattleTrigger
 
 local HOLD = "wilds_of_hoenn_contact" -- our Field.lock tag while a contact waits for its battle
+-- A battle we started that never opens is given up: the player is let go and the wild
+-- Pokemon stays. Another mod stopping it from opening used to hold the player for good (a
+-- softlock: the field music playing on, no moving, no Start menu). Measured in Emerald: the
+-- transition starts the tick the battle is started and the battle is on the tick it ends,
+-- 89 ticks on a route, 124 in a cave. So: neither a transition nor the battle for
+-- PENDING_IDLE ticks -> it is not coming; and PENDING_GIVE_UP ticks at most in any case (a
+-- transition that never ends; an engine that cannot report its transition).
+BattleTrigger.PENDING_IDLE = 30
+BattleTrigger.PENDING_GIVE_UP = 300
 
 function BattleTrigger.new(mod, spawnManager, log)
   return setmetatable({
@@ -105,8 +114,24 @@ end
 function BattleTrigger:tick()
   local c = self.contact
   if not c then
+    local active = EnginePatch.battleActive and EnginePatch.battleActive()
+    if self:isPending() and not active then
+      self.pendingAge = (self.pendingAge or 0) + 1
+      local transition = EnginePatch.battleTransitionActive and EnginePatch.battleTransitionActive()
+      if transition == false then
+        self.pendingIdle = (self.pendingIdle or 0) + 1
+      else
+        self.pendingIdle = 0
+      end
+      if self.pendingAge >= BattleTrigger.PENDING_GIVE_UP or self.pendingIdle >= BattleTrigger.PENDING_IDLE then
+        self:_giveUp()
+        return
+      end
+    else
+      self.pendingAge, self.pendingIdle = nil, nil
+    end
     -- the battle is on (or never came): let go of the player
-    if self.holding and (not self:isPending() or (EnginePatch.battleActive and EnginePatch.battleActive())) then
+    if self.holding and (not self:isPending() or active) then
       self:_hold(false)
     end
     return
@@ -208,9 +233,28 @@ function BattleTrigger:onPlayerBumped(entity)
   end
 end
 
+--- A battle we started never opened (BattleTrigger.PENDING_GIVE_UP): let go of the player
+--- and leave the wild Pokemon where it is. The tile they stand on becomes a grace tile, so
+--- standing there does not try again at once; stepping off and back on does.
+function BattleTrigger:_giveUp()
+  local id = self.pendingId
+  if self.log then
+    self.log:warn("[wilds_of_hoenn] wild battle never opened (%d ticks): letting go of the player",
+      self.pendingAge or 0)
+  end
+  self.pendingId, self.pendingLured, self.pendingAge, self.pendingIdle = nil, false, nil, nil
+  self:_hold(false)
+  local e = id and self.spawnManager.entities[id]
+  if e and e.state == Config.STATE.ENCOUNTER_STARTING then e.state = Config.STATE.AVAILABLE end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p then self.graceX, self.graceY = p.x, p.y end
+end
+
 function BattleTrigger:_onBattleEnded(entityId, _result)
   self:_hold(false)
-  if self.pendingId == entityId then self.pendingId, self.pendingLured = nil, false end
+  if self.pendingId == entityId then
+    self.pendingId, self.pendingLured, self.pendingAge, self.pendingIdle = nil, false, nil, nil
+  end
   -- Win, lose, flee, catch: the mon the player fought is gone from the
   -- overworld either way. SpawnManager's own refill() on the next tick
   -- puts a freshly rolled wild Pokemon somewhere else on the map.

@@ -275,6 +275,75 @@ do
   fakeEngine.gameFree = nil
 end
 
+-- ------- a battle that never opens (another mod in the way) is given up: the player is let go
+do
+  local smG = fakeSpawnManager()
+  local locks = {}
+  fakeEngine.lockField = function(tag) locks[tag] = true return true end
+  fakeEngine.unlockField = function(tag) locks[tag] = nil return true end
+  fakeEngine.startWild = function() return true end
+  local active = false
+  fakeEngine.battleActive = function() return active end
+  fakeEngine.playerCell = function() return { x = 4, y = 5 } end
+  local warned = 0
+  local btG = BattleTrigger.new({}, smG, { warn = function() warned = warned + 1 end })
+  btG:_noteContact(smG.entities[1], 4, 5)
+  btG:tick() -- the game is free: the battle starts, the player held until it opens
+  check(btG:isPending() and btG:holdsPlayer(), "contact: battle pending, player held")
+  for _ = 1, BattleTrigger.PENDING_GIVE_UP - 2 do btG:tick() end
+  check(btG:isPending() and btG:holdsPlayer(), "still waiting for it to open just before the limit")
+  btG:tick() btG:tick()
+  check(not btG:isPending(), "it never opened: given up")
+  check(not btG:holdsPlayer() and next(locks) == nil, "...the player let go (no field lock left)")
+  eq(smG.entities[1].state, Config.STATE.AVAILABLE, "...the wild Pokemon back to normal")
+  eq(btG.graceX, 4, "...the tile they stand on a grace tile (no instant retry)")
+  check(warned >= 1, "...and it is logged")
+
+  -- a slow opening that does open is never given up
+  local smS = fakeSpawnManager()
+  local btS = BattleTrigger.new({}, smS, { warn = function() end })
+  btS:_noteContact(smS.entities[1], 4, 5)
+  btS:tick()
+  for _ = 1, 100 do btS:tick() end
+  active = true
+  for _ = 1, BattleTrigger.PENDING_GIVE_UP * 2 do btS:tick() end
+  check(btS:isPending(), "a battle on screen stays pending however long it lasts")
+
+  -- with the engine reporting its transition: a transition that plays (89-124 ticks) is waited
+  -- for; nothing playing and no battle for PENDING_IDLE ticks -> given up at once
+  active = false
+  local transition = true
+  fakeEngine.battleTransitionActive = function() return transition end
+  local smT = fakeSpawnManager()
+  local btT = BattleTrigger.new({}, smT, { warn = function() end })
+  btT:_noteContact(smT.entities[1], 4, 5)
+  btT:tick()
+  for _ = 1, 124 do btT:tick() end
+  check(btT:isPending() and btT:holdsPlayer(), "a cave transition (124 ticks) is waited out")
+  active = true
+  btT:tick()
+  check(btT:isPending(), "...and the battle opens")
+  active = false
+  local smN = fakeSpawnManager()
+  local btN = BattleTrigger.new({}, smN, { warn = function() end })
+  transition = false
+  btN:_noteContact(smN.entities[1], 4, 5)
+  btN:tick()
+  for _ = 1, BattleTrigger.PENDING_IDLE - 1 do btN:tick() end
+  check(btN:isPending(), "no transition yet: waits PENDING_IDLE ticks")
+  btN:tick() btN:tick()
+  check(not btN:isPending() and not btN:holdsPlayer(), "...then gives up: nothing is coming (" .. BattleTrigger.PENDING_IDLE .. " ticks, not seconds)")
+  local smC = fakeSpawnManager()
+  local btC = BattleTrigger.new({}, smC, { warn = function() end })
+  transition = true -- a transition that never ends
+  btC:_noteContact(smC.entities[1], 4, 5)
+  btC:tick()
+  for _ = 1, BattleTrigger.PENDING_GIVE_UP + 1 do btC:tick() end
+  check(not btC:isPending(), "a transition that never ends: given up at PENDING_GIVE_UP")
+  fakeEngine.battleTransitionActive = nil
+  fakeEngine.lockField, fakeEngine.unlockField, fakeEngine.battleActive, fakeEngine.playerCell = nil, nil, nil, nil
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
