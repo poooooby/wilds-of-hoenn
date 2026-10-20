@@ -20,6 +20,15 @@
 -- path with (trueColor = false), so the mod colours it from the map's palette like any
 -- vanilla sprite. PMD art is baked on its Idle's first frame (standing) and its Walk's
 -- first stride (walking): a card shows one still frame per pose.
+--
+-- Strides: the strip has ONE walk frame per facing, and the pipelines show it alternating
+-- with the stand frame -- up / down also mirror it every other step (a second stride for
+-- free), but a mirrored side view would face the other way, so sideways the art only bobbed
+-- (HGSS stand and stride A are nearly the same side pose): it glided. So each art gets a
+-- second strip whose walk rows hold the OTHER stride (HGSS walk B, PMD Walk's B step), and
+-- `spriteFor` hands out the one for the renderer's current step (`r.voxelStride`, "a" / "b",
+-- set per step by lib/spawn_manager.lua and lib/follower_adapter.lua): stand, A, stand, B,
+-- like the 2D game.
 local V = ...
 local GbColor = V.require("gb_color")
 local HdField = V.require("hd_field")
@@ -56,26 +65,41 @@ local function styleOf(r)
   return r.isPmd and "pmd" or (r.style or "pokemmo")
 end
 
--- draws one pose of `r` into the current canvas, its tile at (tx, ty)
-local function drawPose(r, row, tx, ty, poses)
+--- The PMD Walk clock showing stride A or B (`b`): a four-frame Walk is Base, A, Base, B
+--- (PmdRenderer.stepStart); any other length takes its first frame change for A and half
+--- way round the loop for B. Pure (tested).
+function VoxelSheets.pmdStrideClock(durations, b)
+  if type(durations) ~= "table" or #durations == 0 then return 0 end
+  if #durations == 4 then
+    if b then return durations[1] + durations[2] + durations[3] end
+    return durations[1]
+  end
+  if not b then return tonumber(durations[1]) or 0 end
+  local total = 0
+  for _, d in ipairs(durations) do total = total + (tonumber(d) or 0) end
+  return math.floor(total / 2)
+end
+
+-- draws one pose of `r` into the current canvas, its tile at (tx, ty); `b` = stride B
+local function drawPose(r, row, tx, ty, poses, b)
   if r.isPmd then
     local entry
     if row.walk then
       r.anim = "walk"
       entry = r.info and r.info.walk
-      local d = entry and entry.durations
-      r.clock = (type(d) == "table" and tonumber(d[1])) or 0 -- the first stride
+      r.clock = VoxelSheets.pmdStrideClock(entry and entry.durations, b)
     else
       r.anim, r.clock = "idle", 0
     end
     r:draw(tx, ty, 0, 0, row.facing, 0, false)
   else
-    r:draw(tx, ty, 0, 0, row.facing, row.walk and poses.WALK_A or poses.STAND, false)
+    local walk = b and (poses.WALK_B or poses.WALK_A) or poses.WALK_A
+    r:draw(tx, ty, 0, 0, row.facing, row.walk and walk or poses.STAND, false)
   end
 end
 
 -- renders the six poses into an ImageData (cell x cell*6), or nil
-local function bake(r, cell, luma, poses)
+local function bake(r, cell, luma, poses, b)
   local G = love.graphics
   if not (G and G.newCanvas) then return nil end
   local ok, canvas = pcall(G.newCanvas, cell, cell * VoxelSheets.FRAMES)
@@ -90,7 +114,7 @@ local function bake(r, cell, luma, poses)
   local okDraw, err = pcall(function()
     for i, row in ipairs(VoxelSheets.ROWS) do
       -- the renderer puts the art's feet on the tile's bottom edge, centred on it
-      drawPose(r, row, cell / 2 - 8, (i - 1) * cell + cell - 16, poses)
+      drawPose(r, row, cell / 2 - 8, (i - 1) * cell + cell - 16, poses, b)
     end
   end)
   G.setCanvas()
@@ -118,8 +142,9 @@ function VoxelSheets:spriteFor(r, luma)
   if type(r) ~= "table" or r.dex == nil then return nil end
   local style = styleOf(r)
   local sil = r.silhouette and true or false
+  local b = r.voxelStride == "b"
   local key = table.concat({ tostring(r.dex), r.shiny and "s" or "n", style, sil and "sil" or "",
-    luma and "luma" or "color" }, "-")
+    luma and "luma" or "color" }, "-") .. (b and "-b" or "")
   local factor = HdField.factorFor(style == "pmd" and "pmd" or "hgss", r.dex)
   -- sized against the shorter Game Boy player (Config.gbSizeRatio; 1 on Gen 3), with
   -- Species Sizes on only -- off, a card keeps its art's own size
@@ -142,7 +167,7 @@ function VoxelSheets:spriteFor(r, luma)
   if not self.composed then self.composed = {} end
   if not self.composed[path] then self.composed[path] = true Assets.compose(path, function()
     if data[path] == nil then
-      local okB, img = pcall(bake, fresh, cell, luma, deps.poses or {})
+      local okB, img = pcall(bake, fresh, cell, luma, deps.poses or {}, b)
       data[path] = okB and img or false
     end
     local img = data[path]

@@ -729,6 +729,8 @@ function SpawnManager:collectActors(actors, camX, camY)
         end
       end
       local pose = poseOf(e)
+      -- a voxel card's stride (lib/voxel_sheets.lua): the step's own A / B
+      if e.renderer then e.renderer.voxelStride = e.stepParity and "a" or "b" end
       actors[#actors + 1] = {
         kind = "wild_mon", i = id,
         x = e.px, y = e.py, sortY = e.py, elevation = e.elevation,

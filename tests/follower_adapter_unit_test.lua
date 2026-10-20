@@ -1243,6 +1243,30 @@ do
   optionStore.sprite_style = nil
 end
 
+-- ------- voxel card strides (lib/voxel_sheets.lua): A and B by turns, one per step
+do
+  local st = { renderer = {} }
+  local npc = { moving = false }
+  FollowerAdapter._tickStride(st, npc)
+  eq(st.renderer.voxelStride, "a", "standing: stride A")
+  npc.moving, npc.targetX, npc.targetY = true, 5, 4
+  FollowerAdapter._tickStride(st, npc)
+  local first = st.renderer.voxelStride
+  FollowerAdapter._tickStride(st, npc)
+  eq(st.renderer.voxelStride, first, "the same step keeps its stride")
+  npc.targetX = 4 -- the next step follows straight on, never stopping
+  FollowerAdapter._tickStride(st, npc)
+  check(st.renderer.voxelStride ~= first, "back-to-back steps: the next one takes the other stride")
+  local second = st.renderer.voxelStride
+  npc.moving, npc.targetX, npc.targetY = false, nil, nil
+  FollowerAdapter._tickStride(st, npc)
+  eq(st.renderer.voxelStride, second, "stopping keeps it")
+  npc.moving = true -- an engine without target cells: the moving edge
+  FollowerAdapter._tickStride(st, npc)
+  check(st.renderer.voxelStride ~= second, "no target cell: a new step on the moving edge")
+  FollowerAdapter._tickStride({}, npc) -- no renderer: nothing to do
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

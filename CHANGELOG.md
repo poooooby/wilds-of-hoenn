@@ -53,6 +53,9 @@
 - **Show Wild Mons off now stays off.** Switching the option off mid-map cleared the wild
   Pokemon, but the very next moment quietly placed new ones; now none appear until it is
   switched back on. (Every game.)
+- **Real steps in 3D worlds.** With TERRARIUM, Potato Voxel, Dramaless or Stadium2 on, wild
+  Pokemon and your partner walking left or right seemed to glide, bobbing on one pose; they
+  now step with both feet, stride for stride like in the 2D world. (Both sprite styles.)
 
 ## 1.9.4 (2026-10-20)
 

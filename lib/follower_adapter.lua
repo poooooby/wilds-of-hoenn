@@ -112,6 +112,25 @@ function FollowerAdapter:readyLabel()
   return V.require("level_ready").textFor(self.readyPending, self.readyClock)
 end
 
+-- A voxel card's stride (lib/voxel_sheets.lua): A and B by turns, one per step, in
+-- either style. A new step = a new target cell (back-to-back steps never stop moving
+-- on some engines), else the moving edge.
+function FollowerAdapter:_tickStride(npc)
+  local r = self.renderer
+  if not r then return end
+  local moving = npc.moving == true
+  if moving then
+    local tx, ty = tonumber(npc.targetX), tonumber(npc.targetY)
+    local key = (tx and ty) and (tx * 65536 + ty) or nil
+    if (key ~= nil and key ~= self.strideKey) or (key == nil and not self.strideMoving) then
+      self.strideB = not self.strideB
+    end
+    self.strideKey = key
+  end
+  self.strideMoving = moving
+  r.voxelStride = self.strideB and "b" or "a"
+end
+
 -- Walking out of a doorway. On a map change the engine makes a fresh follower ON
 -- THE PLAYER'S CELL (src/world/game3/Follower.lua); after a door / cave / stairs exit
 -- that is the doorway, and the player is walked one step out while the follower
@@ -619,6 +638,7 @@ function FollowerAdapter:tick()
   -- else (a scene, a Forager trip ...) starts until it is out
   self:_tickRipple(npc)
   local emerging = self:_tickEmerge(npc)
+  self:_tickStride(npc)
   local scene = nil
   if not emerging then scene = self:_tickAction() or self:_tickBehavior(npc) end
   self.sceneNow = scene

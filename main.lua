@@ -343,7 +343,8 @@ return function(mod)
     local okAssets, Assets = pcall(require, "src.render.Assets")
     EnginePatch.voxelSheets = VoxelSheets.new({
       assets = okAssets and Assets or nil,
-      poses = { STAND = ActorRenderer.POSE_STAND, WALK_A = ActorRenderer.POSE_WALK_A },
+      poses = { STAND = ActorRenderer.POSE_STAND, WALK_A = ActorRenderer.POSE_WALK_A,
+        WALK_B = ActorRenderer.POSE_WALK_B },
       makeRenderer = function(key, shiny, style)
         return V.require("renderer_factory").new(mod, key, shiny, style, SpriteSource.PRESENTATION_LAND)
       end,
