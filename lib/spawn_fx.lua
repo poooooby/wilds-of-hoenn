@@ -112,7 +112,18 @@ end
 --- The whole pixels of a ring outline, half-widths `rx` x `ry`, around (0, 0): one
 --- crisp 1 px line like the game's own art (an anti-aliased ellipse at the field's low
 --- resolution reads as a soft blur). Pure (tested).
+local ringPixelCache, ringPixelCount = {}, 0
 function SpawnFx.ringPixels(rx, ry)
+  -- Memoized on quarter-px radii: the eased radii repeat the same handful of integer
+  -- shapes, and this runs per ring PER FRAME (a swimmer's wakes never stop coming) --
+  -- unmemoized it built ~40 small tables per ring per frame. Callers must not mutate
+  -- the returned list. The cache is bounded by the radii actually used; reset if abused.
+  local kx = math.floor((tonumber(rx) or 0) * 4 + 0.5)
+  local ky = math.floor((tonumber(ry) or 0) * 4 + 0.5)
+  local key = kx * 8192 + ky
+  local hit = ringPixelCache[key]
+  if hit then return hit end
+  rx, ry = kx / 4, ky / 4
   local seen, out = {}, {}
   local steps = math.max(32, math.floor((rx + ry) * 8)) -- dense enough for a gapless line
   for k = 0, steps - 1 do
@@ -125,6 +136,8 @@ function SpawnFx.ringPixels(rx, ry)
       out[#out + 1] = { x, y }
     end
   end
+  if ringPixelCount >= 512 then ringPixelCache, ringPixelCount = {}, 0 end
+  ringPixelCache[key], ringPixelCount = out, ringPixelCount + 1
   return out
 end
 

@@ -712,9 +712,11 @@ function SpawnManager:collectActors(actors, camX, camY)
         if a then actors[#actors + 1] = a end
       end
     elseif e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) then
-      for _, w in ipairs(e.wakes or {}) do
-        local a = SpawnFx.wakeActor(w.age, Config.SWIM.wake, w.x, w.y, e.elevation, id)
-        if a then actors[#actors + 1] = a end
+      if e.wakes then -- no `or {}`: that built an empty table per visible entity per frame
+        for _, w in ipairs(e.wakes) do
+          local a = SpawnFx.wakeActor(w.age, Config.SWIM.wake, w.x, w.y, e.elevation, id)
+          if a then actors[#actors + 1] = a end
+        end
       end
       local pose = poseOf(e)
       actors[#actors + 1] = {
