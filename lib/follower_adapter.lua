@@ -312,6 +312,8 @@ function FollowerAdapter:_tickRecall(npc, r)
   -- a cutscene (a script moving anyone: the player, an NPC, both -- or Gen 2's `follow`),
   -- it stays out of the way inside its ball; plain dialogue moves nobody and leaves it out
   if self:inCutscene() then recalled = true end
+  -- the Follower option off: in its ball all the time, its role paused like on a bike
+  if self.off then recalled = true end
   self.surfRecall = recalled
   -- a Battler out of strength rests inside the player (any art style)
   if self.away then recalled = true end
@@ -319,7 +321,7 @@ function FollowerAdapter:_tickRecall(npc, r)
   if self.role == "recall" then recalled = true end
 
   local want = recalled and 0 or 1
-  if self.swap and self.swapState then want = self.swapState.want end
+  if self.swap and self.swapState and not self.off then want = self.swapState.want end
   if self.swapFresh then
     -- the new sprite begins inside the ball, whatever it is about to do
     r.recall, r.recallPlaced, self.swapFresh = 0, true, false
@@ -555,12 +557,22 @@ function FollowerAdapter:tick()
     self._lastTarget = { mon = mon, role = role, pid = mon and mon.personality, sp = mon and mon.species,
                          target = target }
   end
+  -- the Follower option off: it stays in its ball (_tickRecall), and a new companion
+  -- (party order, the party menu) changes over unseen -- no swap scene, no field lock
+  self.off = not Config.followerOn(self.mod)
   if not self.disp then
     self.disp = target
   elseif self.swap then
-    self:_tickSwap()
+    if self.off then
+      self.disp = self.swapTarget or target
+      self:_endSwap()
+    else
+      self:_tickSwap()
+    end
   elseif target.key ~= self.disp.key then
-    if sameMonNewJob(self.disp, target, self.renderer) then
+    if self.off then
+      self.disp = target
+    elseif sameMonNewJob(self.disp, target, self.renderer) then
       self.disp = target
     elseif not (EnginePatch.screenBusy and EnginePatch.canStartInteraction) then
       self.disp = target -- no engine to hold a scene in: just change over

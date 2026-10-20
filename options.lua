@@ -71,6 +71,13 @@ return {
     description = "Overworld sprite style for wild Pokemon and your follower. HGSS / PokeMMO draws each species at its own native size (\"True Size\"), anchored at its feet -- a Snorlax is drawn much bigger than a Rattata. PMDCollab uses the PMD Explorers-style sprites with fully animated walking and idle loops (species without PMD art fall back to HGSS / PokeMMO).",
   },
   {
+    key = "show_follower",
+    label = "Follower",
+    type = "toggle",
+    default = true,
+    description = "Your partner Pokemon walks behind you. Off: it stays in its Poke Ball (its Battle and Forage jobs and Pet / Play / Talk wait until it is out again). Changing your party order still changes who your partner is.",
+  },
+  {
     key = "smooth_follow",
     label = "Smooth Follow",
     type = "toggle",

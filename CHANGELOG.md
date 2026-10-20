@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.4 (2026-10-20)
+
+### Added
+
+- **Follower option.** Prefer to walk alone? Switch Follower off in the mod options and your
+  partner stays in its Poke Ball. Its Battle and Forage jobs and Pet / Play / Talk wait until
+  you switch it back on, and changing your party order still picks who comes out then.
+
 ## 1.9.3 (2026-10-19)
 
 ### Added

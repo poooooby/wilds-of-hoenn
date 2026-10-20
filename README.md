@@ -128,6 +128,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Local Scenes** | ON / OFF | ON | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
 | **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
 | **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
+| **Follower** | ON / OFF | ON | Your partner walks behind you. Off: it stays in its Poké Ball, and its Battle and Forage jobs and Pet / Play / Talk wait until it is out again. Changing your party order still picks your partner. |
 | **Smooth Follow** | ON / OFF | ON | Your partner keeps its distance behind you either way. On: it glides round turns. Off: it snaps straight to its place, step for step like the original games. |
 | **Type Aura** | ON / OFF | OFF | Now and then your partner gives off a little puff of its type: embers, droplets, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it. |
 | **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |

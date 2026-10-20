@@ -69,9 +69,9 @@ local fa = FollowerAdapter.new(mod)
 
 -- ------- shouldSpawn: always (there is no Follower option; the party menu picks who is out)
 eq(fa:shouldSpawn(), true, "shouldSpawn is always true")
-optionStore.follower = false
+optionStore.show_follower = false
 eq(fa:shouldSpawn(), true, "...even with a stale saved Follower value")
-optionStore.follower = true
+optionStore.show_follower = true
 
 -- ------- tick() with no follower spawned does nothing
 fa:tick()
@@ -841,6 +841,94 @@ do
   check(fb:isBusy(), "a scene counts as busy too")
   fb:cancelAction()
   optionStore.sprite_style = "pokemmo"
+end
+
+-- ------- the Follower option off: in its ball all the time, both art styles
+do
+  local realPixel = fakeEngine.playerPixel
+  fakeEngine.playerPixel = function() return 40, 48 end
+  local T = V.require("config").PMD_RECALL_TICKS
+  for _, style in ipairs({ "pmd", "pokemmo" }) do
+    optionStore.sprite_style = style
+    V.mod = (style == "pmd") and pmdMod or mod
+    npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+    local fo = FollowerAdapter.new(V.mod)
+    fo:tick()
+    eq(fo.renderer.recall or 1, 1, style .. ": the Follower option on (default): it is out")
+    optionStore.show_follower = false
+    for _ = 1, T do fo:tick() end
+    eq(fo.renderer.recall, 0, style .. ": option off: it goes into its ball")
+    check(fo:isRecalled(), style .. ": ...recalled, so it cannot be talked to")
+    check(fo.surfRecall, style .. ": ...and its job pauses (as on a bike)")
+    for _ = 1, 60 do fo:tick() end
+    eq(fo.renderer.recall, 0, style .. ": ...and it stays in")
+    optionStore.show_follower = nil
+    for _ = 1, T + 1 do fo:tick() end
+    eq(fo.renderer.recall, 1, style .. ": option back on: it comes back out")
+  end
+  fakeEngine.playerPixel = realPixel
+  optionStore.sprite_style = nil
+  V.mod = mod
+end
+
+-- ------- the Follower option off: a new companion changes over unseen (no scene, no lock)
+do
+  optionStore.sprite_style = "pokemmo"
+  local party = {
+    { species = 999, personality = 111, hp = 20 },
+    { species = 998, personality = 222, hp = 20 },
+  }
+  local saved = { personality = 111, role = "follow" }
+  local comp = { resolve = function()
+    for _, m in ipairs(party) do
+      if m.personality == saved.personality then return m, saved.role end
+    end
+  end }
+  local poses, locks, unlocks = 0, 0, 0
+  local names = { "partyMons", "screenBusy", "canStartInteraction", "playerPose", "lockField",
+    "unlockField", "playCry", "playerPixel", "playerElevation", "nationalFor" }
+  local kept = {}
+  for _, k in ipairs(names) do kept[k] = fakeEngine[k] end
+  fakeEngine.partyMons = function() return party end
+  fakeEngine.screenBusy = function() return false end
+  fakeEngine.canStartInteraction = function() return true end
+  fakeEngine.playerPose = function() poses = poses + 1 return true end
+  fakeEngine.lockField = function() locks = locks + 1 return true end
+  fakeEngine.unlockField = function() unlocks = unlocks + 1 return true end
+  fakeEngine.playCry = function() return true end
+  fakeEngine.playerPixel = function() return 40, 48 end
+  fakeEngine.playerElevation = function() return 3 end
+  fakeEngine.nationalFor = function(id) return id == 999 and 252 or (id == 998 and 255 or nil) end
+
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  optionStore.show_follower = false
+  local fo = FollowerAdapter.new(mod, comp)
+  fo:tick()
+  eq(fo.renderer.recall, 0, "option off from the start: a fresh partner is already in its ball (no shrink)")
+  saved = { personality = 222, role = "follow" } -- the party order changed
+  for _ = 1, 30 do fo:tick() end
+  eq(fo.renderer.dex, 255, "a new lead becomes the partner while it is off")
+  eq(fo.renderer.recall, 0, "...still in its ball")
+  eq(poses + locks, 0, "...with no ball scene and no field lock")
+  check(not fo:isBusy(), "...nothing under way")
+
+  -- switched off in the middle of a swap scene: the scene ends, the field is let go
+  optionStore.show_follower = nil
+  for _ = 1, 40 do fo:tick() end
+  eq(fo.renderer.recall, 1, "option back on: the current partner comes out")
+  saved = { personality = 111, role = "follow" }
+  fo:tick()
+  check(fo:isBusy() and locks == 1, "back on, a party change plays the swap scene again")
+  optionStore.show_follower = false
+  fo:tick()
+  check(not fo:isBusy(), "switching the option off mid-scene ends it")
+  eq(unlocks, locks, "...and releases the field")
+  for _ = 1, 40 do fo:tick() end
+  eq(fo.renderer.dex, 252, "...the new partner is the one in its ball")
+  eq(fo.renderer.recall, 0, "...in its ball")
+
+  optionStore.show_follower = nil
+  for _, k in ipairs(names) do fakeEngine[k] = kept[k] end
 end
 
 -- ------- swapping the companion: ball scene, old goes in, new comes out

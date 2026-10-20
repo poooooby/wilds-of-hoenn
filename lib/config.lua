@@ -12,6 +12,7 @@ Config.DEFAULTS = {
   spawn_amount = "normal",
   flyers = "full",
   smooth_follow = true,
+  show_follower = true,
   portraits = true,
   wild_reacts = true,
   water_life = true,
@@ -576,6 +577,13 @@ end
 --- leaves ...). Off unless switched on.
 function Config.typeAura(mod)
   return optGet(mod, "type_aura") == true
+end
+
+--- The Follower option: off keeps the partner in its ball (lib/follower_adapter.lua). Its
+--- own key: the old "follower" toggle (removed in 1.2.0) may still be saved as false, and
+--- reading it would hide the partner of a player who has had it out ever since.
+function Config.followerOn(mod)
+  return optGet(mod, "show_follower") ~= false
 end
 
 function Config.smoothFollow(mod)
