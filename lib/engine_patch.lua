@@ -1411,7 +1411,9 @@ EnginePatch.moveNumber = moveNumber
 
 --- A wild Pokemon built for an overworld fight: stats, moves and PP from the
 --- engine's own learnset at its level, hp full. Returns the mon table, or nil.
-function EnginePatch.buildWildFighter(species, level, personality)
+-- `ivs` (optional): the wild Pokemon's own IVs (a spawn that carries them -- a shiny
+-- chain's perfect ones), so its stats are the ones a real battle with it would have
+function EnginePatch.buildWildFighter(species, level, personality, ivs)
   local Pokemon = loadModule(EnginePatch.READONLY.movesAtLevel.mod)
   local Damage = loadModule(EnginePatch.READONLY.damageEnsureStats.mod)
   if not (Pokemon and Damage) then return nil end
@@ -1419,9 +1421,14 @@ function EnginePatch.buildWildFighter(species, level, personality)
     local moves, pp, maxPp = Pokemon.movesAtLevel(species, level)
     if not moves or #moves == 0 then return nil end
     local rnd = EnginePatch.randomPersonality() or 0
+    local own
+    if type(ivs) == "table" then
+      own = {}
+      for k, v in pairs(ivs) do own[k] = v end
+    end
     local m = {
       species = species, level = level, personality = personality or rnd,
-      ivs = { hp = rnd % 32, atk = math.floor(rnd / 32) % 32, def = math.floor(rnd / 1024) % 32,
+      ivs = own or { hp = rnd % 32, atk = math.floor(rnd / 32) % 32, def = math.floor(rnd / 1024) % 32,
               spe = math.floor(rnd / 32768) % 32, spa = math.floor(rnd / 1048576) % 32,
               spd = math.floor(rnd / 33554432) % 32 },
       moves = moves, pp = pp, maxPp = maxPp,

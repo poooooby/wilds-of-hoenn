@@ -662,6 +662,30 @@ do
   eq(#defeated, 1, "reset during a knockout removes the defeated Pokemon")
 end
 
+-- ------- one fighter per wild Pokemon: kept on it, so its damage carries over
+do
+  reset()
+  local wild = wildEntity(1, 13, 10)
+  local b = newBattler()
+  local mon = newMon()
+  local fought = false
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    if b.mode == "fight" and b.wild and b.wild.hp < b.wild.maxHp then fought = true break end
+  end
+  check(fought, "staged: it has taken a hit")
+  check(wild.owWild ~= nil and wild.owWild == b.wild, "its fighter is kept on the wild Pokemon (owWild)")
+  local hpLeft = wild.owWild.hp
+  b:reset() -- the fight is dropped (a map change ...): the damage stays with it
+  check(wild.owWild and wild.owWild.hp == hpLeft and hpLeft < wild.owWild.maxHp, "...its HP stays down (" .. hpLeft .. ")")
+  local seen
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    if b.wild then seen = b.wild break end
+  end
+  check(seen == wild.owWild, "a second skirmish picks the same fighter up again")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

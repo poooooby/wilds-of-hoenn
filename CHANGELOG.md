@@ -12,6 +12,9 @@
 - **Calling off a fight.** Take your Battler off the job mid-fight (with the Battler button or
   the party menu) and it counts as running away: the wild Pokemon gives a parting cry and a
   lunge at you, then runs off and disappears. No EXP for a fight you left.
+- **Jump into your Battler's fight.** Walk into a wild Pokemon your Battler has been fighting
+  and the real battle starts with the HP it has left -- and a Pokemon your Battler wore down
+  earlier stays worn down, for the next skirmish too.
 
 ### Changed
 

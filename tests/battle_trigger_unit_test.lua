@@ -179,6 +179,31 @@ do
   fakeEngine.roamerNow = nil
 end
 
+-- ------- worn down by the Battler: the real battle starts with the HP it has left
+do
+  local got
+  fakeEngine.fieldBusy = nil
+  fakeEngine.startWild = function(_game, enc) got = enc return true end
+  local smC = fakeSpawnManager()
+  local e = smC.entities[1]
+  e.species, e.level, e.personality = 263, 6, 1234
+  local ivs = { hp = 31, atk = 3, def = 4, spe = 5, spa = 6, spd = 7 }
+  e.owWild = { hp = 7, maxHp = 22, ivs = ivs }
+  local btC = BattleTrigger.new({}, smC, { warn = function() end })
+  btC:onPlayerBumped(e)
+  eq(got and got.hp, 7, "the battle starts with the HP the Battler left it")
+  check(got and got.ivs == ivs, "...and the overworld fighter's IVs (the same max HP the damage was dealt against)")
+  eq(got and got.personality, 1234, "...the same Pokemon")
+  -- untouched by the Battler: a full-HP battle as ever
+  got = nil
+  local smF = fakeSpawnManager()
+  local f = smF.entities[1]
+  local btF = BattleTrigger.new({}, smF, { warn = function() end })
+  btF:onPlayerBumped(f)
+  eq(got and got.hp, nil, "never fought: no HP given (the battle rolls it full)")
+  fakeEngine.startWild = function() return true end
+end
+
 -- ------- a Pokemon Sweet Scent called over: its battle is flagged for the evasion drop
 do
   fakeEngine.startWild = function() return true end

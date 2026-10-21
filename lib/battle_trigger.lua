@@ -211,6 +211,14 @@ function BattleTrigger:onPlayerBumped(entity)
     end
     enc = now
   end
+  -- worn down by the player's Battler (lib/overworld_battle.lua keeps its fighter on it):
+  -- the real battle starts with the HP it has left, and with that fighter's IVs so its max
+  -- HP is the same one the damage was dealt against
+  local ow = not entity.roamer and entity.owWild
+  if type(ow) == "table" and (tonumber(ow.hp) or 0) > 0 then
+    enc.ivs, enc.hp = ow.ivs or enc.ivs, ow.hp
+    if ow.status and ow.status ~= 0 then enc.status = ow.status end
+  end
   self.pendingId = entity.id
   -- called over by Sweet Scent: main.lua's battle.started lowers the foe's evasion
   self.pendingLured = entity.lured ~= nil
