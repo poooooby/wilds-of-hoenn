@@ -1246,6 +1246,20 @@ do
   check(FollowerAdapter.NOTICE_TICKS > 30, "...for a moment (" .. FollowerAdapter.NOTICE_TICKS .. " ticks)")
 end
 
+-- ------- called back from the field (its job taken away mid-way): it runs home, never pops back
+do
+  local st = setmetatable({ homeRun = { x = 10, y = -5 } }, { __index = FollowerAdapter })
+  check(st:isBusy(), "running home: busy (no Pet / Play / Talk menu yet)")
+  local s = st:_tickHomeRun()
+  check(s and s.moving and s.dx < 10 and s.dx > 0 and s.dy == -5, "it closes the offset a step at a time (x first)")
+  eq(s.facing, "left", "...facing the way it runs")
+  local n = 1
+  while st.homeRun and n < 100 do s = st:_tickHomeRun() n = n + 1 end
+  eq(st.homeRun, nil, "home at last")
+  check(n > 4, "...after a run, not at once (" .. n .. " ticks)")
+  check(not st:isBusy(), "...and free again")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

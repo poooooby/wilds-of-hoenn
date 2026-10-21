@@ -123,6 +123,15 @@ function OverworldBattle:abandon()
   self:reset()
 end
 
+--- Where it is drawn now, as an offset from its place behind the player (px), for the
+--- run home when its job is taken away; nil while it is in its ball or already there.
+function OverworldBattle:homeOffset()
+  if self.away then return nil end
+  local dx, dy = self.dx or 0, self.dy or 0
+  if dx == 0 and dy == 0 then return nil end
+  return dx, dy
+end
+
 --- Away from its place (the follower menu must not open on it)?
 function OverworldBattle:isBusy()
   return self.mode ~= "idle" or self.away or (self.dx or 0) ~= 0 or (self.dy or 0) ~= 0

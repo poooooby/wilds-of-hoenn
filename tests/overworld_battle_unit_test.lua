@@ -686,6 +686,18 @@ do
   check(seen == wild.owWild, "a second skirmish picks the same fighter up again")
 end
 
+-- ------- where it is out in the field, for the run home when its job is taken away
+do
+  reset()
+  local b = newBattler()
+  eq(b:homeOffset(), nil, "standing with the player: nothing to run back")
+  b.dx, b.dy = 24, -8
+  local x, y = b:homeOffset()
+  check(x == 24 and y == -8, "out in the field: its offset from its place")
+  b.away = true
+  eq(b:homeOffset(), nil, "in its ball (resting): no run")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

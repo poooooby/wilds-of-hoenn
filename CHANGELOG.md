@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Call it out like a trainer.** The Battler button no longer shows "Battling!" / "Following"
+  over your partner: you call it out yourself, in a speech bubble over your head, like
+  sending a Pokemon into a real battle -- "Go! Mudkip!", "Get 'em, Mudkip!", "That's enough,
+  Mudkip!", "Come back, Mudkip!" and more, by its nickname or species name.
+- **Your Battler runs back to you.** Called back mid-fight (the Battler button or the party
+  menu), it now runs back to its place behind you instead of reappearing there at once.
+
 ## 1.10.0 (2026-10-20)
 
 ### Added

@@ -87,7 +87,7 @@ return {
       { "L", "l" },
       { "OFF", "off" },
     },
-    description = "A controller shoulder button that switches your partner between Battle and Follow while you walk around (a little label shows which). In FireRed / LeafGreen that button then no longer opens Help in the overworld; the other shoulder still does.",
+    description = "A controller shoulder button that switches your partner between Battle and Follow while you walk around -- you call it out like a trainer in battle ('Go! Mudkip!', 'Come back, Mudkip!'). In FireRed / LeafGreen that button then no longer opens Help in the overworld; the other shoulder still does.",
   },
   {
     key = "role_key",

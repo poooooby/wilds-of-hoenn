@@ -149,7 +149,8 @@ time, and they stay out until you change your leader again. One partner is out a
 
 Out in the world, a **Battler** button (off until you pick one in the options: L or R on a
 controller, E, Q or R on the keyboard) switches your partner between BATTLE and FOLLOW without
-opening a menu, with a little label over it to say which. Calling it off mid-fight is like running from a battle: the wild
+opening a menu -- you call it out like a trainer in a real battle ("Go! Mudkip!", "That's
+enough, Mudkip!"). Calling it off mid-fight is like running from a battle: the wild
 Pokémon gives you a parting cry and a lunge, then runs off. Or step in yourself: walk into
 a wild Pokémon your Battler has been fighting and the real battle starts with the HP it has
 left.

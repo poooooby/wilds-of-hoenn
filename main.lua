@@ -166,7 +166,11 @@ return function(mod)
       return mon, role
     end,
     set = function(mon, role) return companion:set(mon, role) end,
-    notify = function(text) followerAdapter:notify(text) end,
+    nameOf = function(mon) return EnginePatch.displayName(mon) end,
+    -- the player calls it out, in a two-line bubble over their head
+    notify = function(text)
+      followerAdapter:notify(V.require("popup_text").twoLines(text), { onPlayer = true })
+    end,
     sound = function() EnginePatch.playSelect() end,
   })
   mod.exports.roleHotkey = roleHotkey

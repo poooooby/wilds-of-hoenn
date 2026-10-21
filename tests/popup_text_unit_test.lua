@@ -281,6 +281,15 @@ do
 end
 
 
+-- ------- two-line bubbles (the Battler call-outs): broken at a space, never mid-word
+eq(PopupText.twoLines("Get 'em, MARSHTOMP!"), "Get 'em,\nMARSHTOMP!", "broken at the space nearest the middle")
+eq(PopupText.twoLines("Show 'em what you've got!"), "Show 'em what\nyou've got!", "...a longer one too")
+eq(PopupText.twoLines("Go!"), "Go!", "one word: one line")
+eq(PopupText.twoLines("A BCDEFGHIJKLMNOP"), "A\nBCDEFGHIJKLMNOP", "...only ever at a space, never inside a word")
+eq(PopupText.twoLines("once\nalready"), "once\nalready", "already two lines: kept")
+local ls = PopupText.lines("one\ntwo")
+check(#ls == 2 and ls[1] == "one" and ls[2] == "two", "lines() splits at the line break")
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

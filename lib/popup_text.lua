@@ -71,6 +71,29 @@ PopupText._faceDrop = faceDrop
 local WORD_GAP = 3
 local CACHE_MAX = 64
 
+-- a further line's height: the 8 px glyphs plus a 1 px gap (a two-line bubble)
+local LINE_H = 9
+
+--- Splits `text` into its lines (at "\n"). Pure (tested).
+function PopupText.lines(text)
+  local out = {}
+  for line in (tostring(text) .. "\n"):gmatch("(.-)\n") do out[#out + 1] = line end
+  return out
+end
+
+--- Breaks `text` into two lines at the space nearest its middle (a long call-out stays a
+--- compact bubble); one word stays one line. Pure (tested).
+function PopupText.twoLines(text)
+  text = tostring(text)
+  if text:find("\n", 1, true) then return text end
+  local mid, best = #text / 2, nil
+  for i = 1, #text do
+    if text:sub(i, i) == " " and (not best or math.abs(i - mid) < math.abs(best - mid)) then best = i end
+  end
+  if not best then return text end
+  return text:sub(1, best - 1) .. "\n" .. text:sub(best + 1)
+end
+
 --- Splits `text` at spaces. Pure (tested).
 function PopupText.words(text)
   local out = {}
@@ -255,6 +278,70 @@ local function glyphFor(ch, w)
   end)
 end
 
+-- ------------------------------------------------------------------ two-line bubbles
+-- Each line is baked into its own canvas (the font's stray top-half pixels would otherwise
+-- land on the line above), then the bubble is drawn round them, its tail at the bottom
+-- centre. Without canvases the lines are drawn straight on (a stray pixel or two).
+
+local function lineFor(line, words, widths, width)
+  return cached_("ln:" .. line, function()
+    return bakeCanvas(width, PLATE_H, function()
+      local penX = 0
+      for i, word in ipairs(words) do
+        EnginePatch.drawText(word, penX, 2 - faceDrop(), FONT)
+        penX = penX + widths[i] + WORD_GAP
+      end
+    end)
+  end)
+end
+
+local function drawMulti(lines, sx, sy)
+  local g = love.graphics
+  local rows, width = {}, 0
+  for i, line in ipairs(lines) do
+    local words = PopupText.words(line)
+    local widths, w = measure(words)
+    rows[i] = { line = line, words = words, widths = widths, width = w }
+    if w > width then width = w end
+  end
+  local n = #rows
+  local w = width + PAD * 2 + 2
+  local h = PLATE_H + 2 + (n - 1) * LINE_H
+  local x, y = sx - math.floor(w / 2), sy - h - TAIL_H
+  local c = BUBBLE
+  g.setColor(c.line[1], c.line[2], c.line[3], 1)
+  roundRect(g, x, y, w, h, OUTER)
+  g.setColor(c.fill[1], c.fill[2], c.fill[3], 1)
+  roundRect(g, x + 1, y + 1, w - 2, h - 2, INNER)
+  local mid = x + math.floor(w / 2)
+  g.rectangle("fill", mid - 1, y + h - 1, 3, 1)
+  g.rectangle("fill", mid - 1, y + h, 3, 1)
+  g.rectangle("fill", mid, y + h + 1, 1, 1)
+  g.setColor(c.line[1], c.line[2], c.line[3], 1)
+  g.rectangle("fill", mid - 2, y + h, 1, 1)
+  g.rectangle("fill", mid + 2, y + h, 1, 1)
+  g.rectangle("fill", mid - 1, y + h + 1, 1, 1)
+  g.rectangle("fill", mid + 1, y + h + 1, 1, 1)
+  g.rectangle("fill", mid, y + h + 2, 1, 1)
+  for i, r in ipairs(rows) do
+    -- each line centred in the bubble
+    local lx = x + 1 + PAD + math.floor((width - r.width) / 2)
+    local ly = y + (i - 1) * LINE_H
+    local img = r.width > 0 and lineFor(r.line, r.words, r.widths, r.width) or nil
+    if img then
+      g.setColor(1, 1, 1, 1)
+      g.draw(img.canvas, lx, ly)
+    else
+      local penX = lx
+      for k, word in ipairs(r.words) do
+        EnginePatch.drawText(word, penX, ly + 2 - faceDrop(), FONT)
+        penX = penX + r.widths[k] + WORD_GAP
+      end
+    end
+  end
+  g.setColor(1, 1, 1, 1)
+end
+
 -- The level-up word centred over (sx, sy) (its bottom), `age` ticks in.
 local function drawLevel(text, sx, sy, age)
   local g = love.graphics
@@ -310,6 +397,10 @@ function PopupText.actor(text, ox, oy, elevation, lift, id, age)
       if not (love and love.graphics and love.graphics.rectangle) then return end
       local g = love.graphics
       local sx, sy = math.floor(gx - camX), math.floor(gy - camY - lift)
+      if tostring(text):find("\n", 1, true) and not classic() then
+        drawMulti(PopupText.lines(text), sx, sy)
+        return
+      end
       local words = PopupText.words(text)
       local widths, width, measured = measure(words)
       if measured <= 0 then return end -- no engine font: draw nothing

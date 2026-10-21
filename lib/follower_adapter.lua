@@ -36,7 +36,9 @@ FollowerAdapter.__index = FollowerAdapter
 
 local CELL = 16
 local POPUP_GAP = 3 -- px of air between the top of its head and a label's tail
-FollowerAdapter.NOTICE_TICKS = 90 -- how long a notice (the Battler hotkey's "Battling!") stays up
+FollowerAdapter.NOTICE_TICKS = 120 -- how long a notice (the Battler hotkey's call-out) stays up
+-- the Gen 3 player's art reaches this high above the tile's bottom edge (a bubble over them)
+local PLAYER_HEAD = 22
 local SWAP_LOCK = "wilds_of_hoenn_follower_swap"
 FollowerAdapter.STEP_TICKS = 16 -- logic ticks per one-tile step
 
@@ -89,7 +91,7 @@ end
 --- Is the follower away from its place or mid-scene (so the Pet / Play / Talk
 --- menu must not open on it)?
 function FollowerAdapter:isBusy()
-  if self.action ~= nil or self.swap ~= nil then return true end
+  if self.action ~= nil or self.swap ~= nil or self.homeRun ~= nil then return true end
   local b = self.behaviors and self.behaviors[self.role]
   return b ~= nil and b.isBusy ~= nil and b:isBusy() == true
 end
@@ -162,6 +164,7 @@ function FollowerAdapter:isEmerging() return self.emerge ~= nil end
 --- timer, see lib/forager.lua's mapChanged).
 function FollowerAdapter:mapChanged()
   self.away = false
+  self.homeRun = nil
   self:resetDisplay()
   for _, b in pairs(self.behaviors or {}) do
     if b.mapChanged then b:mapChanged() elseif b.reset then b:reset() end
@@ -175,6 +178,7 @@ end
 --- Forget every role behaviour's progress (save load, role change).
 function FollowerAdapter:resetBehaviors()
   self.away = false
+  self.homeRun = nil
   for _, b in pairs(self.behaviors or {}) do
     if b.reset then b:reset() end
   end
@@ -193,13 +197,24 @@ function FollowerAdapter:_tickBehavior(npc)
     -- the job taken away mid-way: a fight is broken off like running from a battle
     -- (OverworldBattle:abandon -- the wild Pokemon runs off and disappears)
     local old = self.lastRole and self.behaviors and self.behaviors[self.lastRole]
+    -- where it was out in the field: it runs back from there (never just reappears behind
+    -- the player)
+    local hx, hy
+    if old and old.homeOffset then
+      local ok, x, y = pcall(old.homeOffset, old)
+      if ok then hx, hy = x, y end
+    end
     if old and old.abandon then pcall(old.abandon, old) end
     self:resetBehaviors()
     self.lastRole = self.role
+    if hx and hy then self.homeRun = { x = hx, y = hy } end
   end
   local b = self.behaviors and self.behaviors[self.role]
   local state
-  if b and not self.surfRecall then
+  if self.homeRun then
+    -- running back to its place first; the new job starts once it is there
+    state = self:_tickHomeRun()
+  elseif b and not self.surfRecall then
     local pc = EnginePatch.playerCell()
     local playerMoving = pc and pc.moving or false
     local forageOk -- nil = the engine pieces are missing: no restriction
@@ -230,6 +245,32 @@ function FollowerAdapter:_tickBehavior(npc)
   self.renderer.act = { dx = state.dx or 0, dy = state.dy or 0, facing = state.facing,
     sink = state.sink, flash = state.flash }
   return state
+end
+
+--- One tick of the run back to its place after its job was taken away mid-way (the Battler
+--- called back): the offset closes at the Battler's charging speed, one axis at a time,
+--- walking and facing the way it runs. nil once it is home.
+function FollowerAdapter:_tickHomeRun()
+  local h = self.homeRun
+  local cfg = Config.OW_BATTLE
+  local speed = cfg.chaseSpeed or 2.4
+  local facing
+  if h.x ~= 0 then
+    local stepX = math.max(-speed, math.min(speed, -h.x))
+    h.x = h.x + stepX
+    facing = stepX > 0 and "right" or "left"
+  elseif h.y ~= 0 then
+    local stepY = math.max(-speed, math.min(speed, -h.y))
+    h.y = h.y + stepY
+    facing = stepY > 0 and "down" or "up"
+  end
+  if math.abs(h.x) < 1e-6 then h.x = 0 end
+  if math.abs(h.y) < 1e-6 then h.y = 0 end
+  if h.x == 0 and h.y == 0 and not facing then
+    self.homeRun = nil
+    return nil
+  end
+  return { dx = h.x, dy = h.y, facing = facing, moving = true, walkMul = cfg.walkMul }
 end
 
 --- Drop a running scene at once (the interaction was aborted).
@@ -518,10 +559,11 @@ end
 --- an options-menu style switch, not every tick), then refreshes that
 --- renderer's pose/presentation for THIS tick (cheap field writes, no
 --- rebuild -- see module header).
---- A short label over the partner (the Battler hotkey's "Battling!" / "Following"), up for
---- NOTICE_TICKS; a scene's own label goes first, and none shows while it is recalled.
-function FollowerAdapter:notify(text)
-  self.notice = { text = tostring(text), age = 0 }
+--- A short label (the Battler hotkey's call-out), up for NOTICE_TICKS. Over the partner
+--- (a scene's own label goes first; none while it is recalled), or with `opts.onPlayer`
+--- over the player (shown whatever the partner is doing).
+function FollowerAdapter:notify(text, opts)
+  self.notice = { text = tostring(text), age = 0, onPlayer = opts and opts.onPlayer == true }
 end
 
 function FollowerAdapter:tick()
@@ -843,8 +885,18 @@ function FollowerAdapter:collectActors(actors)
   local role = self.behaviors and self.behaviors[self.role]
   if role and role.collectActors and not self.away then role:collectActors(actors) end
   local popup = self.actState and self.actState.popup
-  if not popup and self.notice and self.renderer and (self.renderer.recall or 1) >= 0.5 then
-    popup = self.notice
+  local notice = self.notice
+  if notice and notice.onPlayer then
+    -- the player's call-out, over their own head (wherever the partner is)
+    local ppx, ppy = EnginePatch.playerPixel()
+    if ppx then
+      local a = PopupText.actor(notice.text, ppx, ppy, EnginePatch.playerElevation(),
+        PLAYER_HEAD - CELL + POPUP_GAP, 2, notice.age)
+      -- over the map's top layer too (a tree / roof next to the player never hides it)
+      if a then a.oamPriority = 1 actors[#actors + 1] = a end
+    end
+  elseif not popup and notice and self.renderer and (self.renderer.recall or 1) >= 0.5 then
+    popup = notice
   end
   local ready = not popup and (self.renderer and (self.renderer.recall or 1) >= 0.5) and self:readyLabel() or nil
   if popup or ready then
