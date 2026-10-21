@@ -354,7 +354,8 @@ for _, k in ipairs({ "radius", "maxWalk", "scanEvery", "cooldown", "chaseSpeed",
 end
 eq(Config.OW_BATTLE.radius, 3, "it fights within 3 tiles of the player")
 
--- ------- water: it swims out to a water spawn, and fights while the player surfs
+-- ------- water: it keeps to the ground it stands on -- from land it never swims out to a
+-- water spawn; while the player surfs it fights water spawns, never coming ashore
 do
   -- a lake: every cell with x >= 13 is water (not cellFree)
   local function landOnly(x, y)
@@ -366,21 +367,33 @@ do
 
   reset()
   local w = wildEntity(1, 14, 10) -- one cell out from the shore (x = 13 is water)
-  local b = newBattler({ cellFree = landOnly })
-  local e, path = b:_findTarget(env(newMon()))
-  check(e == nil, "without swimming it cannot reach a spawn with water all round its sides")
+  w.terrain = "water"
+  local b = newBattler({ cellFree = landOnly, swimFree = water })
+  local e = b:_findTarget(env(newMon()))
+  check(e == nil, "from land it never swims out to a water spawn")
+  reset()
+  w = wildEntity(1, 13, 10) -- right at the shore: water, beside the land
+  w.terrain = "water"
   b = newBattler({ cellFree = landOnly, swimFree = water })
-  e, path = b:_findTarget(env(newMon()))
-  check(e == w and path ~= nil, "with swimFree it swims out to it")
-  local last = path and path[#path]
-  check(last and math.abs(last[1] - 14) + math.abs(last[2] - 10) == 1, "...to the cell beside it")
+  e = b:_findTarget(env(newMon()))
+  check(e == nil, "...nor fights one from the shore")
+  local onLand = wildEntity(2, 11, 12)
+  onLand.terrain = "land"
+  e = b:_findTarget(env(newMon()))
+  check(e == onLand, "a land spawn beside the lake is still fought")
 
   -- the player surfing: the follower itself is on the water
   reset()
   w = wildEntity(1, 18, 10)
+  w.terrain = "water"
   b = newBattler({ cellFree = landOnly, swimFree = water })
   e = b:_findTarget(env(newMon(), { fx = 16, fy = 10, fpx = 256, fpy = 160, px = 17, py = 10 }))
   check(e == w, "surfing: it fights a water spawn from the water")
+  local ashore = wildEntity(2, 12, 10) -- on the land just past the shore, within reach
+  ashore.terrain = "land"
+  for i = #entities, 1, -1 do if entities[i] == w then table.remove(entities, i) end end
+  e = b:_findTarget(env(newMon(), { fx = 14, fy = 10, fpx = 224, fpy = 160, px = 15, py = 10 }))
+  check(e == nil, "...and never comes ashore for a land spawn")
   b = newBattler({ cellFree = landOnly })
   e = b:_findTarget(env(newMon(), { fx = 16, fy = 10, fpx = 256, fpy = 160, px = 17, py = 10 }))
   check(e == nil, "...which the old land-only search never could (the inconsistency)")
@@ -411,7 +424,16 @@ do
     MOVES[2].type = moveType
     local wild = wildEntity(1, 13, 10)
     wild.terrain = terrain or "land"
-    local b = newBattler({ playSe = function(name) played[#played + 1] = name end })
+    -- a water spawn is fought from the water (the player surfing): all of it water then
+    local extra = { playSe = function(name) played[#played + 1] = name end }
+    if wild.terrain == "water" then
+      extra.swimFree = function(x, y)
+        for _, e in ipairs(entities) do if e.cellX == x and e.cellY == y then return false end end
+        return x >= 0 and x <= 40 and y >= 0 and y <= 40
+      end
+      extra.cellFree = function() return false end
+    end
+    local b = newBattler(extra)
     local mon = newMon()
     local log = { kinds = {}, hitKinds = {}, hitsAtKo = nil, finisherActor = false, alphaSeen = false, sinkSeen = false }
     allyR = {}

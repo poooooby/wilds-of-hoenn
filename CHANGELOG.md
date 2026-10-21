@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Your Battler keeps its feet dry.** On land it only fights wild Pokemon on land -- it no
+  longer swims out from the grass to battle one in a pond or the sea. While you Surf it
+  still fights the Pokemon in the water around you.
+
 ## 1.10.1 (2026-10-21)
 
 ### Changed

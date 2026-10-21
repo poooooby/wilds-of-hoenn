@@ -158,7 +158,7 @@ left.
 | Row | What it does |
 |---|---|
 | **FOLLOW** | Walks with you. Press A facing it for Pet, Play or Talk. |
-| **BATTLE** | Fights wild Pokémon within 3 tiles of you while you stand still. |
+| **BATTLE** | Fights wild Pokémon within 3 tiles of you while you stand still, on the ground it stands on: land Pokémon on land, water Pokémon while you Surf. |
 | **FORAGE** | Digs up items while you walk on routes and in caves. |
 
 ## 💾 Installation

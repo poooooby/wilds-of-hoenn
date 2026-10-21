@@ -189,19 +189,22 @@ OverworldBattle._restingCell = restingCell
 
 function OverworldBattle:_findTarget(env)
   local cfg, deps = self.cfg, self.deps
-  -- land, and water too (`swimFree`): it swims out to a water spawn, and fights while
-  -- the player surfs
+  -- it keeps to the ground it stands on: from land it fights land Pokemon, never swimming
+  -- out to one in the water; while the player surfs (its own cell water, `swimFree`) it
+  -- fights water Pokemon and never comes ashore
+  local onWater = deps.swimFree ~= nil and deps.swimFree(env.fx, env.fy) == true
   local res = CellPath.search(env.fx, env.fy, {
     maxDepth = cfg.maxWalk,
     free = function(x, y)
       if deps.occupied and deps.occupied(x, y) then return false end
-      return deps.cellFree(x, y) or (deps.swimFree ~= nil and deps.swimFree(x, y)) or false
+      if onWater then return deps.swimFree(x, y) == true end
+      return deps.cellFree(x, y) == true
     end,
   })
   local best, bestPath
   for _, e in ipairs(deps.targets()) do
     local ex, ey = restingCell(e)
-    if cheb(ex, ey, env.px, env.py) <= cfg.radius then
+    if (e.terrain == "water") == onWater and cheb(ex, ey, env.px, env.py) <= cfg.radius then
       -- the cell beside it that is nearest to walk to
       for _, s in ipairs(CellPath.STEPS) do
         local cx, cy = ex - s[1], ey - s[2] -- standing here, facing s
