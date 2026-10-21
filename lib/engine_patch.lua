@@ -819,6 +819,17 @@ function EnginePatch.stepEventsBusy()
   return false
 end
 
+--- True while a screen of the engine's own is up over the field (the start menu, the party,
+--- the bag ...: Runtime.uiBusy); false when it cannot tell.
+function EnginePatch.uiBusy()
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  if Runtime and Runtime.uiBusy then
+    local ok, busy = pcall(Runtime.uiBusy)
+    return not ok or busy == true
+  end
+  return false
+end
+
 --- Is the game free for a wild battle to start right now: nothing owns the field
 --- (fieldBusy: a script, a lock, a message, a choice, a menu, a fade, a warp), no step
 --- event queued or running (stepEventsBusy: an egg hatching ...), no battle already on.

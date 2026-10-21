@@ -36,6 +36,7 @@ FollowerAdapter.__index = FollowerAdapter
 
 local CELL = 16
 local POPUP_GAP = 3 -- px of air between the top of its head and a label's tail
+FollowerAdapter.NOTICE_TICKS = 90 -- how long a notice (the Battler hotkey's "Battling!") stays up
 local SWAP_LOCK = "wilds_of_hoenn_follower_swap"
 FollowerAdapter.STEP_TICKS = 16 -- logic ticks per one-tile step
 
@@ -513,7 +514,18 @@ end
 --- an options-menu style switch, not every tick), then refreshes that
 --- renderer's pose/presentation for THIS tick (cheap field writes, no
 --- rebuild -- see module header).
+--- A short label over the partner (the Battler hotkey's "Battling!" / "Following"), up for
+--- NOTICE_TICKS; a scene's own label goes first, and none shows while it is recalled.
+function FollowerAdapter:notify(text)
+  self.notice = { text = tostring(text), age = 0 }
+end
+
 function FollowerAdapter:tick()
+  local n = self.notice
+  if n then
+    n.age = n.age + 1
+    if n.age >= FollowerAdapter.NOTICE_TICKS then self.notice = nil end
+  end
   local npc = EnginePatch.followerCurrent()
   if not npc then
     self.leadSpecies, self.style = nil, nil
@@ -827,6 +839,9 @@ function FollowerAdapter:collectActors(actors)
   local role = self.behaviors and self.behaviors[self.role]
   if role and role.collectActors and not self.away then role:collectActors(actors) end
   local popup = self.actState and self.actState.popup
+  if not popup and self.notice and self.renderer and (self.renderer.recall or 1) >= 0.5 then
+    popup = self.notice
+  end
   local ready = not popup and (self.renderer and (self.renderer.recall or 1) >= 0.5) and self:readyLabel() or nil
   if popup or ready then
     -- over where the sprite is actually drawn: tile + spacing + the act's offset

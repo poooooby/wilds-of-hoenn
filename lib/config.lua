@@ -18,6 +18,8 @@ Config.DEFAULTS = {
   water_life = true,
   local_scenes = true,
   type_aura = false,
+  role_pad = "off",
+  role_key = "off",
 }
 
 Config.STATE = {
@@ -584,6 +586,20 @@ end
 --- reading it would hide the partner of a player who has had it out ever since.
 function Config.followerOn(mod)
   return optGet(mod, "show_follower") ~= false
+end
+
+--- The controller button / keyboard key that switches the partner between Battle and
+--- Follow in the overworld (lib/role_hotkey.lua): "l" / "r" / "off" and "q" / "e" / "r" /
+--- "off". Anything else reads as its default.
+local VALID_ROLE_PAD = { l = true, r = true, off = true }
+local VALID_ROLE_KEY = { q = true, e = true, r = true, off = true }
+function Config.rolePad(mod)
+  local v = optGet(mod, "role_pad")
+  return VALID_ROLE_PAD[v] and v or Config.DEFAULTS.role_pad
+end
+function Config.roleKey(mod)
+  local v = optGet(mod, "role_key")
+  return VALID_ROLE_KEY[v] and v or Config.DEFAULTS.role_key
 end
 
 function Config.smoothFollow(mod)

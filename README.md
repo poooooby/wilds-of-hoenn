@@ -29,7 +29,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   when they leave.
 - 🤝 **A partner with a job:** Choose any Pokémon in your party menu and give it a role. It can
   **follow** you, **forage** for items as you walk, or **battle** the wild Pokémon around you,
-  Scarlet and Violet style.
+  Scarlet and Violet style. Set a Battler button in the options and one press sends it into
+  battle and calls it back to your side.
 - 🎲 **Classic encounters, your call:** Keep the original step-based grass and Surf encounters
   alongside the visible ones, or turn them off and only meet what you can see.
 - 💕 **Sweet Scent calls them to you:** used outside battle, it draws 2-3 wild Pokémon out
@@ -129,6 +130,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 | **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
 | **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
 | **Follower** | ON / OFF | ON | Your partner walks behind you. Off: it stays in its Poké Ball, and its Battle and Forage jobs and Pet / Play / Talk wait until it is out again. Changing your party order still picks your partner. |
+| **Battler: Pad** | R / L / OFF | OFF | A controller shoulder button that switches your partner between Battle and Follow while you walk around. In FireRed / LeafGreen that button no longer opens Help in the overworld (the other one still does). |
+| **Battler: Key** | E (R) / Q (L) / R / OFF | OFF | The same on the keyboard. E and Q are the game's R and L buttons; R is a free key. |
 | **Smooth Follow** | ON / OFF | ON | Your partner keeps its distance behind you either way. On: it glides round turns. Off: it snaps straight to its place, step for step like the original games. |
 | **Type Aura** | ON / OFF | OFF | Now and then your partner gives off a little puff of its type: embers, droplets, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it. |
 | **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
@@ -143,6 +146,10 @@ Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option
 Select a Pokémon in the party menu and choose its job. Your party's leader follows you: put a
 different Pokémon first and it takes over as your follower. Pick someone else in the menu any
 time, and they stay out until you change your leader again. One partner is out at a time; giving the one already out a new job switches it on the spot.
+
+Out in the world, a **Battler** button (off until you pick one in the options: L or R on a
+controller, E, Q or R on the keyboard) switches your partner between BATTLE and FOLLOW without
+opening a menu, with a little label over it to say which.
 
 | Row | What it does |
 |---|---|

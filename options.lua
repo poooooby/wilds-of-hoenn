@@ -78,6 +78,31 @@ return {
     description = "Your partner Pokemon walks behind you. Off: it stays in its Poke Ball (its Battle and Forage jobs and Pet / Play / Talk wait until it is out again). Changing your party order still changes who your partner is.",
   },
   {
+    key = "role_pad",
+    label = "Battler: Pad",
+    type = "choice",
+    default = "off",
+    choices = {
+      { "R", "r" },
+      { "L", "l" },
+      { "OFF", "off" },
+    },
+    description = "A controller shoulder button that switches your partner between Battle and Follow while you walk around (a little label shows which). In FireRed / LeafGreen that button then no longer opens Help in the overworld; the other shoulder still does.",
+  },
+  {
+    key = "role_key",
+    label = "Battler: Key",
+    type = "choice",
+    default = "off",
+    choices = {
+      { "E (R)", "e" },
+      { "Q (L)", "q" },
+      { "R", "r" },
+      { "OFF", "off" },
+    },
+    description = "The keyboard key that switches your partner between Battle and Follow while you walk around. E and Q are the game's R and L buttons (in FireRed / LeafGreen that one then no longer opens Help in the overworld); R is a free key.",
+  },
+  {
     key = "smooth_follow",
     label = "Smooth Follow",
     type = "toggle",

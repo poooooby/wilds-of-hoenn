@@ -149,6 +149,37 @@ return function(mod)
   mod.exports.localScenes = localScenes
   mod.exports.battleTrigger = battleTrigger
   mod.exports.followerAdapter = followerAdapter
+  -- the Battler hotkey (lib/role_hotkey.lua): one button / key flips the partner between
+  -- Battle and Follow in the overworld, swallowing the press only when it acts
+  local RoleHotkey = V.require("role_hotkey")
+  local roleHotkey = RoleHotkey.new({
+    padChoice = function() return Config.rolePad(mod) end,
+    keyChoice = function() return Config.roleKey(mod) end,
+    free = function()
+      if not EnginePatch.gameFree() then return false end
+      return not (EnginePatch.uiBusy and EnginePatch.uiBusy())
+    end,
+    current = function()
+      local party = EnginePatch.partyMons and EnginePatch.partyMons()
+      if type(party) ~= "table" then return nil end
+      local mon, role = companion:resolve(party)
+      return mon, role
+    end,
+    set = function(mon, role) return companion:set(mon, role) end,
+    notify = function(text) followerAdapter:notify(text) end,
+    sound = function() EnginePatch.playSelect() end,
+  })
+  mod.exports.roleHotkey = roleHotkey
+  mod.hooks:wrap("input.key", function(next, game, ev)
+    local ok, mine = pcall(roleHotkey.onKey, roleHotkey, ev)
+    if ok and mine then return true end
+    return next(game, ev)
+  end)
+  mod.hooks:wrap("input.gamepad", function(next, game, ev)
+    local ok, mine = pcall(roleHotkey.onPad, roleHotkey, ev)
+    if ok and mine then return true end
+    return next(game, ev)
+  end)
   mod.exports.portraitUI = portraitUI
   mod.exports.followerInteraction = followerInteraction
   mod.exports.companion = companion

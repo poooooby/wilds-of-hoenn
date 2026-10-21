@@ -61,6 +61,7 @@ tests/portrait_ui_unit_test.lua
 tests/reachability_unit_test.lua
 tests/reflection_unit_test.lua
 tests/renderer_factory_unit_test.lua
+tests/role_hotkey_unit_test.lua
 tests/shiny_chain_test.lua
 tests/shiny_sparkle_unit_test.lua
 tests/shiny_unit_test.lua
@@ -108,5 +109,5 @@ TODO.md
 WoH.png
 
 # local build output
-dist/wilds-of-hoenn-v1.9.2-hgss-pmd.zip
-dist/wilds-of-hoenn-v1.9.2-hgss.zip
+dist/wilds-of-hoenn-v1.9.4-hgss-pmd.zip
+dist/wilds-of-hoenn-v1.9.4-hgss.zip

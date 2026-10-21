@@ -1238,6 +1238,14 @@ do
   optionStore.sprite_style = nil
 end
 
+-- ------- a notice (the Battler hotkey's label): up for NOTICE_TICKS, then gone
+do
+  local st = setmetatable({}, { __index = FollowerAdapter })
+  st:notify("Battling!")
+  eq(st.notice and st.notice.text, "Battling!", "notify puts up a label")
+  check(FollowerAdapter.NOTICE_TICKS > 30, "...for a moment (" .. FollowerAdapter.NOTICE_TICKS .. " ticks)")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

@@ -135,6 +135,25 @@ check(Config.followerOn(mod) == true, "an old saved follower = false does not hi
 optionStore = { show_follower = false }
 check(Config.followerOn(mod) == false, "show_follower = false keeps it in its ball")
 optionStore = {}
+-- the Battler hotkey (lib/role_hotkey.lua): a controller button and a keyboard key
+check(byKey.role_pad ~= nil and byKey.role_pad.default == "off" and Config.DEFAULTS.role_pad == "off",
+  "Battler: Pad -- off by default")
+check(byKey.role_key ~= nil and byKey.role_key.default == "off" and Config.DEFAULTS.role_key == "off",
+  "Battler: Key -- off by default")
+local padValues, keyValues = {}, {}
+for _, c in ipairs(byKey.role_pad.choices) do padValues[#padValues + 1] = c[2] end
+for _, c in ipairs(byKey.role_key.choices) do keyValues[#keyValues + 1] = c[2] end
+eq(table.concat(padValues, ","), "r,l,off", "...the pad offers R, L, OFF")
+eq(table.concat(keyValues, ","), "e,q,r,off", "...the keyboard E, Q, R, OFF")
+eq(Config.rolePad(mod), "off", "rolePad: OFF when never set")
+eq(Config.roleKey(mod), "off", "roleKey: OFF when never set")
+optionStore = { role_pad = "r", role_key = "q" }
+eq(Config.rolePad(mod), "r", "rolePad: R")
+eq(Config.roleKey(mod), "q", "roleKey: Q")
+optionStore = { role_pad = "x", role_key = 5 }
+eq(Config.rolePad(mod), "off", "a bad saved value reads as the default (pad)")
+eq(Config.roleKey(mod), "off", "...and (key)")
+optionStore = {}
 
 print("")
 if failures > 0 then

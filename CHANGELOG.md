@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+- **Battler button.** Pick a button in the mod options (Battler: Pad -- L or R; Battler: Key --
+  E, Q or R; both off to start with) and one press while you walk around switches your partner
+  between battling wild Pokemon and following you, with a little label to say which. In
+  FireRed / LeafGreen the chosen shoulder button no longer opens Help in the overworld; the
+  other one still does.
+
 ### Changed
 
 - **Your partner walks at a natural distance.** It now keeps its spacing by how it actually
