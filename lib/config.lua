@@ -131,18 +131,19 @@ Config.FLYERS = {
 }
 
 -- Wild Pokemon reacting to a player who runs or bikes close by (the Wild Reacts option,
--- lib/wild_reactions.lua). 60 Hz ticks; distances in tiles (the greater of the x / y
--- distances). Strength is level x base-stat total against the lead Pokemon's: under
+-- lib/wild_reactions.lua). 60 Hz ticks; distances in steps (tiles across + tiles up / down,
+-- so a diagonal counts as the steps it takes). Strength is level x base-stat total against the lead Pokemon's: under
 -- `weakRatio` it is startled ("!") and flees (a bird takes off), over `strongRatio` it gets
 -- angry and chases; an even match in between is not bothered.
 Config.REACT = {
-  radius = 4, bikeRadius = 5,     -- how close the running / biking player has to come
+  radius = 2, bikeRadius = 4,     -- how close the running / biking player has to come
   aggroRadius = 1, bikeAggroRadius = 2, -- ...for a stronger one to get angry: right beside it
   weakRatio = 0.7, strongRatio = 1.3,
   -- how likely it reacts at all, by how far past its threshold the ratio is: `minChance` %
-  -- just past it, rising evenly to 100% at `weakSure` (fleeing) / `strongSure` (chasing).
-  -- One roll as the player comes in range; a miss rests `missCooldown` ticks
-  minChance = 25, weakSure = 0.4, strongSure = 2.0, missCooldown = 300,
+  -- just past it (close to the lead's strength), rising evenly to `maxChance` % at
+  -- `weakSure` (fleeing) / `strongSure` (chasing). One roll as the player comes in range;
+  -- a miss rests `missCooldown` ticks
+  minChance = 10, maxChance = 50, weakSure = 0.4, strongSure = 2.0, missCooldown = 300,
   alertTicks = 24,                -- "!" before fleeing / taking off
   turnTicks = 22,                 -- a stronger one's pause before it turns to the player
   angerTicks = 36,                -- then the anger mark, then the chase

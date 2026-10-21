@@ -1,7 +1,7 @@
 -- Wild Pokemon reacting to a player who runs or bikes close by (the Wild Reacts option).
 -- Walking past disturbs nobody.
 --
--- Each one within reach (Config.REACT.radius tiles, more on a bike) is judged against the
+-- Each one within reach (Config.REACT.radius steps, more on a bike) is judged against the
 -- player's lead Pokemon by level x base-stat total:
 --   weak    (ratio < weakRatio)   "!", a startled hop, then it runs off a few tiles at
 --                                 running pace; a small bird takes off instead (the sky's
@@ -78,7 +78,8 @@ function WildReactions.chance(cls, ratio, cfg)
     t = (ratio - cfg.strongRatio) / math.max(1e-6, (cfg.strongSure or cfg.strongRatio) - cfg.strongRatio)
   end
   t = math.max(0, math.min(1, t))
-  return min + (100 - min) * t
+  local max = cfg.maxChance or 100
+  return min + (max - min) * t
 end
 
 local ORDER = { "up", "down", "left", "right" }
@@ -348,7 +349,7 @@ function WildReactions.scan(entities, ctx)
   local aggroAt = biking and cfg.bikeAggroRadius or cfg.aggroRadius
   local started = 0
   for _, e in ipairs(entities) do
-    local d = WildReactions.eligible(e, ctx.now) and cheb(e.cellX, e.cellY, p.x, p.y)
+    local d = WildReactions.eligible(e, ctx.now) and manhattan(e.cellX, e.cellY, p.x, p.y)
     if d and d <= radius and WildReactions.start(e, p.x, p.y, ctx, d, aggroAt) then started = started + 1 end
   end
   return started

@@ -42,8 +42,12 @@ end
 local WR = V.require("wild_reactions")
 local Config = V.require("config")
 local cfg = Config.REACT
--- these tests stage chases 2 tiles off (a wall between them): the anger radius as it was
+-- the shipped ranges (checked in the range test below, which runs with them)
+local REAL = { radius = cfg.radius, bikeRadius = cfg.bikeRadius }
+-- these tests stage chases 2 tiles off (a wall between them) and skittish ones farther out:
+-- the ranges as they were
 cfg.aggroRadius, cfg.bikeAggroRadius = 2, 3
+cfg.radius, cfg.bikeRadius = 4, 5
 
 -- ------- strength against the lead
 do
@@ -59,12 +63,13 @@ end
 do
   eq(WR.chance("neutral", 1.0), 0, "an even match never reacts")
   eq(WR.chance("weak", cfg.weakRatio), cfg.minChance, "just under the weak line: minChance %")
-  eq(WR.chance("weak", cfg.weakSure), 100, "far weaker: always flees")
-  eq(WR.chance("weak", 0.1), 100, "...and beyond")
+  eq(WR.chance("weak", cfg.weakSure), cfg.maxChance, "far weaker: flees at most maxChance % of the time")
+  eq(WR.chance("weak", 0.1), cfg.maxChance, "...and beyond")
   local mid = WR.chance("weak", (cfg.weakRatio + cfg.weakSure) / 2)
-  check(mid > cfg.minChance and mid < 100, "in between: in between (" .. mid .. "%)")
+  check(mid > cfg.minChance and mid < cfg.maxChance, "in between: in between (" .. mid .. "%)")
   eq(WR.chance("strong", cfg.strongRatio), cfg.minChance, "just over the strong line: minChance %")
-  eq(WR.chance("strong", cfg.strongSure), 100, "far stronger: always chases")
+  eq(WR.chance("strong", cfg.strongSure), cfg.maxChance, "far stronger: chases at most maxChance %")
+  eq(cfg.maxChance, 50, "never more than a coin flip")
   check(WR.chance("strong", 1.5) < WR.chance("strong", 1.8), "a bigger gap chases more often")
 end
 
@@ -84,7 +89,10 @@ end
 local contacts, takeoffs = {}, {}
 local function ctxFor(player, leadLevel, extra)
   local c = {
-    now = 0, rng = math.random, player = player,
+    -- the reaction roll (1..100) always hits here, so a scene is staged for sure (at most
+    -- maxChance % in play); tests of the roll itself set their own; everything else random
+    now = 0, rng = function(a, b) if a == 1 and b == 100 then return 1 end return math.random(a, b) end,
+    player = player,
     lead = { level = leadLevel, bst = 300 }, bst = function() return 300 end,
     canFly = function(e) return e.bird == true end,
     occupied = function() return false end,
@@ -122,13 +130,23 @@ do
   WR.scan({ e }, ctxFor(player, 30))
   eq(e.react, nil, "walking past: nobody reacts")
   running = true
-  player.x = 15
+  local staged = { radius = cfg.radius, bikeRadius = cfg.bikeRadius }
+  cfg.radius, cfg.bikeRadius = REAL.radius, REAL.bikeRadius
+  eq(cfg.radius, 2, "running: 2 steps")
+  eq(cfg.bikeRadius, 4, "biking: 4 steps")
+  player.x = 10 + cfg.radius + 1
   WR.scan({ e }, ctxFor(player, 30))
-  eq(e.react, nil, "running 5 tiles away: too far")
+  eq(e.react, nil, "running 3 steps away: too far")
+  player.x, player.y = 10 + cfg.radius, 10 + cfg.radius
+  WR.scan({ e }, ctxFor(player, 30))
+  eq(e.react, nil, "diagonally 2 across and 2 down = 4 steps: too far when running")
+  player.x, player.y = 10 + cfg.radius + 1, 10
   running, biking = false, true
   WR.scan({ e }, ctxFor(player, 30))
-  check(e.react ~= nil, "biking reaches farther (5 tiles)")
+  check(e.react ~= nil, "biking reaches farther (3 steps)")
   e.react = nil
+  player.y = 10
+  cfg.radius, cfg.bikeRadius = staged.radius, staged.bikeRadius
   biking, running = false, true
   player.x, player.moving = 13, false
   WR.scan({ e }, ctxFor(player, 30))

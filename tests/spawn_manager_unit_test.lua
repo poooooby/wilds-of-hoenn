@@ -955,6 +955,10 @@ do
   fakeEngine.playerCell = function() return player end
   fakeEngine.playerIsRunning = function() return true end
   fakeEngine.leadPartyMon = function() return { level = 50, species = 1 } end -- they are all weak
+  -- the wiring, not the odds (at most a coin flip in play): every roll hits here
+  local REACT = V.require("config").REACT
+  local odds = { REACT.minChance, REACT.maxChance }
+  REACT.minChance, REACT.maxChance = 100, 100
   smR:tick(smR.game)
   check(target.react ~= nil, "running close by: it reacts")
   local isTarget = false
@@ -969,6 +973,7 @@ do
   optionStore.wild_reacts = nil
   fakeEngine.playerCell, fakeEngine.mapBounds = realCell, realBounds
   fakeEngine.playerIsRunning, fakeEngine.leadPartyMon = nil, nil
+  REACT.minChance, REACT.maxChance = odds[1], odds[2]
 end
 
 -- ------- a chaser left out on the path (its chase cut short) goes home; with Wild Reacts
