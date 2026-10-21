@@ -286,6 +286,19 @@ check(calls > 0, "every finisher draws (pixel by pixel without image support)")
 check(#sheetAsks > 0, "...asking the engine for its art")
 love = nil
 
+-- ------- size by the attacker's level (Config.OW_BATTLE.fxScaleByLevel)
+do
+  local function near(a, b) return math.abs(a - b) < 1e-9 end
+  for _, pt in ipairs({ { 1, 1.15 }, { 15, 1.35 }, { 30, 1.5 }, { 50, 1.75 }, { 75, 2.0 }, { 100, 2.2 } }) do
+    check(near(FinisherFx.scale(pt[1]), pt[2]), ("Lv %d: %.2fx (got %.3f)"):format(pt[1], pt[2], FinisherFx.scale(pt[1])))
+  end
+  check(near(FinisherFx.scale(40), 1.625), "between the points: a straight line (Lv 40 -> 1.625x)")
+  check(FinisherFx.scale(20) < FinisherFx.scale(60) and FinisherFx.scale(60) < FinisherFx.scale(90), "higher level, bigger effects")
+  eq(FinisherFx.scale(0), 1.15, "below Lv 1: held at the first point")
+  eq(FinisherFx.scale(120), 2.2, "past Lv 100 (a modded level cap): held at the last")
+  eq(FinisherFx.scale(nil), V.require("config").OW_BATTLE.fxScale, "no level known: the plain fxScale")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

@@ -123,6 +123,13 @@ function OverworldBattle:abandon()
   self:reset()
 end
 
+-- the level of the side making an effect (its size, lib/finisher_fx.lua scale): the
+-- Battler's or the wild Pokemon's; nil when unknown
+function OverworldBattle:_levelOf(isAlly)
+  local mon = isAlly and (self.env and self.env.mon) or self.wild
+  return mon and tonumber(mon.level) or nil
+end
+
 --- Where it is drawn now, as an offset from its place behind the player (px), for the
 --- run home when its job is taken away; nil while it is in its ball or already there.
 function OverworldBattle:homeOffset()
@@ -438,7 +445,7 @@ function OverworldBattle:_mode_fight(env)
       local c = self.combatDeps
       local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
       local power = FinisherFx.powerFor(ev.effectiveness)
-      self.hits[#self.hits + 1] = { x = hx, y = hy, age = 0,
+      self.hits[#self.hits + 1] = { x = hx, y = hy, age = 0, level = self:_levelOf(attackerIsAlly),
         heavy = (ev.effectiveness or 1) > 1 or ev.critical or false,
         kind = FinisherFx.kindFor(row and row.type), power = power, crit = ev.critical == true }
       local se = FinisherFx.hitSound(ev.effectiveness)
@@ -485,7 +492,7 @@ function OverworldBattle:_startFinisher(ev, e)
   local c = self.combatDeps
   local row = c.moveRow and ev.moveId and c.moveRow(ev.moveId)
   local kind = FinisherFx.kindFor(row and row.type)
-  self.finisher = { kind = kind, age = 0, x = e.px, y = e.py }
+  self.finisher = { kind = kind, age = 0, x = e.px, y = e.py, level = self:_levelOf(true) }
   self:_rollDrop(e)
   -- a mark left on the ground (never on water; one per tile, the newest)
   if FinisherFx.leavesMark(kind) and e.terrain ~= "water" then
@@ -742,19 +749,19 @@ function OverworldBattle:collectActors(actors)
     if turn.ev.actor ~= "ally" then ax, ay, tx, ty = e.px, e.py, self.baseX, self.baseY end
     if ax and tx then
       local a = FinisherFx.moveActor(turn.kind, turn.contact, turn.t, self.cfg.windup, ax, ay,
-        tx - ax, ty - ay, self.cfg.lunge, 3, 1)
+        tx - ax, ty - ay, self.cfg.lunge, 3, 1, self:_levelOf(turn.ev.actor == "ally"))
       if a then actors[#actors + 1] = a end
     end
   end
   for i, h in ipairs(self.hits) do
     local a = HitEffect.actor(h.x, h.y, h.age, h.heavy, 3, i)
     if a then actors[#actors + 1] = a end
-    local sp = h.kind and FinisherFx.hitActor(h.kind, h.age, h.x, h.y, h.power, h.crit, 3, i)
+    local sp = h.kind and FinisherFx.hitActor(h.kind, h.age, h.x, h.y, h.power, h.crit, 3, i, h.level)
     if sp then actors[#actors + 1] = sp end
   end
   local fin = self.finisher
   if fin then
-    local a = FinisherFx.actor(fin.kind, fin.age, fin.x, fin.y, 3, 0)
+    local a = FinisherFx.actor(fin.kind, fin.age, fin.x, fin.y, 3, 0, fin.level)
     if a then actors[#actors + 1] = a end
   end
 end

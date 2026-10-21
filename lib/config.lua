@@ -296,6 +296,9 @@ Config.OW_BATTLE = {
   windup = 16,          -- ticks from the start of a turn to the blow landing
   turnTicks = 52,       -- one side's whole turn (1.5x the first pace: each attack reads clearly)
   fxScale = 1.75,       -- size of the move / hit / knockout effects (spread, rings, shapes, sheets)
+  -- ...by the level of the Pokemon making them (straight lines between these points);
+  -- fxScale above is the size when the level is not known
+  fxScaleByLevel = { { 1, 1.15 }, { 15, 1.35 }, { 30, 1.5 }, { 50, 1.75 }, { 75, 2.0 }, { 100, 2.2 } },
   lunge = 7,            -- px the attacker leans toward its target
   flashTicks = 12,      -- red hit flash / hurt animation
   attackSpeed = 1.6,    -- animation rate of attack / hurt

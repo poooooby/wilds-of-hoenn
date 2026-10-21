@@ -8,6 +8,9 @@
   over your partner: you call it out yourself, in a speech bubble over your head, like
   sending a Pokemon into a real battle -- "Go! Mudkip!", "Get 'em, Mudkip!", "That's enough,
   Mudkip!", "Come back, Mudkip!" and more, by its nickname or species name.
+- **Battle effects grow with level.** The higher the level of the Pokemon making a move,
+  the bigger its effects: from a little over their original size at level 1 to about twice
+  it at level 100 (the same as before around level 50).
 - **Your Battler runs back to you.** Called back mid-fight (the Battler button or the party
   menu), it now runs back to its place behind you instead of reappearing there at once.
 

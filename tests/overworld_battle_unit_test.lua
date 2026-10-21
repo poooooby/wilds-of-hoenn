@@ -698,6 +698,24 @@ do
   eq(b:homeOffset(), nil, "in its ball (resting): no run")
 end
 
+-- ------- each effect remembers the level of the side that made it (its size)
+do
+  reset()
+  wildEntity(1, 13, 10)
+  local b = newBattler()
+  local mon = newMon({ level = 42 })
+  local hitLevels = {}
+  for _ = 1, 2500 do
+    b:step(env(mon))
+    for _, h in ipairs(b.hits) do hitLevels[h.level or -1] = true end
+    if b.finisher then break end
+  end
+  check(hitLevels[42] or b.finisher, "staged: blows landed")
+  if b.finisher then eq(b.finisher.level, 42, "the knockout burst takes the Battler's level") end
+  eq(b:_levelOf(true), 42, "the Battler's level")
+  check(b:_levelOf(false) == nil or b:_levelOf(false) == 8, "the wild Pokemon's level (8 here)")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

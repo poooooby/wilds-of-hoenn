@@ -653,14 +653,26 @@ local function drawPart(g, p, cx, cy, k)
   end
 end
 
---- The size the battle effects (move, hit, knockout) are drawn at: Config.OW_BATTLE.fxScale.
-function FinisherFx.scale()
-  local k = tonumber(Config.OW_BATTLE and Config.OW_BATTLE.fxScale)
+--- The size the battle effects (move, hit, knockout) are drawn at for a Pokemon of `level`:
+--- Config.OW_BATTLE.fxScaleByLevel (straight lines between its points, held at the ends),
+--- else -- no level, no table -- Config.OW_BATTLE.fxScale. Pure.
+function FinisherFx.scale(level)
+  local cfg = Config.OW_BATTLE or {}
+  local knots, lv = cfg.fxScaleByLevel, tonumber(level)
+  if lv and type(knots) == "table" and #knots > 0 then
+    if lv <= knots[1][1] then return knots[1][2] end
+    for i = 2, #knots do
+      local a, b = knots[i - 1], knots[i]
+      if lv <= b[1] then return a[2] + (b[2] - a[2]) * (lv - a[1]) / (b[1] - a[1]) end
+    end
+    return knots[#knots][2]
+  end
+  local k = tonumber(cfg.fxScale)
   return (k and k > 0) and k or 1
 end
 
 --- The effect as one field actor: the tile whose top-left is world (x, y), `age` ticks in.
-function FinisherFx.actor(kind, age, x, y, elevation, id)
+function FinisherFx.actor(kind, age, x, y, elevation, id, level)
   if (tonumber(age) or 0) >= FinisherFx.TICKS then return nil end
   local recipe = FinisherFx.recipe(kind)
   return {
@@ -674,7 +686,7 @@ function FinisherFx.actor(kind, age, x, y, elevation, id)
       local lw = g.getLineWidth and g.getLineWidth()
       if g.setLineWidth then g.setLineWidth(1) end
       local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
-      local k = FinisherFx.scale()
+      local k = FinisherFx.scale(level)
       local spec = recipe.sheet
       local frame = spec and FinisherFx.sheetFrame(kind, age)
       local sheet = frame and sheetFor(spec)
@@ -692,7 +704,7 @@ function FinisherFx.actor(kind, age, x, y, elevation, id)
 end
 
 --- An ordinary hit's type spark as one field actor (see FinisherFx.hitParticles).
-function FinisherFx.hitActor(kind, age, x, y, power, crit, elevation, id)
+function FinisherFx.hitActor(kind, age, x, y, power, crit, elevation, id, level)
   if (tonumber(age) or 0) >= FinisherFx.HIT_TICKS then return nil end
   return {
     kind = "ow_hit_spark", elevation = elevation or 3, oamPriority = 1,
@@ -705,7 +717,7 @@ function FinisherFx.hitActor(kind, age, x, y, power, crit, elevation, id)
       local lw = g.getLineWidth and g.getLineWidth()
       if g.setLineWidth then g.setLineWidth(1) end
       local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
-      local k = FinisherFx.scale()
+      local k = FinisherFx.scale(level)
       for _, p in ipairs(FinisherFx.hitParticles(kind, age, power, crit)) do drawPart(g, p, cx, cy, k) end
       if lw and g.setLineWidth then g.setLineWidth(lw) end
       g.setColor(r, gg, b, a)
@@ -714,7 +726,7 @@ function FinisherFx.hitActor(kind, age, x, y, power, crit, elevation, id)
 end
 
 --- The move's effects as one field actor round the attacker's tile (world x, y).
-function FinisherFx.moveActor(kind, contact, t, windup, x, y, dx, dy, lunge, elevation, id)
+function FinisherFx.moveActor(kind, contact, t, windup, x, y, dx, dy, lunge, elevation, id, level)
   if (tonumber(t) or 0) > (tonumber(windup) or 0) then return nil end
   return {
     kind = "ow_move_fx", elevation = elevation or 3, oamPriority = 1,
@@ -729,7 +741,7 @@ function FinisherFx.moveActor(kind, contact, t, windup, x, y, dx, dy, lunge, ele
       local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
       -- the effect's own spread grows by k, but the projectile still has to land on the
       -- target and the trail on the lean: their travel goes in divided by k
-      local k = FinisherFx.scale()
+      local k = FinisherFx.scale(level)
       local tdx, tdy = (tonumber(dx) or 0) / k, (tonumber(dy) or 0) / k
       local tl = lunge and (tonumber(lunge) or 7) / k or nil
       for _, p in ipairs(FinisherFx.moveParticles(kind, contact, t, windup, tdx, tdy, tl)) do
