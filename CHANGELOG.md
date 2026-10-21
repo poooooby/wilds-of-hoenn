@@ -9,6 +9,9 @@
   between battling wild Pokemon and following you, with a little label to say which. In
   FireRed / LeafGreen the chosen shoulder button no longer opens Help in the overworld; the
   other one still does.
+- **Calling off a fight.** Take your Battler off the job mid-fight (with the Battler button or
+  the party menu) and it counts as running away: the wild Pokemon gives a parting cry and a
+  lunge at you, then runs off and disappears. No EXP for a fight you left.
 
 ### Changed
 
@@ -28,6 +31,12 @@
 - **Bigger battle effects.** Your Battler's attacks now play at a more relaxed pace, so their
   effects are drawn bigger too: the type pieces gathering before a move, the shot flying over,
   the sparks of a hit and the knockout burst are all about three quarters larger.
+
+### Fixed
+
+- **No second battle with a knocked-out Pokemon.** A wild Pokemon your Battler had just
+  knocked out could still be walked into while it sank away, starting a fresh battle with it.
+  It can no longer be met once it is down.
 
 ## 1.9.4 (2026-10-20)
 

@@ -599,6 +599,69 @@ do
   eq(#koWith({ item = 139, roll = 26 }).bagged, 0, "most knockouts drop nothing (dropChance %)")
 end
 
+-- ------- a knockout marks it defeated; the job taken away mid-way is running from battle
+do
+  local function untilMode(b, mon, want, cap)
+    for _ = 1, cap or 2500 do
+      b:step(env(mon))
+      if b.mode == want then return true end
+    end
+    return false
+  end
+  -- knocked out: defeated at once (it can no longer be walked into while it sinks)
+  reset()
+  local wild = wildEntity(1, 13, 10)
+  local b = newBattler()
+  local mon = newMon()
+  check(untilMode(b, mon, "win"), "staged: a knockout")
+  eq(wild.defeated, true, "the knockout marks the wild Pokemon defeated (0 HP)")
+  -- ...and abandoning now just removes it, no run, no EXP
+  local ran = {}
+  b.deps.runAway = function(e) ran[#ran + 1] = e return true end
+  b:abandon()
+  eq(#defeated, 1, "job taken away while it sinks: it is simply gone")
+  eq(#ran, 0, "...it does not run")
+  eq(mon.exp, nil, "...and no EXP is given")
+  eq(b.mode, "idle", "...the Battler resets")
+
+  -- mid-fight: the wild Pokemon runs off (deps.runAway), nothing is defeated or earned
+  reset()
+  wild = wildEntity(1, 13, 10)
+  b = newBattler()
+  mon = newMon()
+  ran = {}
+  b.deps.runAway = function(e) ran[#ran + 1] = e return true end
+  check(untilMode(b, mon, "fight"), "staged: a fight under way")
+  for _ = 1, 30 do b:step(env(mon)) end
+  check(b.mode == "fight", "...still fighting")
+  b:abandon()
+  eq(#ran, 1, "job taken away mid-fight: the wild Pokemon runs away")
+  check(ran[1] == wild, "...the one it was fighting")
+  eq(#defeated, 0, "...it is not counted as defeated")
+  eq(wild.engaged, false, "...and is let go")
+  eq(mon.exp, nil, "no EXP for a fight broken off")
+  eq(b.mode, "idle", "the Battler resets")
+
+  -- only charging at it (no blow yet): simply let go
+  reset()
+  wild = wildEntity(1, 13, 10)
+  b = newBattler()
+  ran = {}
+  b.deps.runAway = function(e) ran[#ran + 1] = e return true end
+  check(untilMode(b, newMon(), "chase"), "staged: charging")
+  b:abandon()
+  eq(#ran, 0, "job taken away while charging: no run-away")
+  eq(wild.engaged, false, "...the wild Pokemon is let go")
+
+  -- a reset (save load, map change) while one sinks: it is gone, never back to wandering
+  reset()
+  wild = wildEntity(1, 13, 10)
+  b = newBattler()
+  check(untilMode(b, newMon(), "win"), "staged: another knockout")
+  b:reset()
+  eq(#defeated, 1, "reset during a knockout removes the defeated Pokemon")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

@@ -62,6 +62,9 @@ function OverworldBattle.new(deps)
 end
 
 function OverworldBattle:reset()
+  -- one it knocked out (0 HP, sinking) never goes back to wandering: it is gone
+  local ko = self.target
+  if ko and ko.defeated and self.deps and self.deps.defeat then pcall(self.deps.defeat, ko.id) end
   self:_release()
   self.mode, self.t = "idle", 0
   self.wx, self.wy, self.dx, self.dy = nil, nil, 0, 0
@@ -99,6 +102,25 @@ function OverworldBattle:_release()
   self.shadedBy, self.koFades = nil, nil
   self:_clearAura()
   self.target = nil
+end
+
+--- Its job was taken away mid-skirmish (the Battler hotkey, the party menu): like running
+--- from a battle. A wild Pokemon it was fighting runs off and disappears (`deps.runAway`;
+--- no EXP), one it had already knocked out is simply gone (`deps.defeat`); one it was only
+--- charging at is let go. Then everything resets.
+function OverworldBattle:abandon()
+  local e = self.target
+  if e and (self.mode == "fight" or self.mode == "win") then
+    local defeated = e.defeated or self.mode == "win"
+    self.drop = nil -- nothing is bagged
+    self:_release()
+    if defeated then
+      if self.deps.defeat then pcall(self.deps.defeat, e.id) end
+    elseif self.deps.runAway then
+      pcall(self.deps.runAway, e)
+    end
+  end
+  self:reset()
 end
 
 --- Away from its place (the follower menu must not open on it)?
@@ -389,7 +411,9 @@ function OverworldBattle:_mode_fight(env)
   -- the blow lands
   if turn.t == cfg.windup and not ev.skipped then
     if ev.hit and attackerIsAlly and ev.result == "win" then
-      -- the knockout: the finishing move's type effect instead of the plain impact
+      -- the knockout: the finishing move's type effect instead of the plain impact; at 0 HP
+      -- it can no longer be met (SpawnManager:entityAt skips it) while it sinks away
+      e.defeated = true
       self:_startFinisher(ev, e)
       self.wildFlash = cfg.flashTicks
     elseif ev.hit then

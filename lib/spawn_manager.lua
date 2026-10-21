@@ -508,6 +508,69 @@ function SpawnManager:fleeVanish(e)
   return true
 end
 
+--- The Battler's fight with `e` was called off mid-way (its job changed): like a wild
+--- Pokemon fleeing a battle it runs a few steps away from the player (Config.REACT.flee),
+--- then leaves the usual way (into the grass, under the water, a fade). Meanwhile it is
+--- not met, fought or startled. Returns true when it set off.
+function SpawnManager:runAway(e)
+  if not e or self.entities[e.id] ~= e or e.state ~= Config.STATE.AVAILABLE then return false end
+  e.engaged, e.owPose, e.react, e.lured, e.charging = false, nil, nil, nil, nil
+  local steps = Config.REACT.flee.steps
+  e.runAway = { steps = math.random(steps[1], steps[2]), blocked = 0, phase = "parting", t = 0 }
+  return true
+end
+
+local LUNGE = { up = { 0, -1 }, down = { 0, 1 }, left = { -1, 0 }, right = { 1, 0 } }
+
+-- the parting shot: faces the player, cries, one lunge toward them (pure offset, eased
+-- out and back); true once it is over
+function SpawnManager:_tickParting(e, p)
+  local ra, cfg = e.runAway, Config.RUN_AWAY
+  if ra.t == 0 then
+    if p then
+      local dx, dy = p.x - e.cellX, p.y - e.cellY
+      if math.abs(dx) >= math.abs(dy) and dx ~= 0 then e.facing = dx > 0 and "right" or "left"
+      elseif dy ~= 0 then e.facing = dy > 0 and "down" or "up" end
+    end
+    if EnginePatch.playCry then pcall(EnginePatch.playCry, e.species) end
+  end
+  ra.t = ra.t + 1
+  local k = ra.t / cfg.partTicks
+  local d = LUNGE[e.facing] or LUNGE.down
+  local reach = math.sin(math.pi * math.min(1, k)) * cfg.lungePx
+  if e.renderer then e.renderer.act = { dx = d[1] * reach, dy = d[2] * reach, runLunge = true } end
+  if k < 1 then return false end
+  if e.renderer and e.renderer.act and e.renderer.act.runLunge then e.renderer.act = nil end
+  ra.phase = "run"
+  return true
+end
+
+-- one tick of a run-away: true when it is done (it then leaves)
+function SpawnManager:_tickRunAway(e)
+  local ra = e.runAway
+  if e.moving then
+    Behavior._advanceMove(e)
+    return false
+  end
+  if ra.phase == "parting" then
+    self:_tickParting(e, EnginePatch.playerCell and EnginePatch.playerCell())
+    return false
+  end
+  if ra.steps <= 0 or ra.blocked > 20 then return true end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if not p then return true end
+  local dir = WildReactions.fleeDir(e.cellX, e.cellY, p.x, p.y, function(d)
+    local dd = Behavior.DELTA[d]
+    return not self:blocksCell(e.cellX + dd[1], e.cellY + dd[2])
+  end)
+  if dir and Behavior.tryStep(e, self.game, dir, Config.REACT.flee.frames) then
+    ra.steps = ra.steps - 1
+  else
+    ra.blocked = ra.blocked + 1
+  end
+  return false
+end
+
 --- The option was switched off: everyone reacting calms down at once.
 function SpawnManager:calmReactions()
   for _, e in pairs(self.entities) do
@@ -581,6 +644,12 @@ function SpawnManager:tick(game)
         lure.ticks, lure.age = lure.ticks - 1, lure.age + 1
         if e.moving then Behavior._advanceMove(e) end
         if lure.ticks <= 0 then e.lured = nil end
+      elseif e.runAway then
+        -- its fight with the Battler was called off: it runs off, then disappears
+        if self:_tickRunAway(e) then
+          gone = gone or {}
+          gone[#gone + 1] = { leave = id }
+        end
       elseif e.react then
         -- startled / angry: fleeing, chasing, looking (lib/wild_reactions.lua); reacting
         -- carries on through a busy field only as far as finishing a step
@@ -608,7 +677,9 @@ function SpawnManager:tick(game)
       end
       self:_wakeOnStep(e)
       local r = e.renderer
-      if r and r.isPmd and ((e.react and e.react.mode == "chase") or e.charging) then
+      if r and r.isPmd and e.runAway and e.runAway.phase == "parting" then
+        r:advanceAs("attack", 1, "walk") -- its parting shot at the player before it runs
+      elseif r and r.isPmd and ((e.react and e.react.mode == "chase") or e.charging) then
         -- an angry one charges at the player with its Attack animation (Walk without one),
         -- on until its battle opens; giving up it walks home again
         r:advanceAs("attack", 1, "walk")
@@ -639,7 +710,7 @@ function SpawnManager:tick(game)
     end
   end
   for _, id in ipairs(gone or {}) do
-    if type(id) == "table" then self:despawn(id.takeoff, { animate = true }) else self:despawn(id) end
+    if type(id) == "table" then self:despawn(id.takeoff or id.leave, { animate = true }) else self:despawn(id) end
   end
   self:refill("land")
   self:refill("water")
@@ -777,8 +848,9 @@ function SpawnManager:entityAt(tx, ty)
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     -- one still in the air (arriving by sky) is not there yet
+    -- nor one knocked out by the Battler (0 HP, sinking away) or running off from it
     if e and e.state == Config.STATE.AVAILABLE and e.cellX == tx and e.cellY == ty
-      and not travelling(e) and not (e.fx and e.fx.under) then
+      and not travelling(e) and not (e.fx and e.fx.under) and not e.defeated and not e.runAway then
       return e
     end
   end
@@ -804,7 +876,7 @@ function SpawnManager:fightTargets()
     -- never the roaming legendary: it is met only in a real battle, which keeps its saved state
     -- nor one fleeing / chasing / looking at the player (lib/wild_reactions.lua)
     if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer and not e.fx
-      and not e.react then
+      and not e.react and not e.runAway and not e.defeated then
       out[#out + 1] = e
     end
   end

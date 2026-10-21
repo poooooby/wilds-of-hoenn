@@ -216,6 +216,8 @@ return function(mod)
     swimFree = EnginePatch.waterFree,
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
     defeat = function(id) spawnManager:despawn(id) end,
+    -- its fight called off mid-way (a job change): the wild Pokemon runs off and disappears
+    runAway = function(e) return spawnManager:runAway(e) end,
     chainRecord = ModernSpawns.chainRecord,
     playCry = EnginePatch.playCry,
     -- the knockout's move sound (lib/finisher_fx.lua), at the game's SFX volume

@@ -111,7 +111,7 @@ local function rngRange(rng, r) return rng(r[1], r[2]) end
 --- Can `e` react now? (Not lured, engaged, arriving / leaving, the roamer, on cooldown.)
 function WildReactions.eligible(e, now)
   return e.state == Config.STATE.AVAILABLE and not e.react and not e.lured and not e.engaged
-    and not e.fx and not e.roamer and (e.reactUntil or 0) <= (now or 0)
+    and not e.fx and not e.roamer and not e.runAway and not e.defeated and (e.reactUntil or 0) <= (now or 0)
 end
 
 --- Starts `e` reacting to the player at (px, py), `dist` tiles away: picks the reaction

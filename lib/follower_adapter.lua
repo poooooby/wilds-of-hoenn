@@ -190,6 +190,10 @@ end
 function FollowerAdapter:_tickBehavior(npc)
   if self.action or self.swap then return nil end
   if self.role ~= self.lastRole then
+    -- the job taken away mid-way: a fight is broken off like running from a battle
+    -- (OverworldBattle:abandon -- the wild Pokemon runs off and disappears)
+    local old = self.lastRole and self.behaviors and self.behaviors[self.lastRole]
+    if old and old.abandon then pcall(old.abandon, old) end
     self:resetBehaviors()
     self.lastRole = self.role
   end

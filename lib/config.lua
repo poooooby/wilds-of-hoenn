@@ -168,6 +168,12 @@ Config.REACT = {
   cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
 }
 
+-- A wild Pokemon whose fight with the Battler is broken off (its job changed: lib/
+-- spawn_manager.lua runAway): a parting shot first -- it faces the player, cries and lunges
+-- `lungePx` toward them once over `partTicks` (PMD: its Attack animation) -- then runs
+-- Config.REACT.flee's steps away and disappears.
+Config.RUN_AWAY = { partTicks = 30, lungePx = 6 }
+
 -- Life in the water (the Water Life option, lib/water_life.lua): ambient, never met or
 -- fought, drawn from the map's own fishing and Surf tables. 60 Hz ticks / px.
 --   leapers -- small fish (the Water 2 egg group -- the fish -- under `maxFishHeightDm`,

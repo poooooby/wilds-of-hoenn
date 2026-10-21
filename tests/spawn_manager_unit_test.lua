@@ -976,6 +976,47 @@ do
   REACT.minChance, REACT.maxChance = odds[1], odds[2]
 end
 
+-- ------- the Battler's fight called off: a parting shot (cry + lunge), a run, gone; and a
+-- knocked-out or running Pokemon can never be walked into for a fresh battle
+do
+  local realCell, realBounds, realCry = fakeEngine.playerCell, fakeEngine.mapBounds, fakeEngine.playCry
+  fakeEngine.mapBounds = function() return 40, 5 end
+  local smR = SpawnManager.new(mod)
+  smR:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local target
+  for _, e in pairs(smR.entities) do target = target or e end
+  local player = { x = target.cellX + 2, y = target.cellY, moving = false }
+  fakeEngine.playerCell = function() return player end
+  local cries = {}
+  fakeEngine.playCry = function(species) cries[#cries + 1] = species end
+
+  target.defeated = true
+  eq(smR:entityAt(target.cellX, target.cellY), nil, "knocked out (0 HP, sinking): no longer met there")
+  local inTargets = false
+  for _, t in ipairs(smR:fightTargets()) do if t == target then inTargets = true end end
+  check(not inTargets, "...nor fought")
+  target.defeated = nil
+
+  target.engaged = true
+  check(smR:runAway(target), "the fight broken off: it sets off")
+  eq(target.engaged, false, "...let go by the Battler")
+  eq(smR:entityAt(target.cellX, target.cellY), nil, "running away: not met either")
+  local startX = target.cellX
+  smR:tick(smR.game)
+  eq(target.facing, "right", "the parting shot: it turns to face the player")
+  eq(#cries, 1, "...and cries")
+  check(target.renderer == nil or (target.renderer.act and target.renderer.act.runLunge), "...lunging at them")
+  local leaving = false
+  for _ = 1, 400 do
+    smR:tick(smR.game)
+    if not smR.entities[target.id] or target.state == V.require("config").STATE.LEAVING then leaving = true break end
+  end
+  eq(#cries, 1, "one cry only")
+  check(leaving, "then it runs off and leaves")
+  check(target.cellX <= startX, "...away from the player (" .. startX .. " -> " .. target.cellX .. ")")
+  fakeEngine.playerCell, fakeEngine.mapBounds, fakeEngine.playCry = realCell, realBounds, realCry
+end
+
 -- ------- a chaser left out on the path (its chase cut short) goes home; with Wild Reacts
 -- off it fades away instead
 do
