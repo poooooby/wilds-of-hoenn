@@ -8,6 +8,9 @@
   of them (4 on a bike), counted in steps so a diagonal is no longer closer than it looks.
   And they react less often: at most half the time, and rarer still the closer they are to
   your lead Pokemon's strength.
+- **Bigger battle effects.** Your Battler's attacks now play at a more relaxed pace, so their
+  effects are drawn bigger too: the type pieces gathering before a move, the shot flying over,
+  the sparks of a hit and the knockout burst are all about three quarters larger.
 
 ## 1.9.4 (2026-10-20)
 

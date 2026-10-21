@@ -245,6 +245,25 @@ do
   eq(FinisherFx.moveActor("WATER", false, W + 1, W, 0, 0, 16, 0, 7), nil, "...gone after the blow")
 end
 
+-- ------- size: the battle effects draw at Config.OW_BATTLE.fxScale
+do
+  local OW = V.require("config").OW_BATTLE
+  eq(FinisherFx.scale(), OW.fxScale, "the effects' size is the config's fxScale")
+  check(OW.fxScale > 1, "...bigger than the first cut (the slower turns leave room)")
+  local was = OW.fxScale
+  OW.fxScale = 0
+  eq(FinisherFx.scale(), 1, "a bad size falls back to 1")
+  OW.fxScale = was
+  -- the projectile still lands on the target at any size: moveActor hands the travel in
+  -- divided by the size, and the draw multiplies every offset back by it
+  local k, W = FinisherFx.scale(), 10
+  local tip
+  for _, p in ipairs(FinisherFx.moveParticles("FIRE", false, W, W, 16 / k, 0, 7 / k)) do
+    if p[1] == "shape" and p[5] == 1 then tip = p end
+  end
+  check(tip and math.abs(tip[3] * k - 16) < 1e-9, "a projectile drawn at size " .. k .. " lands on the target")
+end
+
 -- the actor: built, drawn headless without trouble, gone after TICKS
 local a = FinisherFx.actor("WATER", 5, 32, 48, 3, 0)
 check(a and a.kind == "ow_finisher_fx" and a.oamPriority == 1, "the actor is a plain field actor over the map")

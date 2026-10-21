@@ -16,6 +16,7 @@
 local V = ...
 local EnginePatch = V.require("engine_patch")
 local PixelShapes = V.require("pixel_shapes")
+local Config = V.require("config")
 V.require("mood_fx") -- registers its shapes (flame, spark, snow, bubble, sparkle, heart)
 
 local FinisherFx = {}
@@ -624,27 +625,38 @@ local function sheetFor(spec)
   return sheets[spec[1]] or nil
 end
 
-local function drawPart(g, p, cx, cy)
+-- `k` = the size factor (default 1): offsets, line ends, ring / blot / flash sizes and the
+-- shapes' own scale all grow by it, about (cx, cy). Lines stay 1 px.
+local function drawPart(g, p, cx, cy, k)
+  k = k or 1
   local kind = p[1]
   if kind == "shape" then
     local w, h = PixelShapes.size(p[2])
-    local sc = p[6] or 1
-    PixelShapes.draw(g, p[2], math.floor(cx + p[3] - w * sc / 2), math.floor(cy + p[4] - h * sc / 2), p[5], p[7], sc)
+    local sc = (p[6] or 1) * k
+    PixelShapes.draw(g, p[2], math.floor(cx + p[3] * k - w * sc / 2), math.floor(cy + p[4] * k - h * sc / 2), p[5], p[7], sc)
   elseif kind == "line" then
     g.setColor(p[6], p[7], p[8], p[9])
-    g.line(math.floor(cx + p[2]) + 0.5, math.floor(cy + p[3]) + 0.5, math.floor(cx + p[4]) + 0.5, math.floor(cy + p[5]) + 0.5)
+    g.line(math.floor(cx + p[2] * k) + 0.5, math.floor(cy + p[3] * k) + 0.5,
+      math.floor(cx + p[4] * k) + 0.5, math.floor(cy + p[5] * k) + 0.5)
   elseif kind == "ring" then
     g.setColor(p[3], p[4], p[5], p[6])
-    g.ellipse("line", math.floor(cx + (p[7] or 0)) + 0.5, math.floor(cy + 4 + (p[8] or 0)) + 0.5, p[2], p[2] * 0.6)
+    g.ellipse("line", math.floor(cx + (p[7] or 0) * k) + 0.5, math.floor(cy + (4 + (p[8] or 0)) * k) + 0.5,
+      p[2] * k, p[2] * 0.6 * k)
   elseif kind == "blot" then
     g.setColor(p[4], p[5], p[6], p[7])
-    g.ellipse("fill", math.floor(cx + (p[8] or 0)), math.floor(cy + (p[9] or 0)), p[2], p[3])
+    g.ellipse("fill", math.floor(cx + (p[8] or 0) * k), math.floor(cy + (p[9] or 0) * k), p[2] * k, p[3] * k)
   elseif kind == "flash" then
     g.setColor(p[2], p[3], p[4], p[5] * 0.6)
-    g.circle("fill", cx, cy, 10)
+    g.circle("fill", cx, cy, 10 * k)
     g.setColor(p[2], p[3], p[4], p[5])
-    g.circle("fill", cx, cy, 6)
+    g.circle("fill", cx, cy, 6 * k)
   end
+end
+
+--- The size the battle effects (move, hit, knockout) are drawn at: Config.OW_BATTLE.fxScale.
+function FinisherFx.scale()
+  local k = tonumber(Config.OW_BATTLE and Config.OW_BATTLE.fxScale)
+  return (k and k > 0) and k or 1
 end
 
 --- The effect as one field actor: the tile whose top-left is world (x, y), `age` ticks in.
@@ -662,15 +674,17 @@ function FinisherFx.actor(kind, age, x, y, elevation, id)
       local lw = g.getLineWidth and g.getLineWidth()
       if g.setLineWidth then g.setLineWidth(1) end
       local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
+      local k = FinisherFx.scale()
       local spec = recipe.sheet
       local frame = spec and FinisherFx.sheetFrame(kind, age)
       local sheet = frame and sheetFor(spec)
       if sheet and sheet.quads[frame] then
         local tint = spec[7]
         g.setColor(tint and tint[1] or 1, tint and tint[2] or 1, tint and tint[3] or 1, 1)
-        g.draw(sheet.image, sheet.quads[frame], cx - math.floor(spec[2] / 2), cy - math.floor(spec[3] / 2) + (spec[6] or 0))
+        g.draw(sheet.image, sheet.quads[frame], math.floor(cx - spec[2] * k / 2),
+          math.floor(cy + ((spec[6] or 0) - spec[3] / 2) * k), 0, k, k)
       end
-      for _, p in ipairs(FinisherFx.particles(kind, age)) do drawPart(g, p, cx, cy) end
+      for _, p in ipairs(FinisherFx.particles(kind, age)) do drawPart(g, p, cx, cy, k) end
       if lw and g.setLineWidth then g.setLineWidth(lw) end
       g.setColor(r, gg, b, a)
     end,
@@ -691,7 +705,8 @@ function FinisherFx.hitActor(kind, age, x, y, power, crit, elevation, id)
       local lw = g.getLineWidth and g.getLineWidth()
       if g.setLineWidth then g.setLineWidth(1) end
       local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
-      for _, p in ipairs(FinisherFx.hitParticles(kind, age, power, crit)) do drawPart(g, p, cx, cy) end
+      local k = FinisherFx.scale()
+      for _, p in ipairs(FinisherFx.hitParticles(kind, age, power, crit)) do drawPart(g, p, cx, cy, k) end
       if lw and g.setLineWidth then g.setLineWidth(lw) end
       g.setColor(r, gg, b, a)
     end,
@@ -712,8 +727,13 @@ function FinisherFx.moveActor(kind, contact, t, windup, x, y, dx, dy, lunge, ele
       local lw = g.getLineWidth and g.getLineWidth()
       if g.setLineWidth then g.setLineWidth(1) end
       local cx, cy = math.floor(x + 8 - camX), math.floor(y + 8 - camY)
-      for _, p in ipairs(FinisherFx.moveParticles(kind, contact, t, windup, dx, dy, lunge)) do
-        drawPart(g, p, cx, cy)
+      -- the effect's own spread grows by k, but the projectile still has to land on the
+      -- target and the trail on the lean: their travel goes in divided by k
+      local k = FinisherFx.scale()
+      local tdx, tdy = (tonumber(dx) or 0) / k, (tonumber(dy) or 0) / k
+      local tl = lunge and (tonumber(lunge) or 7) / k or nil
+      for _, p in ipairs(FinisherFx.moveParticles(kind, contact, t, windup, tdx, tdy, tl)) do
+        drawPart(g, p, cx, cy, k)
       end
       if lw and g.setLineWidth then g.setLineWidth(lw) end
       g.setColor(r, gg, b, a)
