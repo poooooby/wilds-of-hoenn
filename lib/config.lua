@@ -394,19 +394,17 @@ Config.PMD_WALK_LINGER = 8
 -- of no movement at 60 Hz), and how fast that Idle loop then plays (0.5 =
 -- half speed). Wild Pokemon have no delay but play Idle at PMD_WILD_IDLE_SPEED
 -- (0.75 = slowed down by 25%).
--- facing down, only this fraction of a tall sprite's overhang is kept behind
--- the player (a big sprite like Rayquaza otherwise trails too far above)
-Config.PMD_FOLLOWER_DOWN_OVERHANG = 0.6
--- facing left or right, the same idea for a wide sprite (a long-tailed Tyranitar
--- otherwise trails nearly two tiles behind): only this fraction of its overhang is
--- kept behind the player. 1 = the full overhang (the old behaviour).
-Config.PMD_FOLLOWER_SIDE_OVERHANG = 0.6
 -- Fastest the follower's offset may slide when the player changes direction,
 -- in px per tick (small sprites turn slower than this anyway; a big one takes
 -- longer instead of snapping)
 Config.PMD_FOLLOWER_TURN_SPEED = 1
-Config.PMD_FOLLOWER_GAP_DOWN = 0 -- the gap while facing down (trailing above the player)
-Config.PMD_FOLLOWER_GAP = 4
+-- Follower spacing (both sprite styles), from the art it shows the way it walks (px, as
+-- drawn; lib/actor_renderer.lua followerPush). Walking down it trails ABOVE the player and its art
+-- rises away from them: `down` px only. Walking up it trails below, drawn in front, its art
+-- rising toward them: kept back until its top reaches at most `upOverlap` px above the
+-- player's feet (it may cover their legs, never their head). Sideways: its overhang past
+-- the tile, plus `side`.
+Config.HGSS_FOLLOWER = { down = 0, upOverlap = 10, side = 0 }
 -- A tall follower in front of a house ducks under its eave (lib/eave_duck.lua): down by up
 -- to `nudge` px first, then squashed toward its feet for the rest, never below `minScale`
 -- of its height (anything still over is cut by the eave as before); a little wider while

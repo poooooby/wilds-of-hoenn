@@ -381,6 +381,21 @@ check(PmdRenderer.groundOf({ ay = 30, foot = 34 }, 0.5) == 13, "...at the size i
 check(PmdRenderer.groundOf({ ay = 30, foot = 22 }, 1) == 14, "a flyer hovering over its shadow keeps the hover")
 check(PmdRenderer.groundOf({ ay = 30 }, 1) == 14, "an old bake without `foot`: shadow 1 px above the feet line")
 
+-- ------- how far a side view reaches ahead of its anchor (follower spacing)
+do
+  -- two 6 x 2 cells side by side, 4 rows (down / right / up / left); anchor column 2
+  local W, CW, CH = 12, 6, 2
+  local px = {}
+  for i = 1, W * CH * 4 do px[i] = "\0\0\0\0" end
+  local function set(row, col, x, y) px[(row * CH + y) * W + col * CW + x + 1] = "\255\255\255\255" end
+  set(1, 0, 1, 0) set(1, 1, 5, 1) -- right row: art from x 1 (frame 0) to x 5 (frame 1)
+  set(3, 0, 0, 1) set(3, 0, 3, 0) -- left row: x 0..3
+  local bytes = table.concat(px)
+  eq(PmdRenderer.sideReachFrom(bytes, W, CW, CH, 1, 2, "right"), 4, "facing right: from the anchor to the art's right edge, over every frame")
+  eq(PmdRenderer.sideReachFrom(bytes, W, CW, CH, 3, 2, "left"), 2, "facing left: from the anchor to its left edge")
+  eq(PmdRenderer.sideReachFrom(bytes, W, CW, CH, 2, 2, "left"), nil, "an empty row: nothing to measure")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

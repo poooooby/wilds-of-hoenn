@@ -388,6 +388,89 @@ function ActorRenderer.artBottomPadOf(mod, path, frameCount)
   return best
 end
 
+--- The art's own size per facing ("down" / "up" / "left"; "right" is "left" mirrored): the
+--- union of the opaque pixels of every frame that facing shows (stand, walk, run), as
+--- { w, h, front, standFront } in sheet px, h from the art's top to its bottom, `front` how
+--- far the art reaches ahead of the frame's centre the way it faces over every frame (side
+--- views are seldom centred: a head sticks out further than a tail; the sheet faces left,
+--- right mirrors it), `standFront` the same for the stand frame alone (a walk can lunge
+--- further: Kyurem's walk 32, its stand 25). `bytes` = RGBA rows of a
+--- `w` x `h` sheet of `frameCount` frames stacked top to bottom. Pure (tested).
+function ActorRenderer.artBoxesFrom(bytes, w, h, frameCount)
+  local n = frameCount or 18
+  local fh = math.floor(h / n)
+  local layout = FRAME_COUNT_TO_TABLE[n] or FRAME_INDEX_18
+  local byte = string.byte
+  local out = {}
+  for _, facing in ipairs({ "down", "up", "left" }) do
+    local seen, x0, x1, y0, y1, standX0 = {}, nil, nil, nil, nil, nil
+    local stand = layout[facing].stand
+    for _, f in pairs(layout[facing]) do
+      if not seen[f] then
+        seen[f] = true
+        for y = 0, fh - 1 do
+          local row = ((f * fh + y) * w) * 4
+          for x = 0, w - 1 do
+            if byte(bytes, row + x * 4 + 4) > 0 then
+              if not x0 or x < x0 then x0 = x end
+              if not x1 or x > x1 then x1 = x end
+              if not y0 or y < y0 then y0 = y end
+              if not y1 or y > y1 then y1 = y end
+              if f == stand and (not standX0 or x < standX0) then standX0 = x end
+            end
+          end
+        end
+      end
+    end
+    if x0 then
+      out[facing] = { w = x1 - x0 + 1, h = y1 - y0 + 1, front = w / 2 - x0,
+        standFront = w / 2 - (standX0 or x0) }
+    end
+  end
+  out.right = out.left
+  return out
+end
+
+-- read from a sheet's pixels once and cached per sheet (false: unreadable)
+local artBoxCache = {}
+function ActorRenderer.artBoxesOf(mod, path, frameCount)
+  local hit = artBoxCache[path]
+  if hit ~= nil then return hit or nil end
+  artBoxCache[path] = false
+  local data = ActorRenderer.sheetData(mod, path)
+  if not data then return nil end
+  local w, h = data:getDimensions()
+  local boxes = ActorRenderer.artBoxesFrom(data:getString(), w, h, frameCount)
+  artBoxCache[path] = boxes
+  return boxes
+end
+
+--- The art's width, height and front reach (see artBoxesFrom) facing `facing`, as drawn
+--- (gen3-hd-sprites' size included): what a follower is spaced out by; `standing` = the
+--- reach of its stand frame (at rest), else of every frame. nil when the pixels cannot be
+--- read.
+function ActorRenderer:artSize(facing, standing)
+  local path = self:imagePath()
+  if not path then return nil, nil, nil end
+  local boxes = ActorRenderer.artBoxesOf(self.mod, path, self.frameCount or 18)
+  local b = boxes and boxes[facing or "down"]
+  if not b then return nil, nil, nil end
+  local k = HdField.scaleOfPath(self.mod, path) or 1
+  local front = (standing and b.standFront) or b.front or b.w / 2
+  return b.w * k, b.h * k, front * k
+end
+
+--- How far (px) a follower is kept back behind the player along `facing`, for art `artW` x
+--- `artH` reaching `front` ahead of its centre (as drawn) that way: Config.HGSS_FOLLOWER.
+--- Sideways it is the front that reaches toward the player. Pure (tested).
+function ActorRenderer.followerPush(facing, artW, artH, front, cfg)
+  cfg = cfg or Config.HGSS_FOLLOWER or {}
+  if facing == "down" then return cfg.down or 0 end
+  if facing == "up" then return math.max(0, (artH or 0) - CELL - (cfg.upOverlap or 0)) end
+  local reach = front or (artW or 0) / 2
+  return math.max(0, reach - CELL / 2) + (cfg.side or 0)
+end
+
 --- The rows a frame of `path` is drawn lower so its art stands on the ground: the water /
 --- levitating packs' fixed pad, else a land sheet's measured empty rows.
 function ActorRenderer.feetPadFor(mod, path, frameCount)

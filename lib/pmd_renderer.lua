@@ -114,6 +114,60 @@ function PmdRenderer:restOffset(row)
   return lift and (lift[row] or 0) * ease or 0
 end
 
+--- How far the art reaches from its anchor column (`ax`) the way a SIDE row faces, over
+--- every frame of that row: `right` = past the anchor to the right, `left` = to the left.
+--- `bytes` = RGBA rows of a `w`-wide sheet of `cw` x `ch` cells. nil for an empty row.
+--- Pure (tested).
+function PmdRenderer.sideReachFrom(bytes, w, cw, ch, row, ax, facing)
+  local byte = string.byte
+  local x0, x1
+  for col = 0, math.floor(w / cw) - 1 do
+    for y = 0, ch - 1 do
+      local base = ((row * ch + y) * w + col * cw) * 4
+      for x = 0, cw - 1 do
+        if byte(bytes, base + x * 4 + 4) > 0 then
+          if not x0 or x < x0 then x0 = x end
+          if not x1 or x > x1 then x1 = x end
+        end
+      end
+    end
+  end
+  if not x0 then return nil end
+  if facing == "right" then return x1 + 1 - ax end
+  return ax - x0
+end
+
+-- [path .. row] = reach in cell px (false = unreadable)
+local reachCache = {}
+
+--- How far (px, as drawn) the art it is showing -- Idle at rest, else Walk -- reaches
+--- ahead of the tile's centre facing left or right: the head or snout a follower spaces
+--- itself by (side views are seldom centred on their anchor; a walk can lean forward --
+--- Lugia's reaches 31 px, its upright Idle 20). nil when the pixels cannot be read or for
+--- up / down.
+function PmdRenderer:frontReach(facing)
+  if facing ~= "left" and facing ~= "right" then return nil end
+  local anim = (self.anim == "idle" and type(self.info and self.info.idle) == "table") and "idle" or "walk"
+  local entry = self.info and self.info[anim]
+  if type(entry) ~= "table" or not (entry.cw and entry.ch and entry.ax) then return nil end
+  local path = SpriteSource.pmdPath(self.info, anim, self.dex, self.shiny)
+  if not path then return nil end
+  local row = PmdRenderer.rowFor(facing)
+  local key = path .. "#" .. row
+  local reach = reachCache[key]
+  if reach == nil then
+    reach = false
+    local data = ActorRenderer.sheetData(self.mod, path)
+    if data then
+      local w = data:getDimensions()
+      reach = PmdRenderer.sideReachFrom(data:getString(), w, entry.cw, entry.ch, row, entry.ax, facing) or false
+    end
+    reachCache[key] = reach
+  end
+  if not reach then return nil end
+  return reach * PmdRenderer.scaleOf(self.info) * self:hdScale()
+end
+
 --- Screen position (integer pixels) of the top-left of a cell so its ground
 --- point lands on the tile's feet spot: horizontal centre of the 16px tile,
 --- `groundY` px below the tile's top edge. `sx, sy` = tile top-left on

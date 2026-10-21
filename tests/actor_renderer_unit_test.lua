@@ -330,6 +330,43 @@ check(ActorRenderer.feetPadFor(nil, swimPath, 18) == SpriteSource.bottomPadFor(s
 check(ActorRenderer.feetPadFor(nil, "nowhere/true_size18/hgss/999-normal.png", 18) == 0,
   "a land sheet whose pixels cannot be read: no pad (drawn as before)")
 
+-- ------- follower spacing by the art it shows each way (not the frame)
+do
+  -- a 4 px wide, 18-frame sheet of 4 px frames: facing down = 2 px wide x 3 tall,
+  -- up = 4 x 1, left = 1 x 2; every other pixel transparent
+  local W, FH, N = 4, 4, 18
+  local px = {}
+  for i = 1, W * FH * N do px[i] = "\0\0\0\0" end
+  local function set(frame, x, y) px[(frame * FH + y) * W + x + 1] = "\255\255\255\255" end
+  set(0, 1, 1) set(0, 2, 3)          -- down stand: x 1..2, y 1..3
+  set(3, 1, 2)                       -- down walk A: inside that box
+  set(1, 0, 3) set(1, 3, 3)          -- up stand: x 0..3, one row
+  set(2, 2, 2) set(7, 2, 3)          -- left stand + walk A: x 2, y 2..3
+  local boxes = ActorRenderer.artBoxesFrom(table.concat(px), W, FH * N, N)
+  check(boxes.down.w == 2 and boxes.down.h == 3, "facing down: the union of its frames' art (2 x 3)")
+  check(boxes.up.w == 4 and boxes.up.h == 1, "facing up: its own art (4 x 1)")
+  check(boxes.left.w == 1 and boxes.left.h == 2, "facing left: stand and walk together (1 x 2)")
+  eq(boxes.left.front, 0, "...its art 2 px in from the left edge of a 4 px frame: no reach ahead of the centre")
+  eq(boxes.up.front, 2, "an art from edge to edge reaches half the frame")
+  eq(boxes.left.standFront, 0, "...its stand frame alone: the same")
+  set(8, 0, 2) -- walk B lunges forward, to x 0
+  local lunge = ActorRenderer.artBoxesFrom(table.concat(px), W, FH * N, N)
+  eq(lunge.left.front, 2, "a walk frame lunging ahead: the reach over every frame grows")
+  eq(lunge.left.standFront, 0, "...but at rest (stand frame) it does not")
+  check(boxes.right == boxes.left, "right is left mirrored")
+
+  local cfg = { down = 0, upOverlap = 10, side = 0 }
+  eq(ActorRenderer.followerPush("down", 57, 57, nil, cfg), 0, "walking down (trailing above): no room needed, however big")
+  eq(ActorRenderer.followerPush("up", 57, 57, nil, cfg), 31, "walking up: a 57 px tall one is kept back until its top is 10 px above the player's feet")
+  eq(ActorRenderer.followerPush("up", 18, 18, nil, cfg), 0, "...a small one stays one tile behind")
+  eq(ActorRenderer.followerPush("left", 48, 30, nil, cfg), 16, "sideways, centred art: its overhang past the tile")
+  eq(ActorRenderer.followerPush("left", 48, 30, 30, cfg), 22, "...a head reaching 30 px ahead: kept back by that")
+  eq(ActorRenderer.followerPush("left", 48, 30, 10, cfg), 2, "...a short front (the bulk behind it): barely")
+  eq(ActorRenderer.followerPush("right", 14, 30, nil, cfg), 0, "...none for one that fits the tile")
+  local real = V.require("config").HGSS_FOLLOWER
+  check(real and real.down == 0 and real.upOverlap == 10, "the shipped spacing: 0 down, up to 10 px over the player's legs")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

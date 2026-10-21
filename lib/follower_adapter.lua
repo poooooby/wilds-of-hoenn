@@ -638,19 +638,14 @@ function FollowerAdapter:tick()
     else
       r:advance(moving)
     end
-    -- Space it out: kept behind the player along its facing by its own
-    -- overhang past the 16px tile plus a gap, eased so a turn glides
-    -- (same recipe as the pushback of the ActorRenderer styles below).
+    -- Space it out by the art it shows the way it walks, the same rule as the HGSS
+    -- style below (ActorRenderer.followerPush): none walking down (it trails above, its
+    -- art rising away from the player), its height above the tile walking up (it trails
+    -- below, drawn in front), sideways how far its head reaches ahead of its tile
+    -- (measured: side views are seldom centred). Eased so a turn glides.
     local PmdRenderer = V.require("pmd_renderer")
-    local cw, ch = PmdRenderer.contentSize(r.info, r:hdScale())
-    local vertical = npc.facing == "up" or npc.facing == "down"
-    local overhang = math.max(0, ((vertical and ch or cw) - CELL) / 2)
-    -- walking down the follower trails ABOVE the player, and its art already
-    -- extends upward from its feet, so it gets a smaller gap there
-    local gap = npc.facing == "down" and Config.PMD_FOLLOWER_GAP_DOWN or Config.PMD_FOLLOWER_GAP
-    if npc.facing == "down" then overhang = overhang * Config.PMD_FOLLOWER_DOWN_OVERHANG end
-    if not vertical then overhang = overhang * (Config.PMD_FOLLOWER_SIDE_OVERHANG or 1) end
-    local push = overhang + gap
+    local cw = PmdRenderer.contentSize(r.info, r:hdScale())
+    local push = ActorRenderer.followerPush(npc.facing, cw, r:headLift(), r:frontReach(npc.facing))
     local tx, ty = ActorRenderer.behindOffset(npc.facing, push)
     if not Config.smoothFollow(self.mod) then
       -- Smooth Follow off: spaced out the same, but no glide -- it snaps to its place
@@ -733,27 +728,42 @@ function FollowerAdapter:tick()
   -- and compound every subsequent step; never touch those fields for this.
   -- Only a sprite wider than one tile needs it: a no-op for the species
   -- whose HGSS / PokeMMO art fits in 16px.
+  -- Sized by the art it shows the way it walks (ActorRenderer.followerPush): walking
+  -- down it trails above the player and needs no room; walking up it trails below,
+  -- drawn in front, and is kept back by its height; sideways by its width. (By the
+  -- frame's width in every direction before: a big frame trailed far above the player
+  -- walking down and crowded over them walking up.) Unreadable art -> the frame width.
   local pushback = 0
   if self.renderer.style == SpriteSource.STYLE_POKEMMO then
-    local fw = self.renderer:visualWidth()
-    if fw and fw > CELL then
-      pushback = (fw - CELL) / 2
+    -- (at rest its stand frame's reach: a walk frame can lunge further; "at rest" =
+    -- still for a few ticks, not the one-tick pause between two steps)
+    if moving then self.stillTicks = 0 else self.stillTicks = (self.stillTicks or 0) + 1 end
+    local aw, ah, front = self.renderer:artSize(npc.facing, self.stillTicks > 8)
+    if aw then
+      pushback = ActorRenderer.followerPush(npc.facing, aw, ah, front)
+    else
+      local fw = self.renderer:visualWidth()
+      if fw and fw > CELL then
+        pushback = (fw - CELL) / 2
+      end
     end
   end
   self.renderer.largePushback = pushback
 
   -- Ease the applied offset toward the facing's target instead of letting it
   -- flip in one frame on a turn (the same glide Wilds of Kanto Revival gives
-  -- its trailers). A full 180-degree swing (2 * pushback) takes about one
-  -- step (STEP_TICKS logic ticks). Cosmetic only, same reason as above.
+  -- its trailers). A full swing takes about one step (STEP_TICKS logic ticks),
+  -- paced by the larger of the new push and the offset it is leaving (a push of 0
+  -- facing down must still glide the old offset home). Cosmetic only, as above.
   local r = self.renderer
   local tx, ty = ActorRenderer.behindOffset(npc.facing, pushback)
-  if pushback == 0 then
+  local travel = math.max(pushback, math.abs(r.pushX or 0), math.abs(r.pushY or 0))
+  if travel == 0 then
     r.pushX, r.pushY = nil, nil
   elseif not Config.smoothFollow(self.mod) then
     r.pushX, r.pushY = tx, ty -- Smooth Follow off: the same spacing, no glide on a turn
   else
-    local maxStep = (pushback * 2) / FollowerAdapter.STEP_TICKS
+    local maxStep = (travel * 2) / FollowerAdapter.STEP_TICKS
     r.pushX = ActorRenderer.approach(r.pushX, tx, maxStep)
     r.pushY = ActorRenderer.approach(r.pushY, ty, maxStep)
   end

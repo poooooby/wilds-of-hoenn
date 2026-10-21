@@ -341,67 +341,62 @@ local Cfg = V.require("config")
 eq(fa.renderer.idleDelay, Cfg.PMD_FOLLOWER_IDLE_DELAY, "the follower's PMD renderer gets the idle delay")
 eq(Cfg.PMD_FOLLOWER_IDLE_DELAY, 300, "the idle delay is 5 seconds of ticks")
 eq(fa.renderer.idleSpeed, 0.5, "and the follower's Idle plays at 50% speed")
--- PMD_INDEX walk cell is 30x26; content = cell - 4px of gutter. Facing
--- up/down uses the HEIGHT (22), left/right the width (26).
-local expect = math.max(0, (22 - 16) / 2) * Cfg.PMD_FOLLOWER_DOWN_OVERHANG + Cfg.PMD_FOLLOWER_GAP_DOWN
-eq(fa.renderer.pushY, -expect, "facing down: pushed back (up) by overhang + gap")
+-- spacing: the shared rule (ActorRenderer.followerPush) by the PMD art it shows each way:
+-- its height above the tile (headLift) walking up, its front reach sideways (no pixels
+-- here: the art taken as centred, half the content width), Config.HGSS_FOLLOWER's `down`
+-- walking down. Set so every direction pushes, to watch the glides.
+local AR = V.require("actor_renderer")
+local HF = Cfg.HGSS_FOLLOWER
+local realHF = { down = HF.down, upOverlap = HF.upOverlap, side = HF.side }
+HF.down, HF.upOverlap, HF.side = 3, -10, 2
+local PR = V.require("pmd_renderer")
+local cw = PR.contentSize(fa.renderer.info, fa.renderer:hdScale())
+local lift = fa.renderer:headLift()
+local downY = AR.followerPush("down", cw, lift, nil)
+local upY = AR.followerPush("up", cw, lift, nil)
+local sideX = AR.followerPush("left", cw, lift, nil)
+check(downY > 0 and upY > 0 and sideX > 0, "staged: every direction pushes (" .. downY .. ", " .. upY .. ", " .. sideX .. ")")
+eq(fa.renderer:frontReach("up"), nil, "front reach is a side-view measure only")
+for _ = 1, 60 do fa:tick() end -- (it glides from where the earlier ticks left it)
+eq(fa.renderer.pushY, -downY, "facing down: kept back (up) by the rule's `down`")
 eq(fa.renderer.pushX, 0, "and not sideways")
 npc.facing = "up"
 fa:tick()
-check(fa.renderer.pushY > -expect and fa.renderer.pushY < expect, "a turn eases the offset instead of snapping")
-for _ = 1, 40 do fa:tick() end
-eq(fa.renderer.pushY, math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "settles on the new side (facing up -> pushed down)")
+check(fa.renderer.pushY > -downY and fa.renderer.pushY < upY, "a turn eases the offset instead of snapping")
+for _ = 1, 60 do fa:tick() end
+eq(fa.renderer.pushY, upY, "settles on the new side: facing up, kept back by its height above the tile")
 npc.facing = "left"
-for _ = 1, 40 do fa:tick() end
-eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) * Cfg.PMD_FOLLOWER_SIDE_OVERHANG + Cfg.PMD_FOLLOWER_GAP,
-  "left/right uses the sprite's width, scaled by PMD_FOLLOWER_SIDE_OVERHANG")
+for _ = 1, 60 do fa:tick() end
+eq(fa.renderer.pushX, sideX, "left / right: by how far its art reaches past the tile")
 -- Smooth Follow off: the same spacing, but a turn snaps it to its new place at once (no
 -- glide); back on, a turn glides again
 optionStore.smooth_follow = false
 fa:tick()
-local sideX = math.max(0, (26 - 16) / 2) * Cfg.PMD_FOLLOWER_SIDE_OVERHANG + Cfg.PMD_FOLLOWER_GAP
 eq(fa.renderer.pushX, sideX, "Smooth Follow off: the PMD follower keeps its spacing")
 npc.facing = "up"
 fa:tick()
-local upY = math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP
 check(fa.renderer.pushX == 0 and fa.renderer.pushY == upY, "...and a turn snaps it straight to its new place")
 optionStore.smooth_follow = nil
 npc.facing = "left"
 fa:tick()
 check(fa.renderer.pushX > 0 and fa.renderer.pushX < sideX, "switched back on: a turn glides again")
-for _ = 1, 40 do fa:tick() end
-npc.facing = "left"
-for _ = 1, 40 do fa:tick() end
-local realSide = Cfg.PMD_FOLLOWER_SIDE_OVERHANG
-Cfg.PMD_FOLLOWER_SIDE_OVERHANG = 1
-for _ = 1, 40 do fa:tick() end
-eq(fa.renderer.pushX, math.max(0, (26 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "a factor of 1 keeps the full overhang")
-Cfg.PMD_FOLLOWER_SIDE_OVERHANG = realSide
-for _ = 1, 40 do fa:tick() end
+for _ = 1, 60 do fa:tick() end
+-- a push of 0 facing down must not leave the follower off to the side after walking
+-- sideways: its offset eases back to 0 anyway
+HF.down = 0
+npc.facing = "down"
+for _ = 1, 60 do fa:tick() end
+eq(fa.renderer.pushX, 0, "facing down with a push of 0, the sideways offset eases back to 0 (not stuck)")
+eq(fa.renderer.pushY, 0, "...and so does the vertical one")
+npc.facing = "right"
+for _ = 1, 60 do fa:tick() end
 npc.facing = "up"
-for _ = 1, 40 do fa:tick() end
-eq(fa.renderer.pushY, math.max(0, (22 - 16) / 2) + Cfg.PMD_FOLLOWER_GAP, "facing up is not affected by the side factor")
-npc.facing = "left"
-for _ = 1, 40 do fa:tick() end
--- a small sprite (no overhang, no down gap: a push of 0 facing down) must not be left
--- off to the side after walking sideways: its offset eases back to 0 anyway
-do
-  local realOver, realGapDown = Cfg.PMD_FOLLOWER_DOWN_OVERHANG, Cfg.PMD_FOLLOWER_GAP_DOWN
-  Cfg.PMD_FOLLOWER_DOWN_OVERHANG, Cfg.PMD_FOLLOWER_GAP_DOWN = 0, 0
-  npc.facing = "left"
-  for _ = 1, 60 do fa:tick() end
-  check(fa.renderer.pushX ~= 0, "sanity: facing left it is offset sideways (" .. tostring(fa.renderer.pushX) .. ")")
-  npc.facing = "down"
-  for _ = 1, 60 do fa:tick() end
-  eq(fa.renderer.pushX, 0, "facing down with a push of 0, the sideways offset eases back to 0 (not stuck)")
-  eq(fa.renderer.pushY, 0, "...and so does the vertical one")
-  npc.facing = "right"
-  for _ = 1, 60 do fa:tick() end
-  npc.facing = "up"
-  for _ = 1, 60 do fa:tick() end
-  eq(fa.renderer.pushX, 0, "right then up: no sideways offset is left behind")
-  Cfg.PMD_FOLLOWER_DOWN_OVERHANG, Cfg.PMD_FOLLOWER_GAP_DOWN = realOver, realGapDown
-end
+for _ = 1, 60 do fa:tick() end
+eq(fa.renderer.pushX, 0, "right then up: no sideways offset is left behind")
+HF.down, HF.upOverlap, HF.side = realHF.down, realHF.upOverlap, realHF.side
+-- the shipped rule for this small sprite: nothing walking down or up
+eq(AR.followerPush("down", cw, lift, nil), 0, "shipped: no room walking down")
+eq(AR.followerPush("up", cw, lift, nil), math.max(0, lift - 16 - 10), "shipped: walking up only past 10 px over the player's feet")
 optionStore.sprite_style = "pokemmo"
 V.mod = mod
 
