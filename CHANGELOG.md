@@ -8,6 +8,9 @@
   looks the way you walk: right behind you walking down (big Pokemon no longer trail two
   tiles back), held back walking up so a big one never covers your head, and beside you
   sideways by how far its head reaches. In both sprite styles, with or without HD sprites.
+- **Pokemon are drawn bigger (Species Sizes).** Sizes lean less on real-world heights: mid-size
+  Pokemon like Charizard, Tyranitar and Snorlax now stand clearly taller than you (about a
+  quarter bigger), small ones grow a little, and the giants keep their size.
 - **Kyurem, Zekrom, Reshiram and Koraidon stand taller.** They were drawn smaller than other
   Pokemon their size; they now match Groudon and the like.
 - **Calmer wild Pokemon (Wild Reacts).** They only notice you when you run within 2 steps
