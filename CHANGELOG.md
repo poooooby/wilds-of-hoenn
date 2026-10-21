@@ -8,6 +8,8 @@
   looks the way you walk: right behind you walking down (big Pokemon no longer trail two
   tiles back), held back walking up so a big one never covers your head, and beside you
   sideways by how far its head reaches. In both sprite styles, with or without HD sprites.
+- **Kyurem, Zekrom, Reshiram and Koraidon stand taller.** They were drawn smaller than other
+  Pokemon their size; they now match Groudon and the like.
 - **Calmer wild Pokemon (Wild Reacts).** They only notice you when you run within 2 steps
   of them (4 on a bike), counted in steps so a diagonal is no longer closer than it looks.
   And they react less often: at most half the time, and rarer still the closer they are to
