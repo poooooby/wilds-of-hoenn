@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.10.2 (2026-10-24)
+
 ### Changed
 
 - **Your Battler keeps its feet dry.** On land it only fights wild Pokemon on land -- it no
