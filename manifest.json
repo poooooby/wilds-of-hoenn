@@ -17,7 +17,9 @@
     "gen3-hd-sprites"
   ],
   "conflicts": [
-    "wildfollowers"
+    "wildfollowers",
+    "wilds_of_firered",
+    "untamed_advanced"
   ],
   "permissions": ["engine_internals"],
   "affects_link": false,
