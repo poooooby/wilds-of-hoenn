@@ -38,6 +38,14 @@ local tables = {
     } },
     water = { rate = 5, slots = { { species = 129, minLevel = 5, maxLevel = 10 } } },
   },
+  FR_ROUTE_1 = {
+    land = { rate = 21, slots = {
+      { species = 161, minLevel = 2, maxLevel = 5 },
+      { species = 13, minLevel = 2, maxLevel = 5 },
+      { species = 161, minLevel = 2, maxLevel = 5 },
+      { species = 13, minLevel = 2, maxLevel = 5 },
+    } },
+  },
 }
 fakeEngine.tableFor = function(mapId) return tables[mapId] end
 
@@ -50,7 +58,17 @@ local generated = {
   } },
   water = { rate = 5, slots = { { species = "WOOPER", minLevel = 5, maxLevel = 10 } } },
 }
-local dexOf = { RATTATA = 19, PIDGEY = 16, WOOPER = 194, NOPE = 9999, SNORLAX = 143 }
+-- FireRed's Route 1 after Modern Spawns' live sync: one primary species in several slots,
+-- each slot with its own generated species
+local generatedByMap = {
+  FR_ROUTE_1 = { grass = { rate = 21, slots = {
+    { species = "PIDGEY", minLevel = 2, maxLevel = 5 },
+    { species = "RATTATA", minLevel = 2, maxLevel = 5 },
+    { species = "SENTRET", minLevel = 2, maxLevel = 5 },
+    { species = "WEEDLE", minLevel = 2, maxLevel = 5 },
+  } } },
+}
+local dexOf = { SENTRET = 161, WEEDLE = 13, RATTATA = 19, PIDGEY = 16, WOOPER = 194, NOPE = 9999, SNORLAX = 143 }
 local legendary
 local active, generation = true, 3
 local function makeOther()
@@ -58,7 +76,10 @@ local function makeOther()
     apiVersion = 1,
     isActive = function() return active end,
     generation = function() return generation end,
-    drawFor = function(mapId, terrain) calls[#calls + 1] = terrain return generated[terrain] end,
+    drawFor = function(mapId, terrain)
+      calls[#calls + 1] = terrain
+      return (generatedByMap[mapId] or {})[terrain] or generated[terrain]
+    end,
     legendaryFor = function() return legendary end,
     profileOf = function(id) return dexOf[id] and { dex = dexOf[id] } or nil end,
   } }
@@ -80,6 +101,30 @@ eq(out.personality, 77, "personality is kept")
 
 -- same engine species in two slots: the level picks the slot
 eq(Bridge.apply("ROUTE_101", "land", enc(261, 5)).species, 1016, "level 5 -> slot 2 -> Pidgey")
+
+-- one species in several slots at the same levels: each of them is a candidate, picked
+-- by the cart's slot odds (slot 1 20 : slot 3 10), so every slot's species can spawn
+do
+  local realRandom = Bridge.random
+  local asked
+  Bridge.random = function(lo, hi) asked = { lo, hi } return 1 end
+  eq(Bridge.apply("FR_ROUTE_1", "land", enc(161, 3)).species, 1016, "roll 1 of 30 -> slot 1 -> Pidgey")
+  eq(asked and asked[2], 30, "...rolled over the two slots' odds (20 + 10)")
+  Bridge.random = function() return 21 end
+  eq(Bridge.apply("FR_ROUTE_1", "land", enc(161, 3)).species, 1161, "roll 21 of 30 -> slot 3 -> Sentret")
+  Bridge.random = function() return 20 end
+  eq(Bridge.apply("FR_ROUTE_1", "land", enc(13, 3)).species, 1019, "roll 20 of 30 -> slot 2 -> Rattata")
+  Bridge.random = function() return 30 end
+  eq(Bridge.apply("FR_ROUTE_1", "land", enc(13, 3)).species, 1013, "roll 30 of 30 -> slot 4 -> Weedle")
+  Bridge.random = realRandom
+  local seen = {}
+  for _ = 1, 400 do seen[Bridge.apply("FR_ROUTE_1", "land", enc(161, 3)).species] = true end
+  check(seen[1016] and seen[1161], "with the real random both slots' species turn up")
+  -- a single matching slot never rolls
+  Bridge.random = function() error("no roll for one candidate") end
+  eq(Bridge.apply("ROUTE_101", "land", enc(261, 5)).species, 1016, "one candidate: no roll")
+  Bridge.random = realRandom
+end
 
 -- water uses the water table
 eq(Bridge.apply("ROUTE_101", "water", enc(129, 7)).species, 1194, "water slot -> Wooper")

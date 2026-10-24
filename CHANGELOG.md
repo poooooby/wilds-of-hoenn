@@ -17,6 +17,10 @@
   (and for Teleport), stays in it through the landing, and comes back out once you have
   landed -- it no longer stood around while you flew off, or was already waiting when you
   touched down.
+- **Modern Spawns' full variety, out in the open.** With Modern Spawns, the visible wild
+  Pokemon showed only a few of the species it brings to a place -- most of all in
+  FireRed and LeafGreen, where one Pokemon fills many of a route's slots. Every species
+  Modern Spawns has for a place now turns up, as often as it would in a battle.
 
 ## 1.10.1 (2026-10-21)
 

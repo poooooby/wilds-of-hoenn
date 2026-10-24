@@ -54,26 +54,49 @@ local function internalFor(api, id)
   return dex and EnginePatch.speciesForNational(dex) or nil
 end
 
--- The slot of the engine's own table that `enc` was rolled from: same
--- species, level inside the slot's range. Slot order matches Modern Spawns'
--- generated table, which keeps the game's slot order. nil when it matches no
--- slot (an outbreak or other special encounter).
+-- The cart's odds per slot (pokefirered / pokeemerald wild_encounter.c), the same
+-- Modern Spawns uses to pick among several candidate slots.
+Bridge.LAND_WEIGHTS = { 20, 20, 10, 10, 10, 10, 5, 5, 4, 4, 1, 1 }
+Bridge.WATER_WEIGHTS = { 60, 30, 5, 4, 1 }
+-- math.random-shaped: (lo, hi) -> integer in [lo, hi]. Tests replace it.
+Bridge.random = math.random
+
+-- The slot of the engine's own table that `enc` was rolled from: same species, level
+-- inside the slot's range. The engine does not say which slot it rolled, and one species
+-- often fills several (FireRed's Route 1: Pidgey / Rattata in all twelve; Modern Spawns'
+-- live sync writes each slot's primary species, so a few species again), each with its
+-- own Modern Spawns pool -- so every matching slot is a candidate, picked by the cart's
+-- own slot odds (the first match alone sent every roll to one slot's pool, and the other
+-- slots' species never spawned). Slot order matches Modern Spawns' generated table,
+-- which keeps the game's slot order. nil when it matches no slot (an outbreak or other
+-- special encounter).
 local function slotIndexOf(mapId, terrain, enc)
   local t = EnginePatch.tableFor(mapId)
   if type(t) ~= "table" then return nil end
   local area = terrain == "water" and t.water or (t.land or t.grass)
   local slots = type(area) == "table" and (area.slots or area.mons or area) or nil
   if type(slots) ~= "table" then return nil end
+  local weights = terrain == "water" and Bridge.WATER_WEIGHTS or Bridge.LAND_WEIGHTS
   local level = tonumber(enc.level)
+  local found, total = {}, 0
   for i, s in ipairs(slots) do
     if type(s) == "table" and tonumber(s.species or s[1]) == tonumber(enc.species) then
       local lo = tonumber(s.minLevel or s.level or s[2])
       local hi = tonumber(s.maxLevel or s.level or s[2]) or lo
       if lo and hi and lo > hi then lo, hi = hi, lo end
-      if not (level and lo) or (level >= lo and level <= hi) then return i end
+      if not (level and lo) or (level >= lo and level <= hi) then
+        local w = weights[i] or 1
+        found[#found + 1], total = { i, w }, total + w
+      end
     end
   end
-  return nil
+  if #found <= 1 then return found[1] and found[1][1] or nil end
+  local roll = Bridge.random(1, total)
+  for _, c in ipairs(found) do
+    roll = roll - c[2]
+    if roll <= 0 then return c[1] end
+  end
+  return found[#found][1]
 end
 
 local function withSpecies(enc, species)
