@@ -429,6 +429,39 @@ do
   optionStore.sprite_style = nil
 end
 
+-- ------- Fly / Teleport: in its ball from the take-off to the landing, both art styles
+do
+  local traveling = false
+  local realTravel, realPixel = fakeEngine.playerTraveling, fakeEngine.playerPixel
+  fakeEngine.playerTraveling = function() return traveling end
+  fakeEngine.playerPixel = function() return 40, 48 end
+  local T = V.require("config").PMD_RECALL_TICKS
+  for _, style in ipairs({ "pmd", "pokemmo" }) do
+    optionStore.sprite_style = style
+    V.mod = (style == "pmd") and pmdMod or mod
+    npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+    local ff = FollowerAdapter.new(V.mod)
+    ff:tick()
+    eq(ff.renderer.recall or 1, 1, style .. ": out before Fly")
+    traveling = true
+    for _ = 1, T do ff:tick() end
+    eq(ff.renderer.recall, 0, style .. ": the bird takes off: it went into its ball")
+    check(ff.surfRecall, style .. ": its role pauses while flying")
+    -- the landing map: the engine makes a new follower npc on the player's cell
+    npc = { sprite = nil, moving = false, cellX = 9, cellY = 9, facing = "down" }
+    ff:tick()
+    eq(ff.renderer.recall, 0, style .. ": still in its ball while the bird swoops down")
+    traveling = false
+    ff:tick()
+    check(ff.renderer.recall > 0 and ff.renderer.recall < 1, style .. ": landed: it comes out (grows, not a pop)")
+    for _ = 1, T do ff:tick() end
+    eq(ff.renderer.recall, 1, style .. ": fully out after landing")
+  end
+  fakeEngine.playerTraveling, fakeEngine.playerPixel = realTravel, realPixel
+  optionStore.sprite_style = nil
+  V.mod = mod
+end
+
 -- ------- PMDCollab recall: no swim art, so while the player surfs the follower
 -- shrinks into them and grows back out on land
 do
@@ -997,6 +1030,18 @@ do
   eq(unlocks, 1, "the field is released")
   eq(cries[#cries], 998, "the new one cried as it came out")
   check(not fs:isBusy(), "the scene is over")
+
+  -- it evolves (the same party mon, same personality, another species): the new art at once
+  party[2].species = 999
+  fs:tick()
+  eq(fs.renderer.dex, 252, "an evolved companion shows its new species")
+  eq(fs.disp.species, 999, "...its displayed species follows")
+  check(not fs:isBusy(), "...with no ball scene")
+  eq(poses, 2, "...and no ball raised")
+  -- a fresh table for the same Pokemon (the engine rebuilt the party mon) after a battle too
+  party[2] = { species = 998, personality = 222, hp = 20 }
+  fs:tick()
+  eq(fs.renderer.dex, 255, "a rebuilt party mon of another species is shown as it is")
 
   -- recall: the companion shrinks in and stays in
   saved = { personality = 222, role = "recall" }

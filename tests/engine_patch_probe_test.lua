@@ -184,6 +184,32 @@ do
   check(type(EnginePatch.fieldBusy()) == "boolean", "EnginePatch.fieldBusy runs on the real engine")
 end
 
+-- Fly / Teleport put the partner in its ball: the engine's own anim kinds and flags
+do
+  local src = io.open("src/core/game3/field_effects.lua", "r")
+  local text = src and src:read("*a") or ""
+  if src then src:close() end
+  for _, kind in ipairs({ "fly_out", "fly_in", "teleport_out", "teleport_in" }) do
+    check(text:find('kind = "' .. kind .. '"', 1, true) ~= nil, "engine: field_effects anim kind " .. kind)
+  end
+  check(text:find("P.flyRide = true", 1, true) ~= nil, "engine: Player.flyRide while riding the bird")
+  local fsrc = io.open("src/core/game3/field.lua", "r")
+  local ftext = fsrc and fsrc:read("*a") or ""
+  if fsrc then fsrc:close() end
+  check(ftext:find("Field._flyLanding = true", 1, true) ~= nil, "engine: Field._flyLanding while landing")
+  local okFx, FieldEffects = pcall(require, "src.core.game3.field_effects")
+  check(okFx and type(FieldEffects._anims) == "table", "engine: FieldEffects._anims")
+  check(EnginePatch.playerTraveling() == false, "EnginePatch.playerTraveling: false at rest")
+  if okFx and type(FieldEffects._anims) == "table" then
+    local fake = { kind = "fly_in" }
+    table.insert(FieldEffects._anims, fake)
+    check(EnginePatch.playerTraveling() == true, "EnginePatch.playerTraveling: true during a fly_in anim")
+    for i = #FieldEffects._anims, 1, -1 do
+      if FieldEffects._anims[i] == fake then table.remove(FieldEffects._anims, i) end
+    end
+  end
+end
+
 -- Sweet Scent calls visible Pokemon over (the optional Field.finishSweetScent wrap,
 -- EnginePatch.sweetScentFail, the evasion -1 on the battle's stage table)
 do

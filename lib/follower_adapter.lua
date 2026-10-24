@@ -353,6 +353,9 @@ function FollowerAdapter:_tickRecall(npc, r)
   -- its role (Forage, Battle) pauses meanwhile, like while surfing
   local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
   if biking then recalled = true end
+  -- flying (from the bird leaving its ball to the landing) or teleporting: in its ball too,
+  -- coming out once the player has landed
+  if EnginePatch.playerTraveling and EnginePatch.playerTraveling() then recalled = true end
   -- at the nurse's counter it goes into its ball for the heal machine, and comes back out
   if EnginePatch.healingActive and EnginePatch.healingActive() then recalled = true end
   -- a cutscene (a script moving anyone: the player, an NPC, both -- or Gen 2's `follow`),
@@ -638,6 +641,8 @@ function FollowerAdapter:tick()
       self:_beginSwap(target)
       self:_tickSwap()
     end
+  elseif target.id ~= self.disp.id then
+    self.disp = target -- the same companion as another species (it evolved): shown at once, no ball
   elseif mon then
     self.disp.mon = mon -- the same companion: keep its live data
   end

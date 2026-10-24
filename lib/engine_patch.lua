@@ -2151,6 +2151,26 @@ function EnginePatch.playerBiking()
   return Player ~= nil and Player.biking == true
 end
 
+--- Is the player flying or teleporting away / in? (field_effects.lua: the Fly bird leaving
+--- its ball through the fly-off, the landing swoop, Teleport; `Player.flyRide`, the hidden
+--- player between them, field.lua `Field._flyLanding`.) The partner rides in its ball.
+local TRAVEL_ANIMS = { fly_out = true, fly_in = true, teleport_out = true, teleport_in = true }
+function EnginePatch.playerTraveling()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if Player and (Player.flyRide == true or Player.visible == false) then return true end
+  local Field = loadModule("src.core.game3.field")
+  if Field and Field._flyLanding == true then return true end
+  local FieldEffects = loadModule("src.core.game3.field_effects")
+  local anims = FieldEffects and FieldEffects._anims
+  if type(anims) == "table" then
+    for i = 1, #anims do
+      local a = anims[i]
+      if type(a) == "table" and TRAVEL_ANIMS[a.kind] then return true end
+    end
+  end
+  return false
+end
+
 --- The player's world pixel position (tile top-left, interpolated mid-step),
 --- or nil without a player.
 function EnginePatch.playerPixel()

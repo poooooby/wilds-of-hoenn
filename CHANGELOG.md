@@ -8,6 +8,16 @@
   longer swims out from the grass to battle one in a pond or the sea. While you Surf it
   still fights the Pokemon in the water around you.
 
+### Fixed
+
+- **Your partner evolves on screen too.** After an evolution (after a battle or in the
+  overworld) your partner kept walking around as the Pokemon it was before; it now shows
+  its new form right away.
+- **Into its ball for Fly.** Your partner goes into its Poke Ball as your bird takes off
+  (and for Teleport), stays in it through the landing, and comes back out once you have
+  landed -- it no longer stood around while you flew off, or was already waiting when you
+  touched down.
+
 ## 1.10.1 (2026-10-21)
 
 ### Changed
