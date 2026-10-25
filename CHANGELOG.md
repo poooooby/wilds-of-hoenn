@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.10.3 (2026-10-24)
+
 ### Added
 
 - **Regional forms in their own art.** Alolan, Galarian, Hisuian and Paldean forms of
@@ -9,6 +11,11 @@
   Zigzagoon, Hisuian Growlithe and Sneasel, Paldean Wooper and Tauros and the rest, 44 in
   all -- now look like themselves out in the wild and as your partner, in both Sprite Styles,
   instead of like the original species. Their shinies have their own colours too.
+
+### Changed
+
+- **Fresh PMDCollab art** (HGSS + PMDCollab build): Naclstack's new sprites and Clawitzer's
+  new portrait from PMDCollab.
 
 ## 1.10.2 (2026-10-24)
 
