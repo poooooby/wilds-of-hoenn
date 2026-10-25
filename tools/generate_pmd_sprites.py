@@ -488,6 +488,16 @@ def hgss_shiny_recolorer(dex: int, key: str):
     return shift_recolorer(Image.open(n_path).convert("RGBA"), Image.open(s_path).convert("RGBA"))
 
 
+def real_shiny(normal: Image.Image, shiny: Image.Image | None) -> Image.Image | None:
+    """`shiny`, or None when it is a byte-for-byte copy of `normal` (a reference pair with no
+    colour change to learn). Not applied to SpriteCollab's own sheets: there a copy is
+    deliberate -- Diglett / Dugtrio's Walk is the burrow mound, the same dirt when shiny;
+    Pecharunt is shiny-locked."""
+    if shiny is None or shiny.size != normal.size:
+        return shiny
+    return None if shiny.tobytes() == normal.tobytes() else shiny
+
+
 def walk_recolorer(walk_pair, entry: dict):
     """The species' own shiny Walk as a recolour reference, or None (no SpriteCollab shiny
     Walk, a Walk shiny made from HGSS, or one not lining up with the normal Walk)."""

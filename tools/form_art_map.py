@@ -99,6 +99,53 @@ FORM_ART = [
     (671, "white", '0004', "FLORGES_4.png"),  # FLORGES_WHITE
     (550, "white_striped", '0002', "BASCULIN_2.png"),  # BASCULIN_WHITE_STRIPED
     (902, "female", '0000/0000/0002', "BASCULEGION_female.png"),  # BASCULEGION_FEMALE
+    # Regional forms of earlier Pokemon (National Dex Gen 3 slots 1174+): SpriteCollab's
+    # Alola / Galar / Hisui / Paldea folders; the Gen 9 pack's numbered sheets, checked by eye
+    # (Meowth 1 Alola / 2 Galar, Tauros 1 Combat / 2 Blaze / 3 Aqua, Raichu 1 Alola).
+    (211, "hisui", '0001', "QWILFISH_1.png"),  # QWILFISH_HISUI
+    (19, "alola", '0001', "RATTATA_1.png"),  # RATTATA_ALOLA
+    (20, "alola", '0001', "RATICATE_1.png"),  # RATICATE_ALOLA
+    (26, "alola", '0001', "RAICHU_1.png"),  # RAICHU_ALOLA
+    (27, "alola", '0001', "SANDSHREW_1.png"),  # SANDSHREW_ALOLA
+    (28, "alola", '0001', "SANDSLASH_1.png"),  # SANDSLASH_ALOLA
+    (37, "alola", '0001', "VULPIX_1.png"),  # VULPIX_ALOLA
+    (38, "alola", '0001', "NINETALES_1.png"),  # NINETALES_ALOLA
+    (50, "alola", '0001', "DIGLETT_1.png"),  # DIGLETT_ALOLA
+    (51, "alola", '0001', "DUGTRIO_1.png"),  # DUGTRIO_ALOLA
+    (52, "alola", '0001', "MEOWTH_1.png"),  # MEOWTH_ALOLA
+    (53, "alola", '0001', "PERSIAN_1.png"),  # PERSIAN_ALOLA
+    (74, "alola", '0001', "GEODUDE_1.png"),  # GEODUDE_ALOLA
+    (75, "alola", '0001', "GRAVELER_1.png"),  # GRAVELER_ALOLA
+    (76, "alola", '0001', "GOLEM_1.png"),  # GOLEM_ALOLA
+    (88, "alola", '0001', "GRIMER_1.png"),  # GRIMER_ALOLA
+    (89, "alola", '0001', "MUK_1.png"),  # MUK_ALOLA
+    (103, "alola", '0001', "EXEGGUTOR_1.png"),  # EXEGGUTOR_ALOLA
+    (105, "alola", '0001', "MAROWAK_1.png"),  # MAROWAK_ALOLA
+    (52, "galar", '0002', "MEOWTH_2.png"),  # MEOWTH_GALAR
+    (77, "galar", '0001', "PONYTA_1.png"),  # PONYTA_GALAR
+    (78, "galar", '0001', "RAPIDASH_1.png"),  # RAPIDASH_GALAR
+    (79, "galar", '0001', "SLOWPOKE_1.png"),  # SLOWPOKE_GALAR
+    (80, "galar", '0001', "SLOWBRO_1.png"),  # SLOWBRO_GALAR
+    (199, "galar", '0001', "SLOWKING_1.png"),  # SLOWKING_GALAR
+    (83, "galar", '0001', "FARFETCHD_1.png"),  # FARFETCHD_GALAR
+    (110, "galar", '0001', "WEEZING_1.png"),  # WEEZING_GALAR
+    (122, "galar", '0001', "MRMIME_1.png"),  # MR_MIME_GALAR
+    (144, "galar", '0001', "ARTICUNO_1.png"),  # ARTICUNO_GALAR
+    (145, "galar", '0001', "ZAPDOS_1.png"),  # ZAPDOS_GALAR
+    (146, "galar", '0001', "MOLTRES_1.png"),  # MOLTRES_GALAR
+    (222, "galar", '0001', "CORSOLA_1.png"),  # CORSOLA_GALAR
+    (263, "galar", '0001', "ZIGZAGOON_1.png"),  # ZIGZAGOON_GALAR
+    (264, "galar", '0001', "LINOONE_1.png"),  # LINOONE_GALAR
+    (58, "hisui", '0001', "GROWLITHE_1.png"),  # GROWLITHE_HISUI
+    (59, "hisui", '0001', "ARCANINE_1.png"),  # ARCANINE_HISUI
+    (100, "hisui", '0001', "VOLTORB_1.png"),  # VOLTORB_HISUI
+    (101, "hisui", '0001', "ELECTRODE_1.png"),  # ELECTRODE_HISUI
+    (157, "hisui", '0001', "TYPHLOSION_1.png"),  # TYPHLOSION_HISUI
+    (215, "hisui", '0001', "SNEASEL_1.png"),  # SNEASEL_HISUI
+    (194, "paldea", '0002', "WOOPER_1.png"),  # WOOPER_PALDEA
+    (128, "paldea_combat_breed", '0001', "TAUROS_1.png"),  # TAUROS_PALDEA_COMBAT_BREED
+    (128, "paldea_blaze_breed", '0002', "TAUROS_2.png"),  # TAUROS_PALDEA_BLAZE_BREED
+    (128, "paldea_aqua_breed", '0003', "TAUROS_3.png"),  # TAUROS_PALDEA_AQUA_BREED
     # No source draws these apart from the base (SpriteCollab and the Gen 9 pack have one
     # sheet each), so they are listed to say so: they draw the base species' sprite.
     (854, "antique", None, None),  # SINISTEA_ANTIQUE

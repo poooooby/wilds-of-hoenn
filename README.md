@@ -113,7 +113,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   bounds in to dance up there. Over Fortree City, a great Tropius sometimes rises out of the treetops and wanders
   across them, the leaves rustling around it.
 - 🌾 **Small touches:** Pokémon sink into tall grass, your partner fades in as you step out of a
-  door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art.
+  door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art –
+  regional forms too, like Alolan Rattata, Galarian Meowth, Hisuian Growlithe and Paldean Tauros.
 - 📏 **True-to-life sizes** (with [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites)):
   every species is drawn at its own relative size, smoothly, at your screen's resolution.
 

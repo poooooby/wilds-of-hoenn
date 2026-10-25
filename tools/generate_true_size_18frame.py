@@ -503,6 +503,34 @@ def scale_sheet(sheet: Image.Image, scale: float) -> Image.Image:
     return out
 
 
+SPRITECOLLAB = ROOT.parent / "SpriteCollab" / "sprite"
+
+
+def spritecollab_shiny(dex: int, form: str, pmd_folder, normal: Image.Image) -> Image.Image | None:
+    """`normal` recoloured with the form's SpriteCollab normal -> shiny colour shifts (its
+    Walk, else its Idle: the two sheets are pixel-aligned, and the shift maps colours, so it
+    applies to HGSS art too -- generate_pmd_sprites.shift_recolorer). None when SpriteCollab
+    has no real shiny for the form."""
+    if not pmd_folder:
+        return None
+    import generate_pmd_sprites as pmd  # the recolourer; lazily, only a few forms need it
+    from form_art_map import SHINY_DIR_OVERRIDE
+    base = SPRITECOLLAB / f"{dex:04d}"
+    folder = base / pmd_folder
+    shiny_dir = base / (SHINY_DIR_OVERRIDE.get((dex, form)) or f"{pmd_folder}/0001")
+    for anim in ("Walk", "Idle"):
+        n_path, s_path = folder / f"{anim}-Anim.png", shiny_dir / f"{anim}-Anim.png"
+        if not (n_path.is_file() and s_path.is_file()):
+            continue
+        n_img, s_img = Image.open(n_path).convert("RGBA"), Image.open(s_path).convert("RGBA")
+        if pmd.real_shiny(n_img, s_img) is None:
+            continue
+        recolor = pmd.shift_recolorer(n_img, s_img, same_outline=True)
+        if recolor is not None:
+            return recolor(normal)
+    return None
+
+
 def bake_emerald(out_root: Path, dex: int, form: str, folder: Path, force: bool, stats: dict) -> None:
     """Writes hgss/ and swimming/ <dex3>-<form>-<normal|shiny>.png for one form,
     enlarged to its base species' size (match_scale, from the normal sheet)."""
@@ -629,9 +657,10 @@ def main() -> int:
     # grid is simply absent and the game draws its base species.
     if "hgss" in kinds:
         out_dir = out_root / "hgss"
-        for dex, form, _pmd, hgss_variant in FORM_ART:
+        for dex, form, pmd_folder, hgss_variant in FORM_ART:
             if hgss_variant is None or (species_filter is not None and dex not in species_filter):
                 continue
+            normal_image = None
             for variant in ("normal", "shiny"):
                 letter = "n" if variant == "normal" else "s"
                 if isinstance(hgss_variant, str):  # a file of the Gen 9 follower pack
@@ -645,6 +674,17 @@ def main() -> int:
                 result = bake_species("hgss", dex, variant, None, args.report, out_root, src=src)
                 if result is None or args.report:
                     continue
+                if variant == "normal":
+                    normal_image = result["image"]
+                elif normal_image is not None and result["image"].tobytes() == normal_image.tobytes():
+                    # the source's shiny sheet is the normal one (Gen 9 pack: Hisuian
+                    # Typhlosion): recoloured with the form's SpriteCollab shiny colours
+                    recolored = spritecollab_shiny(dex, form, pmd_folder, normal_image)
+                    if recolored is None:
+                        print(f"WARN {dex:03d}-{form}: shiny sheet is the normal one, no colours to recolour it")
+                    else:
+                        result["image"] = recolored
+                        print(f"{dex:03d}-{form}: shiny recoloured from SpriteCollab")
                 out_dir.mkdir(parents=True, exist_ok=True)
                 out_path = out_dir / f"{dex:03d}-{form}-{variant}.png"
                 if out_path.exists() and not args.force:
