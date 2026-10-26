@@ -122,6 +122,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 
 ### Mod options (Mod Manager)
 
+All of these can also be changed while you play: **OPTIONS → WILDS OF HOENN** in the game's own
+menu opens the same list.
+
 | Option | Choices | Default | What it does |
 |---|---|---|---|
 | **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon in areas with wild encounters. |

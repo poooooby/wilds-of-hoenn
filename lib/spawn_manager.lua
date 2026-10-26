@@ -14,6 +14,7 @@ local SpriteSource = V.require("sprite_source")
 local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
 local ModernSpawns = V.require("modern_spawns_bridge")
+local SpawnFilters = V.require("spawn_filters")
 local SweetScentHearts = V.require("sweet_scent_hearts")
 local SpawnFx = V.require("spawn_fx")
 local SkyFlyers = V.require("sky_flyers")
@@ -247,6 +248,8 @@ function SpawnManager:sweetScent()
       if enc and not (enc.roamer and self:_roamerOut()) then
         if enc.personality == nil then enc.personality = EnginePatch.randomPersonality() end
         enc = ModernSpawns.apply(self.mapId, c.terrain, enc)
+        -- other mods' species swaps (lib/spawn_filters.lua): see what you fight
+        enc = SpawnFilters.apply(self.mapId, c.terrain, enc, true)
         local id = self.nextId
         if self:_place(c.terrain, c, enc) then
           local e = self.entities[id]
@@ -301,6 +304,8 @@ function SpawnManager:_spawnOne(terrain, cell)
   if enc.personality == nil then enc.personality = EnginePatch.randomPersonality() end
   -- Modern Spawns' species for the slot the engine rolled (no-op without it)
   enc = ModernSpawns.apply(self.mapId, terrain, enc)
+  -- other mods' species swaps (lib/spawn_filters.lua): see what you fight
+  enc = SpawnFilters.apply(self.mapId, terrain, enc, false)
   if not EnginePatch.repelAllows(enc.level) then return false end
   return self:_place(terrain, cell, enc)
 end

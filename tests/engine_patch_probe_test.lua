@@ -184,6 +184,24 @@ do
   check(type(EnginePatch.fieldBusy()) == "boolean", "EnginePatch.fieldBusy runs on the real engine")
 end
 
+-- The WILDS OF HOENN entry on the OPTIONS page: Rows.group (wrapped, optional) and the
+-- Mod Manager's own option setter (EnginePatch.setModOption)
+do
+  local okR, Rows = pcall(require, "src.ui.game3.option_rows")
+  check(okR and type(Rows.group) == "function", "engine: option_rows Rows.group (the OPTIONS page)")
+  local okM, ManagerState = pcall(require, "src.mods.ManagerState")
+  check(okM and type(ManagerState.setOption) == "function", "engine: ManagerState.setOption")
+  -- the setter on a stand-in game: stored in both tables, announced, written
+  local emitted, wrote = nil, false
+  local game = { save = { options = {} }, mods = { modOptions = {}, events = { emit = function(_, name, ev) emitted = { name, ev } end } },
+    writeOptions = function() wrote = true end }
+  check(EnginePatch.setModOption(game, "wilds_of_hoenn", "spawn_amount", "high") == true, "setModOption runs the real setter")
+  check(game.save.options.modOptions.wilds_of_hoenn.spawn_amount == "high", "...stored in the save's options")
+  check(game.mods.modOptions.wilds_of_hoenn.spawn_amount == "high", "...and the loader's")
+  check(wrote, "...the options file written")
+  check(emitted and emitted[1] == "mod.options_changed" and emitted[2].key == "spawn_amount", "...and announced")
+end
+
 -- Fly / Teleport put the partner in its ball: the engine's own anim kinds and flags
 do
   local src = io.open("src/core/game3/field_effects.lua", "r")

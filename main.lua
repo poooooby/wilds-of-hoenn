@@ -56,6 +56,8 @@ return function(mod)
   local HdField = V.require("hd_field")
   local EnginePatch = V.require("engine_patch")
   local SpriteAtlas = V.require("sprite_atlas")
+  local SpawnFilters = V.require("spawn_filters")
+  local OptionsPage = V.require("options_page")
   local SpawnManager = V.require("spawn_manager")
   local BattleTrigger = V.require("battle_trigger")
   local FollowerAdapter = V.require("follower_adapter")
@@ -91,6 +93,10 @@ return function(mod)
   mod.exports.spriteAtlas = SpriteAtlas
   mod.exports.enginePatch = EnginePatch
   mod.exports.hdField = HdField
+  -- species swaps from other mods (version exclusives in both games ...), applied when a
+  -- visible Pokemon is rolled so the one you see is the one you fight (lib/spawn_filters.lua)
+  mod.exports.addSpawnFilter = SpawnFilters.add
+  mod.exports.removeSpawnFilter = SpawnFilters.remove
 
   local layout = EnginePatch.layoutName()
   if not layout then
@@ -298,6 +304,10 @@ return function(mod)
     end,
     fromMenu = function(label, ctx)
       return partyRoles:fromMenu(label, ctx)
+    end,
+    -- the WILDS OF HOENN entry on the game's top OPTIONS page (lib/options_page.lua)
+    optionsRow = function(openPage)
+      return OptionsPage.entry(mod, openPage)
     end,
     -- Sweet Scent used in the field: with the visible spawns on, it calls wild Pokemon
     -- over (SpawnManager:sweetScent) instead of the engine's instant battle; nothing

@@ -442,6 +442,24 @@ function EnginePatch.install(hooks, log)
     end
   end
 
+  -- option_rows.lua Rows.group(rows, openPage): builds the game's top OPTIONS page (all
+  -- five Gen 3 games). The hook returns ONE extra row (the WILDS OF HOENN entry, opening a
+  -- page of this mod's options); it gets `openPage`, which the engine's own
+  -- `ui.options.rows` hook never hands a mod -- so a single expandable entry needs this
+  -- wrap. Not a probed target: without it the options stay in the Mods menu only.
+  local OptionRows = loadModule("src.ui.game3.option_rows")
+  originals.optionsGroup = OptionRows and OptionRows.group
+  if type(originals.optionsGroup) == "function" then
+    OptionRows.group = function(rows, openPage, ...)
+      local view = originals.optionsGroup(rows, openPage, ...)
+      if hooks.optionsRow and type(view) == "table" and type(openPage) == "function" then
+        local row = safeCall(log, "optionsRow", hooks.optionsRow, openPage)
+        if type(row) == "table" then view[#view + 1] = row end
+      end
+      return view
+    end
+  end
+
   local FieldMoves = loadModule(EnginePatch.TARGETS.fieldMovesFromMenu.mod)
   originals.fromMenu = FieldMoves.fromMenu
   FieldMoves.fromMenu = function(label, ctx, ...)
@@ -492,6 +510,11 @@ function EnginePatch.uninstall()
   end
   if Field and originals.finishSweetScent then
     Field.finishSweetScent = originals.finishSweetScent
+  end
+
+  local OptionRows = loadModule("src.ui.game3.option_rows")
+  if OptionRows and originals.optionsGroup then
+    OptionRows.group = originals.optionsGroup
   end
 
   local PartyMenu = loadModule(EnginePatch.TARGETS.partyMenuUpdate.mod)
@@ -2169,6 +2192,28 @@ function EnginePatch.playerTraveling()
     end
   end
   return false
+end
+
+--- Sets one of a mod's options exactly as the Mod Manager does: its own
+--- ManagerState:setOption (src/mods/ManagerState.lua -- save.options.modOptions, the
+--- loader's table, the options file, `mod.options_changed`; refused in Safe Mode), run on
+--- a stand-in state carrying only `game`. True when it ran. Mods can read options
+--- (mod.options:get) but have no setter of their own.
+function EnginePatch.setModOption(game, modId, key, value)
+  local ManagerState = loadModule("src.mods.ManagerState")
+  if not (type(game) == "table" and ManagerState and type(ManagerState.setOption) == "function") then
+    return false
+  end
+  local state = setmetatable({ game = game, notify = function() end }, { __index = ManagerState })
+  local ok, result = pcall(ManagerState.setOption, state, modId, key, value)
+  return ok and result ~= false
+end
+
+--- The running game (Runtime._game), or nil.
+function EnginePatch.currentGame()
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local game = Runtime and (Runtime._game or (type(Runtime.getGame) == "function" and Runtime.getGame()))
+  return type(game) == "table" and game or nil
 end
 
 --- The player's world pixel position (tile top-left, interpolated mid-step),

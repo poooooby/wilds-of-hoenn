@@ -75,6 +75,28 @@ python3 tools/validate_sprite_atlases.py
 Keep [README.md](README.md) describing the mod as it is now (players read it); what
 changed goes in [CHANGELOG.md](CHANGELOG.md).
 
+## For other mods: spawn filters
+
+A mod that changes which species a wild encounter turns out to be (version exclusives in both
+games, a "catch them all in one game" mod) should hand Wilds of Hoenn a spawn filter, so the
+visible Pokemon is the one you fight:
+
+```lua
+local woh = mod.find("wilds_of_hoenn")
+if woh and woh.exports.addSpawnFilter then
+  woh.exports.addSpawnFilter("my_mod", function(enc, info)
+    -- enc: { species, level, personality, ... }; info: { mapId, terrain, lured }
+    return enc -- species changed as you like, or nil to leave it
+  end)
+end
+```
+
+Battles started by touching a visible Pokemon pass `wildsOfHoenn = true` and
+`speciesLocked = true` to `BattleBridge.startWild`: their species is already decided, so a
+mod that swaps species at battle time should leave them alone. Roamers never go through
+filters; a failing filter is skipped and logged once. `removeSpawnFilter(id)` takes one out.
+Contract: `lib/spawn_filters.lua` (contributed by the Project Highlander author).
+
 ## How it works
 
 Gen1Recomp's Gen 3 engine (`src/core/game3/`) has no mod seam yet for a visible overworld

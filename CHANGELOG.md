@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- **Wilds of Hoenn in the game's Options menu.** OPTIONS now has a WILDS OF HOENN entry that
+  opens every Wilds of Hoenn option, so you can change them while you play, in all five games.
+  (Idea and first version: the Project Highlander author.)
+- **What you see is what you fight, with species-swapping mods.** Mods that put each game's
+  version exclusives into the other game (a Vulpix in LeafGreen turning into a FireRed
+  Growlithe) can now tell Wilds of Hoenn, so the Pokemon walking in the grass is the one you
+  battle. (Contributed by the Project Highlander author.)
+
 ## 1.10.3 (2026-10-24)
 
 ### Added

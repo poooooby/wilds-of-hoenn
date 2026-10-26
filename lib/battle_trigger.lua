@@ -226,6 +226,9 @@ function BattleTrigger:onPlayerBumped(entity)
 
   local ok, err = EnginePatch.startWild(self.spawnManager.game, enc, {
     done = function(result) self:_onBattleEnded(entity.id, result) end,
+    -- the species is the one on screen (spawn filters already ran): mods that swap
+    -- species at battle time should leave this battle alone (lib/spawn_filters.lua)
+    wildsOfHoenn = true, speciesLocked = true,
   })
   if not ok then
     -- Couldn't start (a battle is already running, the field is mid-warp,
