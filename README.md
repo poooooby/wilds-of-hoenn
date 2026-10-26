@@ -133,7 +133,7 @@ menu opens the same list.
 | **Water Life** | ON / OFF | ON | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, Finizen porpoising out at sea (sometimes a whole pod at play), and fish swimming by under the sea when you dive, just for the scenery. |
 | **Local Scenes** | ON / OFF | ON | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
 | **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
-| **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. (PMDCollab is in the HGSS + PMDCollab build only.) |
+| **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. |
 | **Follower** | ON / OFF | ON | Your partner walks behind you. Off: it stays in its Poké Ball, and its Battle and Forage jobs and Pet / Play / Talk wait until it is out again. Changing your party order still picks your partner. |
 | **Battler: Pad** | R / L / OFF | OFF | A controller shoulder button that switches your partner between Battle and Follow while you walk around. In FireRed / LeafGreen that button no longer opens Help in the overworld (the other one still does). |
 | **Battler: Key** | E (R) / Q (L) / R / OFF | OFF | The same on the keyboard. E and Q are the game's R and L buttons; R is a free key. |
@@ -142,7 +142,7 @@ menu opens the same list.
 | **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
 | **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
 | **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs Gen 3 HD Sprites. |
-| **Portraits** | ON / OFF | ON | Your partner's portrait above its messages when you Pet, Play or Talk with it. (HGSS + PMDCollab build only.) |
+| **Portraits** | ON / OFF | ON | Your partner's portrait above its messages when you Pet, Play or Talk with it. |
 
 Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option.
 
@@ -168,11 +168,9 @@ left.
 
 ## 💾 Installation
 
-1. Download a release from the [Releases](https://github.com/poooooby/wilds-of-hoenn/releases)
-   page. Pick **one**:
-   - **HGSS + PMDCollab**: the full experience, with animated PMDCollab sprites and portraits
-     (about 30 MB).
-   - **HGSS Only**: a much smaller download for lower-power devices (Anbernic, older Android).
+1. Download the latest release from the [Releases](https://github.com/poooooby/wilds-of-hoenn/releases)
+   page (about 30 MB): both art styles, HGSS / PokeMMO and animated PMDCollab sprites with
+   portraits, in one download.
 2. Import it with the Gen1Recomp Mod Manager, or drop it in your mods folder.
 3. Enable **Wilds of Hoenn**.
 

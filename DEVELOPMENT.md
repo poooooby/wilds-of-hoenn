@@ -61,7 +61,8 @@ python3 tools/validate_release_version.py   # manifest / main.lua version agreem
 # the release build refuses to run while it is stale.
 python3 tools/check_modkitignore.py --write
 
-# Build both release ZIPs: -hgss (HGSS / PokeMMO art only) and -hgss-pmd (+ PMDCollab).
+# Build the release ZIP. Releases ship only -hgss-pmd (HGSS / PokeMMO + PMDCollab): --variant pmd.
+# With no --variant both are built (-hgss = HGSS / PokeMMO art only, no longer released).
 # Sprites are packed into atlas shards first (--no-atlas for per-file sheets;
 # --variant hgss|pmd for one build; --no-pmd / --rebake-pmd for the PMD bake).
 # Shards hold colour NUMBERS (greyscale): a normal + shiny pair is stored once, its
