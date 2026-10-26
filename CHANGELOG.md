@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.11.0 (2026-10-25)
+
 ### Added
 
 - **Five languages.** A new **Language** option puts Wilds of Hoenn's own text in English,
