@@ -16,11 +16,26 @@
 -- completely alone.
 local V = ...
 local EnginePatch = V.require("engine_patch")
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+if type(V) == "table" and V.require then
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trc(context, english, ...)
+  if I18n then return I18n.tc(context, english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
 
 local PartyRoles = {}
 PartyRoles.__index = PartyRoles
 
-local ROLE_OF = { FOLLOW = "follow", FORAGE = "forage", FIGHT = "battle" }
 local LINES = {
   recall = "%s returned to you.",
   follow = "%s will follow you.",
@@ -37,9 +52,28 @@ PartyRoles.LINES = LINES
 local RIGHT = "\226\150\182"
 local LEFT = "\226\151\128"
 local ARROW_X = 46 -- px from the label's left edge (the box is 80px wide)
-local ROLE = "ROLE" .. string.char(0xFC, 0x13, ARROW_X) .. RIGHT
-local BACK = LEFT .. " BACK"
-PartyRoles.ROLE, PartyRoles.BACK = ROLE, BACK
+-- The rows' labels in the Language option's language (the "party" context: the action
+-- box is 80 px wide and ROLE's arrow sits at ARROW_X). The engine knows a row only by its
+-- label, so every check here goes through the same set, rebuilt when the language changes.
+local labelSet
+function PartyRoles.labels()
+  local lang = I18n and I18n.language() or "en"
+  if labelSet and labelSet.lang == lang then return labelSet end
+  local set = {
+    lang = lang,
+    ROLE = trc("party", "ROLE") .. string.char(0xFC, 0x13, ARROW_X) .. RIGHT,
+    BACK = LEFT .. " " .. trc("party", "BACK"),
+    follow = trc("party", "FOLLOW"), forage = trc("party", "FORAGE"), battle = trc("party", "FIGHT"),
+  }
+  set.roleOf = { [set.follow] = "follow", [set.forage] = "forage", [set.battle] = "battle" }
+  set.own = { [set.ROLE] = true, [set.BACK] = true, [set.follow] = true, [set.forage] = true, [set.battle] = true }
+  set.rows = { set.ROLE, set.follow, set.forage, set.battle, set.BACK }
+  labelSet = set
+  return set
+end
+-- the English ones (tests, and the labels when no translation applies)
+PartyRoles.ROLE = "ROLE" .. string.char(0xFC, 0x13, ARROW_X) .. RIGHT
+PartyRoles.BACK = LEFT .. " BACK"
 
 function PartyRoles.new(companion)
   return setmetatable({ companion = companion, primary = nil, sub = nil }, PartyRoles)
@@ -55,7 +89,7 @@ end
 -- the engine's own text lookup would assert on our labels: build a text for every
 -- row (ours show their own, the engine's rows keep the engine's text)
 local function setTexts(menu, list)
-  local own = { [ROLE] = true, [BACK] = true, FOLLOW = true, FORAGE = true, FIGHT = true }
+  local own = PartyRoles.labels().own
   local texts = {}
   for i, act in ipairs(list) do
     if own[act] then
@@ -83,12 +117,13 @@ function PartyRoles:onMenuUpdate(menu)
   local mon = menu._party and menu._party[menu.cursor]
   if type(mon) ~= "table" or mon.isEgg or mon.egg then return end
 
+  local L = PartyRoles.labels()
   local at = indexOf(list, "SWITCH") or indexOf(list, "ITEM") or indexOf(list, "MAIL") or indexOf(list, "CANCEL")
-  table.insert(list, at, ROLE)
+  table.insert(list, at, L.ROLE)
   self.primary, self.sub = list, nil
 
   menu._fieldMoveNames = menu._fieldMoveNames or {}
-  for _, label in ipairs({ ROLE, "FOLLOW", "FORAGE", "FIGHT", BACK }) do menu._fieldMoveNames[label] = true end
+  for _, label in ipairs(L.rows) do menu._fieldMoveNames[label] = true end
 
   -- Ruby / Sapphire / Emerald draw each row through `actionText(action, fields)`
   -- every frame, which asserts that an action is a native one or listed in
@@ -97,7 +132,7 @@ function PartyRoles:onMenuUpdate(menu)
   local fields = menu._fieldMoveData
   if type(fields) == "table" and type(fields.index) == "table" then
     local index = setmetatable({}, { __index = fields.index })
-    for _, label in ipairs({ ROLE, "FOLLOW", "FORAGE", "FIGHT", BACK }) do index[label] = true end
+    for _, label in ipairs(L.rows) do index[label] = true end
     menu._fieldMoveData = setmetatable({ index = index }, { __index = fields })
   end
 
@@ -106,7 +141,8 @@ end
 
 -- Swap the action list for the role submenu / back for the primary list.
 function PartyRoles:openSub(menu)
-  self.sub = { "FOLLOW", "FORAGE", "FIGHT", BACK }
+  local L = PartyRoles.labels()
+  self.sub = { L.follow, L.forage, L.battle, L.BACK }
   menu.ACTIONS = self.sub
   menu.actionCursor = 1
   setTexts(menu, self.sub)
@@ -114,7 +150,7 @@ end
 
 function PartyRoles:closeSub(menu)
   menu.ACTIONS = self.primary
-  menu.actionCursor = indexOf(self.primary, ROLE) or 1
+  menu.actionCursor = indexOf(self.primary, PartyRoles.labels().ROLE) or 1
   setTexts(menu, self.primary)
   self.sub = nil
 end
@@ -128,16 +164,17 @@ function PartyRoles:onInput(menu, input)
   local list = menu.ACTIONS
   if list ~= self.primary and list ~= self.sub then return false end
   local act = list[menu.actionCursor]
+  local L = PartyRoles.labels()
   local a, b = input:wasPressed("a"), input:wasPressed("b")
   if list == self.primary then
-    if a and act == ROLE then
+    if a and act == L.ROLE then
       self:openSub(menu)
       EnginePatch.playSelect()
       return true
     end
     return false
   end
-  if b or (a and act == BACK) then
+  if b or (a and act == L.BACK) then
     self:closeSub(menu)
     EnginePatch.playSelect()
     return true
@@ -147,13 +184,13 @@ end
 
 --- FieldMoves.fromMenu's first look: a result table for our rows, else nil.
 function PartyRoles:fromMenu(label, ctx)
-  local role = ROLE_OF[label]
+  local role = PartyRoles.labels().roleOf[label]
   if not role then return nil end
   local mon = ctx and ctx.mon
   if not mon or not self.companion:set(mon, role) then
-    return { ok = false, text = "Nothing happened." }
+    return { ok = false, text = tr("Nothing happened.") }
   end
-  return { ok = false, text = string.format(LINES[role], EnginePatch.displayName(mon)) }
+  return { ok = false, text = tr(LINES[role], EnginePatch.displayName(mon)) }
 end
 
 return PartyRoles

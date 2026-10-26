@@ -4,6 +4,7 @@ local V = ...
 local Config = {}
 
 Config.DEFAULTS = {
+  language = "en",
   enabled = true,
   sprite_style = "pmd",
   classic_enc = true,
@@ -499,7 +500,35 @@ function Config.defineOptions(mod)
   -- would silently draw HGSS anyway.
   -- (nor portraits: they are PMDCollab art too)
   if not Config.hasPmdArt(mod) then Config.withoutPmdStyle(schema) Config.withoutRow(schema, "portraits") end
+  Config.translateSchema(schema)
   mod.options:define(schema)
+end
+
+--- An option schema (in place) in the current language (lib/i18n.lua): labels under the
+--- "option" context, choice labels under "choice", descriptions by their English. The
+--- Language row's choices are each language's own name and stay as they are. Sprite
+--- Style's description is two parts (the PMDCollab sentence is cut in an HGSS-only
+--- build), each translated on its own.
+function Config.translateSchema(schema)
+  local I18n = V.require("i18n")
+  for _, row in ipairs(schema) do
+    if type(row.label) == "string" then row.label = I18n.tc("option", row.label) end
+    if type(row.choices) == "table" and row.key ~= "language" then
+      for _, choice in ipairs(row.choices) do
+        if type(choice[1]) == "string" then choice[1] = I18n.tc("choice", choice[1]) end
+      end
+    end
+    local d = row.description
+    if type(d) == "string" then
+      local head, tail = d:match("^(.-)%s+(PMDCollab uses.*)$")
+      if head then
+        row.description = I18n.t(head) .. " " .. I18n.t(tail)
+      else
+        row.description = I18n.t(d)
+      end
+    end
+  end
+  return schema
 end
 
 -- Is PMDCollab art installed? (assets/pmd/index.json -- shipped loose even in an
@@ -548,6 +577,14 @@ end
 
 function Config.get(mod, key)
   return optGet(mod, key)
+end
+
+--- The Language option ("en" / "ja" / "pt" / "es" / "de").
+function Config.language(mod)
+  local I18n = V.require("i18n")
+  local v = optGet(mod, "language")
+  for _, code in ipairs(I18n.LANGUAGES) do if code == v then return v end end
+  return "en"
 end
 
 function Config.enabled(mod)

@@ -40,6 +40,8 @@ tests/grass_cover_unit_test.lua
 tests/hd_field_unit_test.lua
 tests/health_bar_unit_test.lua
 tests/hit_effect_unit_test.lua
+tests/i18n_coverage_unit_test.lua
+tests/i18n_keys.lua
 tests/interaction_limiter_unit_test.lua
 tests/level_ready_unit_test.lua
 tests/local_scenes_unit_test.lua

@@ -10,6 +10,22 @@
 -- The entry itself is added by EnginePatch's optional Rows.group wrap (hooks.optionsRow).
 local V = ...
 local EnginePatch = V.require("engine_patch")
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+if type(V) == "table" and V.require then
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trc(context, english, ...)
+  if I18n then return I18n.tc(context, english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
 
 local OptionsPage = {}
 
@@ -43,11 +59,11 @@ end
 --- One page row for a schema row (toggle / choice), or nil for a kind this page cannot
 --- show (Mods menu only).
 function OptionsPage.rowFor(mod, row, set)
-  local label = tostring(row.label or row.key):upper()
+  local label = I18n and I18n.upper(row.label or row.key) or tostring(row.label or row.key):upper()
   if row.type == "toggle" then
     return {
       id = "woh_" .. row.key, label = label,
-      value = function() return current(mod, row) == true and "ON" or "OFF" end,
+      value = function() return trc("toggle", current(mod, row) == true and "ON" or "OFF") end,
       step = function(c)
         set(gameOf(c), row.key, current(mod, row) ~= true)
         return true

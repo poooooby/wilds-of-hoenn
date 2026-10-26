@@ -4,6 +4,11 @@
 
 ### Added
 
+- **Five languages.** A new **Language** option puts Wilds of Hoenn's own text in English,
+  Japanese, Portuguese, Spanish or German: the options, your partner's words and menus, the
+  party menu's role rows, the trainer call-outs and the labels over your partner. Japanese is
+  written in kana like the original Japanese games; Portuguese shows ã / õ as a / o (the Gen 3
+  font has no such letters). English stays the default.
 - **Wilds of Hoenn in the game's Options menu.** OPTIONS now has a WILDS OF HOENN entry that
   opens every Wilds of Hoenn option, so you can change them while you play, in all five games.
   (Idea and first version: the Project Highlander author.)

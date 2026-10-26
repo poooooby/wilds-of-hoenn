@@ -118,6 +118,13 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 - 📏 **True-to-life sizes** (with [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites)):
   every species is drawn at its own relative size, smoothly, at your screen's resolution.
 
+## 🌐 Languages
+
+Wilds of Hoenn speaks **English, Japanese, Portuguese, Spanish and German**: pick one with the
+**Language** option and its menus, your partner's words, the call-outs and the options themselves
+switch at once. Japanese is written in kana, as in the original Japanese games (the game's font has
+no kanji), and Portuguese shows ã / õ as a / o, since the Gen 3 font has no such letters.
+
 ## ⚙️ Options
 
 ### Mod options (Mod Manager)
@@ -127,6 +134,7 @@ menu opens the same list.
 
 | Option | Choices | Default | What it does |
 |---|---|---|---|
+| **Language** | ENGLISH / にほんご / PORTUGUÊS / ESPAÑOL / DEUTSCH | ENGLISH | The language of Wilds of Hoenn's own text: these options, your partner's words and menus, the call-outs and the labels over it. The game's own text stays as it is. Japanese is written in kana, like the original Japanese games. |
 | **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon in areas with wild encounters. |
 | **Spawn Amount** | LOW / NORMAL / HIGH | NORMAL | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
 | **Flying Mons** | FULL / AMBIENT / OFF | FULL | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. Full adds big birds flying high overhead, softly out of focus; Ambient leaves those out. |

@@ -12,6 +12,28 @@
 -- act as A (Button Mode L=A). Any other time -- a menu (the bag pages with L / R), a battle,
 -- another key -- it goes straight through untouched. Holding the key flips once: it must
 -- be let go before it flips again.
+local V = ...
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+if type(V) == "table" and V.require then
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trc(context, english, ...)
+  if I18n then return I18n.tc(context, english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trList(key, list)
+  if I18n then return I18n.list(key, list) end
+  return list
+end
+
 local RoleHotkey = {}
 RoleHotkey.__index = RoleHotkey
 
@@ -49,10 +71,12 @@ RoleHotkey.RECALL = {
 --- The `i`th line (1-based, wrapping) of the list for `role` ("battle" -> SEND, anything
 --- else -> RECALL) with `name` filled in and its break ("|") made a line break. Pure.
 function RoleHotkey.lineFor(role, i, name)
-  local list = role == "battle" and RoleHotkey.SEND or RoleHotkey.RECALL
+  -- the Language option's own call-outs (a language's lists need not match these line
+  -- for line), each with one "|" break and %s for the name
+  local list = role == "battle" and trList("send", RoleHotkey.SEND) or trList("recall", RoleHotkey.RECALL)
   local line = list[((i - 1) % #list) + 1]
   line = line:gsub("|", "\n")
-  return (line:gsub("%%s", function() return tostring(name or "POKeMON") end))
+  return (line:gsub("%%s", function() return tostring(name or tr("POKeMON")) end))
 end
 
 --- The role a press switches to from `role`. Pure.

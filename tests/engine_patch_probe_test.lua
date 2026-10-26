@@ -202,6 +202,33 @@ do
   check(emitted and emitted[1] == "mod.options_changed" and emitted[2].key == "spawn_amount", "...and announced")
 end
 
+-- Translations (lib/lang/*.lua): every character is one the game's own font can draw
+-- (FrlgFont.glyphId: 0 = no glyph, except the space itself). ã / õ are drawn as a / o.
+do
+  local okF, FrlgFont = pcall(require, "src.ui.game3.frlg_font")
+  check(okF and type(FrlgFont.glyphId) == "function", "engine: FrlgFont.glyphId")
+  local base = io.open("lib/i18n.lua", "rb") and "lib/" or "mods/wilds_of_hoenn/lib/"
+  if okF then
+    local skip = { [" "] = true, ["\n"] = true, ["ã"] = true, ["õ"] = true, ["Ã"] = true, ["Õ"] = true }
+    for _, code in ipairs({ "ja", "pt", "es", "de" }) do
+      local t = assert(loadfile(base .. "lang/" .. code .. ".lua"))()
+      local bad = {}
+      local function scan(s)
+        s = s:gsub("{name}", ""):gsub("|", "") -- placeholders, never drawn
+        for ch in s:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+          if not skip[ch] and FrlgFont.glyphId(ch) == 0 then bad[ch] = true end
+        end
+      end
+      for _, v in pairs(t) do
+        if type(v) == "string" then scan(v) else for _, line in ipairs(v) do scan(line) end end
+      end
+      local list = {}
+      for ch in pairs(bad) do list[#list + 1] = ch end
+      check(#list == 0, code .. ": every character is in the game's font" .. (#list > 0 and (" (missing: " .. table.concat(list, " ") .. ")") or ""))
+    end
+  end
+end
+
 -- Fly / Teleport put the partner in its ball: the engine's own anim kinds and flags
 do
   local src = io.open("src/core/game3/field_effects.lua", "r")

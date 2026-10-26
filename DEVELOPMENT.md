@@ -76,6 +76,26 @@ python3 tools/validate_sprite_atlases.py
 Keep [README.md](README.md) describing the mod as it is now (players read it); what
 changed goes in [CHANGELOG.md](CHANGELOG.md).
 
+## Translations
+
+The mod's own text is translated by `lib/i18n.lua`, keyed by the ENGLISH source (like the
+engine's `src/core/Strings.lua`): call sites keep readable English (`tr("Found %s!", name)`,
+`trc("menu", "Back")` for a context), and `lib/lang/<code>.lua` maps each English text to its
+translation (`ja`, `pt`, `es`, `de`). Option labels, choices and descriptions are translated
+when the option list is defined (`Config.translateSchema`), again whenever the Language option
+changes. Call-outs are per-language lists (`"list:send"`, `"list:recall"`).
+
+- `lua tests/i18n_keys.lua` prints every key the code uses (collected from options.lua, the
+  dialogue tables, the menus and every `tr` / `trc` call).
+- `lua tests/i18n_coverage_unit_test.lua` checks each language has every key and no stale ones,
+  fills `%s` / `%d` / `{name}` like the English, keeps dialogue to two lines, fits option labels
+  (14 letters; kana count about 1.75) and the party menu box, and uses only characters the Gen 3
+  font has; `engine_patch_probe_test.lua` re-checks the characters against the real font.
+- Changing an English text orphans its translations: the coverage test then names the missing
+  key in each language.
+- The font has kana but no kanji (Japanese is written in kana, phrases split by spaces, full-width
+  `！？。` and `‥`), the Spanish / German letters, and no `ã` / `õ` (drawn as a / o, `I18n.FONT_FALLBACK`).
+
 ## For other mods: spawn filters
 
 A mod that changes which species a wild encounter turns out to be (version exclusives in both

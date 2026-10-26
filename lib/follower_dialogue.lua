@@ -3,6 +3,24 @@
 -- is at most two screen lines (explicit \n -- the dialogue box holds two) and
 -- `{name}` is replaced with the Pokemon's name. Variants are picked with an
 -- injectable rng so tests are deterministic.
+local V = ...
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+if type(V) == "table" and V.require then
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trc(context, english, ...)
+  if I18n then return I18n.tc(context, english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+
 local Dialogue = {}
 
 -- What the Pokemon looks like right now, keyed by lib/mon_mood.lua's reason.
@@ -94,8 +112,9 @@ local function pick(list, rng)
 end
 
 local function fill(text, name)
-  -- plain-text replace (a nickname may contain pattern characters)
-  return (text:gsub("{name}", function() return name end))
+  -- in the Language option's language; plain-text replace (a nickname may contain
+  -- pattern characters)
+  return (tr(text):gsub("{name}", function() return name end))
 end
 
 --- The line describing the Pokemon's state (`reason` from MonMood.read).

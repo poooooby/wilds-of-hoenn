@@ -76,7 +76,16 @@ return function(mod)
   local WaterLife = V.require("water_life")
   local LocalScenes = V.require("local_scenes")
 
+  -- the Language option (lib/i18n.lua): set before the options are defined, so their
+  -- labels are already in it; a change re-labels them at once
+  local I18n = V.require("i18n")
+  I18n.setLanguage(Config.language(mod))
   Config.defineOptions(mod)
+  mod.events:on("mod.options_changed", function(ev)
+    if not (ev and ev.mod == mod.id and ev.key == "language") then return end
+    I18n.setLanguage(Config.language(mod))
+    Config.defineOptions(mod)
+  end)
   HdField.setSpeciesSizes(Config.get(mod, "species_sizes"))
 
   -- Pure asset I/O, no engine dependency: safe to try regardless of game

@@ -27,6 +27,22 @@ local EaveDuck = V.require("eave_duck")
 local SweatDrop = V.require("sweat_drop")
 local MoodFx = V.require("mood_fx")
 local PopupText = V.require("popup_text")
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+if type(V) == "table" and V.require then
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trc(context, english, ...)
+  if I18n then return I18n.tc(context, english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
 local ShinySparkle = V.require("shiny_sparkle")
 local PartnerFx = V.require("partner_fx")
 local FollowerSwap = V.require("follower_swap")
@@ -112,7 +128,8 @@ end
 --- The text floating over the follower's head ("New move ready!" ...), or nil.
 function FollowerAdapter:readyLabel()
   if not self.levelReady or self.away or self.action or self.swap then return nil end
-  return V.require("level_ready").textFor(self.readyPending, self.readyClock)
+  local text = V.require("level_ready").textFor(self.readyPending, self.readyClock)
+  return text and tr(text) or nil
 end
 
 -- Walking out of a doorway. On a map change the engine makes a fresh follower ON

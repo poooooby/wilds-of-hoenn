@@ -8,6 +8,21 @@
 
 return {
   {
+    key = "language",
+    label = "Language",
+    type = "choice",
+    default = "en",
+    -- each language's own name (lib/i18n.lua NAMES); never translated
+    choices = {
+      { "ENGLISH", "en" },
+      { "にほんご", "ja" },
+      { "PORTUGUÊS", "pt" },
+      { "ESPAÑOL", "es" },
+      { "DEUTSCH", "de" },
+    },
+    description = "The language of Wilds of Hoenn's own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games.",
+  },
+  {
     key = "enabled",
     label = "Show Wild Mons",
     type = "toggle",

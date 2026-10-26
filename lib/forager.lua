@@ -29,6 +29,22 @@
 -- Pure: every engine fact (open cells, the cry, the roll and the bag) is injected
 -- through `deps`.
 local V = ...
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+if type(V) == "table" and V.require then
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trc(context, english, ...)
+  if I18n then return I18n.tc(context, english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
 local Config = V.require("config")
 local CellPath = V.require("cell_path")
 local ForageSparkle = V.require("forage_sparkle")
@@ -289,7 +305,7 @@ function Forager:_mode_dig(env)
     self.rolled, self.spot = nil, nil
     if got then
       local tier = tonumber(got.tier) or 1
-      self.popup, self.popupAge = "Found " .. tostring(got.name) .. "!", 0
+      self.popup, self.popupAge = tr("Found %s!", tostring(got.name)), 0
       self.popupFor = tier >= 4 and (cfg.popupTicksTop or 300)
         or tier == 3 and (cfg.popupTicksRare or 240) or cfg.popupTicks
       if self.deps.playFound then self.deps.playFound() end

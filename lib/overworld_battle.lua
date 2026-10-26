@@ -23,6 +23,22 @@
 -- Wild Pokemon are the SpawnManager's entities; the ones in a skirmish are
 -- flagged `engaged` (so they stand still) and animated here.
 local V = ...
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+if type(V) == "table" and V.require then
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trc(context, english, ...)
+  if I18n then return I18n.tc(context, english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
 local Config = V.require("config")
 local CellPath = V.require("cell_path")
 local OwCombat = V.require("ow_combat")
@@ -540,8 +556,8 @@ function OverworldBattle:_pickUpDrop()
   if not drop then return end
   local ok, added = pcall(self.deps.bagAdd, drop.item, 1)
   if not (ok and added) then return end
-  local name = self.deps.itemName and self.deps.itemName(drop.item) or "an item"
-  self.popupNext = { text = "Found " .. tostring(name) .. "!", sound = true }
+  local name = self.deps.itemName and self.deps.itemName(drop.item) or tr("an item")
+  self.popupNext = { text = tr("Found %s!", tostring(name)), sound = true }
 end
 
 -- Takes the wind-up glow off whoever had it.
@@ -597,9 +613,9 @@ function OverworldBattle:_mode_win(env)
     local text
     if amount > 0 then
       local result = self.combatDeps.expApply(env.mon, amount)
-      text = "+" .. amount .. " EXP"
+      text = tr("+%d EXP", math.floor(amount))
       if result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel then
-        text = "Lv." .. result.toLevel .. "!"
+        text = tr("Lv.%d!", math.floor(result.toLevel))
         self.levelAge = 0 -- a gold ring and sparkles round it (lib/partner_fx.lua)
         -- it cannot learn or evolve mid-walk: tell the owner, which asks the player
         if self.deps.levelUp then pcall(self.deps.levelUp, env.mon, result.fromLevel, result.toLevel) end

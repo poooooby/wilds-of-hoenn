@@ -26,6 +26,22 @@
 --   hatch whenever the screen state is not what the current step expects (a
 --   battle began, the message got closed by something else, ...).
 local V = ...
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+if type(V) == "table" and V.require then
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
+local function trc(context, english, ...)
+  if I18n then return I18n.tc(context, english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
+  return english
+end
 local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
 local MonMood = V.require("mon_mood")
@@ -53,6 +69,7 @@ local MENUS = {
   },
 }
 local JOB_LINES = PartyRoles.LINES
+FollowerInteraction.MENUS = MENUS -- (the translation coverage test reads the labels)
 local MENU_LAYOUT = { top = 3, maxRight = 29 } -- clear of the dialogue box; shifted left when a label makes it wide (arrows)
 local STORE_KEY = "follower_interaction/limiter"
 local LOCK_TAG = "wilds_of_hoenn_follower_action"
@@ -269,28 +286,31 @@ end
 function FollowerInteraction.labels(name, rows)
   rows = rows or MENUS[name]
   local out, arrowed, widest = {}, {}, nil
+  -- the rows' labels in the Language option's language
+  local shown = {}
+  for i, row in ipairs(rows) do shown[i] = trc("menu", row[1]) end
   for i, row in ipairs(rows) do
-    out[i] = row[1]
-    if row[2] == "back" then out[i] = LEFT .. " " .. row[1] end
+    out[i] = shown[i]
+    if row[2] == "back" then out[i] = LEFT .. " " .. shown[i] end
     if row[2] and row[2]:find("^menu:") then
       arrowed[#arrowed + 1] = i
-      if not widest or #row[1] > #rows[widest][1] then widest = i end
+      if not widest or #shown[i] > #shown[widest] then widest = i end
     end
   end
   if #arrowed == 0 then return out end
   local arrow = measure(RIGHT)
   if arrow > 0 then
-    local arrowX = math.min(255, math.floor(measure(rows[widest][1]) + ARROW_GAP))
+    local arrowX = math.min(255, math.floor(measure(shown[widest]) + ARROW_GAP))
     local tiles = math.ceil((arrowX + arrow + 14) / 8)
     for _, i in ipairs(arrowed) do
-      local text = rows[i][1] .. clearTo(arrowX) .. RIGHT
+      local text = shown[i] .. clearTo(arrowX) .. RIGHT
       while tilesFor(#text) < tiles and #text < 60 do text = text .. CLEAR0 end
       out[i] = text
     end
   else
-    local longest = #rows[widest][1]
+    local longest = #shown[widest]
     for _, i in ipairs(arrowed) do
-      out[i] = rows[i][1] .. string.rep(" ", longest - #rows[i][1] + 1) .. RIGHT
+      out[i] = shown[i] .. string.rep(" ", longest - #shown[i] + 1) .. RIGHT
     end
   end
   return out
@@ -314,7 +334,7 @@ end
 function FollowerInteraction:openScreen(kind, mon, name)
   local pending = self.levelReady and self.levelReady:pending(mon)
   if not pending then
-    self:finish(string.format("%s has nothing to do right now.", name), (MonMood.read(mon)))
+    self:finish(tr("%s has nothing to do right now.", name), (MonMood.read(mon)))
     return
   end
   local function done()
@@ -337,7 +357,7 @@ function FollowerInteraction:openScreen(kind, mon, name)
   if opened then
     self.state, self.screenDone = "screen", false
   else
-    self:finish(string.format("%s can't do that right now.", name), (MonMood.read(mon)))
+    self:finish(tr("%s can't do that right now.", name), (MonMood.read(mon)))
   end
 end
 
@@ -381,11 +401,11 @@ function FollowerInteraction:onChoice(index)
     local current = self.companion and self.companion:savedRole(mon)
     if current == nil and action == "follow" then current = "follow" end
     if current == action then
-      self:finish(string.format("%s is already doing that.", name), (MonMood.read(mon)))
+      self:finish(tr("%s is already doing that.", name), (MonMood.read(mon)))
     elseif self.companion and self.companion:set(mon, action) then
-      self:finish(string.format(JOB_LINES[action], name), action == "recall" and "Normal" or "Happy")
+      self:finish(tr(JOB_LINES[action], name), action == "recall" and "Normal" or "Happy")
     else
-      self:finish("Nothing happened.", (MonMood.read(mon)))
+      self:finish(tr("Nothing happened."), (MonMood.read(mon)))
     end
     return
   end

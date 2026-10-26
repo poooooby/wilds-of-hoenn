@@ -42,6 +42,14 @@ local LEVEL_GLOW = { 1, 0.95, 0.8 }
 function PopupText.styleFor(text)
   text = tostring(text or "")
   if text:find("^Lv") then return "level" end
+  -- the level-up label in the Language option's language ("Nv.12!" in Spanish ...): its
+  -- text before the number
+  local okI, I18n = false, nil
+  if type(V) == "table" and V.require then okI, I18n = pcall(V.require, "i18n") end
+  if okI and type(I18n) == "table" then
+    local prefix = I18n.format("Lv.%d!"):match("^(.-)%%")
+    if prefix and prefix ~= "" and text:sub(1, #prefix) == prefix then return "level" end
+  end
   return "bubble"
 end
 
