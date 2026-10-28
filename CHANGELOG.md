@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.11.1 (2026-10-28)
+
 ### Changed
 
 - **Your partner runs when you run.** With PMDCollab sprites, your partner's walking
