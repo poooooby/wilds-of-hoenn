@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="WoH.png" alt="Wilds of Hoenn" width="640">
+<img src="imgs/WoH.png" alt="Wilds of Hoenn" width="640">
 
 # Wilds of Hoenn 🌿
 
@@ -13,6 +13,28 @@ and LeafGreen. Walk up to one to battle it, and bring a partner along for the jo
 </div>
 
 A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3 games.
+
+<div align="center">
+
+<img src="imgs/wohlife.gif" alt="Wild Pokémon living in the overworld" width="720">
+
+*A living overworld: Pokémon wander the grass, swim and dive, fly overhead and perch on
+rooftops, with little scenes waiting in special places.*
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="imgs/wohplay.gif" alt="Playing with your partner" width="280"></td>
+<td align="center" width="33%"><img src="imgs/wohbattle.gif" alt="Your partner battling a wild Pokémon" width="280"></td>
+<td align="center" width="33%"><img src="imgs/wohforage.gif" alt="Your partner foraging for an item" width="280"></td>
+</tr>
+<tr>
+<td align="center"><b>Play</b><br>Turn to your partner and press A to pet it, play fetch or have a chat.</td>
+<td align="center"><b>Battle</b><br>Give it the Battler role and it takes on the wild Pokémon around you, earning EXP.</td>
+<td align="center"><b>Forage</b><br>Give it the Forager role and it runs off to dig up items as you walk.</td>
+</tr>
+</table>
+
+</div>
 
 ## ✨ Features
 
