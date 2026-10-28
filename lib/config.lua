@@ -396,6 +396,10 @@ Config.REFLECTION_TINT = { 0.78, 0.86, 1.0 }
 Config.REFLECTION_MIX = 0.45
 Config.REFLECTION_OVERLAP = 2
 Config.PMD_WALK_SPEED = 1
+-- The PMDCollab follower's Walk plays this much faster while the player runs: its steps
+-- take half the time then, and at the walking pace its legs looked slow for the ground it
+-- covers. (HGSS / PokeMMO needs nothing: its frames follow each step, and run poses.)
+Config.PMD_FOLLOWER_RUN_ANIM = 2
 -- Ticks the Walk animation keeps playing after movement stops, so the one-tick
 -- gaps between chained steps do not flick the sprite to the Idle pose and back.
 Config.PMD_WALK_LINGER = 8

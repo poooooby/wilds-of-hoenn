@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- **Your partner runs when you run.** With PMDCollab sprites, your partner's walking
+  animation now plays twice as fast while you run, keeping up with its quicker steps instead
+  of seeming to glide along. (HGSS / PokeMMO sprites already switch to their running poses.)
+
 ## 1.11.0 (2026-10-25)
 
 ### Added

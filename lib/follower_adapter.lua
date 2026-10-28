@@ -712,7 +712,11 @@ function FollowerAdapter:tick()
         r.idleHold, r.idleSpeed = 0, scene.idleSpeed or 1
       end
     end
-    r.walkMul = scene and scene.walkMul or 1
+    -- running: the Walk at double pace, as fast as its steps -- the one-tick "not moving"
+    -- gaps between chained steps included, where the Walk lingers (a scene sets its own)
+    local walking = moving or r.anim == "walk"
+    local runMul = (walking and EnginePatch.playerIsRunning()) and (Config.PMD_FOLLOWER_RUN_ANIM or 1) or 1
+    if scene then r.walkMul = scene.walkMul or 1 else r.walkMul = runMul end
     if scene and scene.anim and scene.anim ~= "idle" then
       r:advanceAs(scene.anim, scene.animSpeed)
     else

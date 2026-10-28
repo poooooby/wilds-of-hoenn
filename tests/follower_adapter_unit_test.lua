@@ -330,7 +330,27 @@ npc.moving = true
 fa:tick()
 eq(fa.renderer.anim, "walk", "a stepping follower plays Walk")
 eq(fa.renderer.poseOverride, nil, "no ActorRenderer pose is pushed onto it")
+-- running: the Walk plays at double pace (its steps take half the time)
+fa:tick()
+local walkedTick = fa.renderer.clock
+fa:tick()
+local walkStep = fa.renderer.clock - walkedTick
+eq(fa.renderer.walkMul, 1, "walking: the Walk at its own pace")
+fakeEngine.playerIsRunning = function() return true end
+fa:tick()
+eq(fa.renderer.walkMul, V.require("config").PMD_FOLLOWER_RUN_ANIM, "running: the Walk sped up")
+local before = fa.renderer.clock
+fa:tick()
+eq(fa.renderer.clock - before, walkStep * 2, "...twice as many frames a tick")
 npc.moving = false
+fa:tick()
+if (V.require("config").PMD_WALK_LINGER or 0) > 0 then
+  eq(fa.renderer.walkMul, 2, "the one-tick gap between running steps keeps the run pace")
+end
+for _ = 1, (V.require("config").PMD_WALK_LINGER or 0) + 2 do fa:tick() end
+eq(fa.renderer.anim, "idle", "stopped: Idle")
+eq(fa.renderer.walkMul, 1, "standing while the run button is held: no speed-up")
+fakeEngine.playerIsRunning = function() return false end
 fa:tick()
 eq(fa.renderer.anim, "idle", "and returns to Idle")
 -- spacing: kept behind the player, eased on a turn; idle starts after a delay
