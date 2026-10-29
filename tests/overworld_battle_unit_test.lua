@@ -346,10 +346,88 @@ do
   check(not b:isBusy(), "...and it is not busy")
 end
 
+-- ------- from one fight straight on to the next within reach of the player
+do
+  reset()
+  wildEntity(1, 13, 10) -- 2 cells from the player (11, 10)
+  wildEntity(2, 14, 12) -- 3 from the player, beside the first one's spot
+  local b = newBattler()
+  local mon = newMon({ hp = 600, maxHp = 600 })
+  local modes, starts = {}, {}
+  local lastMode
+  for _ = 1, 5000 do
+    b:step(env(mon))
+    if b.mode ~= lastMode then
+      modes[#modes + 1] = b.mode
+      if b.mode == "chase" then starts[#starts + 1] = { b.wx, b.wy } end
+      lastMode = b.mode
+    end
+    if #defeated == 2 and b.mode == "idle" then break end
+  end
+  eq(#defeated, 2, "chaining: both wild Pokemon were beaten")
+  local seq = table.concat(modes, " ")
+  check(seq:find("win between chase", 1, true) ~= nil, "chaining: win -> between -> chase (" .. seq .. ")")
+  local firstReturn = seq:find("return", 1, true)
+  local secondWin = select(2, seq:find("win.-win"))
+  check(firstReturn and secondWin and firstReturn > secondWin, "chaining: no run home between the two fights")
+  check(starts[2] and (starts[2][1] ~= 160 or starts[2][2] ~= 160), "chaining: the second charge set off from the fight spot")
+  eq(b.mode, "idle", "chaining: home at the end")
+  check(b.cooldown > 0, "...with its cooldown")
+end
+
+-- ------- nothing else in reach after a win (too far from the PLAYER): home as before
+do
+  reset()
+  wildEntity(1, 13, 10)
+  wildEntity(2, 16, 10) -- 5 cells from the player
+  local b = newBattler()
+  local mon = newMon({ hp = 600, maxHp = 600 })
+  local seq = {}
+  for _ = 1, 3000 do
+    b:step(env(mon))
+    if seq[#seq] ~= b.mode then seq[#seq + 1] = b.mode end
+    if #defeated == 1 and b.mode == "idle" then break end
+  end
+  eq(table.concat(seq, " "):match("between (%a+)"), "return", "out of the player's reach: between -> return")
+  check(not entities[1].engaged, "...and the far one was never engaged")
+end
+
+-- ------- worn out after a win: it never goes on to another
+do
+  reset()
+  wildEntity(1, 13, 10)
+  wildEntity(2, 14, 12)
+  local b = newBattler()
+  local mon = newMon({ hp = 600, maxHp = 600 })
+  for _ = 1, 3000 do
+    b:step(env(mon))
+    if b.mode == "between" then mon.hp = 1 end
+    if #defeated == 1 and b.mode ~= "between" and b.mode ~= "win" then break end
+  end
+  eq(b.mode, "return", "worn out: between -> return")
+  eq(#defeated, 1, "...the second one left alone")
+end
+
+-- ------- the player walks on mid-charge: the target out of reach is let go
+do
+  reset()
+  local wild = wildEntity(1, 13, 10)
+  local b = newBattler()
+  local mon = newMon()
+  for _ = 1, 200 do
+    b:step(env(mon))
+    if b.mode == "chase" then break end
+  end
+  eq(b.mode, "chase", "staged: charging")
+  b:step(env(mon, { px = 8, py = 10 })) -- 5 cells from the target now
+  check(b.mode == "return" or b.mode == "idle", "the player walked off: it comes back (" .. b.mode .. ")")
+  check(not wild.engaged, "...and lets the wild Pokemon go")
+end
+
 -- ------- the real defaults carry every knob it reads
 for _, k in ipairs({ "radius", "maxWalk", "scanEvery", "cooldown", "chaseSpeed", "walkMul", "windup",
   "turnTicks", "lunge", "flashTicks", "attackSpeed", "winPause", "sinkTicks", "cryPause", "recallTicks",
-  "restCheck", "popupTicks", "expShare", "resumeFrac" }) do
+  "restCheck", "popupTicks", "expShare", "resumeFrac", "chainPause", "chainSlack" }) do
   check(Config.OW_BATTLE[k] ~= nil, "Config.OW_BATTLE." .. k)
 end
 eq(Config.OW_BATTLE.radius, 3, "it fights within 3 tiles of the player")

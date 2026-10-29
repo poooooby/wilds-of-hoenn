@@ -71,7 +71,9 @@ rooftops, with little scenes waiting in special places.*
   music notes, a rain cloud, an anger mark, sleepy Zs and more, plus a little puff of its own
   type: embers from a Fire type, droplets from a Water type, leaves, sparks ... Petting can even
   cure a status. Squeezed under a roof's edge, it lets you know it's cramped.
-- ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. It fights with
+- ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. After a win it
+  goes straight on to the next wild Pokémon within a few steps of you, and only comes back to
+  your side when none are left, it needs a rest, or you walk on. It fights with
   its real moves, stats and PP, on land or swimming out over water, and earns EXP. Battle-style
   health bars show on both sides. Each move glows in its type's colour as it winds up; moves
   that don't touch the target fly across as a splash, an ember or a psychic ring, and

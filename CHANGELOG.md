@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- **Your Battler keeps going.** After winning a fight it moves straight on to the next wild
+  Pokémon within 3 steps of you, instead of running back to your side after every one. It
+  comes back when nothing is left nearby, when it is worn out, or when you walk away (a
+  charge at a Pokémon you have left behind is called off).
+
 ## 1.11.1 (2026-10-28)
 
 ### Changed

@@ -203,13 +203,17 @@ local function restingCell(e)
 end
 OverworldBattle._restingCell = restingCell
 
-function OverworldBattle:_findTarget(env)
+--- The nearest wild Pokemon within `radius` of the PLAYER that it can walk up to from
+--- (fromX, fromY) -- its follower tile by default, the spot it just fought on when going
+--- from one fight to the next.
+function OverworldBattle:_findTarget(env, fromX, fromY)
   local cfg, deps = self.cfg, self.deps
+  fromX, fromY = fromX or env.fx, fromY or env.fy
   -- it keeps to the ground it stands on: from land it fights land Pokemon, never swimming
   -- out to one in the water; while the player surfs (its own cell water, `swimFree`) it
   -- fights water Pokemon and never comes ashore
-  local onWater = deps.swimFree ~= nil and deps.swimFree(env.fx, env.fy) == true
-  local res = CellPath.search(env.fx, env.fy, {
+  local onWater = deps.swimFree ~= nil and deps.swimFree(fromX, fromY) == true
+  local res = CellPath.search(fromX, fromY, {
     maxDepth = cfg.maxWalk,
     free = function(x, y)
       if deps.occupied and deps.occupied(x, y) then return false end
@@ -393,6 +397,17 @@ end
 
 function OverworldBattle:_mode_chase(env)
   local cfg = self.cfg
+  -- the player walked on: a Pokemon now well outside their reach is let go, and it comes back
+  local e = self.target
+  if e and env.px then
+    local ex, ey = restingCell(e)
+    if cheb(ex, ey, env.px, env.py) > cfg.radius + (cfg.chainSlack or 0) then
+      self:_release()
+      self.fight, self.wild = nil, nil
+      self.mode, self.t = "return", 0
+      return self:_mode_return(env)
+    end
+  end
   local path = self.path
   if not path or #path == 0 then
     self.mode, self.t = "fight", 0
@@ -634,10 +649,28 @@ function OverworldBattle:_mode_win(env)
       self.popup, self.popupAge, self.popupNext = self.popupNext.text, 0, nil
       if self.deps.playFound then pcall(self.deps.playFound) end
     end
-    self.mode, self.t = "return", 0
-    return self:_mode_return(env)
+    self.mode, self.t = "between", 0
+    return state(self, env, { moving = false })
   end
   return state(self, env, { moving = false, bounce = false })
+end
+
+-- after a win: a beat where it stood, then straight on to the next wild Pokemon near the
+-- player (searched from this spot), or home when none is left or it is worn out
+function OverworldBattle:_mode_between(env)
+  local cfg = self.cfg
+  self.wx, self.wy = self.baseX, self.baseY
+  if self.t < (cfg.chainPause or 0) then return state(self, env, { moving = false }) end
+  if env.px and OwCombat.canFight(env.mon, self.combatDeps, cfg) then
+    local fromX, fromY = math.floor(self.baseX / CELL + 0.5), math.floor(self.baseY / CELL + 0.5)
+    local e, path = self:_findTarget(env, fromX, fromY)
+    if e and path and self:_engage(env, e, path) then
+      self.baseX, self.baseY = fromX * CELL, fromY * CELL
+      return self:_mode_chase(env)
+    end
+  end
+  self.mode, self.t = "return", 0
+  return self:_mode_return(env)
 end
 
 -- run back to the follower's own tile
