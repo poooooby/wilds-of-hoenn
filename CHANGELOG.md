@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.11.2 (2026-10-29)
+
 ### Changed
 
 - **Your Battler keeps going.** After winning a fight it moves straight on to the next wild
