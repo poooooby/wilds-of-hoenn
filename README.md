@@ -139,7 +139,7 @@ rooftops, with little scenes waiting in special places.*
 - 🌾 **Small touches:** Pokémon sink into tall grass, your partner fades in as you step out of a
   door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art –
   regional forms too, like Alolan Rattata, Galarian Meowth, Hisuian Growlithe and Paldean Tauros.
-- 📏 **True-to-life sizes** (with [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites)):
+- 📏 **True-to-life sizes** (with [WoobleView](https://github.com/poooooby/gen3-hd-sprites)):
   every species is drawn at its own relative size, smoothly, at your screen's resolution.
 
 ## 🌐 Languages
@@ -173,7 +173,7 @@ menu opens the same list.
 | **Type Aura** | ON / OFF | OFF | Now and then your partner gives off a little puff of its type: embers, droplets, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it. |
 | **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
 | **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
-| **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs Gen 3 HD Sprites. |
+| **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs WoobleView. |
 | **Portraits** | ON / OFF | ON | Your partner's portrait above its messages when you Pet, Play or Talk with it. |
 
 Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option.
@@ -210,11 +210,11 @@ left.
 
 - [WoobleDex](https://github.com/poooooby/national_dex_gen3): wild Pokémon all the way
   to #1025, with overworld art for every one.
-- [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3): battle sprites
+- [WoobleSpritePack](https://github.com/poooooby/g9-battle-sprites-gen3): battle sprites
   for the new species.
 - [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns): modern encounter tables and
   shiny chains.
-- [Gen 3 HD Sprites](https://github.com/poooooby/gen3-hd-sprites): smooth, true-to-size sprites.
+- [WoobleView](https://github.com/poooooby/gen3-hd-sprites): smooth, true-to-size sprites.
 
 ## 🪪 Credits
 
