@@ -82,7 +82,7 @@ rooftops, with little scenes waiting in special places.*
   puff when it has no effect, a star on a critical hit, each with the battle's own hit sound.
   The knockout blow bursts with its move's type: a burst of
   water, flames, flying leaves, a lightning bolt, ice shards, Fairy sparkles and hearts, a fading
-  Ghost — every type has its own look and battle sound (Fairy with National Dex Gen 3), at your
+  Ghost — every type has its own look and battle sound (Fairy with WoobleDex), at your
   SFX volume. A fiery, watery, earthy, rocky, icy or grassy knockout leaves its mark on the
   ground for a few seconds: a scorch, a puddle, a small crater, rubble, frost or clippings.
   Now and then a knocked-out Pokémon drops the item it was holding — the same held items
@@ -208,7 +208,7 @@ left.
 
 ## 🔗 Works With
 
-- [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3): wild Pokémon all the way
+- [WoobleDex](https://github.com/poooooby/national_dex_gen3): wild Pokémon all the way
   to #1025, with overworld art for every one.
 - [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3): battle sprites
   for the new species.
