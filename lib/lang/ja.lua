@@ -74,8 +74,8 @@ return {
     "もとの ゲームの くさむらや なみのりの ランダム エンカウント。 みえる やせいの ポケモンは どちらでも でます。 つりや いわくだきは かわりません。",
   ["Off keeps normal colours. Undiscovered silhouettes species not yet caught in your Pokedex. All silhouettes every visible wild Pokemon."] =
     "オフ： ふつうの いろ。 みはっけん： ずかんで まだ つかまえて いない ポケモンを シルエットに します。 すべて： みえる やせいの ポケモンを ぜんぶ シルエットに します。",
-  ["Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the Gen 3 HD Sprites mod (with its Field HD option on); without it every species is drawn at its sheet's size."] =
-    "どちらの スプライトでも ポケモンを ほんらいの おおきさで えがきます： ちいさな ものは ひざの たかさ おおきな ものは みあげる ほど。 Gen 3 HD Sprites MOD(Field HD オン)が ひつようです。 ない ときは がぞうの ままの おおきさです。",
+  ["Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the WoobleView mod (with its Field HD option on); without it every species is drawn at its sheet's size."] =
+    "どちらの スプライトでも ポケモンを ほんらいの おおきさで えがきます： ちいさな ものは ひざの たかさ おおきな ものは みあげる ほど。 WoobleView MOD(Field HD オン)が ひつようです。 ない ときは がぞうの ままの おおきさです。",
   ["Your partner's PMDCollab portrait above its messages when you Pet, Play or Talk with it. Off: the messages show without it."] =
     "なでる あそぶ はなす の とき パートナーの PMDCollab ポートレートを メッセージの うえに だします。 オフ： メッセージだけ。",
 

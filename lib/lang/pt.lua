@@ -74,8 +74,8 @@ return {
     "Encontros clássicos: os encontros aleatórios originais ao andar pela grama ou usar Surf. Os Pokémon selvagens visíveis continuam ativos de qualquer forma. A pesca e o Rock Smash não mudam.",
   ["Off keeps normal colours. Undiscovered silhouettes species not yet caught in your Pokedex. All silhouettes every visible wild Pokemon."] =
     "Desligado: cores normais. Inéditos: mostra em silhueta as espécies que você ainda não capturou na Pokédex. Todos: mostra em silhueta todos os Pokémon selvagens visíveis.",
-  ["Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the Gen 3 HD Sprites mod (with its Field HD option on); without it every species is drawn at its sheet's size."] =
-    "Desenha cada espécie no seu tamanho ao seu lado, em qualquer estilo: os pequenos na altura do joelho, os gigantes bem acima de você. Precisa do mod Gen 3 HD Sprites (com a opção Field HD ligada); sem ele cada espécie é desenhada no tamanho da imagem.",
+  ["Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the WoobleView mod (with its Field HD option on); without it every species is drawn at its sheet's size."] =
+    "Desenha cada espécie no seu tamanho ao seu lado, em qualquer estilo: os pequenos na altura do joelho, os gigantes bem acima de você. Precisa do mod WoobleView (com a opção Field HD ligada); sem ele cada espécie é desenhada no tamanho da imagem.",
   ["Your partner's PMDCollab portrait above its messages when you Pet, Play or Talk with it. Off: the messages show without it."] =
     "O retrato PMDCollab do seu parceiro acima das mensagens quando você acaricia, brinca ou conversa com ele. Desligado: as mensagens aparecem sem ele.",
 

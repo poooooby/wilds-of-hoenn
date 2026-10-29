@@ -58,7 +58,7 @@ rooftops, with little scenes waiting in special places.*
 - 💕 **Sweet Scent calls them to you:** used outside battle, it draws 2-3 wild Pokémon out
   close by, with hearts floating over them. They wait for you for about a minute, and they're
   easier to hit when you battle them.
-- ✨ **Shiny chains** (with [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns)): win
+- ✨ **Shiny chains** (with [WoobleSpawns](https://github.com/poooooby/g1r_modern_spawns)): win
   or catch the same species again and again and it turns up more, is likelier to be shiny and
   has better stats. Shinies always show their colours on the overworld, and twinkle now and
   then with a little sparkle, your shiny partner too.
@@ -176,7 +176,7 @@ menu opens the same list.
 | **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs WoobleView. |
 | **Portraits** | ON / OFF | ON | Your partner's portrait above its messages when you Pet, Play or Talk with it. |
 
-Shiny chains are switched on and off with Modern Spawns' **SHINY CHAINS** option.
+Shiny chains are switched on and off with WoobleSpawns' **SHINY CHAINS** option.
 
 ### Your partner (party menu)
 
@@ -212,7 +212,7 @@ left.
   to #1025, with overworld art for every one.
 - [WoobleSpritePack](https://github.com/poooooby/g9-battle-sprites-gen3): battle sprites
   for the new species.
-- [Modern Spawns](https://github.com/poooooby/g1r_modern_spawns): modern encounter tables and
+- [WoobleSpawns](https://github.com/poooooby/g1r_modern_spawns): modern encounter tables and
   shiny chains.
 - [WoobleView](https://github.com/poooooby/gen3-hd-sprites): smooth, true-to-size sprites.
 

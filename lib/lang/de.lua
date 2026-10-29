@@ -73,8 +73,8 @@ return {
     "Zufallskämpfe: die originalen zufälligen Begegnungen beim Laufen im Gras und beim Surfen. Sichtbare wilde Pokémon bleiben so oder so aktiv. Angeln und Zertrümmerer sind nicht betroffen.",
   ["Off keeps normal colours. Undiscovered silhouettes species not yet caught in your Pokedex. All silhouettes every visible wild Pokemon."] =
     "Aus: normale Farben. Unentdeckt: Arten, die du im Pokédex noch nicht gefangen hast, als Silhouette. Alle: jedes sichtbare wilde Pokémon als Silhouette.",
-  ["Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the Gen 3 HD Sprites mod (with its Field HD option on); without it every species is drawn at its sheet's size."] =
-    "Zeichnet jede Art neben dir in ihrer eigenen Größe, in beiden Stilen: kleine reichen bis zum Knie, Riesen überragen dich. Braucht die Mod Gen 3 HD Sprites (mit eingeschalteter Field HD-Option); ohne sie wird jede Art in der Größe ihres Bildes gezeichnet.",
+  ["Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the WoobleView mod (with its Field HD option on); without it every species is drawn at its sheet's size."] =
+    "Zeichnet jede Art neben dir in ihrer eigenen Größe, in beiden Stilen: kleine reichen bis zum Knie, Riesen überragen dich. Braucht die Mod WoobleView (mit eingeschalteter Field HD-Option); ohne sie wird jede Art in der Größe ihres Bildes gezeichnet.",
   ["Your partner's PMDCollab portrait above its messages when you Pet, Play or Talk with it. Off: the messages show without it."] =
     "Das PMDCollab-Porträt deines Partners über seinen Nachrichten beim Streicheln, Spielen oder Reden. Aus: die Nachrichten erscheinen ohne Porträt.",
 

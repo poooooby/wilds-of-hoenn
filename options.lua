@@ -155,7 +155,7 @@ return {
     label = "Species Sizes",
     type = "toggle",
     default = true,
-    description = "Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the Gen 3 HD Sprites mod (with its Field HD option on); without it every species is drawn at its sheet's size.",
+    description = "Draw each species at its own size next to you, in either sprite style: small ones knee-high, giants towering over you. Needs the WoobleView mod (with its Field HD option on); without it every species is drawn at its sheet's size.",
   },
   {
     key = "portraits",
