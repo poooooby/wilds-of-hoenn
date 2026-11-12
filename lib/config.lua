@@ -156,7 +156,19 @@ Config.ECO = {
   -- special spawns: `chance` % of a pack / school species' spawns come as a group (lib/
   -- eco_profile.lua social), every member on the leader's tile at these px offsets round
   -- it (at most #slots besides the leader), easing after it `catchUp` px a tick
-  group = { chance = 25, slots = { { -7, -3 }, { 7, -2 }, { -3, 5 } }, catchUp = 1.6 },
+  group = { chance = 25, slots = { { -7, -3 }, { 7, -2 }, { -3, 5 } }, catchUp = 1.6,
+            swarmWobble = 3, swarmWobbleTicks = 40 },        -- a swarm's riders buzz round their places
+  -- on land (lib/eco_land.lua), by the group's `social` (a lone Pokemon: soloGraze)
+  land = {
+    clearRadius = 2,                                        -- nothing starts this close to the player
+    trot = { every = { 240, 600 }, steps = { 2, 4 }, frames = 12 },   -- a pack's burst at a trot
+    howl = { every = { 1800, 3600 }, ticks = 60, cryRadius = 8 },     -- a pack rears up (RearUp), crying when near
+    graze = { every = { 300, 700 }, ticks = { 180, 420 } },          -- a herd stops to eat (Eat)
+    drift = { every = { 200, 500 }, steps = { 1, 2 }, frames = 24 },  -- ... and drifts on slowly
+    buzz = { every = { 90, 240 }, steps = { 1, 3 }, frames = 10 },   -- a swarm darts about
+    nap = { every = { 900, 2400 }, ticks = { 600, 1500 }, wakeRadius = 1, wakeTicks = 40 }, -- a huddle naps (EventSleep, Wake)
+    soloGraze = { every = { 1200, 2400 } },                 -- a lone grazer with Eat art stops to eat
+  },
 }
 
 Config.REACT = {

@@ -9,7 +9,9 @@
   before they dive, and Tentacool drift slowly about.
   About 1 in 4 spawns of a pack, herd or school species comes as a group, clustered on one tile
   and moving, diving and surfacing as one. It counts as one Pokémon: walk into it to battle one,
-  and the rest scatter. A leaping fish can't be met until it is back in the water. With Wild
+  and the rest scatter. On land, packs trot about and rear up to howl, herds drift and graze,
+  swarms buzz around, and huddles nap together until you come close. Kanto and Sevii species
+  have their own profiles in FireRed and LeafGreen. A leaping fish can't be met until it is back in the water. With Wild
   Reacts off, each wild Pokémon wanders on its own as before.
 - **Exp. Share works with your Battler.** When a party member holds an Exp. Share, your
   Battler's overworld wins are shared the way a real battle shares them: the Battler takes

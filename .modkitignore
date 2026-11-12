@@ -20,6 +20,7 @@ tests/classic_encounters_test.lua
 tests/companion_unit_test.lua
 tests/config_unit_test.lua
 tests/eave_duck_unit_test.lua
+tests/eco_land_unit_test.lua
 tests/eco_profile_unit_test.lua
 tests/eco_unit_test.lua
 tests/eco_water_unit_test.lua

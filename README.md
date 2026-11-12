@@ -126,7 +126,10 @@ rooftops, with little scenes waiting in special places.*
   instead of a single Pokémon (Poochyena packs, Seedot huddles, Magikarp and Carvanha schools,
   Wailmer pods ...), clustered together on one tile and moving, diving and surfacing as one.
   A group counts as one Pokémon: walk into it to battle one of them, and the rest scatter.
-  Part of **Wild Reacts**.
+  On land, packs trot about in short bursts and rear up to howl, herds drift slowly and stop
+  to graze, swarms buzz around, huddles nap together (waking if you come right up to them), and
+  a lone grazer stops to eat now and then. In PMDCollab style they use their own eating,
+  sleeping and rearing-up animations where the species has them. Part of **Wild Reacts**.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
   softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on
   roofs, trees and signposts (and fly off when you walk up); real sea birds (Wingull, Pelipper and

@@ -24,6 +24,7 @@ local ShinySparkle = V.require("shiny_sparkle")
 local EcoProfile = V.require("eco_profile")
 local Eco = V.require("eco")
 local EcoWater = V.require("eco_water")
+V.require("eco_land") -- registers the land activities
 local CellPath = V.require("cell_path")
 
 local SpawnManager = {}
@@ -375,7 +376,7 @@ function SpawnManager:_spawnGroup(leader)
   local g = { leader = leader.id, members = { leader.id }, social = prof.social }
   leader.group = g
   -- a group on the move has a leader that goes somewhere; a huddle mostly stays put
-  leader.behavior = prof.social == "huddle" and Behavior.IDLE or Behavior.ROAM
+  leader.behavior = (prof.social == "huddle" or prof.social == "herd") and Behavior.IDLE or Behavior.ROAM
   local here = { x = leader.cellX, y = leader.cellY }
   local placed = 0
   for _ = 1, want do
@@ -439,8 +440,14 @@ function SpawnManager:_tickRider(e)
   local g = e.group
   local l = g and g.leader and self.entities[g.leader]
   if not l then return end
-  local slot = Config.ECO.group.slots[e.rider] or Config.ECO.group.slots[1]
+  local gcfg = Config.ECO.group
+  local slot = gcfg.slots[e.rider] or gcfg.slots[1]
   local tx, ty = l.px + slot[1], l.py + slot[2]
+  if g.social == "swarm" then
+    -- a swarm's members never sit still: each buzzes round its place
+    local ph = ((self.ticks or 0) + e.rider * 13) / gcfg.swarmWobbleTicks * math.pi * 2
+    tx, ty = tx + math.cos(ph) * gcfg.swarmWobble, ty + math.sin(ph * 1.3) * gcfg.swarmWobble * 0.6
+  end
   local dx, dy = tx - e.px, ty - e.py
   local d = math.sqrt(dx * dx + dy * dy)
   local speed = Config.ECO.group.catchUp
@@ -459,6 +466,15 @@ function SpawnManager:_tickRider(e)
   e.stepParity = not l.stepParity
   e.cellX, e.cellY = l.cellX, l.cellY
   if e.terrain == "water" then self:_swimLife(e, true) end
+  -- the leader grazing / napping / rearing up: its group does it too
+  local ga = l.eco and l.eco.groupAnim
+  local r = e.renderer
+  if ga and r and r.isPmd and r.advanceAs then
+    r:advanceAs(ga, 1, "idle")
+    e.riderAnim = true
+  else
+    e.riderAnim = nil
+  end
 end
 
 --- Whether the roaming legendary is already out on this map (live, or its battle starting).
@@ -857,7 +873,7 @@ function SpawnManager:tick(game)
             e.charging = e.charging > 1 and e.charging - 1 or nil
           end
         end
-      elseif r and r.advance and not e.eco then
+      elseif r and r.advance and not e.eco and not e.riderAnim then
         -- (an ecology activity drives its own animation: a leap's Hop, a whale's RearUp)
         e.charging = nil
         r:advance(e.moving or e.riderMoving)
