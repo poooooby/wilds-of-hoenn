@@ -186,6 +186,19 @@ do
   fake.mapType = function() return 3 end
 end
 
+-- ------- real spawns already leaping / spouting here (Wild Ecology): no ambient copy
+do
+  local wl = WL.new(mod, { spawnHas = function(kind) return kind == "leaper" or kind == "whale" end })
+  wl:onMapEntered("ROUTE_105")
+  local seen = {}
+  for _ = 1, 60 * 120 do
+    wl:tick()
+    for _, c in ipairs(wl.creatures) do seen[c.kind] = true end
+  end
+  check(not seen.leap and not seen.whale, "spawns doing it already: no ambient leapers or whales")
+  wl:onMapExited()
+end
+
 -- ------- the body wiggle: across the way it swims, only while swimming
 do
   local w = Config.WATER_LIFE.swim.wiggle

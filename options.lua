@@ -72,7 +72,7 @@ return {
     label = "Wild Reacts",
     type = "toggle",
     default = true,
-    description = "Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs nobody. Off: they just wander.",
+    description = "Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs nobody. They also live like their kind: packs and schools keep together, fish leap out of the water, whales blow spouts. Off: they just wander on their own.",
   },
   {
     key = "sprite_style",

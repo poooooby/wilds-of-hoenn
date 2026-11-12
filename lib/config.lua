@@ -138,6 +138,27 @@ Config.FLYERS = {
 -- so a diagonal counts as the steps it takes). Strength is level x base-stat total against the lead Pokemon's: under
 -- `weakRatio` it is startled ("!") and flees (a bird takes off), over `strongRatio` it gets
 -- angry and chases; an even match in between is not bothered.
+-- Wild Ecology (lib/eco.lua, lib/eco_profile.lua): what wild Pokemon do on their own, by
+-- how their kind lives. Part of the Wild Reacts option. Ticks.
+Config.ECO = {
+  chooseEvery = 60,   -- each Pokemon is asked whether to start something this often
+  -- the water (lib/eco_water.lua), by the profile's `water`
+  water = {
+    clearRadius = 2,                                  -- nothing starts this close to the player
+    -- a fish leaps out in an arc (Water Life's look), landing a tile on or back where it went in
+    leap = { every = { 360, 900 }, ticks = { 34, 44 }, height = 18, pmdHeight = 8 },
+    -- a whale lies at the surface, blows a spout or two, then sounds (dives)
+    whale = { every = { 600, 1500 }, stay = { 150, 300 }, sprays = { 1, 2 }, sprayTicks = 48, rearTicks = 40 },
+    diveEvery = { 300, 900 },                         -- a diver goes under this often (Config.SWIM.dive otherwise)
+    -- a drifter (Tentacool, Staryu ...) floats: slow steps, long rests, a deeper bob
+    drift = { stepFrames = 40, runMin = 1, runMax = 2, pauseMin = 300, pauseMax = 600, bobAmp = 2, bobTicks = 150 },
+  },
+  -- special spawns: `chance` % of a pack / school species' spawns come as a group (lib/
+  -- eco_profile.lua social), every member on the leader's tile at these px offsets round
+  -- it (at most #slots besides the leader), easing after it `catchUp` px a tick
+  group = { chance = 25, slots = { { -7, -3 }, { 7, -2 }, { -3, 5 } }, catchUp = 1.6 },
+}
+
 Config.REACT = {
   radius = 2, bikeRadius = 4,     -- how close the running / biking player has to come
   aggroRadius = 1, bikeAggroRadius = 2, -- ...for a stronger one to get angry: right beside it

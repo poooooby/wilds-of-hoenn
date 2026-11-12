@@ -41,6 +41,9 @@ function WaterLife.new(mod, deps)
   deps = deps or {}
   return setmetatable({
     mod = mod, rng = deps.rng or math.random, occupied = deps.occupied,
+    -- spawnHas(kind): do real wild spawns here already do this ("leaper" / "whale",
+    -- lib/eco_water.lua)? Then the ambient copy stays away, so it is never doubled
+    spawnHas = deps.spawnHas,
     viewSize = deps.viewSize or function()
       if EnginePatch.viewSize then return EnginePatch.viewSize() end
       return 240, 160
@@ -291,6 +294,8 @@ local function dropletActor(list, gx, gy, sortY, id)
   }
 end
 
+WaterLife._dropletActor = dropletActor -- lib/eco_water.lua draws real spawns' splashes with it
+
 -- ------- creatures -------------------------------------------------------------------
 
 function WaterLife:_renderer(species, presentation)
@@ -310,6 +315,7 @@ end
 function WaterLife:_spawnLeaper()
   local cfg, rng = Config.WATER_LIFE.leap, self.rng
   if #self.fish == 0 or self:count("leap") >= cfg.max then return false end
+  if self.spawnHas and self.spawnHas("leaper") then return false end
   local x, y = self:_waterCell(0)
   if not x then return false end
   local r = self:_renderer(self.fish[rng(1, #self.fish)], SpriteSource.PRESENTATION_LAND)
@@ -327,6 +333,7 @@ end
 function WaterLife:_spawnWhale()
   local cfg, rng = Config.WATER_LIFE.whale, self.rng
   if #self.whales == 0 or self:count("whale") >= cfg.max then return false end
+  if self.spawnHas and self.spawnHas("whale") then return false end
   local x, y = self:_waterCell(1)
   if not x then return false end
   local r = self:_renderer(self.whales[rng(1, #self.whales)], SpriteSource.PRESENTATION_SWIMMING)

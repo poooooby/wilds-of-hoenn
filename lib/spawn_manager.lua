@@ -21,12 +21,16 @@ local SkyFlyers = V.require("sky_flyers")
 local WildReactions = V.require("wild_reactions")
 local WildEmote = V.require("wild_emote")
 local ShinySparkle = V.require("shiny_sparkle")
+local EcoProfile = V.require("eco_profile")
+local Eco = V.require("eco")
+local EcoWater = V.require("eco_water")
+local CellPath = V.require("cell_path")
 
 local SpawnManager = {}
 SpawnManager.__index = SpawnManager
 
 function SpawnManager.new(mod)
-  return setmetatable({
+  local self = setmetatable({
     mod = mod,
     source = EncounterSource.new(mod),
     entities = {}, -- id -> entity
@@ -35,6 +39,31 @@ function SpawnManager.new(mod)
     mapId = nil,
     game = nil,
   }, SpawnManager)
+  -- a wild Pokemon never steps where another stands or is stepping to (lib/behavior.lua)
+  Behavior.occupied = function(x, y, me) return self:occupiedBy(x, y, me) ~= nil end
+  return self
+end
+
+--- Is a live water spawn of profile `water` kind ("leaper" / "whale") out on this map?
+function SpawnManager:hasWaterKind(kind)
+  for _, e in pairs(self.entities) do
+    if e.terrain == "water" and e.state == Config.STATE.AVAILABLE and e.profile and e.profile.water == kind then
+      return true
+    end
+  end
+  return false
+end
+
+--- The live wild Pokemon (other than `me`) standing on (x, y) or stepping into it, or nil.
+function SpawnManager:occupiedBy(x, y, me)
+  for _, o in pairs(self.entities) do
+    if o ~= me and o.state ~= Config.STATE.DESPAWNED and not (o.fx and o.fx.under)
+      and ((o.cellX == x and o.cellY == y) or (o.moving and o.targetX == x and o.targetY == y)
+        or (o.eco and o.eco.rx == x and o.eco.ry == y)) then
+      return o
+    end
+  end
+  return nil
 end
 
 -- Is `e` coming or going by air (lib/sky_flyers.lua, mode "swoop") or swimming under the
@@ -187,14 +216,23 @@ function SpawnManager:trimToAmount()
     local list = {}
     for id, e in pairs(self.entities) do
       if e.terrain == terrain and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.lured
-        and not e.react then
+        and not e.react and not (e.group and e.group.leader ~= e.id) then
         local d = p and math.max(math.abs(e.cellX - p.x), math.abs(e.cellY - p.y)) or 0
         list[#list + 1] = { id = id, d = d }
       end
     end
     local extra = self:_activeCountFor(terrain) - want
     table.sort(list, function(a, b) if a.d ~= b.d then return a.d > b.d end return a.id < b.id end)
-    for i = 1, math.min(extra, #list) do self:despawn(list[i].id, { animate = true }) end
+    for i = 1, math.min(extra, #list) do
+      local e = self.entities[list[i].id]
+      local g = e and e.group
+      if g then
+        local mates = {}
+        for _, mid in ipairs(g.members) do if mid ~= e.id then mates[#mates + 1] = mid end end
+        for _, mid in ipairs(mates) do self:despawn(mid, { animate = true }) end
+      end
+      self:despawn(list[i].id, { animate = true })
+    end
   end
 end
 
@@ -203,7 +241,11 @@ end
 function SpawnManager:_activeCountFor(terrain)
   local n = 0
   for _, e in pairs(self.entities) do
-    if e.terrain == terrain and not e.lured and e.state ~= Config.STATE.LEAVING then n = n + 1 end
+    -- a group (lib/eco_profile.lua social) counts once: only its leader
+    if e.terrain == terrain and not e.lured and e.state ~= Config.STATE.LEAVING
+      and not (e.group and e.group.leader ~= e.id) then
+      n = n + 1
+    end
   end
   return n
 end
@@ -270,6 +312,7 @@ function SpawnManager:_cellFree(x, y)
   for _, e in pairs(self.entities) do
     if e.cellX == x and e.cellY == y then return false end
     if e.moving and e.targetX == x and e.targetY == y then return false end
+    if e.eco and e.eco.rx == x and e.eco.ry == y then return false end -- a leap's landing
   end
   -- A spawn on the player's tile would start a battle at once now that
   -- contact means "standing on it" -- keep the cell they stand on, and the
@@ -307,7 +350,115 @@ function SpawnManager:_spawnOne(terrain, cell)
   -- other mods' species swaps (lib/spawn_filters.lua): see what you fight
   enc = SpawnFilters.apply(self.mapId, terrain, enc, false)
   if not EnginePatch.repelAllows(enc.level) then return false end
-  return self:_place(terrain, cell, enc)
+  local ok, e = self:_place(terrain, cell, enc)
+  -- now and then (Config.ECO.group.chance %) a pack / school species comes as a group:
+  -- a special spawn, clustered on its leader's tile and counting as one Pokemon
+  if ok and e and not e.roamer and Config.wildReacts(self.mod)
+    and math.random(1, 100) <= Config.ECO.group.chance then
+    self:_spawnGroup(e)
+  end
+  return ok
+end
+
+--- A special spawn (lib/eco_profile.lua social): `leader` comes with others of its kind --
+--- group[1]..group[2] in all, each a fresh Pokemon of its species at about its level -- all
+--- on the leader's own tile, drawn clustered round it (`Config.ECO.group.slots`). The members
+--- are RIDERS: they go where the leader goes and are never met, fought or startled on their
+--- own; touching the tile battles the leader, and when it goes the others scatter. The whole
+--- group counts once toward the Spawn Amount.
+function SpawnManager:_spawnGroup(leader)
+  local prof = leader.profile
+  if not prof or prof.social == "solo" then return 0 end
+  local slots = Config.ECO.group.slots
+  local want = math.min(#slots, math.random(prof.group[1], prof.group[2]) - 1)
+  if want <= 0 then return 0 end
+  local g = { leader = leader.id, members = { leader.id }, social = prof.social }
+  leader.group = g
+  -- a group on the move has a leader that goes somewhere; a huddle mostly stays put
+  leader.behavior = prof.social == "huddle" and Behavior.IDLE or Behavior.ROAM
+  local here = { x = leader.cellX, y = leader.cellY }
+  local placed = 0
+  for _ = 1, want do
+    local level = math.max(2, (tonumber(leader.level) or 5) + math.random(-2, 1))
+    if EnginePatch.repelAllows(level) then
+      local enc = { species = leader.species, level = level, shiny = false,
+        personality = EnginePatch.randomPersonality and EnginePatch.randomPersonality()
+          or math.random(0, 0x7fffffff) }
+      local ok, m = self:_place(leader.terrain, here, enc)
+      if ok and m then
+        placed = placed + 1
+        m.group, m.rider = g, placed
+        g.members[#g.members + 1] = m.id
+        m.facing = leader.facing
+        m.behavior = Behavior.IDLE
+        local slot = slots[placed]
+        m.px, m.py = leader.px + slot[1], leader.py + slot[2]
+      end
+    end
+  end
+  if placed == 0 then leader.group = nil end
+  return placed
+end
+
+-- `e` leaves its group (it left, fainted, was caught ...): a group whose leader goes picks the
+-- next member still out, so the group keeps counting once
+function SpawnManager:_leaveGroup(e)
+  local g = e.group
+  if not g then return end
+  e.group = nil
+  for i = #g.members, 1, -1 do
+    if g.members[i] == e.id then table.remove(g.members, i) end
+  end
+  if g.leader == e.id then
+    -- the group was one Pokemon: with its leader gone (battled, knocked out, left) the
+    -- others scatter -- a few steps away from the player, then they disappear
+    g.leader = nil
+    local mates = {}
+    for _, mid in ipairs(g.members) do mates[#mates + 1] = mid end
+    g.members = {}
+    for _, mid in ipairs(mates) do
+      local m = self.entities[mid]
+      if m then
+        m.group, m.rider, m.riderMoving = nil, nil, nil
+        m.px, m.py = m.cellX * 16, m.cellY * 16
+        if m.state == Config.STATE.AVAILABLE and not m.fx then
+          local steps = Config.REACT.flee.steps
+          m.runAway = { steps = math.random(steps[1], steps[2]), blocked = 0, phase = "run", t = 0 }
+        elseif m.state == Config.STATE.AVAILABLE then
+          self:despawn(mid, { animate = true })
+        end
+      end
+    end
+  end
+end
+
+--- A rider's tick: it keeps its place in the cluster round its leader (eased, so it trails a
+--- moment behind a step or a leap), on the leader's tile, facing its way, bobbing in the
+--- water. `riderMoving` drives its walk / swim animation while it catches up.
+function SpawnManager:_tickRider(e)
+  local g = e.group
+  local l = g and g.leader and self.entities[g.leader]
+  if not l then return end
+  local slot = Config.ECO.group.slots[e.rider] or Config.ECO.group.slots[1]
+  local tx, ty = l.px + slot[1], l.py + slot[2]
+  local dx, dy = tx - e.px, ty - e.py
+  local d = math.sqrt(dx * dx + dy * dy)
+  local speed = Config.ECO.group.catchUp
+  if d <= speed then
+    e.px, e.py = tx, ty
+  else
+    e.px, e.py = e.px + dx / d * speed, e.py + dy / d * speed
+  end
+  e.riderMoving = d > 0.5
+  if e.riderMoving and math.abs(dx) + math.abs(dy) > 2 then
+    if math.abs(dx) > math.abs(dy) then e.facing = dx > 0 and "right" or "left"
+    else e.facing = dy > 0 and "down" or "up" end
+  elseif not l.moving then
+    e.facing = l.facing or e.facing
+  end
+  e.stepParity = not l.stepParity
+  e.cellX, e.cellY = l.cellX, l.cellY
+  if e.terrain == "water" then self:_swimLife(e, true) end
 end
 
 --- Whether the roaming legendary is already out on this map (live, or its battle starting).
@@ -363,6 +514,8 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
     -- the ground it takes off by itself (groundStay ticks)
     isFlyer = SkyFlyers.flies(enc.species),
     groundAge = 0,
+    -- how it lives in the wild (lib/eco_profile.lua; lib/eco.lua acts it out)
+    profile = EcoProfile.of(enc.species),
   }
   local e = self.entities[id]
   if e.isFlyer then
@@ -382,7 +535,7 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
       self:_startFx(e, "appear")
     end
   end
-  return true
+  return true, e
 end
 
 -- ------- tooling: a chosen species instead of a rolled one -------------------
@@ -483,15 +636,7 @@ function SpawnManager:_reactContext()
   ctx.canFly = ctx.canFly or function(e)
     return self.sky ~= nil and self.sky:canFly(e)
   end
-  ctx.occupied = ctx.occupied or function(x, y, me)
-    for _, o in pairs(self.entities) do
-      if o ~= me and o.state ~= Config.STATE.DESPAWNED
-        and ((o.cellX == x and o.cellY == y) or (o.moving and o.targetX == x and o.targetY == y)) then
-        return true
-      end
-    end
-    return false
-  end
+  ctx.occupied = ctx.occupied or function(x, y, me) return self:occupiedBy(x, y, me) ~= nil end
   ctx.takeoff = ctx.takeoff or function(e) self:despawn(e.id, { animate = true, fly = true }) end
   ctx.fleeVanish = ctx.fleeVanish or function(e) self:fleeVanish(e) end
   -- a chaser stuck off its grass with no way home leaves (its tile's leave fx: a fade)
@@ -580,6 +725,7 @@ end
 function SpawnManager:calmReactions()
   for _, e in pairs(self.entities) do
     if e.react then WildReactions.finish(e, self.ticks, 0) end
+    Eco.abort(e, self) -- and nobody carries on with its ecology (lib/eco.lua)
   end
 end
 
@@ -604,6 +750,9 @@ function SpawnManager:tick(game)
       if e.rings.age >= SpawnFx.ringsTicks() then e.rings = nil end
     end
     if e and e.wakes then self:_ageWakes(e) end
+    if e and e.ecoFx then EcoWater.ageFx(e) end
+    -- an ecology activity ends the moment the Battler engages it or its battle starts
+    if e and e.eco and (e.engaged or e.state ~= Config.STATE.AVAILABLE) then Eco.abort(e, self) end
     if e and e.rustle then -- a landing / take-off's rustle, on its own clock too
       e.rustle.age = e.rustle.age + 1
       if not SpawnFx.rustleFrame(e.rustle.frames, e.rustle.age) then e.rustle = nil end
@@ -675,10 +824,24 @@ function SpawnManager:tick(game)
           e.chaseHome = nil
           self:despawn(e.id, { animate = true })
         end
+      elseif e.rider then
+        -- part of a special spawn's cluster: it goes where its leader goes
+        self:_tickRider(e)
+      elseif e.eco then
+        -- doing what its kind does (lib/eco.lua); with Wild Reacts off / a busy field it stops
+        if reactCtx then
+          Eco.step(e, reactCtx, self)
+        else
+          Eco.abort(e, self)
+          if e.moving then Behavior._advanceMove(e) end
+        end
       else
         if e.chaseHome and not Behavior.offTerrain(e) then e.chaseHome = nil end
+        -- a drifter floats along slowly (lib/eco_water.lua); everyone else swims as usual
+        e.swimCfg = (reactCtx and e.profile and e.profile.water == "drifter") and Config.ECO.water.drift or nil
         Behavior.tick(e, self.game)
-        self:_swimLife(e)
+        self:_swimLife(e, reactCtx ~= nil)
+        if reactCtx and not e.fx then Eco.consider(e, reactCtx, self) end
       end
       self:_wakeOnStep(e)
       local r = e.renderer
@@ -694,9 +857,10 @@ function SpawnManager:tick(game)
             e.charging = e.charging > 1 and e.charging - 1 or nil
           end
         end
-      elseif r and r.advance then
+      elseif r and r.advance and not e.eco then
+        -- (an ecology activity drives its own animation: a leap's Hop, a whale's RearUp)
         e.charging = nil
-        r:advance(e.moving)
+        r:advance(e.moving or e.riderMoving)
       end
       -- a Flying type that has been on the ground a while takes off (a fresh spawn,
       -- maybe another one swooping in, takes its place)
@@ -724,7 +888,7 @@ end
 --- Appends one actor per live entity (engine_patch's `collectActors` hook).
 local function poseOf(e)
   local pose = ActorRenderer.POSE_STAND
-  if e.moving then
+  if e.moving or e.riderMoving then
     pose = e.stepParity and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
   elseif e.floater then
     pose = ActorRenderer.idleFlapPose(e.flapClock, Config.IDLE_FLAP_TICKS)
@@ -805,6 +969,7 @@ function SpawnManager:collectActors(actors, camX, camY)
       -- spawn's cell is never grass, so this is a no-op for those without
       -- needing its own terrain check here.
       GrassCover.append(actors, e.cellX, e.cellY, e.py, e.elevation, id)
+      if e.ecoFx then EcoWater.collectFx(e, actors) end
       if e.rings then
         local a = SpawnFx.ringsActor(e.rings.age, e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end
@@ -855,7 +1020,8 @@ function SpawnManager:entityAt(tx, ty)
     -- one still in the air (arriving by sky) is not there yet
     -- nor one knocked out by the Battler (0 HP, sinking away) or running off from it
     if e and e.state == Config.STATE.AVAILABLE and e.cellX == tx and e.cellY == ty
-      and not travelling(e) and not (e.fx and e.fx.under) and not e.defeated and not e.runAway then
+      and not travelling(e) and not (e.fx and e.fx.under) and not e.defeated and not e.runAway
+      and not e.rider and Eco.touchable(e) then
       return e
     end
   end
@@ -881,7 +1047,7 @@ function SpawnManager:fightTargets()
     -- never the roaming legendary: it is met only in a real battle, which keeps its saved state
     -- nor one fleeing / chasing / looking at the player (lib/wild_reactions.lua)
     if e and e.state == Config.STATE.AVAILABLE and not e.engaged and not e.noFight and not e.roamer and not e.fx
-      and not e.react and not e.runAway and not e.defeated then
+      and not e.react and not e.runAway and not e.defeated and not e.eco and not e.rider then
       out[#out + 1] = e
     end
   end
@@ -906,16 +1072,26 @@ function SpawnManager:_atSurface(e)
 end
 
 --- Per tick for a swimmer left to itself: its bob, and now and then a dive.
-function SpawnManager:_swimLife(e)
+function SpawnManager:_swimLife(e, eco)
   if not self:_atSurface(e) then return end
   local cfg = Config.SWIM
+  -- Wild Ecology (`eco`: Wild Reacts on): its kind's own way in the water (lib/eco_water.lua)
+  local kind = eco and e.profile and e.profile.water
+  local bob = (kind == "drifter") and Config.ECO.water.drift or cfg
   local r = e.renderer
   if r then
-    local phase = ((self.ticks or 0) + e.id * 37) / cfg.bobTicks * math.pi * 2
-    r.bobDy = math.sin(phase) * cfg.bobAmp
+    local phase = ((self.ticks or 0) + e.id * 37) / bob.bobTicks * math.pi * 2
+    r.bobDy = math.sin(phase) * bob.bobAmp
   end
+  -- a whale only goes under after blowing its spout (the "spout" activity), and a group
+  -- member only with its leader (startDive takes the group down together)
+  if kind == "whale" then return end
+  if eco and e.group and e.group.leader ~= e.id then return end
   local d = cfg.dive
-  if not e.diveIn then e.diveIn = math.random(d.min, d.max) end
+  if not e.diveIn then
+    local every = kind == "diver" and Config.ECO.water.diveEvery or { d.min, d.max }
+    e.diveIn = math.random(every[1], every[2])
+  end
   e.diveIn = e.diveIn - 1
   if e.diveIn > 0 or e.moving or e.roamer or e.isFlyer or e.lured or e.react or e.engaged or e.charging then
     return
@@ -925,13 +1101,32 @@ function SpawnManager:_swimLife(e)
     e.diveIn = 120 -- the player is right there: later
     return
   end
+  self:startDive(e)
+end
+
+--- `e` goes under (Config.SWIM.dive): it sinks with rings and a ripple, stays down a while,
+--- and surfaces a few tiles away (`_stepDive`). A whale sounding after its spout too.
+function SpawnManager:startDive(e)
   e.diveIn = nil
-  e.fx = SpawnFx.new("leave", "water", d.sinkTicks)
+  e.fx = SpawnFx.new("leave", "water", Config.SWIM.dive.sinkTicks)
   e.fx.dive = true
   e.rings = { age = 0 }
   if EnginePatch.startRipple then EnginePatch.startRipple(e.cellX, e.cellY) end
-  if r then r.bobDy = 0 end
+  if e.renderer then e.renderer.bobDy = 0 end
   self:_applyFx(e)
+  -- a school / pod goes under together with its leader, and comes up beside it
+  local g = e.group
+  if g and g.leader == e.id then
+    for _, mid in ipairs(g.members) do
+      local m = self.entities[mid]
+      if m and m ~= e and m.state == Config.STATE.AVAILABLE and not m.fx and not m.engaged and not m.react
+        and not m.eco and not m.lured and m.terrain == "water" then
+        if m.moving then m.moving = false m.cellX, m.cellY = m.targetX or m.cellX, m.targetY or m.cellY end
+        if not m.rider then m.px, m.py = m.cellX * 16, m.cellY * 16 end
+        self:startDive(m)
+      end
+    end
+  end
 end
 
 --- One tick of a dive: sinking (the leave effect), under (hidden, `fx.under` ticks), then
@@ -942,10 +1137,29 @@ function SpawnManager:_stepDive(e)
   if fx.under then
     fx.under = fx.under - 1
     if fx.under > 0 then return end
+    -- a group member comes up beside its leader, once the leader has
+    local g = e.group
+    local leader = g and g.leader ~= e.id and self.entities[g.leader] or nil
+    if leader and leader.state ~= Config.STATE.AVAILABLE then leader = nil end
+    if leader and leader.fx and leader.fx.dive then fx.under = 10 return end
+    local cx, cy, hop = e.cellX, e.cellY, d.hop
+    if leader then cx, cy, hop = leader.cellX, leader.cellY, 2 end
+    if leader and e.rider then
+      -- a rider comes up in its place in the cluster
+      local slot = Config.ECO.group.slots[e.rider] or Config.ECO.group.slots[1]
+      e.cellX, e.cellY = leader.cellX, leader.cellY
+      e.px, e.py = leader.px + slot[1], leader.py + slot[2]
+      e.facing = leader.facing
+      e.swim, e.wakes = nil, nil
+      e.fx = SpawnFx.new("appear", "water", (Config.SPAWN_FX or {}).appearTicks)
+      e.rings = { age = 0 }
+      self:_applyFx(e)
+      return
+    end
     local spots = {}
-    for dy = -d.hop, d.hop do
-      for dx = -d.hop, d.hop do
-        local x, y = e.cellX + dx, e.cellY + dy
+    for dy = -hop, hop do
+      for dx = -hop, hop do
+        local x, y = cx + dx, cy + dy
         if (dx ~= 0 or dy ~= 0) and EnginePatch.terrainAt(x, y) == "water"
           and (not EnginePatch.isWater or EnginePatch.isWater(x, y + 1)) and self:_cellFree(x, y) then
           spots[#spots + 1] = { x = x, y = y }
@@ -955,6 +1169,13 @@ function SpawnManager:_stepDive(e)
     if #spots > 0 then
       local c = spots[math.random(1, #spots)]
       e.cellX, e.cellY, e.px, e.py = c.x, c.y, c.x * 16, c.y * 16
+    end
+    -- a leader up again calls its group up after it (they surface a moment later)
+    if g and g.leader == e.id then
+      for _, mid in ipairs(g.members) do
+        local m = self.entities[mid]
+        if m and m ~= e and m.fx and m.fx.dive and m.fx.under then m.fx.under = math.random(6, 24) end
+      end
     end
     e.facing = ({ "up", "down", "left", "right" })[math.random(1, 4)]
     e.swim = nil
@@ -1064,6 +1285,8 @@ end
 function SpawnManager:despawn(id, opts)
   local e = self.entities[id]
   if not e then return end
+  Eco.abort(e, self)
+  self:_leaveGroup(e)
   if opts and opts.animate and e.fx and e.fx.dive and e.fx.under then
     opts = nil -- under the water already: nothing to see leave
   end

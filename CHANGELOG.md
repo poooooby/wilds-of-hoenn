@@ -4,11 +4,22 @@
 
 ### Added
 
+- **Wild Pokémon live like their kind** (part of Wild Reacts). Fish leap out of the water
+  and splash back in (with PMDCollab's hop for every species), Wailmer rear up and blow spouts
+  before they dive, and Tentacool drift slowly about.
+  About 1 in 4 spawns of a pack, herd or school species comes as a group, clustered on one tile
+  and moving, diving and surfacing as one. It counts as one Pokémon: walk into it to battle one,
+  and the rest scatter. A leaping fish can't be met until it is back in the water. With Wild
+  Reacts off, each wild Pokémon wanders on its own as before.
 - **Exp. Share works with your Battler.** When a party member holds an Exp. Share, your
   Battler's overworld wins are shared the way a real battle shares them: the Battler takes
   half, and the holders split the other half. A holder that levels up gets its own
   "Lv." label after your Battler's, and once the fight is over its evolution and new-move
   screens open right away, just as they would after a battle.
+
+### Fixed
+
+- Two wild Pokémon could step into the same tile at once; they now wait for each other.
 
 ## 1.11.2 (2026-10-29)
 

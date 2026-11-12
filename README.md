@@ -120,6 +120,13 @@ rooftops, with little scenes waiting in special places.*
   its own distance and heads back to its grass. The
   bigger the gap in strength, the likelier they react: a near match often lets you pass.
   An even match isn't bothered, and walking past calmly disturbs nobody.
+- 🐟 **They live like their kind:** wild Pokémon go about the way their species would. Fish
+  leap out of the water and splash back in, Wailmer lie at the surface and blow spouts before
+  they sound, and Tentacool drift slowly about. Now and then a pack, herd or school turns up
+  instead of a single Pokémon (Poochyena packs, Seedot huddles, Magikarp and Carvanha schools,
+  Wailmer pods ...), clustered together on one tile and moving, diving and surfacing as one.
+  A group counts as one Pokémon: walk into it to battle one of them, and the rest scatter.
+  Part of **Wild Reacts**.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
   softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on
   roofs, trees and signposts (and fly off when you walk up); real sea birds (Wingull, Pelipper and
@@ -166,7 +173,7 @@ menu opens the same list.
 | **Flying Mons** | FULL / AMBIENT / OFF | FULL | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. Full adds big birds flying high overhead, softly out of focus; Ambient leaves those out. |
 | **Water Life** | ON / OFF | ON | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, Finizen porpoising out at sea (sometimes a whole pod at play), and fish swimming by under the sea when you dive, just for the scenery. |
 | **Local Scenes** | ON / OFF | ON | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
-| **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Off: they just wander. |
+| **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. They also live like their kind: packs and schools keep together, fish leap, whales blow spouts. Off: they each just wander. |
 | **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. |
 | **Follower** | ON / OFF | ON | Your partner walks behind you. Off: it stays in its Poké Ball, and its Battle and Forage jobs and Pet / Play / Talk wait until it is out again. Changing your party order still picks your partner. |
 | **Battler: Pad** | R / L / OFF | OFF | A controller shoulder button that switches your partner between Battle and Follow while you walk around. In FireRed / LeafGreen that button no longer opens Help in the overworld (the other one still does). |

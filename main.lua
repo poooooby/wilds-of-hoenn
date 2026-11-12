@@ -133,6 +133,8 @@ return function(mod)
   -- fish leaping, whales surfacing (ambient)
   local waterLife = WaterLife.new(mod, {
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
+    -- real wild spawns already leaping / spouting here (Wild Ecology): no ambient copy
+    spawnHas = function(kind) return Config.wildReacts(mod) and spawnManager:hasWaterKind(kind) end,
   })
   spawnManager.water = waterLife -- wild fish swim in / out under the sea
   -- little moments in a few places (Lavender's ghosts, Petalburg Woods' bugs, Fortree's Tropius)

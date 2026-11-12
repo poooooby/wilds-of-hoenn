@@ -111,7 +111,26 @@ local function rngRange(rng, r) return rng(r[1], r[2]) end
 --- Can `e` react now? (Not lured, engaged, arriving / leaving, the roamer, on cooldown.)
 function WildReactions.eligible(e, now)
   return e.state == Config.STATE.AVAILABLE and not e.react and not e.lured and not e.engaged
-    and not e.fx and not e.roamer and not e.runAway and not e.defeated and (e.reactUntil or 0) <= (now or 0)
+    and not e.fx and not e.roamer and not e.runAway and not e.defeated and not e.eco and not e.rider
+    and (e.reactUntil or 0) <= (now or 0)
+end
+
+--- Starts `e` reacting to ANOTHER wild Pokemon `target` (lib/eco.lua): "hunt" = the anger
+--- mark, then a chase that ends in `ctx.onCatch(e, target)` once beside it; "flee" = the "!"
+--- and a run of `steps` away from it. True when it started.
+--- (`steps`: a flight's length, or a hunt's leash in tiles.)
+function WildReactions.startAt(e, target, kind, ctx, steps)
+  if not (target and WildReactions.eligible(e, ctx and ctx.now)) then return false end
+  local cfg = Config.REACT
+  local r = { t = 0, emoteAge = 0, target = target, kind = kind == "hunt" and "strong" or "weak" }
+  e.facing = faceToward(e.cellX, e.cellY, target.cellX, target.cellY) or e.facing
+  if kind == "hunt" then
+    r.mode, r.next, r.emote, r.n, r.huntLeash = "alert", "chase", "anger", cfg.angerTicks, steps
+  else
+    r.mode, r.next, r.emote, r.n, r.hop, r.fleeSteps = "alert", "flee", "!", cfg.alertTicks, true, steps
+  end
+  e.react = r
+  return true
 end
 
 --- Starts `e` reacting to the player at (px, py), `dist` tiles away: picks the reaction
@@ -204,8 +223,21 @@ function WildReactions.sendHome(e)
               home = e.chaseHome, steps = 0, blocked = 0 }
 end
 
+-- what a reaction is about: the player (ctx.player), or another wild Pokemon (`r.target`,
+-- lib/eco.lua) read into the same shape -- nil once that one is gone
+local function goalOf(r, ctx)
+  local o = r.target
+  if not o then return ctx.player end
+  if o.state ~= Config.STATE.AVAILABLE or o.defeated or (o.fx and o.fx.under) then return nil end
+  local g = r.goal or {}
+  r.goal = g
+  g.x, g.y, g.moving, g.targetX, g.targetY = o.cellX, o.cellY, o.moving, o.targetX, o.targetY
+  return g
+end
+WildReactions._goalOf = goalOf
+
 --- One tick of `e`'s reaction. `ctx` = { now, rng, game, player = playerCell(),
---- occupied(x, y, self), onContact(e), takeoff(e) }.
+--- occupied(x, y, self), onContact(e), onCatch(e, target), takeoff(e) }.
 function WildReactions.tick(e, ctx)
   local cfg, rng = Config.REACT, ctx.rng or math.random
   local r = e.react
@@ -213,7 +245,12 @@ function WildReactions.tick(e, ctx)
   r.t = r.t + 1
   r.emoteAge = (r.emoteAge or 0) + 1
   if r.emoteAge > cfg.emoteTicks then r.emote = nil end
-  local p = ctx.player
+  local p = goalOf(r, ctx)
+  -- the Pokemon it was about is gone (caught, fainted, dived): it calms down
+  if r.target and not p and r.mode ~= "return" then
+    if e.moving then Behavior._advanceMove(e) return end
+    return finish(e, ctx.now, cfg.cooldown, rng)
+  end
   -- a step in progress finishes first
   if e.moving then
     Behavior._advanceMove(e)
@@ -244,9 +281,9 @@ function WildReactions.tick(e, ctx)
       finish(e, ctx.now, cfg.cooldown, rng)
       if ctx.takeoff then ctx.takeoff(e) end
     elseif r.next == "flee" then
-      r.mode, r.steps, r.blocked = "flee", rngRange(rng, cfg.flee.steps), 0
+      r.mode, r.steps, r.blocked = "flee", r.fleeSteps or rngRange(rng, cfg.flee.steps), 0
     elseif r.next == "chase" then
-      local leash = rngRange(rng, cfg.chase.leash)
+      local leash = r.huntLeash or rngRange(rng, cfg.chase.leash)
       r.mode, r.leash, r.limit = "chase", leash, math.floor(leash * cfg.chase.secondsPerTile * 60)
       r.home, r.noPath, r.t = { x = e.cellX, y = e.cellY }, 0, 0
       -- where to walk back to if it ends up off its grass (kept past the reaction)
@@ -282,6 +319,14 @@ function WildReactions.tick(e, ctx)
     local gx, gy = p.x, p.y
     if p.moving and p.targetX then gx, gy = p.targetX, p.targetY end
     if cheb(e.cellX, e.cellY, gx, gy) > r.leash or r.t > r.limit then return giveUp(e, ctx) end
+    if r.target and (manhattan(e.cellX, e.cellY, p.x, p.y) <= 1 or manhattan(e.cellX, e.cellY, gx, gy) <= 1) then
+      -- caught up with the Pokemon it hunted (lib/eco.lua takes it from here)
+      local prey = r.target
+      e.facing = faceToward(e.cellX, e.cellY, p.x, p.y) or e.facing
+      finish(e, ctx.now, cfg.chaseCooldown, rng)
+      if ctx.onCatch then ctx.onCatch(e, prey) end
+      return
+    end
     if manhattan(e.cellX, e.cellY, p.x, p.y) <= 1 and not p.moving then
       -- caught up with a standing player: the battle
       e.facing = faceToward(e.cellX, e.cellY, p.x, p.y) or e.facing

@@ -118,6 +118,79 @@ do
   fakeEngine.mapBounds = realBounds
 end
 
+-- ------- special spawns (lib/eco_profile.lua social): now and then a pack comes clustered on
+-- its leader's tile, as ONE Pokemon
+do
+  local EcoProfile = V.require("eco_profile")
+  local Config = V.require("config")
+  local realOf, realBounds, realChance = EcoProfile.of, fakeEngine.mapBounds, Config.ECO.group.chance
+  fakeEngine.mapBounds = function() return 40, 5 end -- 200 land tiles: Normal wants 8
+  EcoProfile.of = function() return { social = "pack", group = { 3, 3 }, diet = "predator", temper = "territorial",
+    water = "swimmer", activity = "any" } end
+  Config.ECO.group.chance = 100
+  local sm = SpawnManager.new(mod)
+  sm:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local leaders, riders, sameTile = 0, 0, true
+  for _, e in pairs(sm.entities) do
+    if e.group then
+      if e.group.leader == e.id then leaders = leaders + 1 else
+        riders = riders + 1
+        local l = sm.entities[e.group.leader]
+        if not (e.rider and e.cellX == l.cellX and e.cellY == l.cellY and e.species == l.species) then sameTile = false end
+      end
+    end
+  end
+  eq(sm:_activeCountFor("land"), 8, "special spawns: the Spawn Amount counts 8 Pokemon")
+  eq(leaders, 8, "...8 groups")
+  eq(riders, 16, "...each with 2 riders")
+  check(sameTile, "...riders are the leader's species, on the leader's own tile")
+  local g
+  for _, e in pairs(sm.entities) do if e.group and e.group.leader == e.id then g = e.group break end end
+  local leader = sm.entities[g.leader]
+  eq(sm:entityAt(leader.cellX, leader.cellY), leader, "touching the tile meets the leader")
+  local riderIn = false
+  for _, t in ipairs(sm:fightTargets()) do if t.rider then riderIn = true end end
+  check(not riderIn, "riders are never the Battler's targets")
+  -- the leader moves: its riders keep their places round it, drawn offset, on its tile
+  leader.fx = nil
+  for _, mid in ipairs(g.members) do local m = sm.entities[mid] if m then m.fx = nil end end
+  leader.cellX, leader.px = leader.cellX + 1, leader.px + 16
+  local mates = {}
+  for _, mid in ipairs(g.members) do if mid ~= leader.id then mates[#mates + 1] = sm.entities[mid] end end
+  for _ = 1, 30 do for _, m in ipairs(mates) do sm:_tickRider(m) end end
+  local placedOk = true
+  for _, m in ipairs(mates) do
+    local slot = Config.ECO.group.slots[m.rider]
+    if m.cellX ~= leader.cellX or m.px ~= leader.px + slot[1] then placedOk = false end
+  end
+  check(placedOk, "riders follow their leader to its new tile, in their places round it")
+  -- the leader battled (gone): the riders scatter
+  sm:despawn(leader.id)
+  local scattering = 0
+  for _, m in ipairs(mates) do if m.runAway and not m.rider and not m.group then scattering = scattering + 1 end end
+  eq(scattering, 2, "the leader gone: its riders scatter")
+  -- Wild Reacts off: no special spawns
+  optionStore.wild_reacts = false
+  local off = SpawnManager.new(mod)
+  off:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local any = false
+  for _, e in pairs(off.entities) do if e.group then any = true end end
+  check(not any and off:count() == 8, "Wild Reacts off: no groups, 8 single Pokemon as before")
+  optionStore.wild_reacts = nil
+  -- the usual chance: most spawns of a pack species come alone
+  Config.ECO.group.chance = realChance
+  local groups, total = 0, 0
+  for _ = 1, 10 do
+    local s2 = SpawnManager.new(mod)
+    s2:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+    for _, e in pairs(s2.entities) do
+      if not e.rider then total = total + 1 if e.group then groups = groups + 1 end end
+    end
+  end
+  check(groups > 0 and groups < total / 2, ("about 1 in 4 come as a group (%d of %d)"):format(groups, total))
+  EcoProfile.of, fakeEngine.mapBounds = realOf, realBounds
+end
+
 -- ------- onMapEntered places visible wild Pokemon, converted to national dex
 local sm = SpawnManager.new(mod)
 sm:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })

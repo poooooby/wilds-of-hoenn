@@ -264,6 +264,21 @@ do
   fakeEngine.playerCell, fakeEngine.isWater = nil, nil
 end
 
+-- ------- never into another wild Pokemon's cell or the one it is stepping into
+do
+  fakeEngine.terrainAt = function() return "land" end
+  local other = { cellX = 4, cellY = 2, moving = true, targetX = 3, targetY = 2 }
+  local m = { cellX = 2, cellY = 2, facing = "right", terrain = "land", elevation = 3 }
+  Behavior.occupied = function(x, y, me)
+    if me == other then return false end
+    return (other.cellX == x and other.cellY == y) or (other.moving and other.targetX == x and other.targetY == y)
+  end
+  check(not Behavior._canStep(m, {}, 3, 2), "occupancy: not into a cell another Pokemon is stepping into")
+  check(Behavior._canStep(m, {}, 2, 1), "occupancy: a free cell is fine")
+  Behavior.occupied = nil
+  check(Behavior._canStep(m, {}, 3, 2), "occupancy: with no checker set, only the engine decides")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

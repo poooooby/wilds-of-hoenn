@@ -425,6 +425,44 @@ do
   for k, v in pairs(saved) do fake[k] = v end
 end
 
+-- ------- reacting to another wild Pokemon (lib/eco.lua): a hunt that catches its prey,
+-- a flight away from a hunter
+do
+  local pred, prey = entity(5, 25, 20), entity(9, 25, 5)
+  pred.id, prey.id = 10, 11
+  local caught = {}
+  local ctx = ctxFor({ x = 0, y = 0, moving = false }, 10, {
+    onCatch = function(a, b) caught[#caught + 1] = { a, b } end,
+  })
+  local before = #contacts
+  check(WR.startAt(pred, prey, "hunt", ctx, 8), "a hunt starts on another Pokemon")
+  eq(pred.react.emote, "anger", "...with the anger mark")
+  run(pred, ctx, 400)
+  eq(#caught, 1, "the hunter reaches its prey: one catch")
+  check(caught[1] and caught[1][1] == pred and caught[1][2] == prey, "...reported as (hunter, prey)")
+  check(math.abs(pred.cellX - prey.cellX) + math.abs(pred.cellY - prey.cellY) <= 1, "...standing beside it")
+  eq(#contacts, before, "...and no battle with the player")
+  eq(pred.react, nil, "...the hunt is over")
+
+  local hunter, runner = entity(10, 27, 20), entity(11, 27, 5)
+  hunter.id, runner.id = 12, 13
+  check(WR.startAt(runner, hunter, "flee", ctx, 3), "a flight from a hunter starts")
+  run(runner, ctx, 200)
+  check(runner.cellX > 11, "...it ran away from the hunter (x " .. runner.cellX .. ")")
+
+  local p2, gone = entity(5, 22, 20), entity(9, 22, 5)
+  p2.id, gone.id = 14, 15
+  WR.startAt(p2, gone, "hunt", ctx, 8)
+  run(p2, ctx, 50)
+  gone.state = Config.STATE.DESPAWNED -- caught by the player meanwhile
+  run(p2, ctx, 50)
+  eq(p2.react, nil, "its prey gone, a hunter calms down")
+  check(not WR.startAt(entity(1, 1, 5), nil, "hunt", ctx), "nothing to hunt: no start")
+  local busy = entity(1, 1, 5)
+  busy.eco = { kind = "x" }
+  check(not WR.eligible(busy, 0), "a Pokemon busy with its ecology does not react")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)
