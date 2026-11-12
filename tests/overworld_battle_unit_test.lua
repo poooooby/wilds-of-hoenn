@@ -262,9 +262,14 @@ do
   mon = newMon()
   holder = newMon({ share = true, exp = 70, name = "TREECKO" })
   local reported = {}
-  labels = win(mon, { mon, holder }, { levelUp = function(m, from, to) reported[#reported + 1] = m end })
+  labels = win(mon, { mon, holder }, { levelUp = function(m, from, to, isHolder) reported[#reported + 1] = { m, isHolder } end })
   eq(labels[2], "TREECKO Lv.11!", "a holder's level-up follows the Battler's label")
-  check(reported[1] == holder, "...and is reported for its moves / evolution")
+  check(reported[1] and reported[1][1] == holder, "...and is reported for its moves / evolution")
+  eq(reported[1] and reported[1][2], true, "...flagged as a holder's (its screens open by themselves)")
+  mon = newMon({ exp = 99 })
+  reported = {}
+  win(mon, { mon }, { levelUp = function(m, from, to, isHolder) reported[#reported + 1] = { m, isHolder } end })
+  check(reported[1] and reported[1][1] == mon and not reported[1][2], "the Battler's own level-up is not a holder's")
   mon = newMon()
   holder = newMon({ share = true, exp = 0 })
   win(mon, { mon, holder }, { expFrozen = function(m) return m == holder end })

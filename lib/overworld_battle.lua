@@ -581,14 +581,15 @@ end
 
 -- Gives one Pokemon its part of a win: none while it waits for the player to learn a move or
 -- evolve (lib/level_ready.lua: another level on top could skip one of those); a level gained
--- is reported to the owner, which asks the player. Returns the engine's result (nil when it
+-- is reported to the owner, which asks the player (`holder`: an Exp. Share holder's, whose
+-- screens open by themselves -- lib/holder_ready.lua). Returns the engine's result (nil when it
 -- gave none) and whether any EXP was given.
-function OverworldBattle:_giveExp(mon, amount)
+function OverworldBattle:_giveExp(mon, amount, holder)
   if amount <= 0 or (self.deps.expFrozen and self.deps.expFrozen(mon)) then return nil, false end
   local result = self.combatDeps.expApply(mon, amount)
   if result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel
     and self.deps.levelUp then
-    pcall(self.deps.levelUp, mon, result.fromLevel, result.toLevel)
+    pcall(self.deps.levelUp, mon, result.fromLevel, result.toLevel, holder)
   end
   return result, true
 end
@@ -645,7 +646,7 @@ function OverworldBattle:_mode_win(env)
     local parts = OwCombat.expSplit(pool, env.mon, party, self.deps.holdsExpShare)
     local text
     for i, part in ipairs(parts) do
-      local result, given = self:_giveExp(part.mon, part.amount)
+      local result, given = self:_giveExp(part.mon, part.amount, i > 1)
       local levelled = result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel
       if i == 1 then
         if given then text = tr("+%d EXP", math.floor(part.amount)) end

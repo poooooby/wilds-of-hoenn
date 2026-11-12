@@ -65,6 +65,7 @@ return function(mod)
   local FollowerInteraction = V.require("follower_interaction")
   local Companion = V.require("companion")
   local LevelReady = V.require("level_ready")
+  local HolderReady = V.require("holder_ready")
   local Forager = V.require("forager")
   local ForageSource = V.require("forage_source")
   local OverworldBattle = V.require("overworld_battle")
@@ -155,6 +156,19 @@ return function(mod)
     companion = companion,
     levelReady = levelReady,
   })
+  -- an Exp. Share holder that levels up from the Battler's wins is not out on the field:
+  -- its evolution / move screens open by themselves once the fight is over and the game is free
+  local holderReady = HolderReady.new(levelReady, {
+    canOpen = function()
+      if not EnginePatch.gameFree() or EnginePatch.uiBusy() or EnginePatch.isMessageOpen() then return false end
+      if followerInteraction:isActive() then return false end
+      local b = followerAdapter.behaviors and followerAdapter.behaviors.battle
+      return not b or b.mode == "idle" or b.mode == "between"
+    end,
+    partyMons = EnginePatch.partyMons, evolutionTarget = EnginePatch.evolutionTarget,
+    startEvolution = EnginePatch.startEvolution, startMoveLearn = EnginePatch.startMoveLearn,
+    screenBusy = EnginePatch.screenBusy,
+  })
 
   followerAdapter.interaction = followerInteraction -- its mood effects while you talk (lib/mood_fx.lua)
 
@@ -203,6 +217,7 @@ return function(mod)
   mod.exports.followerInteraction = followerInteraction
   mod.exports.companion = companion
   mod.exports.levelReady = levelReady
+  mod.exports.holderReady = holderReady
 
   -- Forage role: wanders on open cells near the player and bags what it finds
   local forageSource = ForageSource.new(mod)
@@ -245,7 +260,10 @@ return function(mod)
     heldItem = EnginePatch.wildHeldItem, itemName = EnginePatch.itemName,
     bagAdd = EnginePatch.bagAdd, bagCanAdd = EnginePatch.bagCanAdd,
     playFound = EnginePatch.playSuccess,
-    levelUp = function(mon, from, to) levelReady:record(mon, from, to) end,
+    levelUp = function(mon, from, to, holder)
+      levelReady:record(mon, from, to)
+      if holder then holderReady:push(mon) end -- not out on the field: its screens open by themselves
+    end,
     -- an Exp. Share holder takes its share of a win, as in a real battle
     partyMons = EnginePatch.partyMons, holdsExpShare = EnginePatch.holdsExpShare,
     displayName = EnginePatch.displayName,
@@ -336,6 +354,7 @@ return function(mod)
       waterLife:tick()
       localScenes:tick()
       followerInteraction:tick(game)
+      holderReady:tick()
       battleTrigger:tick()
       battleTrigger:checkContact()
       followerAdapter:tick()
@@ -369,6 +388,7 @@ return function(mod)
       pcall(function() followerInteraction:onSaveChanged() end)
       pcall(function() companion:reset() end)
       pcall(function() levelReady:reset() end)
+      pcall(function() holderReady:reset() end)
       pcall(function() forageSource:reset() end)
       pcall(function() followerAdapter:resetBehaviors() end)
       pcall(function() followerAdapter:resetDisplay() end)
