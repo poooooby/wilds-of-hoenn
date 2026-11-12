@@ -159,11 +159,61 @@ do
   for _, mid in ipairs(g.members) do if mid ~= leader.id then mates[#mates + 1] = sm.entities[mid] end end
   for _ = 1, 30 do for _, m in ipairs(mates) do sm:_tickRider(m) end end
   local placedOk = true
+  local vc = Config.ECO.group.vary
   for _, m in ipairs(mates) do
     local slot = Config.ECO.group.slots[m.rider]
-    if m.cellX ~= leader.cellX or m.px ~= leader.px + slot[1] then placedOk = false end
+    if m.cellX ~= leader.cellX or math.abs(m.px - (leader.px + slot[1])) > vc.jitter + vc.mill.px then placedOk = false end
   end
   check(placedOk, "riders follow their leader to its new tile, in their places round it")
+  -- each member its own: follow speed, Idle pace, Idle starting point
+  local a, b = mates[1].vary, mates[2].vary
+  check(a and b and (a.catchUp ~= b.catchUp or a.idleMul ~= b.idleMul or a.phase ~= b.phase),
+    "pack members each follow and idle at their own pace")
+  -- the leader rears up: who joins in, when, how fast
+  local function fakeR()
+    local r = { isPmd = true, info = { idle = {}, rearup = {}, eat = {}, hop = {} } }
+    function r:advanceAs(anim, speed) self.anim, self.speed = anim, speed end
+    return r
+  end
+  for _, m in ipairs(mates) do m.renderer, m.vary = fakeR(), nil end
+  leader.moving = false
+  local realJoin = vc.join.pack
+  vc.join.pack = 100
+  leader.eco = { kind = "pose", groupAnim = "rearup" }
+  sm.ticks = 1000
+  local started = {}
+  for t = 1, vc.joinLag[2] + 2 do
+    sm.ticks = sm.ticks + 1
+    for i, m in ipairs(mates) do
+      sm:_tickRider(m)
+      if m.riderAnim and m.renderer.anim == "rearup" and not started[i] then started[i] = t end
+    end
+  end
+  check(started[1] and started[2], "all joining: every member rears up with its leader, after its own lag")
+  local sp = mates[1].renderer.speed
+  check(sp >= vc.poseSpeed[1] and sp <= vc.poseSpeed[2], "...at its own speed (" .. sp .. ")")
+  vc.join.pack = 0
+  leader.eco = { kind = "pose", groupAnim = "rearup" } -- a new howl, nobody joins
+  for _ = 1, vc.joinLag[2] + 2 do
+    sm.ticks = sm.ticks + 1
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  check(not mates[1].riderAnim and not mates[2].riderAnim, "a member that does not join just looks about")
+  vc.join.pack = realJoin
+  -- the leader standing: now and then a member does its own thing
+  leader.eco = nil
+  for _, m in ipairs(mates) do m.vary.asideAt = sm.ticks + 1 end
+  sm.ticks = sm.ticks + 1
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  local own = 0
+  for _, m in ipairs(mates) do
+    if m.riderAnim and (m.renderer.anim == "eat" or m.renderer.anim == "hop") then own = own + 1 end
+  end
+  eq(own, 2, "the leader standing: a member eats or hops on its own")
+  leader.moving = true
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(not mates[1].riderAnim and not mates[1].vary.aside, "...and stops when the pack moves off")
+  leader.moving = nil
   -- the leader battled (gone): the riders scatter
   sm:despawn(leader.id)
   local scattering = 0

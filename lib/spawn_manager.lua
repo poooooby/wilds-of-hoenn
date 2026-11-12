@@ -24,7 +24,7 @@ local ShinySparkle = V.require("shiny_sparkle")
 local EcoProfile = V.require("eco_profile")
 local Eco = V.require("eco")
 local EcoWater = V.require("eco_water")
-V.require("eco_land") -- registers the land activities
+local EcoLand = V.require("eco_land") -- (also registers the land activities)
 local EcoHunt = V.require("eco_hunt")
 local CellPath = V.require("cell_path")
 
@@ -391,6 +391,7 @@ function SpawnManager:_spawnGroup(leader)
       if ok and m then
         placed = placed + 1
         m.group, m.rider = g, placed
+        m.vary = SpawnManager._riderVary(math.random)
         g.members[#g.members + 1] = m.id
         m.facing = leader.facing
         m.behavior = Behavior.IDLE
@@ -435,24 +436,103 @@ function SpawnManager:_leaveGroup(e)
   end
 end
 
---- A rider's tick: it keeps its place in the cluster round its leader (eased, so it trails a
---- moment behind a step or a leap), on the leader's tile, facing its way, bobbing in the
---- water. `riderMoving` drives its walk / swim animation while it catches up.
+local FACINGS = { "down", "up", "left", "right" }
+
+--- A group member's own ways (Config.ECO.group.vary), so no two move or pose in step: its
+--- follow speed, Idle pace and starting point, its own spot by its slot. Timers start unset.
+function SpawnManager._riderVary(rng)
+  rng = rng or math.random
+  local c = Config.ECO.group.vary
+  local function fr(r) return r[1] + (r[2] - r[1]) * rng(0, 1000) / 1000 end
+  return { catchUp = fr(c.catchUp), idleMul = fr(c.idleSpeed), phase = rng(0, 60),
+           jx = rng(-c.jitter, c.jitter), jy = rng(-c.jitter, c.jitter), mx = 0, my = 0 }
+end
+
+local function due(v, key, now, range, rng)
+  if not v[key] then v[key] = now + rng(range[1], range[2]) return false end
+  if now < v[key] then return false end
+  v[key] = now + rng(range[1], range[2])
+  return true
+end
+
+-- what animation a standing member plays this tick (nil = its own Idle / Walk): the leader's
+-- pose when it joins in (after its lag, at its own speed), else now and then one of its own
+local function riderPose(e, l, g, v, now, rng)
+  local c = Config.ECO.group.vary
+  local ga = l.eco and l.eco.groupAnim
+  if ga then
+    v.aside = nil
+    if v.gaEco ~= l.eco then
+      -- the leader starts something: this one joins in, or just looks about
+      v.gaEco, v.ga = l.eco, ga
+      v.joins = rng(1, 100) <= (c.join[g.social] or 100)
+      v.joinAt, v.poseSpeed = now + rng(c.joinLag[1], c.joinLag[2]),
+        c.poseSpeed[1] + (c.poseSpeed[2] - c.poseSpeed[1]) * rng(0, 1000) / 1000
+      if not v.joins then v.face = FACINGS[rng(1, 4)] end
+    elseif v.ga ~= ga then
+      v.ga = ga -- the same pose going on (a nap waking): with a short lag of its own
+      v.joinAt = now + rng(0, math.floor(c.joinLag[2] / 2))
+    end
+    if v.joins and now >= v.joinAt then return ga, v.poseSpeed end
+    return nil
+  end
+  v.gaEco, v.ga = nil, nil
+  if e.terrain == "water" or l.moving or e.riderMoving then v.aside = nil return nil end
+  local a = v.aside
+  if a then
+    a.t = a.t + 1
+    local p = a.anim == "nap" and EnginePatch.playerCell and EnginePatch.playerCell()
+    local near = p and math.max(math.abs(p.x - e.cellX), math.abs(p.y - e.cellY)) <= Config.ECO.land.nap.wakeRadius + 1
+    if a.t > a.n or near then
+      if a.anim == "nap" and EcoLand._hasAnim(e, "wake") then
+        v.aside = { anim = "wake", n = Config.ECO.land.nap.wakeTicks, t = 0 }
+      else
+        v.aside = nil
+        return nil
+      end
+    end
+    return v.aside.anim, 1
+  end
+  local list = c.aside.anims[g.social]
+  if list and due(v, "asideAt", now, c.aside.every, rng) then
+    local anim = list[rng(1, #list)]
+    if EcoLand._hasAnim(e, anim) then
+      v.aside = { anim = anim, n = rng(c.aside.ticks[1], c.aside.ticks[2]), t = 0 }
+      return anim, 1
+    end
+  end
+  return nil
+end
+
+--- A rider's tick: it keeps its place in the cluster round its leader (eased at its own
+--- speed, so they trail a step or a leap one by one), on the leader's tile, bobbing in the
+--- water. `riderMoving` drives its walk / swim animation while it catches up. Standing, each
+--- shifts about, looks its own way and plays its own Idle; the leader's poses it joins or not
+--- (riderPose).
 function SpawnManager:_tickRider(e)
   local g = e.group
   local l = g and g.leader and self.entities[g.leader]
   if not l then return end
   local gcfg = Config.ECO.group
+  local c = gcfg.vary
+  local v = e.vary
+  if not v then v = SpawnManager._riderVary() e.vary = v end
+  local rng, now = math.random, self.ticks or 0
+  local land = e.terrain ~= "water"
+  -- now and then a land member shifts about its place (a swarm buzzes instead)
+  if land and g.social ~= "swarm" and not l.moving and due(v, "millAt", now, c.mill.every, rng) then
+    v.mx, v.my = rng(-c.mill.px, c.mill.px), rng(-c.mill.px, c.mill.px)
+  end
   local slot = gcfg.slots[e.rider] or gcfg.slots[1]
-  local tx, ty = l.px + slot[1], l.py + slot[2]
+  local tx, ty = l.px + slot[1] + v.jx + v.mx, l.py + slot[2] + v.jy + v.my
   if g.social == "swarm" then
     -- a swarm's members never sit still: each buzzes round its place
-    local ph = ((self.ticks or 0) + e.rider * 13) / gcfg.swarmWobbleTicks * math.pi * 2
+    local ph = (now + e.rider * 13) / gcfg.swarmWobbleTicks * math.pi * 2
     tx, ty = tx + math.cos(ph) * gcfg.swarmWobble, ty + math.sin(ph * 1.3) * gcfg.swarmWobble * 0.6
   end
   local dx, dy = tx - e.px, ty - e.py
   local d = math.sqrt(dx * dx + dy * dy)
-  local speed = Config.ECO.group.catchUp
+  local speed = v.catchUp or gcfg.catchUp
   if d <= speed then
     e.px, e.py = tx, ty
   else
@@ -462,17 +542,26 @@ function SpawnManager:_tickRider(e)
   if e.riderMoving and math.abs(dx) + math.abs(dy) > 2 then
     if math.abs(dx) > math.abs(dy) then e.facing = dx > 0 and "right" or "left"
     else e.facing = dy > 0 and "down" or "up" end
-  elseif not l.moving then
-    e.facing = l.facing or e.facing
+  elseif l.moving then
+    v.face = nil
+  elseif not e.riderMoving then
+    -- standing about: it looks its own way now and then, else the leader's
+    if due(v, "lookAt", now, c.look.every, rng) then
+      v.face = rng(1, 3) == 1 and nil or FACINGS[rng(1, 4)]
+    end
+    e.facing = v.face or l.facing or e.facing
   end
   e.stepParity = not l.stepParity
   e.cellX, e.cellY = l.cellX, l.cellY
   if e.terrain == "water" then self:_swimLife(e, true) end
-  -- the leader grazing / napping / rearing up: its group does it too
-  local ga = l.eco and l.eco.groupAnim
   local r = e.renderer
-  if ga and r and r.isPmd and r.advanceAs then
-    r:advanceAs(ga, 1, "idle")
+  if r and r.isPmd then
+    r.idleSpeed = Config.PMD_WILD_IDLE_SPEED * v.idleMul
+    r.idleOffset = v.phase
+  end
+  local anim, aspeed = riderPose(e, l, g, v, now, rng)
+  if anim and r and r.isPmd and r.advanceAs then
+    r:advanceAs(anim, aspeed, "idle")
     e.riderAnim = true
   else
     e.riderAnim = nil

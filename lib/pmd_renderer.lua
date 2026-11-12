@@ -263,7 +263,8 @@ function PmdRenderer:advance(moving)
   end
   if want ~= self.anim then
     self.anim = want
-    self.clock = 0
+    -- (`idleOffset`: a group member starts its Idle loop at its own point, out of step)
+    self.clock = (want == "idle") and (self.idleOffset or 0) or 0
     -- `idleDelay` (the follower sets it): after stopping, rest on the Idle
     -- loop's first frame this many ticks before the loop starts playing.
     self.idleHold = (want == "idle") and (self.idleDelay or 0) or 0

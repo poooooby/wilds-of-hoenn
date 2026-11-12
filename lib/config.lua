@@ -157,7 +157,23 @@ Config.ECO = {
   -- eco_profile.lua social), every member on the leader's tile at these px offsets round
   -- it (at most #slots besides the leader), easing after it `catchUp` px a tick
   group = { chance = 25, slots = { { -7, -3 }, { 7, -2 }, { -3, 5 } }, catchUp = 1.6,
-            swarmWobble = 3, swarmWobbleTicks = 40 },        -- a swarm's riders buzz round their places
+            swarmWobble = 3, swarmWobbleTicks = 40,          -- a swarm's riders buzz round their places
+            -- each member its own: no two move or pose in step (SpawnManager._riderVary)
+            vary = {
+              catchUp = { 1.1, 2.1 },     -- px a tick it follows at (the leader walks 16 px in 16)
+              idleSpeed = { 0.8, 1.25 },  -- x PMD_WILD_IDLE_SPEED
+              jitter = 2,                 -- px off its slot, its own spot in the cluster
+              mill = { every = { 240, 720 }, px = 4 },     -- a land member shifts about its place
+              look = { every = { 120, 420 } },             -- standing, it looks another way
+              -- % of members joining the leader's pose (the rest look about), after a lag,
+              -- at their own speed
+              join = { pack = 65, herd = 75, huddle = 90 },
+              joinLag = { 0, 36 },
+              poseSpeed = { 0.8, 1.2 },
+              -- now and then, while the leader stands, a member does its own thing
+              aside = { every = { 600, 1500 }, ticks = { 60, 140 },
+                        anims = { pack = { "eat", "hop" }, herd = { "eat" }, huddle = { "nap" } } },
+            } },
   -- on land (lib/eco_land.lua), by the group's `social` (a lone Pokemon: soloGraze)
   land = {
     clearRadius = 2,                                        -- nothing starts this close to the player

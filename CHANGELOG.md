@@ -10,7 +10,10 @@
   About 1 in 4 spawns of a pack, herd or school species comes as a group, clustered on one tile
   and moving, diving and surfacing as one. It counts as one Pokémon: walk into it to battle one,
   and the rest scatter. On land, packs trot about and rear up to howl, herds drift and graze,
-  swarms buzz around, and huddles nap together until you come close. Kanto and Sevii species
+  swarms buzz around, and huddles nap together until you come close. A group's members never
+  move in lockstep: each follows at its own pace, looks its own way and plays its own idle, some
+  join the leader's howl or graze a moment late and some don't, and one may nibble, hop or doze
+  off on its own. Kanto and Sevii species
   have their own profiles in FireRed and LeafGreen.
 - **Wild Pokémon hunt** (part of Wild Reacts). Now and then a hunter in view chases a smaller
   Pokémon and fights it with real moves, health bars and hit effects. The prey may break away,
