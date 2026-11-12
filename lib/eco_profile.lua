@@ -116,8 +116,11 @@ local function factsFor(EnginePatch, species)
     local t1, t2 = EnginePatch.speciesTypes(species)
     local name = EnginePatch.typeName
     f.types = {}
-    if name and (t1 or 0) ~= 0 then f.types[#f.types + 1] = name(t1) end
-    if name and (t2 or 0) ~= 0 and t2 ~= t1 then f.types[#f.types + 1] = name(t2) end
+    -- (type 0 is NORMAL, not "none": a pure Normal-type reads 0, 0)
+    if name then
+      f.types[1] = name(t1 or 0)
+      if t2 and t2 ~= t1 then f.types[2] = name(t2) end
+    end
   end
   if EnginePatch.eggGroups then
     local g1, g2 = EnginePatch.eggGroups(species)

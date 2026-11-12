@@ -129,7 +129,11 @@ rooftops, with little scenes waiting in special places.*
   On land, packs trot about in short bursts and rear up to howl, herds drift slowly and stop
   to graze, swarms buzz around, huddles nap together (waking if you come right up to them), and
   a lone grazer stops to eat now and then. In PMDCollab style they use their own eating,
-  sleeping and rearing-up animations where the species has them. Part of **Wild Reacts**.
+  sleeping and rearing-up animations where the species has them. And they hunt: now and then a
+  hunter like Mightyena or Seviper chases down a smaller Pokémon in view and fights it with its
+  real moves, health bars and all. The prey may break away and run, or faint and sink out of
+  sight. Zangoose and Seviper fight whenever they meet. Walk into either fighter to battle it at
+  the HP the fight left it with. Part of **Wild Reacts**.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
   softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on
   roofs, trees and signposts (and fly off when you walk up); real sea birds (Wingull, Pelipper and

@@ -25,6 +25,7 @@ local EcoProfile = V.require("eco_profile")
 local Eco = V.require("eco")
 local EcoWater = V.require("eco_water")
 V.require("eco_land") -- registers the land activities
+local EcoHunt = V.require("eco_hunt")
 local CellPath = V.require("cell_path")
 
 local SpawnManager = {}
@@ -81,6 +82,7 @@ function SpawnManager:_traveller(fx)
 end
 
 function SpawnManager:clearAll()
+  self.hunt = nil
   -- a flight / swim cut short gives back its perch and canvas
   for _, e in pairs(self.entities) do
     if travelling(e) then
@@ -658,6 +660,11 @@ function SpawnManager:_reactContext()
   -- a chaser stuck off its grass with no way home leaves (its tile's leave fx: a fade)
   ctx.strand = ctx.strand or function(e) self:despawn(e.id, { animate = true }) end
   ctx.onContact = ctx.onContact or function(e) if self.onContact then self.onContact(e) end end
+  -- a hunter caught up with its prey: they fight (lib/eco_hunt.lua)
+  ctx.onCatch = ctx.onCatch or function(pred, prey)
+    self.hunt = self.hunt or {}
+    EcoHunt.catch(pred, prey, self._reactCtx, self, self.hunt)
+  end
   return ctx
 end
 
@@ -757,6 +764,12 @@ function SpawnManager:tick(game)
     for i = #list, 1, -1 do list[i] = nil end
     for _, id in ipairs(self.order) do list[#list + 1] = self.entities[id] end
     WildReactions.scan(list, reactCtx)
+    -- now and then a hunter goes after its prey (lib/eco_hunt.lua)
+    self.hunt = self.hunt or {}
+    EcoHunt.tick(self.hunt, reactCtx)
+    EcoHunt.scan(list, reactCtx, self.hunt)
+  elseif self.hunt and self.hunt.active and not self.hunt.active.sk then
+    EcoHunt.finish(self.hunt, { now = self.ticks })
   end
   local gone
   for _, id in ipairs(self.order) do
@@ -951,6 +964,7 @@ end
 
 function SpawnManager:collectActors(actors, camX, camY)
   local vw, vh = 240, 160
+  if self.hunt then EcoHunt.collectActors(self.hunt, actors) end
   if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
   for _, id in ipairs(self.order) do
     local e = self.entities[id]

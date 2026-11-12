@@ -169,6 +169,26 @@ Config.ECO = {
     nap = { every = { 900, 2400 }, ticks = { 600, 1500 }, wakeRadius = 1, wakeTicks = 40 }, -- a huddle naps (EventSleep, Wake)
     soloGraze = { every = { 1200, 2400 } },                 -- a lone grazer with Eat art stops to eat
   },
+  -- predators and prey (lib/eco_hunt.lua): one hunt at a time per map
+  hunt = {
+    scanEvery = 45,             -- ticks between looks for a hunter with prey near it
+    chance = 10,                -- % a found hunter / prey pair starts a hunt (a rivalry: rivalChance)
+    rivalChance = 80,
+    radius = 4,                 -- prey within this many tiles of the hunter
+    minPlayerDist = 3,          -- never right beside the player ...
+    maxPlayerDist = 9,          -- ... but where they can see it
+    sizeRatio = 1.3,            -- a hunter is this much stronger (level x base stats) than its prey
+    leash = 7,                  -- tiles a hunter chases before it gives up
+    preyFlee = { 3, 5 },        -- steps a fleeing prey runs
+    cooldown = { 1800, 3600 },  -- ticks between hunts
+    missCooldown = 0,
+    faceTicks = 20,             -- caught: they square up ...
+    attackSpeed = 1.6,
+    maxTurns = 8,               -- ... fight at most this many turns (then the prey gets away)
+    escapeFrac = 0.35,          -- a prey hurt below this share of its HP ...
+    escapeChance = 40,          -- ... breaks away this % of its turns
+    winPause = 30, sinkTicks = 40,  -- a fainted prey's cry, then it sinks away
+  },
 }
 
 Config.REACT = {
