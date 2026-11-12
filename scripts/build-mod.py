@@ -71,6 +71,11 @@ OPTIONAL_RAW_SPRITE_DIRS = [
     "assets/pmd/sleep",
     "assets/pmd/dance",
     "assets/pmd/rotate",
+    "assets/pmd/rearup",
+    "assets/pmd/eat",
+    "assets/pmd/nap",
+    "assets/pmd/wake",
+    "assets/pmd/bite",
     "assets/pmd/foamwalk",
     "assets/pmd/foamidle",
     "assets/pmd/foamattack",
@@ -234,6 +239,8 @@ def build_variant(name: str, args, version: str, mod_id: str, out_dir: Path) -> 
                   or n.startswith("assets/pmd/sleep/")
                   or n.startswith("assets/pmd/dance/")
                   or n.startswith("assets/pmd/rotate/")
+                  or n.startswith(("assets/pmd/rearup/", "assets/pmd/eat/", "assets/pmd/nap/",
+                                   "assets/pmd/wake/", "assets/pmd/bite/"))
                   or n.startswith("assets/pmd/foam")
                   or n.startswith("assets/pmd/portraits/")]
         if leaked:

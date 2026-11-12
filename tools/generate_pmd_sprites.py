@@ -68,10 +68,21 @@ GUTTER = 2
 ANIMS = ("walk", "idle")  # output names; SpriteCollab names are Walk / Idle
 # Used by the overworld fights (the Battler's blows and a struck Pokemon's flinch);
 # a species without one simply plays a rapid Idle instead, so they never fail a bake.
-OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop", "sleep", "dance", "rotate")
-# SpriteCollab: Attack (else Strike) / Hurt / Hover / Hop / Sleep / Dance / Rotate
+OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop", "sleep", "dance", "rotate",
+                  "rearup", "eat", "nap", "wake", "bite")
+# SpriteCollab: Attack (else Strike) / Hurt / Hover / Hop / Sleep / Dance / Rotate, and for
+# Wild Ecology (lib/eco*.lua) RearUp / Eat / EventSleep / Wake / Bite.
 # Output name -> SpriteCollab animation name when they differ.
-SOURCE_ANIM = {"fly": "Hover"}
+SOURCE_ANIM = {"fly": "Hover", "rearup": "RearUp", "nap": "EventSleep"}
+# Wild Ecology's animations are baked only from a REAL sheet of that name: an AnimData entry
+# that is a <CopyOf> another animation (RearUp copying Idle ...) is not that pose. Eat's sheet
+# has one row (no facing): eight_rows repeats it for every direction, like Sleep.
+#   rearup -- a whale surfacing / a fish breaching / a pack's howl (RearUp, ~140 species)
+#   eat    -- a herd grazing, a Pokemon at rest (Eat, ~225 species)
+#   nap    -- asleep facing its way (EventSleep, ~225; the one-row Sleep has no facing)
+#   wake   -- waking from it (Wake)
+#   bite   -- a hunter's catch (Bite: Carvanha, Sharpedo, Seviper, Trapinch ...)
+ECO_ANIMS = {"rearup", "eat", "nap", "wake", "bite"}
 # "fly" (a flying Pokemon in the sky, lib/sky_flyers.lua): a REAL Hover-Anim.png only (an
 # AnimData "Hover" that is a <CopyOf> another animation -- Zubat's Shoot, Applin's Charge --
 # is not flight art), unless the species is listed here (the flyer audit, national dex ->
@@ -108,11 +119,9 @@ def fly_meta(dex: int, anims: dict) -> dict | None:
         meta = dict(meta, pick=FLAP_PICK, pickDurations=[FLAP_TICKS] * len(FLAP_PICK))
     return meta
 # Animations never drawn swimming: no foam band is baked for them.
-NO_WATER_ANIMS = {"fly", "hop", "sleep", "dance", "rotate"}
-# "hop" is only baked for the small fish that leap out of the water (lib/water_life.lua,
-# Config.WATER_LIFE: the Water 2 egg group under 1 m, plus Feebas, minus Horsea / Octillery /
-# Inkay), not for every species (it is a tall sheet, and nothing else uses it).
-HOP_SPECIES = {118, 129, 170, 211, 223, 318, 339, 340, 349, 370, 456, 746, 779, 846, 978}
+NO_WATER_ANIMS = {"fly", "hop", "sleep", "dance", "rotate", "rearup", "eat", "nap", "wake", "bite"}
+# "hop" is baked for every species that has one (SpriteCollab: all of them): a fish's leap out
+# of the water (lib/eco_water.lua, lib/water_life.lua), and Wild Ecology's other hops.
 # Only for the Local Scenes that use them (lib/local_scenes.lua, Petalburg Woods): Slakoth
 # asleep on a tree top, Vigoroth dancing on one, Silcoon / Cascoon spinning on a silk line.
 SCENE_SPECIES = {"sleep": {287}, "dance": {288}, "rotate": {266, 268}}
@@ -872,8 +881,10 @@ def main() -> int:
                 source = SOURCE_ANIM.get(anim, anim.capitalize())
                 if anim == "fly":
                     meta = fly_meta(dex, anims)
-                elif anim == "hop":
-                    meta = anims.get("Hop") if dex in HOP_SPECIES else None
+                elif anim in ECO_ANIMS:
+                    meta = anims.get(source)
+                    if meta and meta.get("source") != source:
+                        meta = None  # a <CopyOf> another animation: not this pose
                 elif anim in SCENE_SPECIES:
                     meta = anims.get(source) if dex in SCENE_SPECIES[anim] else None
                 else:

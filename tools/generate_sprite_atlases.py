@@ -83,8 +83,10 @@ FAMILIES: dict[str, list[str]] = {
     "pmd_hurt": ["assets/pmd/hurt"],
     # a flying Pokemon's wing-beat in the sky (SpriteCollab Hover): optional per species
     "pmd_fly": ["assets/pmd/fly"],
-    # a small fish's leap out of the water (SpriteCollab Hop): only the leaping fish
+    # a leap / hop (SpriteCollab Hop): every species (Wild Ecology's leaping fish ...)
     "pmd_hop": ["assets/pmd/hop"],
+    # Wild Ecology's poses (RearUp, Eat, EventSleep, Wake, Bite): real sheets only, per species
+    "pmd_eco": ["assets/pmd/rearup", "assets/pmd/eat", "assets/pmd/nap", "assets/pmd/wake", "assets/pmd/bite"],
     # the Local Scenes' extra animations (Sleep, Dance, Rotate): a few species only
     "pmd_scene": ["assets/pmd/sleep", "assets/pmd/dance", "assets/pmd/rotate"],
     # the foam overlays a swimming Pokemon is drawn with (mostly transparent, tiny)
