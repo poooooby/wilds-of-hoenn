@@ -74,7 +74,8 @@ rooftops, with little scenes waiting in special places.*
 - ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. After a win it
   goes straight on to the next wild Pokémon within a few steps of you, and only comes back to
   your side when none are left, it needs a rest, or you walk on. It fights with
-  its real moves, stats and PP, on land or swimming out over water, and earns EXP. Battle-style
+  its real moves, stats and PP, on land or swimming out over water, and earns EXP, shared with
+  any party member holding an Exp. Share just like in a battle. Battle-style
   health bars show on both sides. Each move glows in its type's colour as it winds up; moves
   that don't touch the target fly across as a splash, an ember or a psychic ring, and
   contact moves leave a trail behind the lunge. Every hit sparks with its move's type (droplets, embers,

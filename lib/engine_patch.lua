@@ -183,6 +183,8 @@ EnginePatch.READONLY = {
   speciesTypes = { mod = "src.core.game3.pokemon", field = "types" },
   expGainFor = { mod = "src.core.game3.battle.experience", field = "gainFor" },
   expApply = { mod = "src.core.game3.battle.experience", field = "apply" },
+  -- held_items.lua: what a held item does (an Exp. Share holder takes a share of a win)
+  heldItemEffect = { mod = "src.core.game3.battle.held_items", field = "effectOf" },
   -- A companion that levels up cannot open the engine's learn / evolve screens
   -- mid-walk, so it asks the player to (lib/level_ready.lua): the moves it would
   -- learn at a level, whether it knows one, what it evolves into, and the three
@@ -1523,6 +1525,17 @@ function EnginePatch.expApply(mon, amount)
   local ok, result = pcall(Experience.apply, mon, amount)
   if ok and type(result) == "table" then return result end
   return nil
+end
+
+--- Does `mon` hold an Exp. Share? (held_items.lua effectOf == HOLD.EXP_SHARE, the check the
+--- engine's own battles make in Experience.awardFoe.) false on anything unreadable.
+function EnginePatch.holdsExpShare(mon)
+  if type(mon) ~= "table" then return false end
+  local HeldItems = loadModule(EnginePatch.READONLY.heldItemEffect.mod)
+  local hold = HeldItems and type(HeldItems.HOLD) == "table" and HeldItems.HOLD.EXP_SHARE
+  if not (hold and HeldItems.effectOf) then return false end
+  local ok, effect = pcall(HeldItems.effectOf, mon.item or mon.heldItem)
+  return ok and effect == hold
 end
 
 --- Moves `mon`'s species learns at exactly `level` (engine learnset), as ids.

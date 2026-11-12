@@ -56,6 +56,37 @@ function OwCombat.expReward(wild, deps, share)
   return math.max(1, math.floor(base * (share or 0.5)))
 end
 
+--- How a win's `pool` of EXP is shared out, the way the engine's own battles do it
+--- (battle/experience.lua awardFoe): with no Exp. Share in the party the Battler (the one
+--- participant) takes it all; otherwise it takes half, and the living, non-egg, below-100
+--- holders split the other half (each at least 1) -- a Battler holding one gets both parts.
+--- `holds(mon)` answers whether a mon holds an Exp. Share. Pure.
+--- Returns { { mon = m, amount = n }, ... }, the Battler first.
+function OwCombat.expSplit(pool, battler, party, holds)
+  pool = math.max(0, math.floor(tonumber(pool) or 0))
+  local holders = {}
+  if type(holds) == "function" then
+    for _, m in ipairs(party or {}) do
+      if type(m) == "table" and not m.isEgg and not m.egg and (tonumber(m.hp) or 0) > 0
+        and (tonumber(m.level) or 1) < 100 and holds(m) then
+        holders[#holders + 1] = m
+      end
+    end
+  end
+  if #holders == 0 or pool == 0 then return { { mon = battler, amount = pool } } end
+  local half = math.floor(pool / 2)
+  local out = { { mon = battler, amount = math.max(1, half) } }
+  local each = math.max(1, math.floor(half / #holders))
+  for _, m in ipairs(holders) do
+    if m == battler then
+      out[1].amount = out[1].amount + each
+    else
+      out[#out + 1] = { mon = m, amount = each }
+    end
+  end
+  return out
+end
+
 function OwCombat.new(ally, wild, deps)
   local self = setmetatable({ ally = ally, wild = wild, deps = deps, result = nil, round = 0 }, OwCombat)
   self.allyB = deps.battlerOf(ally)

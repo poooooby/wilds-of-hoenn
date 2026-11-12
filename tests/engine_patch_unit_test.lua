@@ -185,6 +185,9 @@ fake["src.ui.game3.move_relearner"] = {
 }
 fake["src.ui.game3.rse.move_relearner"] = fake["src.ui.game3.move_relearner"]
 local expApplied = {}
+fake["src.core.game3.battle.held_items"] = {
+  effectOf = function(item) return item == 182 and 25 or 0 end, HOLD = { EXP_SHARE = 25 },
+}
 fake["src.core.game3.battle.experience"] = {
   gainFor = function(species, level) return level * 3 end,
   apply = function(mon, amount) expApplied[#expApplied + 1] = { mon, amount } return { gained = amount, fromLevel = 5, toLevel = 6 } end,
@@ -424,6 +427,10 @@ do
   local result = EnginePatch.expApply({ level = 5 }, 12)
   eq(result.toLevel, 6, "expApply returns the engine's result")
   eq(expApplied[1][2], 12, "...for the amount given")
+  eq(EnginePatch.holdsExpShare({ item = 182 }), true, "an Exp. Share holder is seen (held_items effectOf)")
+  eq(EnginePatch.holdsExpShare({ heldItem = 182 }), true, "...under either field name")
+  eq(EnginePatch.holdsExpShare({ item = 13 }), false, "another item is not one")
+  eq(EnginePatch.holdsExpShare(nil), false, "no Pokemon: false, never thrown")
 end
 
 -- Forager: only on routes and in caves

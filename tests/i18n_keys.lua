@@ -60,6 +60,7 @@ for _, file in ipairs({ "follower_interaction", "party_roles", "role_hotkey", "f
   for c, s in src:gmatch('[^%w_]trc%("(%w+)", "([^"]+)"') do add(c .. "|" .. s, "text") end
 end
 add("Lv.%d!", "level-up label")
+add("%s Lv.%d!", "Exp. Share holder level-up label")
 
 local RoleHotkey = V.require("role_hotkey")
 lists.send, lists.recall = RoleHotkey.SEND, RoleHotkey.RECALL

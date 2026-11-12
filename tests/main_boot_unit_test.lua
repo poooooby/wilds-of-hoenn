@@ -107,6 +107,7 @@ local function completeFakeEngine(layout)
   fake["src.ui.game3.evolution_scene"] = { start = function() end, isOpen = function() return false end }
   fake["src.ui.game3.move_relearner"] = { show = function() end, isOpen = function() return false end }
   fake["src.core.game3.battle.experience"] = { gainFor = function() return 10 end, apply = function() return {} end }
+  fake["src.core.game3.battle.held_items"] = { effectOf = function() return 0 end, HOLD = { EXP_SHARE = 25 } }
   fake["src.core.game3.runtime"] = { getSession = function() return { party = {} } end }
   fake["src.core.game3.dex"] = { isCaught = function() return false end }
   fake["src.ui.game3.message"] = { draw = function() end, isOpen = function() return false end, show = function() return true end, isWaiting = function() return false end, closeStay = function() return false end }

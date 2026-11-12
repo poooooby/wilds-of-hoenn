@@ -114,6 +114,7 @@ return {
   ["an item"] = "どうぐ",
   ["+%d EXP"] = "+%d けいけんち",
   ["Lv.%d!"] = "Lv.%d！",
+  ["%s Lv.%d!"] = "%s Lv.%d！",
   ["New move ready!"] = "わざを おぼえられる！",
   ["Ready to evolve!"] = "しんか できる！",
   ["POKeMON"] = "ポケモン",

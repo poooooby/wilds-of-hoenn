@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+
+- **Exp. Share works with your Battler.** When a party member holds an Exp. Share, your
+  Battler's overworld wins are shared the way a real battle shares them: the Battler takes
+  half, and the holders split the other half. A holder that levels up gets its own
+  "Lv." label after your Battler's.
+
 ## 1.11.2 (2026-10-29)
 
 ### Changed

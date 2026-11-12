@@ -114,6 +114,7 @@ return {
   ["an item"] = "um item",
   ["+%d EXP"] = "+%d EXP",
   ["Lv.%d!"] = "Nv.%d!",
+  ["%s Lv.%d!"] = "%s Nv.%d!",
   ["New move ready!"] = "Novo golpe!",
   ["Ready to evolve!"] = "Pronto p/ evoluir!",
   ["POKeMON"] = "POKéMON",

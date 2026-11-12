@@ -88,7 +88,7 @@ function OverworldBattle:reset()
   self.facing = nil
   self.fight, self.turn, self.wild, self.target = nil, nil, nil, nil
   self.popup, self.popupAge = nil, 0
-  self.popupNext = nil
+  self.popupQueue = {} -- labels waiting after the current one (Exp. Share level-ups, a find)
   self.drop = nil
   self.levelAge = nil
   self.hits = {}
@@ -313,13 +313,8 @@ function OverworldBattle:step(env)
     self.popupAge = self.popupAge + 1
     if self.popupAge >= cfg.popupTicks then
       self.popup = nil
-      -- a second label waiting (a held item found after the EXP)
-      local nxt = self.popupNext
-      if nxt then
-        self.popupNext = nil
-        self.popup, self.popupAge = nxt.text, 0
-        if nxt.sound and self.deps.playFound then pcall(self.deps.playFound) end
-      end
+      -- the next label waiting (an Exp. Share holder's level-up, a held item found)
+      self:_nextPopup()
     end
   end
   for i = #self.hits, 1, -1 do
@@ -572,7 +567,30 @@ function OverworldBattle:_pickUpDrop()
   local ok, added = pcall(self.deps.bagAdd, drop.item, 1)
   if not (ok and added) then return end
   local name = self.deps.itemName and self.deps.itemName(drop.item) or tr("an item")
-  self.popupNext = { text = tr("Found %s!", tostring(name)), sound = true }
+  self.popupQueue[#self.popupQueue + 1] = { text = tr("Found %s!", tostring(name)), sound = true }
+end
+
+-- Shows the first queued label (its sound, if it has one). False when none is waiting.
+function OverworldBattle:_nextPopup()
+  local nxt = table.remove(self.popupQueue, 1)
+  if not nxt then return false end
+  self.popup, self.popupAge = nxt.text, 0
+  if nxt.sound and self.deps.playFound then pcall(self.deps.playFound) end
+  return true
+end
+
+-- Gives one Pokemon its part of a win: none while it waits for the player to learn a move or
+-- evolve (lib/level_ready.lua: another level on top could skip one of those); a level gained
+-- is reported to the owner, which asks the player. Returns the engine's result (nil when it
+-- gave none) and whether any EXP was given.
+function OverworldBattle:_giveExp(mon, amount)
+  if amount <= 0 or (self.deps.expFrozen and self.deps.expFrozen(mon)) then return nil, false end
+  local result = self.combatDeps.expApply(mon, amount)
+  if result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel
+    and self.deps.levelUp then
+    pcall(self.deps.levelUp, mon, result.fromLevel, result.toLevel)
+  end
+  return result, true
 end
 
 -- Takes the wind-up glow off whoever had it.
@@ -621,19 +639,24 @@ function OverworldBattle:_mode_win(env)
   end
   if sink >= 1 then
     -- gone; the EXP
-    local amount = OwCombat.expReward(self.wild, self.combatDeps, cfg.expShare)
-    -- EXP is held while it waits for the player to learn a move or evolve
-    -- (lib/level_ready.lua): another level on top could skip one of those
-    if amount > 0 and self.deps.expFrozen and self.deps.expFrozen(env.mon) then amount = 0 end
+    local pool = OwCombat.expReward(self.wild, self.combatDeps, cfg.expShare)
+    -- shared with the party's Exp. Share holders the way a real battle shares it
+    local party = self.deps.partyMons and self.deps.partyMons() or nil
+    local parts = OwCombat.expSplit(pool, env.mon, party, self.deps.holdsExpShare)
     local text
-    if amount > 0 then
-      local result = self.combatDeps.expApply(env.mon, amount)
-      text = tr("+%d EXP", math.floor(amount))
-      if result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel then
-        text = tr("Lv.%d!", math.floor(result.toLevel))
-        self.levelAge = 0 -- a gold ring and sparkles round it (lib/partner_fx.lua)
-        -- it cannot learn or evolve mid-walk: tell the owner, which asks the player
-        if self.deps.levelUp then pcall(self.deps.levelUp, env.mon, result.fromLevel, result.toLevel) end
+    for i, part in ipairs(parts) do
+      local result, given = self:_giveExp(part.mon, part.amount)
+      local levelled = result and result.toLevel and result.fromLevel and result.toLevel > result.fromLevel
+      if i == 1 then
+        if given then text = tr("+%d EXP", math.floor(part.amount)) end
+        if levelled then
+          text = tr("Lv.%d!", math.floor(result.toLevel))
+          self.levelAge = 0 -- a gold ring and sparkles round it (lib/partner_fx.lua)
+        end
+      elseif levelled then
+        -- a holder grew a level: its own label after the Battler's
+        local name = self.deps.displayName and self.deps.displayName(part.mon) or "?"
+        self.popupQueue[#self.popupQueue + 1] = { text = tr("%s Lv.%d!", tostring(name), math.floor(result.toLevel)) }
       end
     end
     local id = e.id
@@ -644,11 +667,8 @@ function OverworldBattle:_mode_win(env)
     self.fight, self.wild = nil, nil
     self.popup, self.popupAge = text, 0
     self:_pickUpDrop()
-    if not self.popup and self.popupNext then
-      -- no EXP label: the find shows at once
-      self.popup, self.popupAge, self.popupNext = self.popupNext.text, 0, nil
-      if self.deps.playFound then pcall(self.deps.playFound) end
-    end
+    -- no EXP label of its own: the next one waiting shows at once
+    if not self.popup then self:_nextPopup() end
     self.mode, self.t = "between", 0
     return state(self, env, { moving = false })
   end

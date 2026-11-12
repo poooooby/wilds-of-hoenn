@@ -231,6 +231,47 @@ do
   check(mon.exp and mon.exp > 0, "once nothing waits, EXP flows again")
 end
 
+-- ------- Exp. Share: a holder in the party takes half of the win, as in a real battle
+do
+  local function win(mon, party, extra)
+    reset()
+    wildEntity(1, 13, 10)
+    local deps = { partyMons = function() return party end, holdsExpShare = function(m) return m.share == true end,
+                   displayName = function(m) return m.name or "MON" end }
+    for k, v in pairs(extra or {}) do deps[k] = v end
+    local b = newBattler(deps)
+    local labels = {}
+    for _ = 1, 3000 do
+      b:step(env(mon))
+      if b.popup and labels[#labels] ~= b.popup then labels[#labels + 1] = b.popup end
+      if #defeated > 0 and b.mode == "idle" and not b.popup then break end
+    end
+    return labels
+  end
+  local alone = newMon()
+  win(alone, { alone })
+  local full = alone.exp
+  check(full and full > 0, "no holder: the Battler takes the whole win (" .. tostring(full) .. ")")
+  local mon = newMon()
+  local holder = newMon({ share = true, exp = 0, name = "TREECKO" })
+  local labels = win(mon, { mon, holder })
+  eq(mon.exp, math.floor(full / 2), "with a holder: the Battler takes half")
+  eq(holder.exp, math.floor(full / 2), "...and the holder the other half")
+  eq(labels[1], "+" .. math.floor(full / 2) .. " EXP", "the Battler's label shows its own part")
+  eq(#labels, 1, "a holder that does not level up stays quiet")
+  mon = newMon()
+  holder = newMon({ share = true, exp = 70, name = "TREECKO" })
+  local reported = {}
+  labels = win(mon, { mon, holder }, { levelUp = function(m, from, to) reported[#reported + 1] = m end })
+  eq(labels[2], "TREECKO Lv.11!", "a holder's level-up follows the Battler's label")
+  check(reported[1] == holder, "...and is reported for its moves / evolution")
+  mon = newMon()
+  holder = newMon({ share = true, exp = 0 })
+  win(mon, { mon, holder }, { expFrozen = function(m) return m == holder end })
+  eq(holder.exp, 0, "a holder waiting on a move / evolution takes nothing")
+  eq(mon.exp, math.floor(full / 2), "...and the Battler still only its half")
+end
+
 -- ------- an unbuildable fighter is never retried
 do
   reset()

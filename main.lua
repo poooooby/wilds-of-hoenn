@@ -246,6 +246,9 @@ return function(mod)
     bagAdd = EnginePatch.bagAdd, bagCanAdd = EnginePatch.bagCanAdd,
     playFound = EnginePatch.playSuccess,
     levelUp = function(mon, from, to) levelReady:record(mon, from, to) end,
+    -- an Exp. Share holder takes its share of a win, as in a real battle
+    partyMons = EnginePatch.partyMons, holdsExpShare = EnginePatch.holdsExpShare,
+    displayName = EnginePatch.displayName,
     expFrozen = function(mon) return levelReady:pending(mon) ~= nil end,
     rng = math.random,
   })

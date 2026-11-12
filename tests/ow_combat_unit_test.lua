@@ -159,6 +159,41 @@ do
   eq(OwCombat.expReward({ species = 5, level = 10 }, newDeps({ expGain = function() return 0 end }), 0.5), 0, "nothing when the engine gives none")
 end
 
+-- ------- Exp. Share: the engine's battle split (battle/experience.lua awardFoe)
+do
+  local function holds(m) return m.share == true end
+  local function mon(t) local m = { hp = 10, level = 10 } for k, v in pairs(t or {}) do m[k] = v end return m end
+  local b = mon()
+  local split = OwCombat.expSplit(50, b, { b, mon() }, holds)
+  eq(#split, 1, "no holder: one part")
+  eq(split[1].mon, b, "...the Battler's")
+  eq(split[1].amount, 50, "...the whole pool")
+  local h = mon({ share = true })
+  split = OwCombat.expSplit(50, b, { b, h }, holds)
+  eq(split[1].amount, 25, "one holder: the Battler takes half")
+  eq(split[2].mon, h, "...the holder")
+  eq(split[2].amount, 25, "...takes the other half")
+  local h2 = mon({ share = true })
+  split = OwCombat.expSplit(50, b, { b, h, h2 }, holds)
+  eq(split[1].amount, 25, "two holders: the Battler still takes half")
+  check(split[2].amount == 12 and split[3].amount == 12, "...they split the other half (12 each)")
+  local bh = mon({ share = true })
+  split = OwCombat.expSplit(50, bh, { bh }, holds)
+  eq(#split, 1, "a Battler holding one: one part")
+  eq(split[1].amount, 50, "...both halves")
+  split = OwCombat.expSplit(50, bh, { bh, h }, holds)
+  eq(split[1].amount, 25 + 12, "...with another holder: half plus its share")
+  eq(split[2].amount, 12, "...the other holder its share")
+  split = OwCombat.expSplit(50, b, { b, mon({ share = true, isEgg = true }), mon({ share = true, hp = 0 }),
+    mon({ share = true, level = 100 }) }, holds)
+  eq(#split, 1, "eggs, fainted and level 100 holders take nothing")
+  eq(split[1].amount, 50, "...so the Battler takes it all")
+  split = OwCombat.expSplit(1, b, { b, h }, holds)
+  check(split[1].amount == 1 and split[2].amount == 1, "at least 1 each")
+  eq(OwCombat.expSplit(50, b, { b, h }, nil)[1].amount, 50, "no Exp. Share check: the Battler takes it all")
+  eq(#OwCombat.expSplit(0, b, { b, h }, holds), 1, "nothing to share: the Battler's 0 alone")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)
