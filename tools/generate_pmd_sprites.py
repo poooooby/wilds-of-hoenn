@@ -82,7 +82,9 @@ SOURCE_ANIM = {"fly": "Hover", "rearup": "RearUp", "nap": "EventSleep"}
 #   nap    -- asleep facing its way (EventSleep, ~225; the one-row Sleep has no facing)
 #   wake   -- waking from it (Wake)
 #   bite   -- a hunter's catch (Bite: Carvanha, Sharpedo, Seviper, Trapinch ...)
-ECO_ANIMS = {"rearup", "eat", "nap", "wake", "bite"}
+#   sleep  -- curled up asleep, one row (Sleep, every Gen 1-3 species): a day Pokemon at night,
+#             a night one by day (lib/eco_sleep.lua), Slakoth on its tree top (Local Scenes)
+ECO_ANIMS = {"rearup", "eat", "nap", "wake", "bite", "sleep"}
 # "fly" (a flying Pokemon in the sky, lib/sky_flyers.lua): a REAL Hover-Anim.png only (an
 # AnimData "Hover" that is a <CopyOf> another animation -- Zubat's Shoot, Applin's Charge --
 # is not flight art), unless the species is listed here (the flyer audit, national dex ->
@@ -122,9 +124,9 @@ def fly_meta(dex: int, anims: dict) -> dict | None:
 NO_WATER_ANIMS = {"fly", "hop", "sleep", "dance", "rotate", "rearup", "eat", "nap", "wake", "bite"}
 # "hop" is baked for every species that has one (SpriteCollab: all of them): a fish's leap out
 # of the water (lib/eco_water.lua, lib/water_life.lua), and Wild Ecology's other hops.
-# Only for the Local Scenes that use them (lib/local_scenes.lua, Petalburg Woods): Slakoth
-# asleep on a tree top, Vigoroth dancing on one, Silcoon / Cascoon spinning on a silk line.
-SCENE_SPECIES = {"sleep": {287}, "dance": {288}, "rotate": {266, 268}}
+# Only for the Local Scenes that use them (lib/local_scenes.lua, Petalburg Woods): Vigoroth
+# dancing on a tree top, Silcoon / Cascoon spinning on a silk line.
+SCENE_SPECIES = {"dance": {288}, "rotate": {266, 268}}
 ALL_ANIMS = ANIMS + OPTIONAL_ANIMS
 WALK_FROM_IDLE_MAX_TICKS = 10  # see the Idle-stands-in-for-Walk case in main()
 
@@ -271,7 +273,11 @@ def bake_anim(src_dir: Path, shiny_dir: Path | None, anim_name: str, meta: dict)
     source = meta["source"]
     fw, fh, durations = meta["fw"], meta["fh"], meta["durations"]
     cols = len(durations)
-    sheet = eight_rows(load_sheet(src_dir, source, "Anim"), fh)
+    raw = load_sheet(src_dir, source, "Anim")
+    # a one-row animation (Sleep, Eat: no facing) is baked as ONE row, `rows = 1` in the
+    # index (lib/pmd_renderer.lua rowIn draws it for every facing): a quarter of the size
+    one_row = raw is not None and raw.height == fh
+    sheet = eight_rows(raw, fh)
     if sheet is None or sheet.size != (fw * cols, fh * 8):
         return None
     shiny = None
@@ -295,8 +301,13 @@ def bake_anim(src_dir: Path, shiny_dir: Path | None, anim_name: str, meta: dict)
         "cw": cw, "ch": ch, "cols": cols, "durations": durations,
         "ax": round(ax - box[0] + GUTTER, 2), "ay": round(ay - box[1] + GUTTER, 2),
     }
-    return (entry, compose(sheet, fw, fh, cols, box),
-            compose(shiny, fw, fh, cols, box) if shiny is not None else None)
+    normal = compose(sheet, fw, fh, cols, box)
+    shiny = compose(shiny, fw, fh, cols, box) if shiny is not None else None
+    if one_row:
+        entry["rows"] = 1
+        normal = normal.crop((0, 0, normal.width, ch))
+        shiny = shiny.crop((0, 0, shiny.width, ch)) if shiny is not None else None
+    return entry, normal, shiny
 
 
 # True size. The HGSS 18-frame bake (tools/generate_true_size_18frame.py) draws
@@ -379,7 +390,7 @@ def hgss_keep(dex: int, key: str, fallback: float) -> float:
 
 def cells_of(entry: dict):
     cw, ch = entry["cw"], entry["ch"]
-    for r in range(len(DIRECTIONS)):
+    for r in range(entry.get("rows", len(DIRECTIONS))):
         for c in range(entry["cols"]):
             yield c * cw, r * ch
 

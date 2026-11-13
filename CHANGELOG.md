@@ -20,6 +20,15 @@
   charge a walker who comes too close, and aggressive ones (Mightyena, Beedrill ...) from
   farther. A much stronger partner still scares them off. Placid ones (Slakoth, Wailmer,
   Snorlax ...) never react. A pack or swarm charges together.
+- **Wild Pokémon keep their own hours** (part of Wild Reacts). By the game's clock (in
+  FireRed and LeafGreen, your computer's), many birds, bugs and plants sleep at night and night
+  Pokémon like Zubat, Hoothoot and Poochyena doze by day, curled up with z's over them. Walk
+  right up to a sleeper, or run or bike close by, and it wakes: a territorial one angry, a
+  skittish one running. Every Pokémon now has its Sleep animation in PMDCollab style.
+- **Diggers burrow, sea birds fish, flocks fly together** (part of Wild Reacts). Diglett,
+  Sandshrew, Trapinch and other diggers sink into the ground in a puff of dust and come up a few
+  tiles away, and duck underground when startled. Wingull and Pelipper on the sea fly up and
+  plunge in after fish. A flock of birds lands together and takes off together.
 - **Wild Pokémon hunt** (part of Wild Reacts). Now and then a hunter in view chases a smaller
   Pokémon and fights it with real moves, health bars and hit effects. The prey may break away,
   or faint and sink out of sight. Rivals like Zangoose and Seviper fight whenever they meet.

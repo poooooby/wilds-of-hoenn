@@ -205,6 +205,26 @@ Config.ECO = {
     escapeChance = 40,          -- ... breaks away this % of its turns
     winPause = 30, sinkTicks = 40,  -- a fainted prey's cry, then it sinks away
   },
+  -- asleep by day or by night (lib/eco_sleep.lua), by the profile's `activity`. Night is
+  -- hours night[1]..night[2] of the game's clock (Ruby / Sapphire / Emerald) or the
+  -- computer's (FireRed / LeafGreen keep none), read every `hourEvery` ticks. `chance` % of
+  -- them sleep: a day Pokemon at night, a night one by day, any other at night. A walker
+  -- right beside it (`wake` tiles; running / biking farther) wakes it: a territorial or
+  -- aggressive one angry, a skittish one running; it stays up `awake` ticks.
+  sleep = { night = { 20, 6 }, hourEvery = 600,
+            chance = { dayAtNight = 70, nightByDay = 50, anyAtNight = 20 },
+            wake = { walk = 1, run = 3, bike = 4 }, wakeTicks = 40, awake = { 1800, 3600 },
+            zzzEvery = 44 },
+  -- a burrower (Diglett, Sandshrew, Trapinch ...: lib/eco_burrow.lua) sinks into the ground
+  -- in a puff of dust and pops up `hop` tiles away; startled, it ducks under instead of running
+  burrow = { every = { 600, 1500 }, sinkTicks = 22, under = { 90, 240 }, hop = { 2, 4 },
+             fleeHop = { 3, 5 }, clearRadius = 2, dustEvery = 4 },
+  -- a sea bird resting on the water (lib/eco_air.lua) flies up and plunges for a fish a few
+  -- tiles off, coming up where it went in; `h` = how high it climbs (lib/flight_path.lua)
+  fish = { every = { 900, 2100 }, range = { 2, 4 }, climb = { 34, 46 }, h = 0.14, circle = { 20, 34 },
+           plunge = { 14, 20 }, sinkTicks = 12, under = { 40, 90 }, clearRadius = 3 },
+  -- a flock lands and takes off together, each bird a few ticks after the one before
+  flock = { lag = { 3, 18 } },
 }
 
 Config.REACT = {

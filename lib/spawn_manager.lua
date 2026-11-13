@@ -26,6 +26,9 @@ local Eco = V.require("eco")
 local EcoWater = V.require("eco_water")
 local EcoLand = V.require("eco_land") -- (also registers the land activities)
 local EcoHunt = V.require("eco_hunt")
+local EcoSleep = V.require("eco_sleep")   -- (each registers its activities with lib/eco.lua)
+local EcoBurrow = V.require("eco_burrow")
+local EcoAir = V.require("eco_air")
 local CellPath = V.require("cell_path")
 
 local SpawnManager = {}
@@ -397,6 +400,12 @@ function SpawnManager:_spawnGroup(leader)
         m.behavior = Behavior.IDLE
         local slot = slots[placed]
         m.px, m.py = leader.px + slot[1], leader.py + slot[2]
+        -- a flock comes down together: each one on its leader's flight, a moment behind it
+        if travelling(leader) and leader.fx.kind == "land" and leader.fx.mode == "swoop" and self.sky then
+          if travelling(m) then self.sky:endFlight(m.fx) end
+          local lag = Config.ECO.flock.lag
+          m.fx = self.sky:planFollow(leader.fx, m, slot[1], slot[2], math.random(lag[1], lag[2]) * placed)
+        end
       end
     end
   end
@@ -404,9 +413,9 @@ function SpawnManager:_spawnGroup(leader)
   return placed
 end
 
--- `e` leaves its group (it left, fainted, was caught ...): a group whose leader goes picks the
--- next member still out, so the group keeps counting once
-function SpawnManager:_leaveGroup(e)
+-- `e` leaves its group (it left, fainted, was caught ...): with its leader gone the others
+-- scatter. `flight`: the leader's take-off (fx) -- a flock flies off after it.
+function SpawnManager:_leaveGroup(e, flight)
   local g = e.group
   if not g then return end
   e.group = nil
@@ -422,10 +431,24 @@ function SpawnManager:_leaveGroup(e)
     g.members = {}
     for _, mid in ipairs(mates) do
       local m = self.entities[mid]
-      if m then
+      local flyer = m and m.state == Config.STATE.AVAILABLE and not m.fx and self.sky and self.sky:canFly(m)
+      if m and flyer and flight then
+        -- a flock takes off together, each one a moment after the one before
+        m.group, m.rider, m.riderMoving = nil, nil, nil
+        m.state = Config.STATE.LEAVING
+        m.lured, m.react = nil, nil
+        Eco.abort(m, self)
+        if m.renderer and m.renderer.act and m.renderer.act.ecoBurrow then m.renderer.act = nil end
+        local lag = Config.ECO.flock.lag
+        m.fx = self.sky:planFollow(flight, m, m.px - e.cellX * 16, m.py - e.cellY * 16,
+          math.random(lag[1], lag[2]) * (#mates > 1 and math.random(1, #mates) or 1))
+      elseif m then
         m.group, m.rider, m.riderMoving = nil, nil, nil
         m.px, m.py = m.cellX * 16, m.cellY * 16
-        if m.state == Config.STATE.AVAILABLE and not m.fx then
+        if flyer then
+          -- the leader was met (or left on foot): the flock scatters into the air
+          self:despawn(mid, { animate = true, fly = true })
+        elseif m.state == Config.STATE.AVAILABLE and not m.fx then
           local steps = Config.REACT.flee.steps
           m.runAway = { steps = math.random(steps[1], steps[2]), blocked = 0, phase = "run", t = 0 }
         elseif m.state == Config.STATE.AVAILABLE then
@@ -472,7 +495,7 @@ local function riderPose(e, l, g, v, now, rng)
     if v.gaEco ~= l.eco then
       -- the leader starts something: this one joins in, or just looks about
       v.gaEco, v.ga = l.eco, ga
-      v.joins = rng(1, 100) <= (c.join[g.social] or 100)
+      v.joins = l.eco.sleeping or rng(1, 100) <= (c.join[g.social] or 100) -- (a group sleeps together)
       v.joinAt, v.poseSpeed = now + rng(c.joinLag[1], c.joinLag[2]),
         c.poseSpeed[1] + (c.poseSpeed[2] - c.poseSpeed[1]) * rng(0, 1000) / 1000
       if not v.joins then v.face = FACINGS[rng(1, 4)] end
@@ -526,6 +549,27 @@ function SpawnManager:_tickRider(e)
   if not v then v = SpawnManager._riderVary() e.vary = v end
   local rng, now = math.random, self.ticks or 0
   local land = e.terrain ~= "water"
+  -- its leader burrowing (lib/eco_burrow.lua): down and up with it, a moment late, and
+  -- under the ground over to its new place
+  local ls = l.eco and l.eco.burrowing and l.eco or nil
+  if ls and not (v.burrow and v.burrow.s == ls) then v.burrow = { s = ls, t0 = now - ls.t } end
+  local bt
+  if v.burrow then
+    local b = v.burrow
+    bt = now - b.t0 - (v.reactLag or 0)
+    local rising = b.s.riseAt and bt < b.s.riseAt + b.s.sinkTicks
+    if (b.s.riseAt and not rising) or (l.eco ~= b.s and not rising) then
+      v.burrow, bt = nil, nil
+      if e.renderer and e.renderer.act and e.renderer.act.ecoBurrow then e.renderer.act = nil end
+    elseif e.renderer then
+      e.renderer.act = { sink = math.min(1, EcoBurrow.sinkAt(b.s, bt)), ecoBurrow = true }
+    end
+    if bt and bt < b.s.sinkTicks then
+      e.cellX, e.cellY = l.cellX, l.cellY -- (still going down where it stood)
+      e.riderMoving = false
+      return
+    end
+  end
   -- now and then a land member shifts about its place (a swarm buzzes instead)
   if land and g.social ~= "swarm" and not l.moving and due(v, "millAt", now, c.mill.every, rng) then
     v.mx, v.my = rng(-c.mill.px, c.mill.px), rng(-c.mill.px, c.mill.px)
@@ -756,12 +800,29 @@ function SpawnManager:_reactContext()
   -- a chaser stuck off its grass with no way home leaves (its tile's leave fx: a fade)
   ctx.strand = ctx.strand or function(e) self:despawn(e.id, { animate = true }) end
   ctx.onContact = ctx.onContact or function(e) if self.onContact then self.onContact(e) end end
+  -- day or night (lib/eco_sleep.lua; nil = the hour is unknown: nobody sleeps)
+  ctx.night = self:_night()
+  -- a startled burrower ducks underground (lib/eco_burrow.lua)
+  ctx.burrow = ctx.burrow or function(e, px, py) return EcoBurrow.duck(e, self, self._reactCtx, px, py) end
   -- a hunter caught up with its prey: they fight (lib/eco_hunt.lua)
   ctx.onCatch = ctx.onCatch or function(pred, prey)
     self.hunt = self.hunt or {}
     EcoHunt.catch(pred, prey, self._reactCtx, self, self.hunt)
   end
   return ctx
+end
+
+--- Is it night (Config.ECO.sleep.night)? The hour is read every `hourEvery` ticks (the
+--- game's clock, else the computer's: EnginePatch.localHour); nil when it cannot be read.
+function SpawnManager:_night()
+  local cfg = Config.ECO.sleep
+  local now = self.ticks or 0
+  if not self.hourAt or now >= self.hourAt then
+    self.hourAt = now + cfg.hourEvery
+    self.hour = EnginePatch.localHour and EnginePatch.localHour() or nil
+  end
+  if self.hour == nil then return nil end
+  return EcoSleep.isNight(self.hour, cfg)
 end
 
 --- A fled Pokemon at the end of its run, chosen to disappear (Config.REACT.flee
@@ -889,6 +950,7 @@ function SpawnManager:tick(game)
       if e.moving then Behavior._advanceMove(e) end
       local h = self:_traveller(e.fx)
       local done = not h or h:stepFlight(e.fx)
+      if not done then EcoAir.onFlightEvents(e) end -- a fishing bird hitting the water
       if done and e.fx.kind == "leave" then
         gone = gone or {}
         gone[#gone + 1] = id
@@ -956,6 +1018,8 @@ function SpawnManager:tick(game)
         -- doing what its kind does (lib/eco.lua); with Wild Reacts off / a busy field it stops
         if reactCtx then
           Eco.step(e, reactCtx, self)
+        elseif e.eco.sleeping and Config.wildReacts(self.mod) then
+          -- (a sleeper sleeps on through a message box or a cutscene)
         else
           Eco.abort(e, self)
           if e.moving then Behavior._advanceMove(e) end
@@ -989,7 +1053,7 @@ function SpawnManager:tick(game)
       end
       -- a Flying type that has been on the ground a while takes off (a fresh spawn,
       -- maybe another one swooping in, takes its place)
-      if e.groundStay and not lure and not e.react then
+      if e.groundStay and not lure and not e.react and not e.rider and not e.eco then
         e.groundAge = e.groundAge + 1
         if e.groundAge >= e.groundStay and not e.moving and self.sky and self.sky:canFly(e)
           and self.sky:clearOfPlayer(e.cellX, e.cellY) then
@@ -1068,6 +1132,7 @@ function SpawnManager:collectActors(actors, camX, camY)
       -- in the air / under the water: drawn by lib/sky_draw.lua (sized and blurred by depth)
       local h = self:_traveller(e.fx)
       if h then h:pushFlight(e.fx, actors, camX, camY) end
+      if e.ecoFx then EcoWater.collectFx(e, actors) end -- a fishing bird's splash
       if e.rings then
         local a = SpawnFx.ringsActor(e.rings.age, e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end
@@ -1125,6 +1190,17 @@ function SpawnManager:collectActors(actors, camX, camY)
           or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
         actors[#actors + 1] = WildEmote.actor(emote, emoteAge or 0, e.px, e.py,
           math.max(10, math.min(96, (lift or 20) + 4)), e.elevation, id)
+      end
+      -- asleep: "z"s float up (a group member's a moment after its leader's)
+      local sleep, zage = e.eco, e.eco and e.eco.zzz
+      if not (sleep and sleep.sleeping) and e.rider and e.group then
+        local l = self.entities[e.group.leader]
+        sleep = l and l.eco
+        zage = sleep and sleep.zzz and sleep.zzz - ((e.vary and e.vary.reactLag) or 8)
+      end
+      if sleep and sleep.sleeping and not sleep.waking and zage and zage >= 0 then
+        actors[#actors + 1] = WildEmote.zzzActor(zage, e.px, e.py, EcoSleep.headOf(e.renderer, sleep.anim), id,
+          false, Config.ECO.sleep.zzzEvery)
       end
       -- a shiny one twinkles now and then (not as a silhouette, nor while it arrives / leaves)
       if e.shiny and not e.fx and e.renderer and not e.renderer.silhouette then
@@ -1421,7 +1497,6 @@ function SpawnManager:despawn(id, opts)
   local e = self.entities[id]
   if not e then return end
   Eco.abort(e, self)
-  self:_leaveGroup(e)
   if opts and opts.animate and e.fx and e.fx.dive and e.fx.under then
     opts = nil -- under the water already: nothing to see leave
   end
@@ -1449,8 +1524,11 @@ function SpawnManager:despawn(id, opts)
     else
       self:_startFx(e, "leave")
     end
+    -- (a flock flies off after its leader)
+    self:_leaveGroup(e, travelling(e) and e.fx.kind == "leave" and e.fx.mode == "swoop" and e.fx or nil)
     return
   end
+  self:_leaveGroup(e)
   if travelling(e) then
     local h = self:_traveller(e.fx)
     if h then h:endFlight(e.fx) end

@@ -37,6 +37,13 @@ function PmdRenderer.rowFor(facing)
   return ROW[facing] or ROW.down
 end
 
+--- Row of a facing in animation `entry`'s sheet: a one-row animation (Sleep, Eat: they have
+--- no facing; index.json `rows = 1`) shows its only row whichever way it faces.
+function PmdRenderer.rowIn(entry, facing)
+  if type(entry) == "table" and entry.rows == 1 then return 0 end
+  return ROW[facing] or ROW.down
+end
+
 --- 0-based frame column for `clock` ticks into a looping animation with the
 --- given per-frame tick durations. Pure; split out for testing.
 function PmdRenderer.frameAt(durations, clock)
@@ -422,7 +429,7 @@ function PmdRenderer:reflectionGeometry(x, y, facing)
   local image = path and ActorRenderer.loadImage(self.mod, path)
   if not image then return nil end
   local col = PmdRenderer.frameAt(entry.durations, self.clock)
-  local row = PmdRenderer.rowFor(facing)
+  local row = PmdRenderer.rowIn(entry, facing)
   local _, band
   if self.swimming then _, band = PmdRenderer.cropHeight(entry) end
   local anchorY = band or entry.ay
@@ -459,7 +466,7 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   local image = ActorRenderer.loadImage(self.mod, path)
   if not image then return end
   local col = PmdRenderer.frameAt(entry.durations, self.clock)
-  local row = PmdRenderer.rowFor(facing)
+  local row = PmdRenderer.rowIn(entry, facing)
   -- swimming: the sheet cut off at the top of the foam bowl, the band sheet (the bowl
   -- and the body inside it) drawn right after with the same transform
   local crop, bandCrop

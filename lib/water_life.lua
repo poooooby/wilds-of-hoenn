@@ -277,7 +277,9 @@ function WaterLife.spray(age, n, seed, power)
   return out
 end
 
-local function dropletActor(list, gx, gy, sortY, id)
+local DROP = { 0.88, 0.96, 1.0 }
+local function dropletActor(list, gx, gy, sortY, id, color)
+  color = color or DROP
   return {
     kind = "ow_water_droplets", elevation = 3, sortY = sortY, x = gx, y = gy, i = 96000 + id,
     draw = function(_, camX, camY)
@@ -286,7 +288,7 @@ local function dropletActor(list, gx, gy, sortY, id)
       local r, gg, b, a = g.getColor()
       for _, d in ipairs(list) do
         local size = d[4] or 1
-        g.setColor(0.88, 0.96, 1.0, d[3])
+        g.setColor(color[1], color[2], color[3], d[3])
         g.rectangle("fill", math.floor(gx + d[1] - camX), math.floor(gy + d[2] - camY), size, size)
       end
       g.setColor(r, gg, b, a)

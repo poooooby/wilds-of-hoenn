@@ -184,7 +184,19 @@ function WildReactions.start(e, px, py, ctx, dist, aggroAt)
     e.reactUntil = (ctx.now or 0) + (cfg.missCooldown or cfg.cooldown)
     return nil
   end
-  cls = what == "flee" and "weak" or "strong"
+  return WildReactions.begin(e, what, px, py, ctx)
+end
+
+--- Starts reaction `what` ("flee" | "chase") to the player at (px, py) at once, with no
+--- roll (a sleeper woken by them: lib/eco_sleep.lua). A burrower ducks underground instead
+--- of running (ctx.burrow). Returns the class ("weak" | "strong").
+function WildReactions.begin(e, what, px, py, ctx)
+  local cfg = Config.REACT
+  local cls = what == "flee" and "weak" or "strong"
+  if cls == "weak" and ctx.burrow and e.profile and e.profile.burrower and ctx.burrow(e, px, py) then
+    e.reactUntil = (ctx.now or 0) + cfg.cooldown
+    return cls
+  end
   local r = { t = 0, emoteAge = 0 }
   if cls == "weak" then
     e.facing = faceToward(e.cellX, e.cellY, px, py) or e.facing
@@ -421,12 +433,17 @@ end
 --- Once a tick: is the player moving close to anyone who can react? Starts the reactions:
 --- walking past only a skittish / territorial / aggressive one notices, running or biking
 --- everyone but the placid (WildReactions.reach). `ctx` as for start(), plus `player`.
+--- How the player gets about right now: "bike" | "run" | "walk".
+function WildReactions.playerHow()
+  local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
+  local running = biking or (EnginePatch.playerIsRunning and EnginePatch.playerIsRunning()) or false
+  return biking and "bike" or running and "run" or "walk"
+end
+
 function WildReactions.scan(entities, ctx)
   local p = ctx.player
   if not (p and p.moving) then return end
-  local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
-  local running = biking or (EnginePatch.playerIsRunning and EnginePatch.playerIsRunning()) or false
-  local how = biking and "bike" or running and "run" or "walk"
+  local how = WildReactions.playerHow()
   local cfg = Config.REACT
   local started = 0
   for _, e in ipairs(entities) do

@@ -220,6 +220,50 @@ do
   check(mates[1].riderAnim and mates[1].renderer.anim == "attack" and mates[2].renderer.anim == "attack",
     "the leader charging: its pack charges with it")
   leader.react = nil
+  -- the leader asleep (lib/eco_sleep.lua): the whole group sleeps, even ones that never join in
+  vc.join.pack = 0
+  leader.eco = { kind = "sleep", sleeping = true, groupAnim = "sleep", anim = "sleep", zzz = 0 }
+  for _, m in ipairs(mates) do m.renderer.info.sleep = {} end
+  for _ = 1, vc.joinLag[2] + 2 do
+    sm.ticks = sm.ticks + 1
+    leader.eco.zzz = leader.eco.zzz + 1
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  check(mates[1].renderer.anim == "sleep" and mates[2].renderer.anim == "sleep", "the leader asleep: its group sleeps with it")
+  leader.eco.zzz = 60
+  local zActors = {}
+  sm:collectActors(zActors)
+  local zz = 0
+  for _, act in ipairs(zActors) do
+    if act.kind == "ow_zzz" and (act.i == 99000 + mates[1].id or act.i == 99000 + mates[2].id) then zz = zz + 1 end
+  end
+  eq(zz, 2, "...z's over each of them")
+  vc.join.pack = realJoin
+  -- the leader burrows (lib/eco_burrow.lua): its group goes down and up with it, a moment late
+  leader.eco = nil
+  for _, m in ipairs(mates) do sm:_tickRider(m) m.vary.reactLag = 4 end
+  local bs = { kind = "burrow", burrowing = true, sinkTicks = 10, t = 0 }
+  leader.eco = bs
+  for t = 1, 12 do
+    sm.ticks, bs.t = sm.ticks + 1, t
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  local sk = mates[1].renderer.act and mates[1].renderer.act.sink or 0
+  check(sk > 0 and sk < 1, "the leader gone under: its group goes down after it (" .. sk .. ")")
+  leader.cellX, leader.px = leader.cellX + 2, leader.px + 32 -- it comes up two tiles on
+  for t = 13, 30 do
+    sm.ticks, bs.t = sm.ticks + 1, t
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  eq(mates[1].renderer.act and mates[1].renderer.act.sink, 1, "...under with it")
+  eq(mates[1].cellX, leader.cellX, "...over to its new place")
+  bs.riseAt = 30
+  for t = 31, 50 do
+    sm.ticks, bs.t = sm.ticks + 1, t
+    if t > 40 then leader.eco = nil end
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  eq(mates[1].renderer.act, nil, "...and up again beside it")
   -- the leader battled (gone): the riders scatter
   sm:despawn(leader.id)
   local scattering = 0
@@ -1049,6 +1093,49 @@ do
     eq(swoopNear, 0, "...and none of them swooped in")
     player.x, player.y = 200, 200
     for _ = 1, 400 do smS:tick(smS.game) end
+  end
+
+  -- Wild Ecology: a flock comes down together and takes off together
+  do
+    for _ = 1, 400 do smS:tick(smS.game) end
+    smS:despawn(smS.order[1])
+    smS:tick(smS.game)
+    local lead
+    for _, e in pairs(smS.entities) do if e.fx and e.fx.kind == "land" and e.fx.mode == "swoop" then lead = e end end
+    if lead then
+      lead.profile = { social = "swarm", group = { 3, 3 }, diet = "neutral", temper = "skittish", water = "swimmer",
+        activity = "any" }
+      eq(smS:_spawnGroup(lead), 2, "a flock of three")
+      local mates = {}
+      for _, mid in ipairs(lead.group.members) do if mid ~= lead.id then mates[#mates + 1] = smS.entities[mid] end end
+      local following = 0
+      for _, m in ipairs(mates) do
+        local lp, mp = lead.fx.plan.phases, m.fx and m.fx.plan and m.fx.plan.phases
+        if mp and m.fx.kind == "land" and mp[#mp].to.x == lp[#lp].to.x + (m.px - lead.px) then following = following + 1 end
+      end
+      eq(following, 2, "...the others come down on their leader's flight, each to its place")
+      for _ = 1, 600 do
+        smS:tick(smS.game)
+        if not lead.fx and not mates[1].fx and not mates[2].fx then break end
+      end
+      check(not lead.fx and not mates[1].fx and not mates[2].fx, "...all down")
+      check(mates[1].rider and mates[2].rider, "...and together on the ground")
+      smS:despawn(lead.id, { animate = true })
+      local leaving = 0
+      for _, m in ipairs(mates) do
+        if m.state == "leaving" and m.fx and m.fx.kind == "leave" and m.fx.mode == "swoop" and m.fx.plan.phases[1].type == "sit" then
+          leaving = leaving + 1
+        end
+      end
+      eq(leaving, 2, "the leader takes off: the flock flies off after it, each a moment later")
+      for _ = 1, 600 do
+        smS:tick(smS.game)
+        if not smS.entities[lead.id] and not smS.entities[mates[1].id] and not smS.entities[mates[2].id] then break end
+      end
+      check(not smS.entities[mates[1].id] and not smS.entities[mates[2].id], "...and all are gone")
+    else
+      check(false, "a lander came for the flock test")
+    end
   end
 
   -- Flying Mons off: the usual rise / fade

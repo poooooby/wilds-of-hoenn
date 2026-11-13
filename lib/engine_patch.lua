@@ -2305,6 +2305,25 @@ end
 
 --- Is the nurse's heal machine running (pokecenter_heal.lua PokecenterHeal.isActive: the
 --- Poke Balls on the tray, the jingle)? The follower goes into its ball meanwhile.
+--- The hour of the day, 0-23: the game's own clock where it keeps one (Ruby / Sapphire /
+--- Emerald: rtc.lua calcLocalTime, as the day / night evolutions read it), else the
+--- computer's (FireRed / LeafGreen have no clock). nil when neither can be read.
+function EnginePatch.localHour()
+  local Rtc = loadModule("src.core.game3.rtc")
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  if Rtc and Rtc.enabled and Rtc.calcLocalTime and okS and session then
+    local okE, on = pcall(Rtc.enabled, session)
+    if okE and on then
+      local okT, t = pcall(Rtc.calcLocalTime, session)
+      local h = okT and type(t) == "table" and tonumber(t.hours)
+      if h then return math.floor(h) % 24 end
+    end
+  end
+  local okD, d = pcall(os.date, "*t")
+  return okD and type(d) == "table" and tonumber(d.hour) or nil
+end
+
 function EnginePatch.healingActive()
   local Heal = loadModule("src.core.game3.pokecenter_heal")
   if not (Heal and Heal.isActive) then return false end

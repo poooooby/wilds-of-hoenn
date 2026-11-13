@@ -21,12 +21,15 @@ local EcoWater = {}
 local function between(rng, r) return rng(r[1], r[2]) end
 
 -- ------- effects (droplets): { kind = "splash" | "spray", x, y (world px), age, seed, n, power }
+-- (or any other kind with `life` ticks, `parts(age, seed)` -> particles and a `color`: a
+-- burrower's dust, lib/eco_burrow.lua)
 
 local function addFx(e, fx)
   local list = e.ecoFx
   if not list then list = {} e.ecoFx = list end
   list[#list + 1] = fx
 end
+EcoWater.addFx = addFx
 
 --- A splash where `e` leaves / meets the water at cell (cx, cy): droplets, a ripple, rings.
 function EcoWater.splash(e, cx, cy)
@@ -44,7 +47,8 @@ function EcoWater.ageFx(e)
   for i = 1, #list do
     local f = list[i]
     f.age = f.age + 1
-    local alive = f.kind == "splash" and f.age < 26 or (f.kind == "spray" and f.age < (f.n or 48) + 34)
+    local alive = (f.life and f.age < f.life) or (f.kind == "splash" and f.age < 26)
+      or (f.kind == "spray" and f.age < (f.n or 48) + 34)
     if alive then keep = keep + 1 list[keep] = f end
   end
   for i = #list, keep + 1, -1 do list[i] = nil end
@@ -57,12 +61,14 @@ function EcoWater.collectFx(e, actors)
   if not list then return end
   for _, f in ipairs(list) do
     local d
-    if f.kind == "splash" then
+    if f.parts then
+      d = f.parts(f.age, f.seed)
+    elseif f.kind == "splash" then
       d = WaterLife.splash(f.age, f.seed)
     else
       d = WaterLife.spray(f.age, f.n or 48, f.seed, f.power)
     end
-    if #d > 0 then actors[#actors + 1] = WaterLife._dropletActor(d, f.x, f.y, f.sortY, e.id or 0) end
+    if #d > 0 then actors[#actors + 1] = WaterLife._dropletActor(d, f.x, f.y, f.sortY, e.id or 0, f.color) end
   end
 end
 

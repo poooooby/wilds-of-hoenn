@@ -34,7 +34,7 @@ return {
   [285] = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "calm" },          -- Shroomish
   [286] = { diet = "predator", temper = "territorial", prey = { "BUG", "GRASS", "NORMAL" } }, -- Breloom
   [287] = { temper = "placid" }, [288] = { temper = "territorial" }, [289] = { temper = "placid" }, -- Slakoth line
-  [290] = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "skittish" },      -- Nincada
+  [290] = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "skittish", burrower = true }, -- Nincada
   [291] = { temper = "skittish" }, [292] = { temper = "calm", activity = "night" },
   [293] = { temper = "skittish" }, [294] = { temper = "territorial" }, [295] = { temper = "territorial" },
   [296] = { temper = "territorial" }, [297] = { temper = "territorial" },                 -- Makuhita, Hariyama
@@ -64,7 +64,7 @@ return {
   [325] = { social = HERD, group = { 2, 3 }, diet = "prey", temper = "skittish" },        -- Spoink
   [326] = { temper = "calm" },
   [327] = { temper = "calm" },                                                             -- Spinda
-  [328] = { diet = "predator", temper = "territorial", prey = { "BUG", "NORMAL", "GROUND" } }, -- Trapinch
+  [328] = { diet = "predator", temper = "territorial", prey = { "BUG", "NORMAL", "GROUND" }, burrower = true }, -- Trapinch
   [329] = { temper = "territorial" }, [330] = { temper = "territorial" },
   [331] = { temper = "calm" },                                                             -- Cacnea
   [332] = { diet = "predator", temper = "territorial", activity = "night" },              -- Cacturne
@@ -150,7 +150,7 @@ return {
   [22]  = { diet = "predator", temper = "aggressive" },                                    -- Fearow
   [23]  = { diet = "predator", temper = "territorial", prey = { "NORMAL" } },              -- Ekans
   [24]  = { diet = "predator", temper = "aggressive" },                                    -- Arbok
-  [27]  = { diet = "prey", temper = "skittish" }, [28] = { temper = "territorial" },      -- Sandshrew, Sandslash
+  [27]  = { diet = "prey", temper = "skittish", burrower = true }, [28] = { temper = "territorial", burrower = true }, -- Sandshrew, Sandslash
   [29]  = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "skittish" },      -- Nidoran F
   [32]  = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "skittish" },      -- Nidoran M
   [30]  = { temper = "territorial" }, [33] = { temper = "territorial" },
@@ -163,8 +163,8 @@ return {
   [47]  = { temper = "calm" },
   [48]  = { social = SWARM, group = { 2, 3 }, temper = "calm", activity = "night" },      -- Venonat
   [49]  = { temper = "calm", activity = "night" },                                         -- Venomoth
-  [50]  = { social = HUDDLE, group = { 2, 3 }, temper = "skittish" },                     -- Diglett
-  [51]  = { temper = "territorial" },
+  [50]  = { social = HUDDLE, group = { 2, 3 }, temper = "skittish", burrower = true },     -- Diglett
+  [51]  = { temper = "territorial", burrower = true },                                     -- Dugtrio
   [52]  = { diet = "predator", temper = "skittish", activity = "night", prey = { "NORMAL", "BUG" } }, -- Meowth
   [53]  = { diet = "predator", temper = "territorial", activity = "night" },              -- Persian
   [54]  = { temper = "calm", water = "swimmer" }, [55] = { temper = "calm", water = "swimmer" }, -- Psyduck, Golduck
@@ -192,7 +192,7 @@ return {
   [91]  = { temper = "territorial", water = "drifter" },                                   -- Cloyster
   [92]  = { social = SWARM, group = { 2, 3 }, temper = "territorial", activity = "night" }, -- Gastly
   [93]  = { temper = "territorial", activity = "night" }, [94] = { temper = "aggressive", activity = "night" },
-  [95]  = { temper = "territorial" },                                                      -- Onix
+  [95]  = { temper = "territorial", burrower = true },                                     -- Onix
   [96]  = { temper = "calm", activity = "night" }, [97] = { temper = "territorial", activity = "night" }, -- Drowzee, Hypno
   [98]  = { social = HUDDLE, group = { 2, 3 }, diet = "predator", temper = "territorial", prey = { "WATER" } }, -- Krabby
   [99]  = { diet = "predator", temper = "aggressive", prey = { "WATER" } },               -- Kingler
@@ -251,7 +251,7 @@ return {
   [232] = { temper = "territorial" },                                                     -- Donphan
   [234] = { social = HERD, group = { 2, 3 }, temper = "skittish" },                      -- Stantler
   [241] = { social = HERD, group = { 2, 3 }, temper = "calm" },                          -- Miltank
-  [246] = { temper = "calm" },                                                            -- Larvitar
+  [246] = { temper = "calm", burrower = true },                                           -- Larvitar
 
   -- ------- National Dex Gen 3 extras with a set character
   [963] = { social = POD, group = { 2, 4 }, temper = "calm", water = "leaper" },          -- Finizen

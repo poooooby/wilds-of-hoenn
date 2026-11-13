@@ -62,6 +62,12 @@ do
   eq(hunter.diet, "predator", "a Dark Pokemon of some size hunts")
   eq(hunter.temper, "territorial", "...and holds its ground")
   eq(hunter.activity, "night", "...at night")
+  eq(EcoProfile.derive(500, { types = { "BUG", "FLYING" }, egg = { 3 }, height = 3, bst = 250 }).activity, "day",
+    "a bug / bird is out by day (asleep at night)")
+  eq(EcoProfile.derive(500, { types = { "GHOST", "FLYING" }, egg = { 11 }, height = 3, bst = 250 }).activity, "night",
+    "...but a Ghost bird by night")
+  eq(EcoProfile.derive(500, { types = { "NORMAL" }, egg = { 5 }, height = 3, bst = 250 }).activity, "any",
+    "anything else whenever")
   local small = EcoProfile.derive(500, { types = { "NORMAL" }, egg = { 6 }, height = 3, bst = 250 })
   eq(small.diet, "prey", "a small weak Pokemon is prey")
   eq(small.temper, "skittish", "...and skittish")
@@ -116,6 +122,7 @@ do
       and (e.social == nil or SOCIAL[e.social]) and (e.diet == nil or DIET[e.diet])
       and (e.temper == nil or TEMPER[e.temper]) and (e.water == nil or WATER[e.water])
       and (e.activity == nil or ACT[e.activity])
+      and (e.burrower == nil or e.burrower == true)
       and (e.group == nil or (type(e.group) == "table" and e.group[1] >= 1 and e.group[2] >= e.group[1] and e.group[2] <= 4))
       and (e.social == nil or e.social == "solo" or e.group ~= nil)
     if not okEntry then bad[#bad + 1] = tostring(dex) end

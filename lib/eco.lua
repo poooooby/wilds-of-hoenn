@@ -26,9 +26,10 @@ function Eco.register(kind, activity)
   Eco.ACTIVITIES[kind] = activity
 end
 
---- Adds a chooser: fn(e, ctx, sm) -> kind, state (or nil to let it be).
-function Eco.addChooser(fn)
-  Eco.CHOOSERS[#Eco.CHOOSERS + 1] = fn
+--- Adds a chooser: fn(e, ctx, sm) -> kind, state (or nil to let it be). `first`: asked
+--- before the others (sleep: a sleeper does nothing else).
+function Eco.addChooser(fn, first)
+  if first then table.insert(Eco.CHOOSERS, 1, fn) else Eco.CHOOSERS[#Eco.CHOOSERS + 1] = fn end
 end
 
 --- Starts activity `kind` on `e`, with `state` (a table, kept as `e.eco`). True when it began.

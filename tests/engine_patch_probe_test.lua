@@ -278,6 +278,15 @@ do
   check(okG, "EnginePatch.grassRustle runs on the real engine (no sheet without a ROM: nil)")
 end
 
+-- the hour for Wild Ecology's sleepers (EnginePatch.localHour): the game's clock module
+do
+  local okR, Rtc = pcall(require, "src.core.game3.rtc")
+  check(okR and type(Rtc.enabled) == "function" and type(Rtc.calcLocalTime) == "function",
+    "rtc.lua has enabled / calcLocalTime (the hour of day for sleepers)")
+  local h = EnginePatch.localHour()
+  check(h == nil or (h >= 0 and h <= 23), "EnginePatch.localHour answers an hour 0-23 (" .. tostring(h) .. ")")
+end
+
 -- the Battler's knockout sounds (lib/finisher_fx.lua): every SE_* name must exist in each
 -- game's own sound table, or that finisher would play silently
 do

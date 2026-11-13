@@ -15,7 +15,8 @@
 --   temper   "skittish" | "calm" | "territorial" | "aggressive" | "placid" (never reacts to the
 --            player; calm = Wild Reacts' plain rules: lib/wild_reactions.lua reach / decide)
 --   water    "leaper" | "diver" | "whale" | "drifter" | "swimmer" (how a water spawn swims)
---   activity "day" | "night" | "any"
+--   activity "day" | "night" | "any" (asleep the other half: lib/eco_sleep.lua)
+--   burrower true: digs down and comes up elsewhere (lib/eco_burrow.lua; table only)
 --   source   "table" | "derived"
 local V = ...
 
@@ -88,7 +89,12 @@ function EcoProfile.derive(dex, facts, waterCfg)
     end
   end
 
-  if has(types, "GHOST") or dark then p.activity = "night" end
+  -- Ghost and Dark are out at night; birds, bugs and plants by day (asleep at night)
+  if has(types, "GHOST") or dark then
+    p.activity = "night"
+  elseif has(types, "FLYING") or has(types, "BUG") or has(types, "GRASS") then
+    p.activity = "day"
+  end
   return p
 end
 
