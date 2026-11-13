@@ -445,7 +445,7 @@ function EnginePatch.install(hooks, log)
   end
 
   -- option_rows.lua Rows.group(rows, openPage): builds the game's top OPTIONS page (all
-  -- five Gen 3 games). The hook returns ONE extra row (the WILDS OF HOENN entry, opening a
+  -- five Gen 3 games). The hook returns ONE extra row (the VIVID WORLDS entry, opening a
   -- page of this mod's options); it gets `openPage`, which the engine's own
   -- `ui.options.rows` hook never hands a mod -- so a single expandable entry needs this
   -- wrap. Not a probed target: without it the options stay in the Mods menu only.

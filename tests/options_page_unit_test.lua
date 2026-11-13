@@ -1,5 +1,5 @@
 -- Run: lua tests/options_page_unit_test.lua
--- lib/options_page.lua: the WILDS OF HOENN entry on the game's OPTIONS page and its rows.
+-- lib/options_page.lua: the VIVID WORLDS entry on the game's OPTIONS page and its rows.
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local failures = 0
@@ -37,10 +37,10 @@ local ctx = { game = game }
 -- the entry opens a page of the schema's rows
 local opened
 local entry = OptionsPage.entry(mod, function(title, rows) opened = { title, rows } end)
-eq(entry.label, "WILDS OF HOENN", "one entry on the top page")
+eq(entry.label, "VIVID WORLDS", "one entry on the top page")
 eq(entry.value(), "", "...with no value of its own")
 entry.activate(ctx)
-eq(opened[1], "WILDS OF HOENN", "activating it opens the page")
+eq(opened[1], "VIVID WORLDS", "activating it opens the page")
 local rows = opened[2]
 eq(#rows, 2, "toggle + choice rows; a kind the page cannot show is left out")
 eq(rows[1].label, "SHOW WILD MONS", "labels upper-cased, in the schema's order")

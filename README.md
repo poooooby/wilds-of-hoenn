@@ -1,11 +1,13 @@
 <div align="center">
 
-<img src="imgs/WoH.png" alt="Wilds of Hoenn" width="640">
+<img src="imgs/WoH.png" alt="Vivid Worlds" width="640">
 
-# Wilds of Hoenn 🌿
+# Vivid Worlds 🌿
 
 [![Total downloads](https://img.shields.io/github/downloads/poooooby/wilds-of-hoenn/total?label=downloads)](https://github.com/poooooby/wilds-of-hoenn/releases)
 [![Latest release](https://img.shields.io/github/v/release/poooooby/wilds-of-hoenn?label=latest)](https://github.com/poooooby/wilds-of-hoenn/releases/latest)
+
+*Formerly Wilds of Hoenn.*
 
 *The tall grass is alive. Wild Pokémon roam the overworld of Ruby, Sapphire, Emerald, FireRed
 and LeafGreen. Walk up to one to battle it, and bring a partner along for the journey.*
@@ -179,7 +181,7 @@ rooftops, with little scenes waiting in special places.*
 
 ## 🌐 Languages
 
-Wilds of Hoenn speaks **English, Japanese, Portuguese, Spanish and German**: pick one with the
+Vivid Worlds speaks **English, Japanese, Portuguese, Spanish and German**: pick one with the
 **Language** option and its menus, your partner's words, the call-outs and the options themselves
 switch at once. Japanese is written in kana, as in the original Japanese games (the game's font has
 no kanji), and Portuguese shows ã / õ as a / o, since the Gen 3 font has no such letters.
@@ -188,12 +190,12 @@ no kanji), and Portuguese shows ã / õ as a / o, since the Gen 3 font has no su
 
 ### Mod options (Mod Manager)
 
-All of these can also be changed while you play: **OPTIONS → WILDS OF HOENN** in the game's own
+All of these can also be changed while you play: **OPTIONS → VIVID WORLDS** in the game's own
 menu opens the same list.
 
 | Option | Choices | Default | What it does |
 |---|---|---|---|
-| **Language** | ENGLISH / にほんご / PORTUGUÊS / ESPAÑOL / DEUTSCH | ENGLISH | The language of Wilds of Hoenn's own text: these options, your partner's words and menus, the call-outs and the labels over it. The game's own text stays as it is. Japanese is written in kana, like the original Japanese games. |
+| **Language** | ENGLISH / にほんご / PORTUGUÊS / ESPAÑOL / DEUTSCH | ENGLISH | The language of Vivid Worlds' own text: these options, your partner's words and menus, the call-outs and the labels over it. The game's own text stays as it is. Japanese is written in kana, like the original Japanese games. |
 | **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon in areas with wild encounters. |
 | **Spawn Amount** | LOW / NORMAL / HIGH | NORMAL | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
 | **Flying Mons** | FULL / AMBIENT / OFF | FULL | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. Full adds big birds flying high overhead, softly out of focus; Ambient leaves those out. |
@@ -239,7 +241,7 @@ left.
    page (about 30 MB): both art styles, HGSS / PokeMMO and animated PMDCollab sprites with
    portraits, in one download.
 2. Import it with the Gen1Recomp Mod Manager, or drop it in your mods folder.
-3. Enable **Wilds of Hoenn**.
+3. Enable **Vivid Worlds**.
 
 ## 🔗 Works With
 

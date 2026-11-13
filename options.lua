@@ -20,7 +20,7 @@ return {
       { "ESPAÑOL", "es" },
       { "DEUTSCH", "de" },
     },
-    description = "The language of Wilds of Hoenn's own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games.",
+    description = "The language of Vivid Worlds' own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games.",
   },
   {
     key = "enabled",

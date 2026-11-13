@@ -41,8 +41,8 @@ return {
   ["toggle|OFF"] = "NO",
 
   -- options: descriptions
-  ["The language of Wilds of Hoenn's own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games."] =
-    "El idioma de los textos de Wilds of Hoenn: estas opciones, las palabras de tu compañero, sus menús y los rótulos sobre él. Los textos del juego no cambian. El japonés se escribe en kana, como en los juegos japoneses originales.",
+  ["The language of Vivid Worlds' own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games."] =
+    "El idioma de los textos de Vivid Worlds: estas opciones, las palabras de tu compañero, sus menús y los rótulos sobre él. Los textos del juego no cambian. El japonés se escribe en kana, como en los juegos japoneses originales.",
   ["Spawn visible wild Pokemon in eligible grass/water encounter areas."] =
     "Muestra Pokémon salvajes visibles en las zonas de hierba y agua donde aparecen.",
   ["How many wild Pokemon are out at once, for grass and water each, growing with the size of the area. Low: about half (up to 4). Normal: up to 8. High: about one and a half times (up to 12)."] =

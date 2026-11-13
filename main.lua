@@ -1,4 +1,4 @@
--- Wilds of Hoenn (id: wilds_of_hoenn): visible wild Pokemon for Ruby,
+-- Vivid Worlds, formerly Wilds of Hoenn (id: wilds_of_hoenn, kept): visible wild Pokemon for Ruby,
 -- Sapphire and Emerald.
 --
 -- Architecture
@@ -97,7 +97,7 @@ return function(mod)
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.11.2"
+  mod.exports.version = "1.12.0-beta.1"
   mod.exports.engineReady = false
   -- Public extension points for consumers; defaults stay unchanged.
   mod.exports.spriteAtlas = SpriteAtlas
@@ -337,7 +337,7 @@ return function(mod)
     fromMenu = function(label, ctx)
       return partyRoles:fromMenu(label, ctx)
     end,
-    -- the WILDS OF HOENN entry on the game's top OPTIONS page (lib/options_page.lua)
+    -- the VIVID WORLDS entry on the game's top OPTIONS page (lib/options_page.lua)
     optionsRow = function(openPage)
       return OptionsPage.entry(mod, openPage)
     end,

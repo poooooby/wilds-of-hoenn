@@ -1,6 +1,6 @@
 # 💚 Community Credits
 
-Wilds of Hoenn grows with its players. A big thank you to everyone in the Discord community
+Vivid Worlds grows with its players. A big thank you to everyone in the Discord community
 who plays the mod, reports bugs, shares screenshots and suggests ideas: you shape what this
 mod becomes. Every idea below came from a player and made it into the game.
 

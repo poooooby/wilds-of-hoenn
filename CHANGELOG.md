@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 1.12.0-beta.1 (2026-11-12)
+
+### Changed
+
+- **Wilds of Hoenn is now Vivid Worlds.** Only the name changes: your settings, your
+  partner's friendship and roles, and updates all carry on as before.
 
 ### Added
 

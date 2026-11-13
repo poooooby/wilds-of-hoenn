@@ -184,7 +184,7 @@ do
   check(type(EnginePatch.fieldBusy()) == "boolean", "EnginePatch.fieldBusy runs on the real engine")
 end
 
--- The WILDS OF HOENN entry on the OPTIONS page: Rows.group (wrapped, optional) and the
+-- The VIVID WORLDS entry on the OPTIONS page: Rows.group (wrapped, optional) and the
 -- Mod Manager's own option setter (EnginePatch.setModOption)
 do
   local okR, Rows = pcall(require, "src.ui.game3.option_rows")

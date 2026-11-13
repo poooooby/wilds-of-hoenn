@@ -42,8 +42,8 @@ return {
   ["toggle|OFF"] = "オフ",
 
   -- options: descriptions
-  ["The language of Wilds of Hoenn's own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games."] =
-    "Wilds of Hoenn の テキストの げんご： この オプション パートナーの ことば メニュー そして うえに でる ラベル。 ゲームの テキストは かわりません。 にほんごは むかしの にほんの ゲームと おなじく かなで かかれます。",
+  ["The language of Vivid Worlds' own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games."] =
+    "Vivid Worlds の テキストの げんご： この オプション パートナーの ことば メニュー そして うえに でる ラベル。 ゲームの テキストは かわりません。 にほんごは むかしの にほんの ゲームと おなじく かなで かかれます。",
   ["Spawn visible wild Pokemon in eligible grass/water encounter areas."] =
     "やせいの ポケモンが でる くさむらや みずの うえに その すがたを みせます。",
   ["How many wild Pokemon are out at once, for grass and water each, growing with the size of the area. Low: about half (up to 4). Normal: up to 8. High: about one and a half times (up to 12)."] =

@@ -14,8 +14,8 @@ per-file sheets -- the release ZIP and the git history never carry 3900+
 individual PNGs; see lib/sprite_atlas.lua.
 
 Two release variants (both by default):
-  hgss      HGSS / PokeMMO art only      -> wilds-of-hoenn-v<ver>-hgss.zip
-  pmd       HGSS / PokeMMO + PMDCollab   -> wilds-of-hoenn-v<ver>-hgss-pmd.zip
+  hgss      HGSS / PokeMMO art only      -> vivid-worlds-v<ver>-hgss.zip
+  pmd       HGSS / PokeMMO + PMDCollab   -> vivid-worlds-v<ver>-hgss-pmd.zip
 Same mod id and version, same code -- they differ only in the art they carry
 (the mod hides the PMDCollab Sprite Style when no PMD art is installed, see
 Config.hasPmdArt). A player installs ONE of them. PMDCollab art is CC BY-NC,
@@ -202,7 +202,7 @@ def build_variant(name: str, args, version: str, mod_id: str, out_dir: Path) -> 
                 print(f"ERROR: the HGSS-only variant's atlas still has {', '.join(stray)}", file=sys.stderr)
                 return None
 
-    zip_path = out_dir / f"wilds-of-hoenn-v{version}{spec['suffix']}.zip"
+    zip_path = out_dir / f"vivid-worlds-v{version}{spec['suffix']}.zip"
     forbidden_hits = []
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         seen = set()

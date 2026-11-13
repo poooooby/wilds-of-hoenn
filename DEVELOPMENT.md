@@ -1,4 +1,4 @@
-# Wilds of Hoenn: developer guide
+# Vivid Worlds (formerly Wilds of Hoenn): developer guide
 
 Everything here is for working on the mod. Players only need the [README](README.md).
 
@@ -99,7 +99,7 @@ changes. Call-outs are per-language lists (`"list:send"`, `"list:recall"`).
 ## For other mods: spawn filters
 
 A mod that changes which species a wild encounter turns out to be (version exclusives in both
-games, a "catch them all in one game" mod) should hand Wilds of Hoenn a spawn filter, so the
+games, a "catch them all in one game" mod) should hand Vivid Worlds a spawn filter, so the
 visible Pokemon is the one you fight:
 
 ```lua
