@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.12.0-beta.2 (2026-11-12)
+
+### Changed
+
+- **Smoother with sleeping and burrowing Pokémon around.** Their z's, dust clouds and dug-up
+  earth make far less memory churn every frame, so the game has less cleaning up to do
+  (fewer hitches on slower machines).
+
 ## 1.12.0-beta.1 (2026-11-12)
 
 ### Changed
