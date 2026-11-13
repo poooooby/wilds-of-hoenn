@@ -236,6 +236,18 @@ Config.REACT = {
             -- planning up to `homeSearch` cells, or leaves with the fade if it can't
             anyGround = true, homeSearch = 24 },
   cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
+  -- Wild Ecology tempers (lib/eco_profile.lua `temper`): how far a species notices the player
+  -- WALKING / running / biking past (tiles, Manhattan) and the % it reacts at least. "calm"
+  -- (and no profile) keeps the rules above: only running or biking, by strength; "placid"
+  -- never reacts. Strength still counts: a much stronger lead (`fleeBelow` x its strength)
+  -- scares off even an aggressive one.
+  temper = {
+    skittish = { walk = 2, run = 3, bike = 5, chance = 60 },          -- runs from anyone
+    territorial = { walk = 2, run = 3, bike = 4, chance = 35, fleeBelow = 0.7 },
+    aggressive = { walk = 3, run = 4, bike = 5, chance = 60, fleeBelow = 0.4 },
+    -- a group's members join its leader's "!" / anger mark one by one
+    memberLag = { 4, 16 },
+  },
 }
 
 -- A wild Pokemon whose fight with the Battler is broken off (its job changed: lib/

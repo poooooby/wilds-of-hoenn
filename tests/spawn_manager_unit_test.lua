@@ -214,6 +214,12 @@ do
   for _, m in ipairs(mates) do sm:_tickRider(m) end
   check(not mates[1].riderAnim and not mates[1].vary.aside, "...and stops when the pack moves off")
   leader.moving = nil
+  -- the leader charges the player: the pack charges with it
+  leader.react = { mode = "chase", t = 0 }
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(mates[1].riderAnim and mates[1].renderer.anim == "attack" and mates[2].renderer.anim == "attack",
+    "the leader charging: its pack charges with it")
+  leader.react = nil
   -- the leader battled (gone): the riders scatter
   sm:despawn(leader.id)
   local scattering = 0

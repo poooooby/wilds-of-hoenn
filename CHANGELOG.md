@@ -15,6 +15,11 @@
   join the leader's howl or graze a moment late and some don't, and one may nibble, hop or doze
   off on its own. Kanto and Sevii species
   have their own profiles in FireRed and LeafGreen.
+- **Wild Pokémon have tempers** (part of Wild Reacts). Skittish species (Zigzagoon, Wingull ...)
+  run or fly off even when you only walk by. Territorial ones (Poochyena, Seviper, Sharpedo ...)
+  charge a walker who comes too close, and aggressive ones (Mightyena, Beedrill ...) from
+  farther. A much stronger partner still scares them off. Placid ones (Slakoth, Wailmer,
+  Snorlax ...) never react. A pack or swarm charges together.
 - **Wild Pokémon hunt** (part of Wild Reacts). Now and then a hunter in view chases a smaller
   Pokémon and fights it with real moves, health bars and hit effects. The prey may break away,
   or faint and sink out of sight. Rivals like Zangoose and Seviper fight whenever they meet.

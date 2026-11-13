@@ -444,8 +444,10 @@ function SpawnManager._riderVary(rng)
   rng = rng or math.random
   local c = Config.ECO.group.vary
   local function fr(r) return r[1] + (r[2] - r[1]) * rng(0, 1000) / 1000 end
+  local lag = Config.REACT.temper.memberLag
   return { catchUp = fr(c.catchUp), idleMul = fr(c.idleSpeed), phase = rng(0, 60),
-           jx = rng(-c.jitter, c.jitter), jy = rng(-c.jitter, c.jitter), mx = 0, my = 0 }
+           jx = rng(-c.jitter, c.jitter), jy = rng(-c.jitter, c.jitter), mx = 0, my = 0,
+           reactLag = rng(lag[1], lag[2]) }
 end
 
 local function due(v, key, now, range, rng)
@@ -459,6 +461,11 @@ end
 -- pose when it joins in (after its lag, at its own speed), else now and then one of its own
 local function riderPose(e, l, g, v, now, rng)
   local c = Config.ECO.group.vary
+  -- the leader charging the player: the whole pack charges with it
+  if (l.react and l.react.mode == "chase") or l.charging then
+    v.aside = nil
+    return "attack", 1, "walk"
+  end
   local ga = l.eco and l.eco.groupAnim
   if ga then
     v.aside = nil
@@ -559,9 +566,9 @@ function SpawnManager:_tickRider(e)
     r.idleSpeed = Config.PMD_WILD_IDLE_SPEED * v.idleMul
     r.idleOffset = v.phase
   end
-  local anim, aspeed = riderPose(e, l, g, v, now, rng)
+  local anim, aspeed, fallback = riderPose(e, l, g, v, now, rng)
   if anim and r and r.isPmd and r.advanceAs then
-    r:advanceAs(anim, aspeed, "idle")
+    r:advanceAs(anim, aspeed, fallback or "idle")
     e.riderAnim = true
   else
     e.riderAnim = nil
@@ -1103,11 +1110,20 @@ function SpawnManager:collectActors(actors, camX, camY)
           e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end
       end
-      if e.react and e.react.emote then
+      -- its "!" / anger mark; a group member shows its leader's a moment after it
+      local emote, emoteAge = e.react and e.react.emote, e.react and e.react.emoteAge
+      if not emote and e.rider and e.group and e.vary then
+        local l = self.entities[e.group.leader]
+        local lr = l and l.react
+        if lr and lr.emote and (lr.emoteAge or 0) >= e.vary.reactLag then
+          emote, emoteAge = lr.emote, lr.emoteAge - e.vary.reactLag
+        end
+      end
+      if emote then
         local r = e.renderer
         local lift = r and r.headLift and r:headLift()
           or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
-        actors[#actors + 1] = WildEmote.actor(e.react.emote, e.react.emoteAge or 0, e.px, e.py,
+        actors[#actors + 1] = WildEmote.actor(emote, emoteAge or 0, e.px, e.py,
           math.max(10, math.min(96, (lift or 20) + 4)), e.elevation, id)
       end
       -- a shiny one twinkles now and then (not as a silhouette, nor while it arrives / leaves)

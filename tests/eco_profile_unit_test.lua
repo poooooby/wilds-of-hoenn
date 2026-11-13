@@ -106,7 +106,7 @@ end
 do
   local SOCIAL = { solo = 1, pack = 1, herd = 1, school = 1, swarm = 1, pod = 1, huddle = 1 }
   local DIET = { predator = 1, prey = 1, neutral = 1 }
-  local TEMPER = { skittish = 1, calm = 1, territorial = 1, aggressive = 1 }
+  local TEMPER = { skittish = 1, calm = 1, territorial = 1, aggressive = 1, placid = 1 }
   local WATER = { leaper = 1, diver = 1, whale = 1, drifter = 1, swimmer = 1 }
   local ACT = { day = 1, night = 1, any = 1 }
   local bad, n = {}, 0

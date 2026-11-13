@@ -33,7 +33,7 @@ return {
   [284] = { temper = "calm" },
   [285] = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "calm" },          -- Shroomish
   [286] = { diet = "predator", temper = "territorial", prey = { "BUG", "GRASS", "NORMAL" } }, -- Breloom
-  [287] = { temper = "calm" }, [288] = { temper = "territorial" }, [289] = { temper = "calm" }, -- Slakoth line
+  [287] = { temper = "placid" }, [288] = { temper = "territorial" }, [289] = { temper = "placid" }, -- Slakoth line
   [290] = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "skittish" },      -- Nincada
   [291] = { temper = "skittish" }, [292] = { temper = "calm", activity = "night" },
   [293] = { temper = "skittish" }, [294] = { temper = "territorial" }, [295] = { temper = "territorial" },
@@ -56,8 +56,8 @@ return {
   [316] = { temper = "calm" }, [317] = { temper = "calm" },                               -- Gulpin, Swalot
   [318] = { social = SCHOOL, group = { 2, 4 }, diet = "predator", temper = "aggressive", water = "diver" }, -- Carvanha
   [319] = { diet = "predator", temper = "aggressive", water = "diver", prey = { "WATER" } }, -- Sharpedo
-  [320] = { social = POD, group = { 2, 3 }, diet = "neutral", temper = "calm", water = "whale" }, -- Wailmer
-  [321] = { diet = "neutral", temper = "calm", water = "whale" },                         -- Wailord
+  [320] = { social = POD, group = { 2, 3 }, diet = "neutral", temper = "placid", water = "whale" }, -- Wailmer
+  [321] = { diet = "neutral", temper = "placid", water = "whale" },                         -- Wailord
   [322] = { social = HERD, group = { 2, 4 }, temper = "calm" },                           -- Numel
   [323] = { temper = "territorial" },                                                      -- Camerupt
   [324] = { temper = "calm" },                                                             -- Torkoal
@@ -86,7 +86,7 @@ return {
   [353] = { social = SWARM, group = { 2, 3 }, temper = "calm", activity = "night" },      -- Shuppet
   [354] = { temper = "territorial", activity = "night" },                                  -- Banette
   [355] = { temper = "calm", activity = "night" }, [356] = { temper = "territorial", activity = "night" },
-  [357] = { temper = "calm" }, [358] = { temper = "calm" },                               -- Tropius, Chimecho
+  [357] = { temper = "placid" }, [358] = { temper = "calm" },                               -- Tropius, Chimecho
   [359] = { temper = "territorial" },                                                      -- Absol
   [360] = { social = HUDDLE, group = { 2, 3 }, temper = "calm" },                         -- Wynaut
   [361] = { social = HUDDLE, group = { 2, 3 }, temper = "skittish" },                     -- Snorunt
@@ -182,7 +182,7 @@ return {
   [75]  = { temper = "calm" }, [76] = { temper = "territorial" },                         -- Graveler, Golem
   [77]  = { social = HERD, group = { 2, 3 }, temper = "skittish" },                       -- Ponyta
   [78]  = { social = HERD, group = { 2, 3 }, temper = "territorial" },                    -- Rapidash
-  [79]  = { temper = "calm", water = "swimmer" }, [80] = { temper = "calm", water = "swimmer" }, -- Slowpoke, Slowbro
+  [79]  = { temper = "placid", water = "swimmer" }, [80] = { temper = "placid", water = "swimmer" }, -- Slowpoke, Slowbro
   [82]  = { temper = "calm" },                                                             -- Magneton
   [83]  = { temper = "territorial" },                                                      -- Farfetch'd
   [86]  = { social = POD, group = { 2, 3 }, temper = "calm", water = "swimmer" },         -- Seel
@@ -212,11 +212,11 @@ return {
   [123] = { diet = "predator", temper = "aggressive", prey = { "BUG" } },                  -- Scyther
   [124] = { temper = "calm" }, [125] = { temper = "territorial" }, [126] = { temper = "territorial" },
   [128] = { social = HERD, group = { 2, 4 }, temper = "aggressive" },                     -- Tauros
-  [131] = { social = POD, group = { 2, 2 }, temper = "calm", water = "swimmer" },         -- Lapras
+  [131] = { social = POD, group = { 2, 2 }, temper = "placid", water = "swimmer" },         -- Lapras
   [132] = { temper = "calm" },                                                             -- Ditto
   [133] = { diet = "prey", temper = "skittish" },                                          -- Eevee
   [138] = { temper = "calm", water = "drifter" }, [140] = { temper = "calm", water = "drifter" }, -- Omanyte, Kabuto
-  [143] = { temper = "calm" },                                                             -- Snorlax
+  [143] = { temper = "placid" },                                                             -- Snorlax
   [147] = { temper = "calm", water = "swimmer" }, [148] = { temper = "calm", water = "swimmer" }, -- Dratini, Dragonair
 
   -- ------- Johto species of the Sevii Islands
@@ -239,7 +239,7 @@ return {
   [207] = { diet = "predator", temper = "territorial", prey = { "BUG" } },                -- Gligar
   [209] = { temper = "territorial" },                                                     -- Snubbull
   [211] = { social = SCHOOL, group = { 2, 3 }, temper = "territorial", water = "diver" }, -- Qwilfish
-  [213] = { temper = "calm" },                                                            -- Shuckle
+  [213] = { temper = "placid" },                                                            -- Shuckle
   [215] = { diet = "predator", temper = "aggressive", activity = "night" },               -- Sneasel
   [216] = { diet = "prey", temper = "skittish" },                                         -- Teddiursa
   [217] = { temper = "aggressive" },                                                      -- Ursaring

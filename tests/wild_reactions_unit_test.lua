@@ -163,6 +163,52 @@ do
   eq(e.react, nil, "resting after a reaction: no new one yet")
 end
 
+-- ------- tempers (lib/eco_profile.lua): who notices a WALKING player, and what it does
+do
+  local T = cfg.temper
+  eq(WR.reach("calm", "walk"), nil, "calm: walking past disturbs it not")
+  eq(WR.reach(nil, "walk"), nil, "...nor one with no profile")
+  eq(WR.reach("placid", "run"), nil, "placid: not even running past")
+  eq(WR.reach("skittish", "walk"), T.skittish.walk, "skittish: notices a walking player")
+  eq(WR.reach("territorial", "walk"), T.territorial.walk, "territorial: so does a territorial one")
+  check(WR.reach("aggressive", "walk") > WR.reach("territorial", "walk"), "...an aggressive one from farther")
+  check(WR.reach("skittish", "bike") > WR.reach("skittish", "walk"), "a bike carries farther")
+  eq(WR.decide("skittish", "neutral", 1.0), "flee", "skittish: runs even from an even match")
+  local _, pStrong = WR.decide("skittish", "strong", 1.6)
+  local _, pEven = WR.decide("skittish", "neutral", 1.0)
+  check(pStrong < pEven, "...though less often when it is the stronger")
+  eq(WR.decide("territorial", "neutral", 1.0), "chase", "territorial: charges an even match")
+  eq(WR.decide("territorial", "weak", 0.5), "flee", "...a far stronger lead scares it off")
+  eq(WR.decide("aggressive", "weak", 0.5), "chase", "aggressive: charges even a stronger lead")
+  eq(WR.decide("aggressive", "weak", 0.3), "flee", "...unless it is far too strong")
+  eq(WR.decide("placid", "strong", 3), nil, "placid: nothing")
+  eq(WR.decide("calm", "neutral", 1.0), nil, "calm: the old rules (an even match shrugs)")
+  eq(WR.decide("calm", "weak", 0.3), "flee", "...a weak one flees a running player")
+
+  local saved = { running = running, biking = biking }
+  running, biking = false, false
+  local zig = entity(10, 10, 10)
+  zig.profile = { temper = "skittish" }
+  WR.scan({ zig }, ctxFor({ x = 12, y = 10, moving = true }, 10))
+  eq(zig.react and zig.react.emote, "!", "walking up to a skittish one: it startles")
+  local calm = entity(10, 10, 5)
+  calm.profile = { temper = "calm" }
+  WR.scan({ calm }, ctxFor({ x = 11, y = 10, moving = true }, 30))
+  eq(calm.react, nil, "...a calm one lets a walker by")
+  local guard = entity(10, 10, 10)
+  guard.profile = { temper = "territorial" }
+  WR.scan({ guard }, ctxFor({ x = 12, y = 10, moving = true }, 10))
+  eq(guard.react and guard.react.mode, "turn", "a territorial one turns on a walker two steps off")
+  run(guard, ctxFor({ x = 12, y = 10, moving = false }, 10), 400)
+  eq(contacts[#contacts], guard, "...charges and starts the battle")
+  local placid = entity(10, 10, 50)
+  placid.profile = { temper = "placid" }
+  running = true
+  WR.scan({ placid }, ctxFor({ x = 11, y = 10, moving = true }, 5))
+  eq(placid.react, nil, "a placid one ignores even a running player")
+  running, biking = saved.running, saved.biking
+end
+
 -- ------- weak: "!", a hop, then it runs off, farther from the player
 do
   local e = entity(10, 10, 5)

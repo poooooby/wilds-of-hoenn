@@ -12,7 +12,8 @@
 --   diet     "predator" | "prey" | "neutral"
 --   prey     type names a predator hunts (nil = any smaller, weaker Pokemon)
 --   rival    { [dex] = true } species it fights on sight
---   temper   "skittish" | "calm" | "territorial" | "aggressive"
+--   temper   "skittish" | "calm" | "territorial" | "aggressive" | "placid" (never reacts to the
+--            player; calm = Wild Reacts' plain rules: lib/wild_reactions.lua reach / decide)
 --   water    "leaper" | "diver" | "whale" | "drifter" | "swimmer" (how a water spawn swims)
 --   activity "day" | "night" | "any"
 --   source   "table" | "derived"

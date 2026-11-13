@@ -133,21 +133,58 @@ function WildReactions.startAt(e, target, kind, ctx, steps)
   return true
 end
 
+--- How far a Pokemon of temper `temper` notices a player moving by `how` ("walk" | "run" |
+--- "bike"): (reach, aggroAt) in tiles, or nil when it pays no attention. "calm" / nil = the
+--- old rules (running or biking only; a stronger one angry only right beside them). Pure.
+function WildReactions.reach(temper, how, cfg)
+  cfg = cfg or Config.REACT
+  if temper == "placid" then return nil end
+  local t = cfg.temper and cfg.temper[temper]
+  if t and t[how] then return t[how], t[how] end
+  if how == "walk" then return nil end
+  if how == "bike" then return cfg.bikeRadius, cfg.bikeAggroRadius end
+  return cfg.radius, cfg.aggroRadius
+end
+
+--- What a Pokemon of `temper` does about the player, by its strength class / ratio:
+--- ("flee" | "chase", % chance), or nil. "calm" / nil = the old rules: the weaker flee, the
+--- stronger chase, an even match shrugs. Pure (tested).
+function WildReactions.decide(temper, cls, ratio, cfg)
+  cfg = cfg or Config.REACT
+  local t = cfg.temper and cfg.temper[temper]
+  if temper == "placid" then return nil end
+  if temper == "skittish" and t then
+    -- it runs from anyone; from a weaker lead less often
+    if cls == "weak" then return "flee", math.max(WildReactions.chance(cls, ratio, cfg), t.chance) end
+    return "flee", cls == "strong" and t.chance / 2 or t.chance
+  end
+  if (temper == "territorial" or temper == "aggressive") and t then
+    -- it stands its ground and charges -- unless the lead is far too strong for it
+    if cls == "weak" and (tonumber(ratio) or 1) < t.fleeBelow then return "flee", WildReactions.chance(cls, ratio, cfg) end
+    if cls == "strong" then return "chase", math.max(WildReactions.chance(cls, ratio, cfg), t.chance) end
+    return "chase", t.chance
+  end
+  if cls == "neutral" then return nil end
+  return cls == "weak" and "flee" or "chase", WildReactions.chance(cls, ratio, cfg)
+end
+
 --- Starts `e` reacting to the player at (px, py), `dist` tiles away: picks the reaction
---- from its strength. A stronger one only gets angry much closer (`aggroAt` tiles); a
---- skittish one reacts from farther. Returns the class, or nil when it does not react.
+--- from its temper (e.profile) and strength. A stronger one with no temper of note only gets
+--- angry much closer (`aggroAt` tiles). Returns the class, or nil when it does not react.
 --- `ctx` = { now, rng, lead = {level, bst}, bst(species), canFly(e) }.
 function WildReactions.start(e, px, py, ctx, dist, aggroAt)
   local cfg, rng = Config.REACT, ctx.rng or math.random
   local cls, ratio = WildReactions.classify(e.level, ctx.bst and ctx.bst(e.species), ctx.lead and ctx.lead.level,
     ctx.lead and ctx.lead.bst, cfg)
-  if cls == "neutral" then return nil end -- an even match is not bothered
-  if cls == "strong" and dist and dist > (aggroAt or cfg.aggroRadius) then return nil end -- not close enough yet
+  local what, pct = WildReactions.decide(e.profile and e.profile.temper, cls, ratio, cfg)
+  if not what then return nil end -- an even match (or a placid one) is not bothered
+  if what == "chase" and dist and dist > (aggroAt or cfg.aggroRadius) then return nil end -- not close enough yet
   -- the closer the match, the likelier it shrugs the player off; one roll, then a rest
-  if rng(1, 100) > WildReactions.chance(cls, ratio, cfg) then
+  if rng(1, 100) > pct then
     e.reactUntil = (ctx.now or 0) + (cfg.missCooldown or cfg.cooldown)
     return nil
   end
+  cls = what == "flee" and "weak" or "strong"
   local r = { t = 0, emoteAge = 0 }
   if cls == "weak" then
     e.facing = faceToward(e.cellX, e.cellY, px, py) or e.facing
@@ -381,21 +418,23 @@ function WildReactions.tick(e, ctx)
   end
 end
 
---- Once a tick: is the player running / biking close to anyone who can react? Starts the
---- reactions. `ctx` as for start(), plus `entities` (an iterator list) and `player`.
+--- Once a tick: is the player moving close to anyone who can react? Starts the reactions:
+--- walking past only a skittish / territorial / aggressive one notices, running or biking
+--- everyone but the placid (WildReactions.reach). `ctx` as for start(), plus `player`.
 function WildReactions.scan(entities, ctx)
   local p = ctx.player
   if not (p and p.moving) then return end
   local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
   local running = biking or (EnginePatch.playerIsRunning and EnginePatch.playerIsRunning()) or false
-  if not running then return end
+  local how = biking and "bike" or running and "run" or "walk"
   local cfg = Config.REACT
-  local radius = biking and cfg.bikeRadius or cfg.radius
-  local aggroAt = biking and cfg.bikeAggroRadius or cfg.aggroRadius
   local started = 0
   for _, e in ipairs(entities) do
     local d = WildReactions.eligible(e, ctx.now) and manhattan(e.cellX, e.cellY, p.x, p.y)
-    if d and d <= radius and WildReactions.start(e, p.x, p.y, ctx, d, aggroAt) then started = started + 1 end
+    if d then
+      local reach, aggroAt = WildReactions.reach(e.profile and e.profile.temper, how, cfg)
+      if reach and d <= reach and WildReactions.start(e, p.x, p.y, ctx, d, aggroAt) then started = started + 1 end
+    end
   end
   return started
 end
