@@ -789,7 +789,14 @@ function SpawnManager:_reactContext()
   self._reactCtx = ctx
   ctx.now, ctx.game, ctx.rng = self.ticks, self.game, math.random
   ctx.player = EnginePatch.playerCell and EnginePatch.playerCell()
-  ctx.lead = lead and { level = tonumber(lead.level), bst = bst and bst(tonumber(lead.species or lead.speciesId)) } or nil
+  if lead then -- (one table kept: this runs every tick)
+    local l = ctx._lead or {}
+    ctx._lead = l
+    l.level, l.bst = tonumber(lead.level), bst and bst(tonumber(lead.species or lead.speciesId)) or nil
+    ctx.lead = l
+  else
+    ctx.lead = nil
+  end
   ctx.bst = bst
   ctx.canFly = ctx.canFly or function(e)
     return self.sky ~= nil and self.sky:canFly(e)

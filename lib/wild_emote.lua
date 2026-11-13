@@ -75,11 +75,14 @@ local ZZZ_LIFE = 90 -- ticks one "z" floats before it is gone
 
 --- The "z"s floating up from a sleeper `age` ticks after it fell asleep, a new one every
 --- `every` ticks, each growing (small, medium, large in turn) as it drifts up and to the
---- right and fades: { {dx, dy, size 1..3, alpha}, ... } from the point over its head. Pure
---- (tested).
-function WildEmote.zzz(age, every)
+--- right and fades: { {dx, dy, size 1..3, alpha}, ... } from the point over its head, and
+--- how many. Pure (tested). `out` (optional): a list to fill instead of a new one -- its
+--- entries are reused and only the first `n` count (the draw fills one scratch list, so a
+--- sleeper costs no tables per frame).
+function WildEmote.zzz(age, every, out)
   every = every or 40
-  local out = {}
+  out = out or {}
+  local n = 0
   age = math.max(0, math.floor(tonumber(age) or 0))
   local first = math.max(0, math.floor((age - ZZZ_LIFE) / every) + 1)
   for k = first, math.floor(age / every) do
@@ -88,48 +91,57 @@ function WildEmote.zzz(age, every)
       local p = t / ZZZ_LIFE
       local size = math.min(3, 1 + math.floor(p * 3))
       local alpha = p < 0.15 and p / 0.15 or (p > 0.7 and (1 - p) / 0.3 or 1)
-      out[#out + 1] = { math.floor(p * 10 + math.sin(t / 9) * 1.5 + 0.5), -math.floor(p * 18 + 0.5), size, alpha }
+      n = n + 1
+      local z = out[n]
+      if not z then z = {} out[n] = z end
+      z[1], z[2], z[3], z[4] = math.floor(p * 10 + math.sin(t / 9) * 1.5 + 0.5), -math.floor(p * 18 + 0.5), size, alpha
     end
   end
-  return out
+  return out, n
+end
+
+local zzzScratch = {} -- filled and drawn at once by each zzz actor's draw
+
+-- one draw for every zzz actor, reading its own fields (no closure per actor per frame)
+local function drawZzz(a, camX, camY)
+  if not (love and love.graphics and love.graphics.rectangle) then return end
+  local g = love.graphics
+  local r, gg, b, al0 = g.getColor()
+  local list, n = WildEmote.zzz(a.zAge, a.zEvery, zzzScratch)
+  local x0, y0, mul = a.x, a.y, a.zAlpha or 1
+  for k = 1, n do
+    local z = list[k]
+    local shape = ZS[z[3]]
+    local zx, zy = math.floor(x0 + z[1] - camX), math.floor(y0 + z[2] - camY) - #shape
+    local al = z[4] * mul
+    for row, line in ipairs(shape) do
+      for col, v in ipairs(line) do
+        if v == 1 then
+          g.setColor(0.16, 0.18, 0.3, al * 0.8) -- a dark edge so it reads on leaves
+          g.rectangle("fill", zx + col, zy + row, 1, 1)
+        end
+      end
+    end
+    for row, line in ipairs(shape) do
+      for col, v in ipairs(line) do
+        if v == 1 then
+          g.setColor(1, 1, 1, al)
+          g.rectangle("fill", zx + col - 1, zy + row - 1, 1, 1)
+        end
+      end
+    end
+  end
+  g.setColor(r, gg, b, al0)
 end
 
 --- The zzz over a sleeper on the tile whose top-left is (wx, wy), its head `lift` px above
 --- the tile's ground line, as a field actor (`over`: drawn after the map's upper layer, a
 --- sleeper on a tree top).
 function WildEmote.zzzActor(age, wx, wy, lift, id, over, every, alphaMul)
-  local list = WildEmote.zzz(age, every)
-  local x0, y0 = wx + 10, wy + 16 - (lift or 16) - 2
   return {
     kind = "ow_zzz", elevation = 3, oamPriority = over and 1 or nil, sortY = wy + 18,
-    x = x0, y = y0, i = 99000 + (tonumber(id) or 0),
-    draw = function(_, camX, camY)
-      if not (love and love.graphics and love.graphics.rectangle) then return end
-      local g = love.graphics
-      local r, gg, b, a = g.getColor()
-      for _, z in ipairs(list) do
-        local shape = ZS[z[3]]
-        local zx, zy = math.floor(x0 + z[1] - camX), math.floor(y0 + z[2] - camY) - #shape
-        local al = z[4] * (alphaMul or 1)
-        for row, line in ipairs(shape) do
-          for col, v in ipairs(line) do
-            if v == 1 then
-              g.setColor(0.16, 0.18, 0.3, al * 0.8) -- a dark edge so it reads on leaves
-              g.rectangle("fill", zx + col, zy + row, 1, 1)
-            end
-          end
-        end
-        for row, line in ipairs(shape) do
-          for col, v in ipairs(line) do
-            if v == 1 then
-              g.setColor(1, 1, 1, al)
-              g.rectangle("fill", zx + col - 1, zy + row - 1, 1, 1)
-            end
-          end
-        end
-      end
-      g.setColor(r, gg, b, a)
-    end,
+    x = wx + 10, y = wy + 16 - (lift or 16) - 2, i = 99000 + (tonumber(id) or 0),
+    zAge = age, zEvery = every, zAlpha = alphaMul, draw = drawZzz,
   }
 end
 

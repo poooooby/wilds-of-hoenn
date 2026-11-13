@@ -34,11 +34,20 @@ end
 
 local DUST_LIFE = 22
 
+-- the k-th entry of buffer `out`, reused (lib/eco_water.lua draws parts from one scratch list)
+local function slot(out, k)
+  local p = out[k]
+  if not p then p = {} out[k] = p end
+  return p
+end
+
 --- Dust kicked up by a burrower `age` ticks after the puff: { {dx, dy, alpha, size}, ... }
---- from the point at its feet. Pure (tested).
-function EcoBurrow.dust(age, seed)
-  local out = {}
-  if age < 0 or age >= DUST_LIFE then return out end
+--- from the point at its feet, and how many. Pure (tested). `out` (optional): a list to
+--- fill instead of a new one (entries reused; only the first `n` count).
+function EcoBurrow.dust(age, seed, out)
+  out = out or {}
+  local n = 0
+  if age < 0 or age >= DUST_LIFE then return out, 0 end
   seed = math.floor(tonumber(seed) or 0)
   for i = 1, 9 do
     local side = ((seed * 7 + i * 5) % 13) - 6 -- -6 .. 6: thrown out to both sides
@@ -46,11 +55,13 @@ function EcoBurrow.dust(age, seed)
     local vy = -(0.7 + ((seed * 3 + i * 11) % 7) * 0.16)
     local dy = vy * age + 0.06 * age * age
     if dy <= 1 then
-      out[#out + 1] = { math.floor(vx * age + 0.5), math.floor(dy + 0.5), (1 - age / DUST_LIFE) * 0.95,
-                        i % 3 == 0 and 1 or 2 }
+      n = n + 1
+      local p = slot(out, n)
+      p[1], p[2], p[3], p[4] = math.floor(vx * age + 0.5), math.floor(dy + 0.5), (1 - age / DUST_LIFE) * 0.95,
+        i % 3 == 0 and 1 or 2
     end
   end
-  return out
+  return out, n
 end
 
 -- the mound of dug-up earth at the hole: rows of an oval, { half width, dy }
@@ -58,15 +69,21 @@ local MOUND = { { 3, -2 }, { 5, -1 }, { 6, 0 }, { 5, 1 } }
 local MOUND_LIFE = 70
 
 --- The mound of earth where a burrower goes down / comes up, `age` ticks in: the oval's
---- pixels { {dx, dy, alpha, 1}, ... } about the hole, fading in, then out. Pure.
-function EcoBurrow.mound(age)
-  local out = {}
-  if age < 0 or age >= MOUND_LIFE then return out end
+--- pixels { {dx, dy, alpha, 1}, ... } about the hole, fading in, then out, and how many.
+--- Pure. `out` (optional): a list to fill (as EcoBurrow.dust).
+function EcoBurrow.mound(age, _seed, out)
+  out = out or {}
+  local n = 0
+  if age < 0 or age >= MOUND_LIFE then return out, 0 end
   local a = math.min(1, age / 6) * math.min(1, (MOUND_LIFE - age) / 30)
   for _, row in ipairs(MOUND) do
-    for dx = -row[1], row[1] do out[#out + 1] = { dx, row[2], a, 1 } end
+    for dx = -row[1], row[1] do
+      n = n + 1
+      local p = slot(out, n)
+      p[1], p[2], p[3], p[4] = dx, row[2], a, 1
+    end
   end
-  return out
+  return out, n
 end
 
 local DUST = { 0.87, 0.77, 0.56 }
@@ -162,7 +179,9 @@ Eco.register("burrow", {
       end
     end
     if r then
-      r.act = { sink = math.min(1, EcoBurrow.sinkAt(s, s.t)), ecoBurrow = true }
+      local act = r.act
+      if not (act and act.ecoBurrow) then act = { ecoBurrow = true } r.act = act end
+      act.sink = math.min(1, EcoBurrow.sinkAt(s, s.t))
       if r.advance then r:advance(false) end
     end
     if s.riseAt and s.t >= s.riseAt + n then

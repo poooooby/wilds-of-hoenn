@@ -55,6 +55,25 @@ function EcoWater.ageFx(e)
   if keep == 0 then e.ecoFx = nil end
 end
 
+-- an effect with its own `parts` (a burrower's dust / mound) is drawn straight from one
+-- scratch list its draw fills: no particle tables per frame
+local partsScratch = {}
+local function drawParts(a, camX, camY)
+  local g = love and love.graphics
+  if not (g and g.rectangle) then return end
+  local list, n = a.parts(a.age, a.seed, partsScratch)
+  local c = a.color
+  local r, gg, b, al = g.getColor()
+  for k = 1, n do
+    local d = list[k]
+    local size = d[4] or 1
+    g.setColor(c[1], c[2], c[3], d[3])
+    g.rectangle("fill", math.floor(a.x + d[1] - camX), math.floor(a.y + d[2] - camY), size, size)
+  end
+  g.setColor(r, gg, b, al)
+end
+local WHITE = { 1, 1, 1 }
+
 --- Appends `e`'s droplet actors.
 function EcoWater.collectFx(e, actors)
   local list = e.ecoFx
@@ -62,13 +81,15 @@ function EcoWater.collectFx(e, actors)
   for _, f in ipairs(list) do
     local d
     if f.parts then
-      d = f.parts(f.age, f.seed)
+      actors[#actors + 1] = { kind = "ow_water_droplets", elevation = 3, sortY = f.sortY, x = f.x, y = f.y,
+        i = 96000 + (e.id or 0), parts = f.parts, age = f.age, seed = f.seed, color = f.color or WHITE,
+        draw = drawParts }
     elseif f.kind == "splash" then
       d = WaterLife.splash(f.age, f.seed)
     else
       d = WaterLife.spray(f.age, f.n or 48, f.seed, f.power)
     end
-    if #d > 0 then actors[#actors + 1] = WaterLife._dropletActor(d, f.x, f.y, f.sortY, e.id or 0, f.color) end
+    if d and #d > 0 then actors[#actors + 1] = WaterLife._dropletActor(d, f.x, f.y, f.sortY, e.id or 0, f.color) end
   end
 end
 

@@ -68,6 +68,23 @@ do
   local up = true
   for _, d in ipairs(EcoBurrow.dust(4, 3)) do if d[2] > 1 then up = false end end
   check(up, "...thrown up, never below the ground")
+  -- drawn every frame from one reused buffer: same particles, no new tables
+  local buf = {}
+  local _, n = EcoBurrow.dust(4, 3, buf)
+  local first = buf[1]
+  local fresh = EcoBurrow.dust(4, 3)
+  eq(n, #fresh, "into a buffer: as many particles")
+  check(buf[1][1] == fresh[1][1] and buf[1][2] == fresh[1][2] and buf[1][3] == fresh[1][3], "...the same ones")
+  local _, m = EcoBurrow.mound(20, 0, buf)
+  eq(m, #EcoBurrow.mound(20), "the mound into the same buffer")
+  check(buf[1] == first, "...its entries reused")
+  local _, z = EcoBurrow.dust(40, 3, buf)
+  eq(z, 0, "...none once the dust is gone (the old entries not counted)")
+  local fx = { { kind = "mound", life = 70, parts = EcoBurrow.mound, color = { 0.5, 0.4, 0.2 }, x = 8, y = 14,
+                 sortY = 2, age = 10, seed = 0 } }
+  local actors = {}
+  V.require("eco_water").collectFx({ id = 4, ecoFx = fx }, actors)
+  check(#actors == 1 and actors[1].parts == EcoBurrow.mound and actors[1].age == 10, "one actor that draws its parts itself")
 end
 
 -- ------- where it comes up
