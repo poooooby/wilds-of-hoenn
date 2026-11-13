@@ -479,6 +479,11 @@ Config.FORAGE = {
 -- PMD_WALK_SPEED multiplies the Walk animation clock (1 = the durations in
 -- AnimData.xml). All three are meant to be tuned by eye in game.
 Config.PMD_SCALE = 1
+-- The most decoded atlas shards a release build keeps (lib/sprite_atlas.lua, LRU). Each is up
+-- to ~2 MB of pixels (500k px shards) and a sheet is cut from one only the first time it is
+-- drawn, so kept shards are seldom used again: unlimited, a few routes held 240 MB of them
+-- (measured with the old 6 MB shards). 8 = at most ~16 MB.
+Config.ATLAS_MAX_SHARDS = 8
 -- The bake records a per-species upscale (HGSS true size / PMD height) in
 -- index.json. It made big species look oversized, so it is OFF: every PMD
 -- sprite draws at PMD_SCALE x 1. Set true to apply the baked scales again.

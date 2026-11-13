@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Far lighter on memory.** Sprite art is unpacked as it is needed and no longer kept around
+  in bulk: a few routes into a session the game used to hold about 240 MB of unpacked art, it
+  now holds at most about 16 MB.
+- **Fewer stutters when new Pokémon show up.** When several new sprites need loading at once
+  (a fresh route, a pack starting a new pose), they load over a few frames instead of all in one,
+  and each one unpacks about three times faster.
+
 ## 1.12.0-beta.2 (2026-11-12)
 
 ### Changed

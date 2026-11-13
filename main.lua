@@ -94,6 +94,7 @@ return function(mod)
   -- index, so this is a normal, silent false everywhere except a release
   -- ZIP built with the atlas (scripts/build-mod.py's default mode).
   local atlasOk, atlasReason = SpriteAtlas.install(mod)
+  SpriteAtlas.configure({ maxShards = Config.ATLAS_MAX_SHARDS })
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}

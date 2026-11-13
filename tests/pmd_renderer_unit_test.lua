@@ -396,6 +396,22 @@ do
   eq(PmdRenderer.sideReachFrom(bytes, W, CW, CH, 2, 2, "left"), nil, "an empty row: nothing to measure")
 end
 
+-- ------- sheet paths kept per renderer (asked every draw)
+do
+  local info = { walk = { cols = 4, durations = W, shiny = true }, idle = { cols = 3 } }
+  local pr = PmdRenderer.new({}, 252, true, info)
+  local p1 = PmdRenderer._pathOf(pr, "walk")
+  eq(p1, "assets/pmd/walk/252-shiny.png", "the walk sheet's path")
+  check(PmdRenderer._pathOf(pr, "walk") == p1 and pr._paths.sheet.walk == p1, "...kept, not built again")
+  eq(PmdRenderer._pathOf(pr, "idle"), "assets/pmd/idle/252-normal.png", "an animation with no shiny sheet reads the normal one")
+  eq(PmdRenderer._pathOf(pr, "hop"), nil, "an animation the bake has not: none")
+  eq(PmdRenderer._pathOf(pr, "walk", true), nil, "no waterline: no swim band")
+  pr.dex = 253
+  eq(PmdRenderer._pathOf(pr, "walk"), "assets/pmd/walk/253-shiny.png", "a changed species is looked up again")
+  pr.shiny = false
+  eq(PmdRenderer._pathOf(pr, "walk"), "assets/pmd/walk/253-normal.png", "...and a changed shiny flag")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
