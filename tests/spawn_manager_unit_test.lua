@@ -128,8 +128,17 @@ do
   EcoProfile.of = function() return { social = "pack", group = { 3, 3 }, diet = "predator", temper = "territorial",
     water = "swimmer", activity = "any" } end
   Config.ECO.group.chance = 100
+  local realShiny = fakeEngine.isShiny
+  fakeEngine.isShiny = function() return true end -- (every roll shiny: only leaders may be)
   local sm = SpawnManager.new(mod)
   sm:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  fakeEngine.isShiny = realShiny
+  local shinyLeaders, shinyRiders = 0, 0
+  for _, e in pairs(sm.entities) do
+    if e.shiny then if e.rider then shinyRiders = shinyRiders + 1 else shinyLeaders = shinyLeaders + 1 end end
+  end
+  check(shinyLeaders > 0, "a group's leader rolls shiny as usual (" .. shinyLeaders .. ")")
+  eq(shinyRiders, 0, "...its members never: they can never be battled")
   local leaders, riders, sameTile = 0, 0, true
   for _, e in pairs(sm.entities) do
     if e.group then

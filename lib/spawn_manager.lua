@@ -409,7 +409,9 @@ function SpawnManager:_spawnGroup(leader, escort)
       local enc = { species = species, level = level, shiny = false,
         personality = EnginePatch.randomPersonality and EnginePatch.randomPersonality()
           or math.random(0, 0x7fffffff) }
-      local ok, m = self:_place(leader.terrain, here, enc)
+      -- (never shiny: a member is never battled -- touching the group meets its leader -- so a
+      -- shiny one could never be caught)
+      local ok, m = self:_place(leader.terrain, here, enc, true)
       if ok and m then
         placed = placed + 1
         m.group, m.rider = g, placed

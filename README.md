@@ -141,7 +141,8 @@ rooftops, with little scenes waiting in special places.*
   rest swims round its leader, and Mantine and Finizen take turns leaping out of the ring.
   Some come with companions of another kind: a Dondozo with a Tatsugiri riding on its head, a
   Mantine with Remoraid clinging beside it, a Vespiquen with her Combee buzzing round her.
-  A group counts as one Pokémon: walk into it to battle its leader, and the rest scatter.
+  A group counts as one Pokémon: walk into it to battle its leader, and the rest scatter. Only
+  the leader can be shiny, so a shiny you see is always one you can battle.
   On the move the whole group faces the way its leader goes. Standing, each member keeps its own
   pace and looks its own way. Some join in when the leader howls or grazes and some don't, and
   now and then one wanders off to nibble, hop about or doze.
