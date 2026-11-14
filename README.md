@@ -128,7 +128,8 @@ rooftops, with little scenes waiting in special places.*
   Mightyena or Beedrill charge from farther away, and placid ones like Slakoth, Wailmer or
   Snorlax never mind you at all. A pack or swarm charges together, each one getting angry in
   turn.
-- 🐟 **They live like their kind:** wild Pokémon go about the way their species would. Fish
+- 🐟 **They live like their kind:** wild Pokémon go about the way their species would, every
+  species of all nine generations in its own way (those after Gen 3 with National Dex Gen 3). Fish
   leap out of the water and splash back in, Wailmer lie at the surface and blow spouts before
   they sound, and Tentacool drift slowly about. Now and then a pack, herd or school turns up
   instead of a single Pokémon (Poochyena packs, Seedot huddles, Magikarp and Carvanha schools,
@@ -149,8 +150,8 @@ rooftops, with little scenes waiting in special places.*
   hunter like Mightyena or Seviper chases down a smaller Pokémon in view and fights it with its
   real moves, health bars and all. The prey may break away and run, or faint and sink out of
   sight. Old rivals fight whenever they meet: Zangoose and Seviper, Sableye and Mawile,
-  Solrock and Lunatone, Heracross, Pinsir and Scyther, and Sharpedo against Wailmer and
-  Wailord out at sea. Walk into either fighter to battle it at
+  Solrock and Lunatone, Heracross, Pinsir and Scyther, Heatmor and Durant, Karrablast and
+  Shelmet, Tinkaton and Corviknight, and Sharpedo against Wailmer and Wailord out at sea. Walk into either fighter to battle it at
   the HP the fight left it with. Part of **Wild Reacts**.
 - 🌙 **Day and night:** wild Pokémon keep their own hours by the game's clock (FireRed and
   LeafGreen keep none, so they go by your computer's). At night many birds, bugs and plants are

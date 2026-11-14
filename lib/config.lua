@@ -306,7 +306,8 @@ Config.RUN_AWAY = { partTicks = 30, lungePx = 6 }
 Config.WATER_LIFE = {
   maxFishHeightDm = 10,
   fishExtra = { [349] = true },                                -- Feebas (Water 1 / Dragon egg groups)
-  notFish = { [116] = true, [224] = true, [686] = true },      -- Horsea, Octillery, Inkay
+  -- Horsea, Octillery, Inkay, Malamar, Tatsugiri
+  notFish = { [116] = true, [224] = true, [686] = true, [687] = true, [978] = true },
   whales = { [320] = true, [321] = true },                     -- Wailmer, Wailord
   leap = { every = { 420, 1200 }, max = 2, ticks = { 34, 44 }, height = 18, pmdHeight = 8, drift = 12 },
   whale = { every = { 1500, 3300 }, max = 1, riseTicks = 50, stay = { 240, 480 }, drift = { 0, 1 },

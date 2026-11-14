@@ -18,6 +18,11 @@
   a bird flying over, bound off with a leap when startled, and keel over when knocked out
   (in a hunt or by your Battler) before they sink away. About 230 species have these
   animations; the others behave as before.
+- **Every generation has its own ways.** The species of Generations 4 to 9 (and the rest of
+  Generations 1 to 3) now each have their own character, as Hoenn's and Kanto's did: Shinx and
+  Yamper packs, Wooloo and Lechonk herds, Combee swarms, Finneon schools, Bunnelby and Orthworm
+  burrowing, Litleo prides, and so on. Legendary and mythical Pokémon keep to themselves as
+  before. New rivals: Heatmor and Durant, Karrablast and Shelmet, Tinkaton and Corviknight.
 - **Hunts happen where you can see them.** A hunt or a rivalry only starts with both Pokémon
   on screen; before, one could start just above or below the view and play out unseen.
 
