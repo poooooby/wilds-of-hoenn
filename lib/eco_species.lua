@@ -602,7 +602,7 @@ return {
   [776] = { temper = "territorial" },                                                       -- Turtonator
   [777] = { social = HUDDLE, group = { 2, 2 }, temper = "calm" },                          -- Togedemaru
   [778] = { temper = "skittish" },                                                          -- Mimikyu
-  [779] = { temper = "territorial" },                                                       -- Bruxish
+  [779] = { social = "solo", temper = "territorial" },                                    -- Bruxish (a lone triggerfish)
   [780] = { temper = "calm" },                                                              -- Drampa
   [781] = { temper = "territorial" },                                                       -- Dhelmise
   [782] = { temper = "territorial" }, [783] = { temper = "territorial" }, [784] = { temper = "territorial" }, -- Jangmo-o line
