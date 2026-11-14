@@ -584,7 +584,7 @@ local function riderPose(e, l, g, v, now, rng)
     return nil
   end
   v.gaEco, v.ga = nil, nil
-  if e.terrain == "water" or l.moving or e.riderMoving then v.aside = nil return nil end
+  if e.terrain == "water" or v.onMove or e.riderMoving then v.aside = nil return nil end
   local a = v.aside
   if a then
     a.t = a.t + 1
@@ -700,6 +700,10 @@ function SpawnManager:_tickRider(e, ctx)
   if not v then v = SpawnManager._riderVary() e.vary = v end
   local rng, now = math.random, self.ticks or 0
   local land = e.terrain ~= "water"
+  -- the group on the move (and a moment after, while the others catch up): all face the
+  -- leader's way, nobody does its own thing; only a group standing still looks about
+  if l.moving then g.movedAt = now end
+  v.onMove = l.moving or (g.movedAt ~= nil and now - g.movedAt < gcfg.moveSettle)
   -- its leader burrowing (lib/eco_burrow.lua): down and up with it, a moment late, and
   -- under the ground over to its new place
   local ls = l.eco and l.eco.burrowing and l.eco or nil
@@ -804,11 +808,12 @@ function SpawnManager:_tickRider(e, ctx)
   e.riderMoving = d > 0.5
   if ringFacing then
     e.riderMoving, e.facing = true, ringFacing -- (swimming its lap)
+  elseif v.onMove and not scattered then
+    v.face = nil
+    e.facing = l.facing or e.facing -- (on the move together: the leader's way)
   elseif e.riderMoving and math.abs(dx) + math.abs(dy) > 2 then
     if math.abs(dx) > math.abs(dy) then e.facing = dx > 0 and "right" or "left"
     else e.facing = dy > 0 and "down" or "up" end
-  elseif l.moving then
-    v.face = nil
   elseif scattered then
     -- out of the way, it keeps an eye on where the player went by
     local wx, wy = g.scatterX - e.px, g.scatterY - e.py

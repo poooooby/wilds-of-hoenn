@@ -230,7 +230,29 @@ do
   leader.moving = true
   for _, m in ipairs(mates) do sm:_tickRider(m) end
   check(not mates[1].riderAnim and not mates[1].vary.aside, "...and stops when the pack moves off")
+  -- on the move the whole pack faces the leader's way, even one catching up from below
+  leader.facing = "left"
+  mates[1].py, mates[2].px = leader.py + 40, leader.px + 40
+  for _, m in ipairs(mates) do m.vary.face = "up" end
+  sm.ticks = sm.ticks + 1
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(mates[1].facing == "left" and mates[2].facing == "left", "the pack moving: all face the leader's way")
   leader.moving = nil
+  for _ = 1, 10 do
+    sm.ticks = sm.ticks + 1
+    for _, m in ipairs(mates) do m.vary.asideAt = sm.ticks sm:_tickRider(m) end
+  end
+  check(mates[1].facing == "left" and mates[2].facing == "left" and not mates[1].riderAnim and not mates[2].riderAnim,
+    "...still, while the others catch up: no looking about, no poses of their own")
+  for _ = 1, Config.ECO.group.moveSettle + 30 do
+    sm.ticks = sm.ticks + 1
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  for _, m in ipairs(mates) do m.vary.face, m.vary.lookAt = "down", math.huge end
+  sm.ticks = sm.ticks + 1
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(not mates[1].vary.onMove and mates[1].facing == "down", "...settled: each looks its own way again")
+  for _, m in ipairs(mates) do m.vary.aside, m.riderAnim = nil, nil end
   -- the leader charges the player: the pack charges with it
   leader.react = { mode = "chase", t = 0 }
   for _, m in ipairs(mates) do sm:_tickRider(m) end

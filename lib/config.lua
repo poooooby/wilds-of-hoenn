@@ -164,6 +164,9 @@ Config.ECO = {
             -- height up its back, `rideReach` of the way to its head; one clinging on keeps up at
             -- `escortCling` px a tick
             rideAt = 0.62, rideReach = 0.45, escortCling = 3,
+            -- the group moving, and `moveSettle` ticks after its leader stops (the others still
+            -- catching up): every member faces the leader's way and plays no pose of its own
+            moveSettle = 40,
             swarmWobble = 3, swarmWobbleTicks = 40,          -- a swarm's riders buzz round their places
             -- the slots / jitter / mill / pod ring are for art `base` px wide; bigger art spreads
             -- them out (width / base, at most `max`), so four Tauros do not sit in one heap; a
