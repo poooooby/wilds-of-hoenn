@@ -23,7 +23,8 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 PMD = ROOT / "assets" / "pmd"
 ANIMS = ("walk", "idle")
-OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop", "sleep", "dance", "rotate")  # present for some species, never required
+OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop", "sleep", "dance", "rotate",
+                  "rearup", "eat", "nap", "wake", "bite", "faint", "sit", "lookup", "leapforth")  # present for some species, never required
 DIRECTIONS = 4
 
 
@@ -84,9 +85,10 @@ def main() -> int:
                 if not p.is_file():
                     errors.append(f"{dex}: missing {rel}")
                     continue
+                rows = e.get("rows", DIRECTIONS)  # a one-row animation (Sleep, Eat): rows = 1
                 with Image.open(p) as im:
-                    if im.size != (cw * cols, ch * DIRECTIONS):
-                        errors.append(f"{rel}: size {im.size}, expected {(cw * cols, ch * DIRECTIONS)}")
+                    if im.size != (cw * cols, ch * rows):
+                        errors.append(f"{rel}: size {im.size}, expected {(cw * cols, ch * rows)}")
             # swimming: where the foam bowl ends + its depth, and the band sheets (same layout)
             w = e.get("waterline")
             if w is not None:

@@ -367,6 +367,20 @@ do
   check(real and real.down == 0 and real.upOverlap == 10, "the shipped spacing: 0 down, up to 10 px over the player's legs")
 end
 
+-- ------- the per-frame loading budget (drawImage): new sheets stop once a frame spent it
+do
+  local win = { at = -math.huge, spent = 0 }
+  check(ActorRenderer.loadAllowed(win, 10.000, 0.004, 0.014), "the first sheet of a frame always loads")
+  win.spent = 0.009 -- it took 9 ms
+  check(not ActorRenderer.loadAllowed(win, 10.009, 0.004, 0.014), "...the next one in that frame waits")
+  check(not ActorRenderer.loadAllowed(win, 10.013, 0.004, 0.014), "...still the same frame")
+  check(ActorRenderer.loadAllowed(win, 10.025, 0.004, 0.014), "...and loads in the next frame")
+  eq(win.spent, 0, "...a new window starts with nothing spent")
+  win.spent = 0.001
+  check(ActorRenderer.loadAllowed(win, 10.026, 0.004, 0.014), "small sheets keep loading while the budget lasts")
+  eq(ActorRenderer.drawImage({}, "assets/pmd/walk/999-normal.png"), nil, "no love context: nothing to draw, no error")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

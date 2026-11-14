@@ -41,6 +41,9 @@ function WaterLife.new(mod, deps)
   deps = deps or {}
   return setmetatable({
     mod = mod, rng = deps.rng or math.random, occupied = deps.occupied,
+    -- spawnHas(kind): do real wild spawns here already do this ("leaper" / "whale",
+    -- lib/eco_water.lua)? Then the ambient copy stays away, so it is never doubled
+    spawnHas = deps.spawnHas,
     viewSize = deps.viewSize or function()
       if EnginePatch.viewSize then return EnginePatch.viewSize() end
       return 240, 160
@@ -274,7 +277,9 @@ function WaterLife.spray(age, n, seed, power)
   return out
 end
 
-local function dropletActor(list, gx, gy, sortY, id)
+local DROP = { 0.88, 0.96, 1.0 }
+local function dropletActor(list, gx, gy, sortY, id, color)
+  color = color or DROP
   return {
     kind = "ow_water_droplets", elevation = 3, sortY = sortY, x = gx, y = gy, i = 96000 + id,
     draw = function(_, camX, camY)
@@ -283,13 +288,15 @@ local function dropletActor(list, gx, gy, sortY, id)
       local r, gg, b, a = g.getColor()
       for _, d in ipairs(list) do
         local size = d[4] or 1
-        g.setColor(0.88, 0.96, 1.0, d[3])
+        g.setColor(color[1], color[2], color[3], d[3])
         g.rectangle("fill", math.floor(gx + d[1] - camX), math.floor(gy + d[2] - camY), size, size)
       end
       g.setColor(r, gg, b, a)
     end,
   }
 end
+
+WaterLife._dropletActor = dropletActor -- lib/eco_water.lua draws real spawns' splashes with it
 
 -- ------- creatures -------------------------------------------------------------------
 
@@ -310,6 +317,7 @@ end
 function WaterLife:_spawnLeaper()
   local cfg, rng = Config.WATER_LIFE.leap, self.rng
   if #self.fish == 0 or self:count("leap") >= cfg.max then return false end
+  if self.spawnHas and self.spawnHas("leaper") then return false end
   local x, y = self:_waterCell(0)
   if not x then return false end
   local r = self:_renderer(self.fish[rng(1, #self.fish)], SpriteSource.PRESENTATION_LAND)
@@ -327,6 +335,7 @@ end
 function WaterLife:_spawnWhale()
   local cfg, rng = Config.WATER_LIFE.whale, self.rng
   if #self.whales == 0 or self:count("whale") >= cfg.max then return false end
+  if self.spawnHas and self.spawnHas("whale") then return false end
   local x, y = self:_waterCell(1)
   if not x then return false end
   local r = self:_renderer(self.whales[rng(1, #self.whales)], SpriteSource.PRESENTATION_SWIMMING)

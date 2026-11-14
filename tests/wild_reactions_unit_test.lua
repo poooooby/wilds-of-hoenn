@@ -163,6 +163,52 @@ do
   eq(e.react, nil, "resting after a reaction: no new one yet")
 end
 
+-- ------- tempers (lib/eco_profile.lua): who notices a WALKING player, and what it does
+do
+  local T = cfg.temper
+  eq(WR.reach("calm", "walk"), nil, "calm: walking past disturbs it not")
+  eq(WR.reach(nil, "walk"), nil, "...nor one with no profile")
+  eq(WR.reach("placid", "run"), nil, "placid: not even running past")
+  eq(WR.reach("skittish", "walk"), T.skittish.walk, "skittish: notices a walking player")
+  eq(WR.reach("territorial", "walk"), T.territorial.walk, "territorial: so does a territorial one")
+  check(WR.reach("aggressive", "walk") > WR.reach("territorial", "walk"), "...an aggressive one from farther")
+  check(WR.reach("skittish", "bike") > WR.reach("skittish", "walk"), "a bike carries farther")
+  eq(WR.decide("skittish", "neutral", 1.0), "flee", "skittish: runs even from an even match")
+  local _, pStrong = WR.decide("skittish", "strong", 1.6)
+  local _, pEven = WR.decide("skittish", "neutral", 1.0)
+  check(pStrong < pEven, "...though less often when it is the stronger")
+  eq(WR.decide("territorial", "neutral", 1.0), "chase", "territorial: charges an even match")
+  eq(WR.decide("territorial", "weak", 0.5), "flee", "...a far stronger lead scares it off")
+  eq(WR.decide("aggressive", "weak", 0.5), "chase", "aggressive: charges even a stronger lead")
+  eq(WR.decide("aggressive", "weak", 0.3), "flee", "...unless it is far too strong")
+  eq(WR.decide("placid", "strong", 3), nil, "placid: nothing")
+  eq(WR.decide("calm", "neutral", 1.0), nil, "calm: the old rules (an even match shrugs)")
+  eq(WR.decide("calm", "weak", 0.3), "flee", "...a weak one flees a running player")
+
+  local saved = { running = running, biking = biking }
+  running, biking = false, false
+  local zig = entity(10, 10, 10)
+  zig.profile = { temper = "skittish" }
+  WR.scan({ zig }, ctxFor({ x = 12, y = 10, moving = true }, 10))
+  eq(zig.react and zig.react.emote, "!", "walking up to a skittish one: it startles")
+  local calm = entity(10, 10, 5)
+  calm.profile = { temper = "calm" }
+  WR.scan({ calm }, ctxFor({ x = 11, y = 10, moving = true }, 30))
+  eq(calm.react, nil, "...a calm one lets a walker by")
+  local guard = entity(10, 10, 10)
+  guard.profile = { temper = "territorial" }
+  WR.scan({ guard }, ctxFor({ x = 12, y = 10, moving = true }, 10))
+  eq(guard.react and guard.react.mode, "turn", "a territorial one turns on a walker two steps off")
+  run(guard, ctxFor({ x = 12, y = 10, moving = false }, 10), 400)
+  eq(contacts[#contacts], guard, "...charges and starts the battle")
+  local placid = entity(10, 10, 50)
+  placid.profile = { temper = "placid" }
+  running = true
+  WR.scan({ placid }, ctxFor({ x = 11, y = 10, moving = true }, 5))
+  eq(placid.react, nil, "a placid one ignores even a running player")
+  running, biking = saved.running, saved.biking
+end
+
 -- ------- weak: "!", a hop, then it runs off, farther from the player
 do
   local e = entity(10, 10, 5)
@@ -423,6 +469,83 @@ do
   check(WR.anyGround({ terrain = "land" }), "a land one's may leave its grass")
 
   for k, v in pairs(saved) do fake[k] = v end
+end
+
+-- ------- reacting to another wild Pokemon (lib/eco.lua): a hunt that catches its prey,
+-- a flight away from a hunter
+do
+  local pred, prey = entity(5, 25, 20), entity(9, 25, 5)
+  pred.id, prey.id = 10, 11
+  local caught = {}
+  local ctx = ctxFor({ x = 0, y = 0, moving = false }, 10, {
+    onCatch = function(a, b) caught[#caught + 1] = { a, b } end,
+  })
+  local before = #contacts
+  check(WR.startAt(pred, prey, "hunt", ctx, 8), "a hunt starts on another Pokemon")
+  eq(pred.react.emote, "anger", "...with the anger mark")
+  run(pred, ctx, 400)
+  eq(#caught, 1, "the hunter reaches its prey: one catch")
+  check(caught[1] and caught[1][1] == pred and caught[1][2] == prey, "...reported as (hunter, prey)")
+  check(math.abs(pred.cellX - prey.cellX) + math.abs(pred.cellY - prey.cellY) <= 1, "...standing beside it")
+  eq(#contacts, before, "...and no battle with the player")
+  eq(pred.react, nil, "...the hunt is over")
+
+  local hunter, runner = entity(10, 27, 20), entity(11, 27, 5)
+  hunter.id, runner.id = 12, 13
+  check(WR.startAt(runner, hunter, "flee", ctx, 3), "a flight from a hunter starts")
+  run(runner, ctx, 200)
+  check(runner.cellX > 11, "...it ran away from the hunter (x " .. runner.cellX .. ")")
+
+  local p2, gone = entity(5, 22, 20), entity(9, 22, 5)
+  p2.id, gone.id = 14, 15
+  WR.startAt(p2, gone, "hunt", ctx, 8)
+  run(p2, ctx, 50)
+  gone.state = Config.STATE.DESPAWNED -- caught by the player meanwhile
+  run(p2, ctx, 50)
+  eq(p2.react, nil, "its prey gone, a hunter calms down")
+  check(not WR.startAt(entity(1, 1, 5), nil, "hunt", ctx), "nothing to hunt: no start")
+  local busy = entity(1, 1, 5)
+  busy.eco = { kind = "x" }
+  check(not WR.eligible(busy, 0), "a Pokemon busy with its ecology does not react")
+end
+
+-- ------- a startled Pokemon with LeapForth art bounds off up the screen
+do
+  local function leaper(x, y, facing)
+    local e = entity(x, y, 3)
+    e.id = 40
+    local r = { isPmd = true, info = { leapforth = { durations = { 6, 1, 1, 2, 2, 2 }, rows = 1, facing = facing } } }
+    e.renderer = r
+    return e
+  end
+  local up = leaper(10, 20, "up")
+  eq(WR.leapTicks(up, "up"), 14, "LeapForth art, fleeing up: a bound of its length")
+  eq(WR.leapTicks(up, "left"), nil, "...the back-view art cannot bound any other way")
+  eq(WR.leapTicks(leaper(10, 20, nil), "left"), 14, "art with every facing bounds any way")
+  eq(WR.leapTicks(entity(10, 20, 3), "up"), nil, "no art: no bound")
+  local wet = leaper(10, 20, "up")
+  wet.terrain = "water"
+  eq(WR.leapTicks(wet, "up"), nil, "...nor on the water")
+  -- the player just below it: it flees up, bounding first
+  local ctx = ctxFor({ x = 10, y = 22, moving = false }, 30)
+  check(WR.startAt(up, { cellX = 10, cellY = 22, state = Config.STATE.AVAILABLE }, "flee", ctx, 3),
+    "a flight starts")
+  local leapT, y0 = nil, up.cellY
+  for t = 1, 200 do
+    if not up.react then break end
+    WR.tick(up, ctx)
+    ctx.now = ctx.now + 1
+    if up.react and up.react.anim == "leapforth" and not leapT then leapT = t end
+    if leapT and up.react and up.react.leap then
+      check(up.cellY == y0, "mid-bound: still on its cell (the art does the leaping)")
+      break
+    end
+  end
+  check(leapT ~= nil, "...its first step away is a LeapForth bound")
+  for _ = 1, 16 do WR.tick(up, ctx) ctx.now = ctx.now + 1 end
+  check(up.cellY < y0 and up.react and not up.react.leap, "...landing a tile on, then running on")
+  run(up, ctx, 200)
+  check(up.cellY <= y0 - 2, "it got away (y " .. up.cellY .. ")")
 end
 
 if failures > 0 then

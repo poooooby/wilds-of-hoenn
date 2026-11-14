@@ -152,6 +152,9 @@ FORM_ART = [
     (855, "antique", None, None),  # POLTEAGEIST_ANTIQUE
     (1012, "artisan", None, None),  # POLTCHAGEIST_ARTISAN
     (1013, "masterpiece", None, None),  # SINISTCHA_MASTERPIECE
+    # Not a form a Pokemon is met in: Wishiwashi's School Form, drawn as the big dark shape a
+    # Wishiwashi school gathers into under the water (lib/eco_water.lua "school"; PMD art only)
+    (746, "school", '0001', None),  # WISHIWASHI_SCHOOL
 ]
 
 # A form folder's shiny sheet lives in <folder>/0001 unless listed here (gender

@@ -238,6 +238,55 @@ do
   check(last.to.h >= 0.55 and last.fadeOut, "it climbs away mid or high, fading at the end")
 end
 
+-- ------- Wild Ecology: a sea bird fishing, a flock flying together
+do
+  local sky = SkyFlyers.new(mod)
+  sky:onMapEntered("ROUTE_104")
+  local swimR = V.require("renderer_factory").new(mod, 278, false, "pokemmo", "swimming")
+  local e = { id = 7, cellX = 22, cellY = 8, dex = 278, renderer = swimR, isFlyer = true, terrain = "water" }
+  local fx = sky:planFishing(e, 25, 9)
+  eq(fx.kind, "land", "fishing: it comes down on the water at the end")
+  local types = {}
+  for _, ph in ipairs(fx.plan.phases) do types[#types + 1] = ph.type end
+  eq(table.concat(types, ","), "fly,fly,sink,under,rise", "...up, a plunge, under, up again")
+  local first = fx.plan.phases[1]
+  check(first.from.x == 22 * 16 and first.from.h == 0 and first.to.h > 0, "...taking off from where it sat")
+  local splashes, highest, hidden = 0, 0, false
+  for _ = 1, 2000 do
+    if sky:stepFlight(fx) then break end
+    local ev = fx.plan._s and fx.plan._s.events
+    if ev and ev[1] == "splash" then splashes = splashes + 1 end
+    highest = math.max(highest, fx.view.h or 0)
+    if fx.view.hidden then hidden = true end
+  end
+  eq(splashes, 2, "...a splash going in and one coming out")
+  check(highest > 0.1 and highest <= Config.ECO.fish.h + 1e-6, "...a low climb, not off into the sky")
+  check(hidden, "...out of sight a moment under the water")
+  check(math.abs(fx.view.x - 25 * 16) < 1e-6 and math.abs(fx.view.y - 9 * 16) < 1e-6, "...up where it went in")
+  SkyFlyers.restore(fx.view)
+  eq(swimR.presentation, "swimming", "...swimming again")
+
+  -- a flock: each member follows the leader's flight at its own place, a little behind
+  local renderer = V.require("renderer_factory").new(mod, 276, false, "pokemmo", "land")
+  local lead = { id = 8, cellX = 4, cellY = 8, px = 64, py = 128, dex = 276, renderer = renderer, isFlyer = true }
+  local arr = sky:planArrival(lead)
+  local m = { id = 9, cellX = 4, cellY = 8, px = 57, py = 125, dex = 276, renderer = renderer, isFlyer = true }
+  local fol = sky:planFollow(arr, m, -7, -3, 10)
+  eq(fol.kind, "land", "a member comes down with its leader")
+  local lp, mp = arr.plan.phases[#arr.plan.phases], fol.plan.phases[#fol.plan.phases]
+  check(mp.to.x == lp.to.x - 7 and mp.to.y == lp.to.y - 3, "...onto its own place in the flock")
+  eq(fol.plan.phases[1].n, arr.plan.phases[1].n + 10, "...a moment behind it")
+  check(fol.plan.phases[1] ~= arr.plan.phases[1] and fol.plan.phases[1].from ~= arr.plan.phases[1].from,
+    "...on its own copy of the path")
+  local dep = sky:planDeparture(lead)
+  local fdep = sky:planFollow(dep, m, -7, -3, 12)
+  eq(fdep.kind, "leave", "a member takes off after its leader")
+  eq(fdep.plan.phases[1].type, "sit", "...sitting a moment first")
+  eq(fdep.plan.phases[1].n, 12, "...for its lag")
+  check(fdep.plan.phases[2].from.x == dep.plan.phases[1].from.x - 7, "...then off from its own place")
+  sky:onMapExited()
+end
+
 -- ------- overhead passers: rare, one at a time, across the TOP of the screen on an arc
 do
   local sky = SkyFlyers.new(mod)
@@ -421,6 +470,19 @@ do
   check(hph and hph.bob and hph.bob[1] >= Config.FLYERS.passer.bob[1], "the high passer bobs")
   check(lph and lph.bob == nil, "a lower passer flies its arc smoothly")
   sky:onMapExited()
+end
+
+-- ------- a passer crossing the view is "over" the field (wild Pokemon look up at it)
+do
+  local sky = setmetatable({ birds = {} }, { __index = SkyFlyers })
+  eq(sky:passerOver(), nil, "no birds: nothing overhead")
+  local b = { kind = "passer", id = 3, onScreen = false }
+  sky.birds[1] = b
+  eq(sky:passerOver(), nil, "a passer not in view yet: nothing")
+  b.onScreen = true
+  eq(sky:passerOver(), b, "...once it is in view: that bird")
+  sky.birds[1] = { kind = "percher", onScreen = true }
+  eq(sky:passerOver(), nil, "a percher is not flying over")
 end
 
 if failures > 0 then

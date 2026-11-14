@@ -111,23 +111,91 @@ local function rngRange(rng, r) return rng(r[1], r[2]) end
 --- Can `e` react now? (Not lured, engaged, arriving / leaving, the roamer, on cooldown.)
 function WildReactions.eligible(e, now)
   return e.state == Config.STATE.AVAILABLE and not e.react and not e.lured and not e.engaged
-    and not e.fx and not e.roamer and not e.runAway and not e.defeated and (e.reactUntil or 0) <= (now or 0)
+    and not e.fx and not e.roamer and not e.runAway and not e.defeated and not e.eco and not e.rider
+    and (e.reactUntil or 0) <= (now or 0)
+end
+
+--- Starts `e` reacting to ANOTHER wild Pokemon `target` (lib/eco.lua): "hunt" = the anger
+--- mark, then a chase that ends in `ctx.onCatch(e, target)` once beside it; "flee" = the "!"
+--- and a run of `steps` away from it. True when it started.
+--- (`steps`: a flight's length, or a hunt's leash in tiles.)
+function WildReactions.startAt(e, target, kind, ctx, steps)
+  if not (target and WildReactions.eligible(e, ctx and ctx.now)) then return false end
+  local cfg = Config.REACT
+  local r = { t = 0, emoteAge = 0, target = target, kind = kind == "hunt" and "strong" or "weak" }
+  e.facing = faceToward(e.cellX, e.cellY, target.cellX, target.cellY) or e.facing
+  if kind == "hunt" then
+    r.mode, r.next, r.emote, r.n, r.huntLeash = "alert", "chase", "anger", cfg.angerTicks, steps
+  else
+    r.mode, r.next, r.emote, r.n, r.hop, r.fleeSteps = "alert", "flee", "!", cfg.alertTicks, true, steps
+  end
+  e.react = r
+  return true
+end
+
+--- How far a Pokemon of temper `temper` notices a player moving by `how` ("walk" | "run" |
+--- "bike"): (reach, aggroAt) in tiles, or nil when it pays no attention. "calm" / nil = the
+--- old rules (running or biking only; a stronger one angry only right beside them). Pure.
+function WildReactions.reach(temper, how, cfg)
+  cfg = cfg or Config.REACT
+  if temper == "placid" then return nil end
+  local t = cfg.temper and cfg.temper[temper]
+  if t and t[how] then return t[how], t[how] end
+  if how == "walk" then return nil end
+  if how == "bike" then return cfg.bikeRadius, cfg.bikeAggroRadius end
+  return cfg.radius, cfg.aggroRadius
+end
+
+--- What a Pokemon of `temper` does about the player, by its strength class / ratio:
+--- ("flee" | "chase", % chance), or nil. "calm" / nil = the old rules: the weaker flee, the
+--- stronger chase, an even match shrugs. Pure (tested).
+function WildReactions.decide(temper, cls, ratio, cfg)
+  cfg = cfg or Config.REACT
+  local t = cfg.temper and cfg.temper[temper]
+  if temper == "placid" then return nil end
+  if temper == "skittish" and t then
+    -- it runs from anyone; from a weaker lead less often
+    if cls == "weak" then return "flee", math.max(WildReactions.chance(cls, ratio, cfg), t.chance) end
+    return "flee", cls == "strong" and t.chance / 2 or t.chance
+  end
+  if (temper == "territorial" or temper == "aggressive") and t then
+    -- it stands its ground and charges -- unless the lead is far too strong for it
+    if cls == "weak" and (tonumber(ratio) or 1) < t.fleeBelow then return "flee", WildReactions.chance(cls, ratio, cfg) end
+    if cls == "strong" then return "chase", math.max(WildReactions.chance(cls, ratio, cfg), t.chance) end
+    return "chase", t.chance
+  end
+  if cls == "neutral" then return nil end
+  return cls == "weak" and "flee" or "chase", WildReactions.chance(cls, ratio, cfg)
 end
 
 --- Starts `e` reacting to the player at (px, py), `dist` tiles away: picks the reaction
---- from its strength. A stronger one only gets angry much closer (`aggroAt` tiles); a
---- skittish one reacts from farther. Returns the class, or nil when it does not react.
+--- from its temper (e.profile) and strength. A stronger one with no temper of note only gets
+--- angry much closer (`aggroAt` tiles). Returns the class, or nil when it does not react.
 --- `ctx` = { now, rng, lead = {level, bst}, bst(species), canFly(e) }.
 function WildReactions.start(e, px, py, ctx, dist, aggroAt)
   local cfg, rng = Config.REACT, ctx.rng or math.random
   local cls, ratio = WildReactions.classify(e.level, ctx.bst and ctx.bst(e.species), ctx.lead and ctx.lead.level,
     ctx.lead and ctx.lead.bst, cfg)
-  if cls == "neutral" then return nil end -- an even match is not bothered
-  if cls == "strong" and dist and dist > (aggroAt or cfg.aggroRadius) then return nil end -- not close enough yet
+  local what, pct = WildReactions.decide(e.profile and e.profile.temper, cls, ratio, cfg)
+  if not what then return nil end -- an even match (or a placid one) is not bothered
+  if what == "chase" and dist and dist > (aggroAt or cfg.aggroRadius) then return nil end -- not close enough yet
   -- the closer the match, the likelier it shrugs the player off; one roll, then a rest
-  if rng(1, 100) > WildReactions.chance(cls, ratio, cfg) then
+  if rng(1, 100) > pct then
     e.reactUntil = (ctx.now or 0) + (cfg.missCooldown or cfg.cooldown)
     return nil
+  end
+  return WildReactions.begin(e, what, px, py, ctx)
+end
+
+--- Starts reaction `what` ("flee" | "chase") to the player at (px, py) at once, with no
+--- roll (a sleeper woken by them: lib/eco_sleep.lua). A burrower ducks underground instead
+--- of running (ctx.burrow). Returns the class ("weak" | "strong").
+function WildReactions.begin(e, what, px, py, ctx)
+  local cfg = Config.REACT
+  local cls = what == "flee" and "weak" or "strong"
+  if cls == "weak" and ctx.burrow and e.profile and e.profile.burrower and ctx.burrow(e, px, py) then
+    e.reactUntil = (ctx.now or 0) + cfg.cooldown
+    return cls
   end
   local r = { t = 0, emoteAge = 0 }
   if cls == "weak" then
@@ -204,8 +272,32 @@ function WildReactions.sendHome(e)
               home = e.chaseHome, steps = 0, blocked = 0 }
 end
 
+-- what a reaction is about: the player (ctx.player), or another wild Pokemon (`r.target`,
+-- lib/eco.lua) read into the same shape -- nil once that one is gone
+local function goalOf(r, ctx)
+  local o = r.target
+  if not o then return ctx.player end
+  if o.state ~= Config.STATE.AVAILABLE or o.defeated or (o.fx and o.fx.under) then return nil end
+  local g = r.goal or {}
+  r.goal = g
+  g.x, g.y, g.moving, g.targetX, g.targetY = o.cellX, o.cellY, o.moving, o.targetX, o.targetY
+  return g
+end
+WildReactions._goalOf = goalOf
+
 --- One tick of `e`'s reaction. `ctx` = { now, rng, game, player = playerCell(),
---- occupied(x, y, self), onContact(e), takeoff(e) }.
+--- occupied(x, y, self), onContact(e), onCatch(e, target), takeoff(e) }.
+--- Ticks a bound away takes when `e` can make one heading `dir` (PMD LeapForth art, on
+--- land, its sheet showing that facing -- most are one back-view row: "up" only), else nil.
+function WildReactions.leapTicks(e, dir)
+  local r = e.renderer
+  local entry = e.terrain == "land" and r and r.isPmd and r.info and r.info.leapforth
+  if type(entry) ~= "table" or (entry.facing and entry.facing ~= dir) then return nil end
+  local n = 0
+  for _, d in ipairs(entry.durations or {}) do n = n + d end
+  return n > 0 and n or nil
+end
+
 function WildReactions.tick(e, ctx)
   local cfg, rng = Config.REACT, ctx.rng or math.random
   local r = e.react
@@ -213,7 +305,12 @@ function WildReactions.tick(e, ctx)
   r.t = r.t + 1
   r.emoteAge = (r.emoteAge or 0) + 1
   if r.emoteAge > cfg.emoteTicks then r.emote = nil end
-  local p = ctx.player
+  local p = goalOf(r, ctx)
+  -- the Pokemon it was about is gone (caught, fainted, dived): it calms down
+  if r.target and not p and r.mode ~= "return" then
+    if e.moving then Behavior._advanceMove(e) return end
+    return finish(e, ctx.now, cfg.cooldown, rng)
+  end
   -- a step in progress finishes first
   if e.moving then
     Behavior._advanceMove(e)
@@ -244,9 +341,9 @@ function WildReactions.tick(e, ctx)
       finish(e, ctx.now, cfg.cooldown, rng)
       if ctx.takeoff then ctx.takeoff(e) end
     elseif r.next == "flee" then
-      r.mode, r.steps, r.blocked = "flee", rngRange(rng, cfg.flee.steps), 0
+      r.mode, r.steps, r.blocked = "flee", r.fleeSteps or rngRange(rng, cfg.flee.steps), 0
     elseif r.next == "chase" then
-      local leash = rngRange(rng, cfg.chase.leash)
+      local leash = r.huntLeash or rngRange(rng, cfg.chase.leash)
       r.mode, r.leash, r.limit = "chase", leash, math.floor(leash * cfg.chase.secondsPerTile * 60)
       r.home, r.noPath, r.t = { x = e.cellX, y = e.cellY }, 0, 0
       -- where to walk back to if it ends up off its grass (kept past the reaction)
@@ -258,6 +355,15 @@ function WildReactions.tick(e, ctx)
   end
 
   if r.mode == "flee" then
+    if r.leap then
+      -- mid-bound: the art leaps off (LeapForth climbs about a tile); it lands a tile on
+      r.leap.t = r.leap.t + 1
+      if r.leap.t < r.leap.n then return end
+      local dir = r.leap.dir
+      r.leap, r.anim = nil, nil
+      if Behavior.tryStep(e, ctx.game, dir, 1) then r.steps = r.steps - 1 end
+      return
+    end
     if r.steps <= 0 or not p then
       finish(e, ctx.now, cfg.cooldown, rng)
       -- at the end of its run some of them disappear into the grass / the cave's dark
@@ -268,6 +374,16 @@ function WildReactions.tick(e, ctx)
       local dd = Behavior.DELTA[d]
       return not (ctx.occupied and ctx.occupied(e.cellX + dd[1], e.cellY + dd[2], e))
     end)
+    -- its first step away, if the art can: a bound instead of a step
+    local leap = dir and not r.leapt and WildReactions.leapTicks(e, dir)
+    if leap then
+      r.leapt = true
+      local dd = Behavior.DELTA[dir]
+      if Behavior._canStep(e, ctx.game, e.cellX + dd[1], e.cellY + dd[2]) then
+        r.leap, r.anim, e.facing = { t = 0, n = leap, dir = dir }, "leapforth", dir
+        return
+      end
+    end
     if dir and Behavior.tryStep(e, ctx.game, dir, cfg.flee.frames) then
       r.steps = r.steps - 1
     else
@@ -282,6 +398,14 @@ function WildReactions.tick(e, ctx)
     local gx, gy = p.x, p.y
     if p.moving and p.targetX then gx, gy = p.targetX, p.targetY end
     if cheb(e.cellX, e.cellY, gx, gy) > r.leash or r.t > r.limit then return giveUp(e, ctx) end
+    if r.target and (manhattan(e.cellX, e.cellY, p.x, p.y) <= 1 or manhattan(e.cellX, e.cellY, gx, gy) <= 1) then
+      -- caught up with the Pokemon it hunted (lib/eco.lua takes it from here)
+      local prey = r.target
+      e.facing = faceToward(e.cellX, e.cellY, p.x, p.y) or e.facing
+      finish(e, ctx.now, cfg.chaseCooldown, rng)
+      if ctx.onCatch then ctx.onCatch(e, prey) end
+      return
+    end
     if manhattan(e.cellX, e.cellY, p.x, p.y) <= 1 and not p.moving then
       -- caught up with a standing player: the battle
       e.facing = faceToward(e.cellX, e.cellY, p.x, p.y) or e.facing
@@ -336,21 +460,28 @@ function WildReactions.tick(e, ctx)
   end
 end
 
---- Once a tick: is the player running / biking close to anyone who can react? Starts the
---- reactions. `ctx` as for start(), plus `entities` (an iterator list) and `player`.
+--- Once a tick: is the player moving close to anyone who can react? Starts the reactions:
+--- walking past only a skittish / territorial / aggressive one notices, running or biking
+--- everyone but the placid (WildReactions.reach). `ctx` as for start(), plus `player`.
+--- How the player gets about right now: "bike" | "run" | "walk".
+function WildReactions.playerHow()
+  local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
+  local running = biking or (EnginePatch.playerIsRunning and EnginePatch.playerIsRunning()) or false
+  return biking and "bike" or running and "run" or "walk"
+end
+
 function WildReactions.scan(entities, ctx)
   local p = ctx.player
   if not (p and p.moving) then return end
-  local biking = EnginePatch.playerBiking and EnginePatch.playerBiking() or false
-  local running = biking or (EnginePatch.playerIsRunning and EnginePatch.playerIsRunning()) or false
-  if not running then return end
+  local how = WildReactions.playerHow()
   local cfg = Config.REACT
-  local radius = biking and cfg.bikeRadius or cfg.radius
-  local aggroAt = biking and cfg.bikeAggroRadius or cfg.aggroRadius
   local started = 0
   for _, e in ipairs(entities) do
     local d = WildReactions.eligible(e, ctx.now) and manhattan(e.cellX, e.cellY, p.x, p.y)
-    if d and d <= radius and WildReactions.start(e, p.x, p.y, ctx, d, aggroAt) then started = started + 1 end
+    if d then
+      local reach, aggroAt = WildReactions.reach(e.profile and e.profile.temper, how, cfg)
+      if reach and d <= reach and WildReactions.start(e, p.x, p.y, ctx, d, aggroAt) then started = started + 1 end
+    end
   end
   return started
 end

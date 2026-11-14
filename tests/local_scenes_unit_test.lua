@@ -81,6 +81,14 @@ do
   local grew = false
   for _, z in ipairs(zs) do if z[3] > 1 and z[2] < -5 then grew = true end end
   check(grew, "...growing as they rise")
+  -- the draw fills one reused buffer: the same z's, its old entries not counted
+  local buf = {}
+  local _, n = V.require("wild_emote").zzz(100, 40, buf)
+  eq(n, #zs, "z's into a buffer: as many")
+  check(buf[1][2] == zs[1][2] and buf[1][3] == zs[1][3], "...the same ones")
+  local keep = buf[1]
+  local _, n0 = V.require("wild_emote").zzz(0, 40, buf)
+  check(n0 < n and buf[1] == keep, "...fewer later on, the entries reused")
 end
 
 local function newScenes()

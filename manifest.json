@@ -1,7 +1,7 @@
 {
   "id": "wilds_of_hoenn",
-  "name": "Wilds of Hoenn",
-  "version": "1.11.2",
+  "name": "Vivid Worlds",
+  "version": "1.12.0-beta.4",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
   "permissions": ["engine_internals"],
   "affects_link": false,
   "options_schema": "options.lua",
-  "description": "Visible, reactive wild Pokemon for the Hoenn overworld (Ruby, Sapphire, Emerald, FireRed, LeafGreen). Sister project to Wilds of Kanto Revival, built from scratch for Gen1Recomp's game3 engine.",
+  "description": "Visible, reactive wild Pokemon that live like their kind, for Ruby, Sapphire, Emerald, FireRed and LeafGreen (formerly Wilds of Hoenn). Sister project to Wilds of Kanto Revival, built from scratch for Gen1Recomp's game3 engine.",
   "github": "poooooby/wilds-of-hoenn"
 }

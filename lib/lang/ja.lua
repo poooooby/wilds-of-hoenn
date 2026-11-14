@@ -11,7 +11,7 @@ return {
   ["option|Flying Mons"] = "とぶ ポケモン",
   ["option|Water Life"] = "みずの いきもの",
   ["option|Local Scenes"] = "ばしょの けしき",
-  ["option|Wild Reacts"] = "やせい はんのう",
+  ["option|Pokecology"] = "ポケコロジー",
   ["option|Sprite Style"] = "スプライト",
   ["option|Follower"] = "つれあるき",
   ["option|Battler: Pad"] = "バトラー：パッド",
@@ -42,8 +42,8 @@ return {
   ["toggle|OFF"] = "オフ",
 
   -- options: descriptions
-  ["The language of Wilds of Hoenn's own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games."] =
-    "Wilds of Hoenn の テキストの げんご： この オプション パートナーの ことば メニュー そして うえに でる ラベル。 ゲームの テキストは かわりません。 にほんごは むかしの にほんの ゲームと おなじく かなで かかれます。",
+  ["The language of Vivid Worlds' own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games."] =
+    "Vivid Worlds の テキストの げんご： この オプション パートナーの ことば メニュー そして うえに でる ラベル。 ゲームの テキストは かわりません。 にほんごは むかしの にほんの ゲームと おなじく かなで かかれます。",
   ["Spawn visible wild Pokemon in eligible grass/water encounter areas."] =
     "やせいの ポケモンが でる くさむらや みずの うえに その すがたを みせます。",
   ["How many wild Pokemon are out at once, for grass and water each, growing with the size of the area. Low: about half (up to 4). Normal: up to 8. High: about one and a half times (up to 12)."] =
@@ -54,8 +54,8 @@ return {
     "みずの なかの いきもの(けしき だけ)： その ばしょの ちいさな さかなポケモンが みずから はねて ホエルコや ホエルオーが しおを ふきながら うかびあがります。 うみでは ナミイルカが ときどき とびはね たまに むれで あそびに きます。 ダイビング ちゅうは さかなの かげが あわを ひいて およぎます。 たたかう ことは ありません。",
   ["Little moments in a few special places: ghosts drift through Lavender Town, bug Pokemon dangle from the trees of Petalburg Woods where Slakoth naps and Vigoroth dances on the treetops, and a great Tropius rises out of Fortree's trees. Just for the scenery."] =
     "とくべつな ばしょの ちいさな ひとこま： シオンタウンには ゆうれいが ただよい トウカのもりでは むしポケモンが き から ぶらさがり ナマケロが ひるねを して ヤルキモノが こずえで おどります。 ヒワマキシティでは おおきな トロピウスが き の うえに あらわれます。 けしき だけです。",
-  ["Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs nobody. Off: they just wander."] =
-    "はしったり じてんしゃで ちかづくと やせいの ポケモンが はんのう します： せんとうの ポケモンより よわい ものは おどろいて にげ(ちいさな とりは とびさり) つよい ものは おこって おいかけて きます(つかまると せんとうに なります)。 あるいて とおれば だいじょうぶ。 オフ： ただ うろうろ します。",
+  ["Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs only the skittish (they run) and the territorial (they charge). They also live like their kind: packs and schools keep together, fish leap out of the water, whales blow spouts, sea birds dive for fish, some sleep by night (or by day) and diggers burrow. Off: they just wander on their own."] =
+    "はしったり じてんしゃで ちかづくと やせいの ポケモンが はんのう します： せんとうの ポケモンより よわい ものは おどろいて にげ(ちいさな とりは とびさり) つよい ものは おこって おいかけて きます(つかまると せんとうに なります)。 あるいて とおっても おくびょうな ものは にげ なわばりを まもる ものは おそって きます。 また なかまと むれで うごき さかなは みずから とびはね クジラは しおを ふき うみどりは さかなを とりに もぐり よるや ひるに ねむる ものや あなを ほる ものも います。 オフ： ただ ひとりで うろうろ します。",
   ["Overworld sprite style for wild Pokemon and your follower. HGSS / PokeMMO draws each species at its own native size (\"True Size\"), anchored at its feet -- a Snorlax is drawn much bigger than a Rattata."] =
     "やせいの ポケモンと パートナーの スプライト。 HGSS / PokeMMO は それぞれの ポケモンを ほんらいの おおきさで あしもとから えがきます： カビゴンは コラッタより ずっと おおきく えがかれます。",
   ["PMDCollab uses the PMD Explorers-style sprites with fully animated walking and idle loops (species without PMD art fall back to HGSS / PokeMMO)."] =

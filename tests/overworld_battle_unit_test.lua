@@ -542,12 +542,13 @@ do
   E.typeName = function(t) return NAMES[t] or "NORMAL" end
   local played = {}
   local allyR
-  local function fight(moveType, terrain)
+  local function fight(moveType, terrain, faintArt)
     reset()
     played = {}
     MOVES[2].type = moveType
     local wild = wildEntity(1, 13, 10)
     wild.terrain = terrain or "land"
+    if faintArt then wild.renderer.info = { faint = { durations = { 8, 12, 4, 10 } } } end
     -- a water spawn is fought from the water (the player surfing): all of it water then
     local extra = { playSe = function(name) played[#played + 1] = name end }
     if wild.terrain == "water" then
@@ -595,6 +596,11 @@ do
 
   local w = fight(11)
   check(w.kinds.WATER, "a Water move's knockout plays the WATER finisher")
+  local ka = w.wild.renderer.anims
+  check(ka[#ka] == "idle", "no Faint art: the knocked-out one just stands as it sinks")
+  local f = fight(11, "land", true)
+  local fa = f.wild.renderer.anims
+  check(fa[#fa] == "faint", "with Faint art: it keels over, then sinks")
   local moveSounds, hitSounds = {}, 0
   for _, name in ipairs(played) do
     if name:find("^SE_M_") then moveSounds[#moveSounds + 1] = name

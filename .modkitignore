@@ -20,6 +20,15 @@ tests/classic_encounters_test.lua
 tests/companion_unit_test.lua
 tests/config_unit_test.lua
 tests/eave_duck_unit_test.lua
+tests/eco_air_unit_test.lua
+tests/eco_burrow_unit_test.lua
+tests/eco_glow_unit_test.lua
+tests/eco_hunt_unit_test.lua
+tests/eco_land_unit_test.lua
+tests/eco_profile_unit_test.lua
+tests/eco_sleep_unit_test.lua
+tests/eco_unit_test.lua
+tests/eco_water_unit_test.lua
 tests/encounter_source_unit_test.lua
 tests/engine_patch_probe_test.lua
 tests/engine_patch_unit_test.lua
@@ -105,7 +114,7 @@ scripts/build-mod.py
 docs/MANUAL_TEST.md
 
 # README banner and showcase images
-imgs/WoH.png
+imgs/vividworlds.png
 imgs/wohbattle.gif
 imgs/wohforage.gif
 imgs/wohlife.gif
@@ -120,6 +129,14 @@ DEVELOPMENT.md
 TODO.md
 
 # local build output
+dist/vivid-worlds-v1.12.0-beta.1-hgss-pmd.zip
+dist/vivid-worlds-v1.12.0-beta.1.zip
+dist/vivid-worlds-v1.12.0-beta.2-hgss-pmd.zip
+dist/vivid-worlds-v1.12.0-beta.2.zip
+dist/vivid-worlds-v1.12.0-beta.3-hgss-pmd.zip
+dist/vivid-worlds-v1.12.0-beta.3.zip
+dist/vivid-worlds-v1.12.0-beta.4-hgss-pmd.zip
+dist/vivid-worlds-v1.12.0-beta.4.zip
 dist/wilds-of-hoenn-v1.10.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.10.0-hgss.zip
 dist/wilds-of-hoenn-v1.10.1-hgss-pmd.zip

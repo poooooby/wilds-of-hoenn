@@ -2,13 +2,128 @@
 
 ## Unreleased
 
+### Changed
+
+- **Wild Reacts is now called Pokecology.** The option covers far more than reactions now:
+  packs, herds, hunts, sleepers, leaping fish and the rest. Your setting carries over.
+- **Groups move as one.** While a pack, herd or other group is on the move, every member faces
+  the way its leader is going, and nobody stops for a pose of its own. Only once the group is
+  standing still do the members look about and do their own thing.
+
+### Fixed
+
+- **No shinies you can't reach.** A group's other members could roll shiny, but only its leader
+  can ever be battled. Now only the leader can be shiny.
+
+## 1.12.0-beta.4 (2026-11-13)
+
+### Changed
+
+- **Pods at play.** A pod of Finizen, Mantine, Wailmer, Lapras or Seel resting at sea swims
+  round its leader in a ring, and the leaping kinds take turns jumping out of it.
+- **Big Pokémon give each other room.** A group's members stand apart by the size of their
+  art, so four Tauros or a Mantine pod no longer sit in one heap, and a member is never drawn
+  out over the shore or into a tree beside its group.
+- **Huddles scatter.** Run or bike right past a huddle (Seedot, Wurmple, Caterpie ...) and
+  its members scurry off a little way, watch you go, and bunch up again a little later.
+  Walking by leaves them be.
+- **More rivals.** Sableye and Mawile, Solrock and Lunatone, Scyther and Pinsir, and Sharpedo
+  against Wailmer and Wailord now fight whenever they meet, like Zangoose and Seviper.
+- **New poses (PMDCollab style).** Wild Pokémon sit down for a rest now and then, look up at
+  a bird flying over, bound off with a leap when startled, and keel over when knocked out
+  (in a hunt or by your Battler) before they sink away. About 230 species have these
+  animations; the others behave as before.
+- **Every generation has its own ways.** The species of Generations 4 to 9 (and the rest of
+  Generations 1 to 3) now each have their own character, as Hoenn's and Kanto's did: Shinx and
+  Yamper packs, Wooloo and Lechonk herds, Combee swarms, Finneon schools, Bunnelby and Orthworm
+  burrowing, Litleo prides, and so on. Legendary and mythical Pokémon keep to themselves as
+  before. New rivals: Heatmor and Durant, Karrablast and Shelmet, Tinkaton and Corviknight.
+- **Wishiwashi schools.** Now and then a Wishiwashi school sinks together and gathers into its
+  giant School Form, swimming slow circles as a great dark shape under the water before it
+  breaks up and the fish come back up.
+- **Companions of another kind.** A Dondozo now and then turns up with a Tatsugiri riding on its
+  head (going under with it when it dives), a Mantine with Remoraid clinging beside it, and a
+  Vespiquen with her Combee buzzing round her. Like any group they count as one Pokémon: walk
+  into it to battle the leader, and the others scatter.
+- **Sudowoodo pretends to be a tree.** Sudowoodo and Bonsly stand stock-still in the grass and
+  only give themselves away when you come within a couple of tiles, jumping and running off.
+- **Lights at night.** After dark, Pokémon that glow light up: Volbeat leave trails of light as
+  they fly about, Chinchou and Lanturn lures shine (even under the water), and Charmander's
+  tail, Litwick's candle, Morelull's caps, Finneon's fins and more glow softly.
+- **Cramorant's catch.** A Cramorant that plunges after a fish comes back up with an Arrokuda
+  wriggling in its beak, holds it a few seconds, then gulps it down.
+- **Finizen on every sea.** A sea whose Pokémon all come from later generations counts as the
+  sea too, so Finizen can turn up there.
+- **Hunts happen where you can see them.** A hunt or a rivalry only starts with both Pokémon
+  on screen; before, one could start just above or below the view and play out unseen.
+
+## 1.12.0-beta.3 (2026-11-13)
+
+### Changed
+
+- **Far lighter on memory.** Sprite art is unpacked as it is needed and no longer kept around
+  in bulk: a few routes into a session the game used to hold about 240 MB of unpacked art, it
+  now holds at most about 16 MB.
+- **Fewer stutters when new Pokémon show up.** When several new sprites need loading at once
+  (a fresh route, a pack starting a new pose), they load over a few frames instead of all in one,
+  and each one unpacks about three times faster.
+
+## 1.12.0-beta.2 (2026-11-12)
+
+### Changed
+
+- **Smoother with sleeping and burrowing Pokémon around.** Their z's, dust clouds and dug-up
+  earth make far less memory churn every frame, so the game has less cleaning up to do
+  (fewer hitches on slower machines).
+
+## 1.12.0-beta.1 (2026-11-12)
+
+### Changed
+
+- **Wilds of Hoenn is now Vivid Worlds.** Only the name changes: your settings, your
+  partner's friendship and roles, and updates all carry on as before.
+
 ### Added
 
+- **Wild Pokémon live like their kind** (part of Wild Reacts). Fish leap out of the water
+  and splash back in (with PMDCollab's hop for every species), Wailmer rear up and blow spouts
+  before they dive, and Tentacool drift slowly about.
+  About 1 in 4 spawns of a pack, herd or school species comes as a group, clustered on one tile
+  and moving, diving and surfacing as one. It counts as one Pokémon: walk into it to battle one,
+  and the rest scatter. On land, packs trot about and rear up to howl, herds drift and graze,
+  swarms buzz around, and huddles nap together until you come close. A group's members never
+  move in lockstep: each follows at its own pace, looks its own way and plays its own idle, some
+  join the leader's howl or graze a moment late and some don't, and one may nibble, hop or doze
+  off on its own. Kanto and Sevii species
+  have their own profiles in FireRed and LeafGreen.
+- **Wild Pokémon have tempers** (part of Wild Reacts). Skittish species (Zigzagoon, Wingull ...)
+  run or fly off even when you only walk by. Territorial ones (Poochyena, Seviper, Sharpedo ...)
+  charge a walker who comes too close, and aggressive ones (Mightyena, Beedrill ...) from
+  farther. A much stronger partner still scares them off. Placid ones (Slakoth, Wailmer,
+  Snorlax ...) never react. A pack or swarm charges together.
+- **Wild Pokémon keep their own hours** (part of Wild Reacts). By the game's clock (in
+  FireRed and LeafGreen, your computer's), many birds, bugs and plants sleep at night and night
+  Pokémon like Zubat, Hoothoot and Poochyena doze by day, curled up with z's over them. Walk
+  right up to a sleeper, or run or bike close by, and it wakes: a territorial one angry, a
+  skittish one running. Every Pokémon now has its Sleep animation in PMDCollab style.
+- **Diggers burrow, sea birds fish, flocks fly together** (part of Wild Reacts). Diglett,
+  Sandshrew, Trapinch and other diggers sink into the ground in a puff of dust and come up a few
+  tiles away, and duck underground when startled. Wingull and Pelipper on the sea fly up and
+  plunge in after fish. A flock of birds lands together and takes off together.
+- **Wild Pokémon hunt** (part of Wild Reacts). Now and then a hunter in view chases a smaller
+  Pokémon and fights it with real moves, health bars and hit effects. The prey may break away,
+  or faint and sink out of sight. Rivals like Zangoose and Seviper fight whenever they meet.
+  The damage carries into your battle if you then walk into one of them. A leaping fish can't be met until it is back in the water. With Wild
+  Reacts off, each wild Pokémon wanders on its own as before.
 - **Exp. Share works with your Battler.** When a party member holds an Exp. Share, your
   Battler's overworld wins are shared the way a real battle shares them: the Battler takes
   half, and the holders split the other half. A holder that levels up gets its own
   "Lv." label after your Battler's, and once the fight is over its evolution and new-move
   screens open right away, just as they would after a battle.
+
+### Fixed
+
+- Two wild Pokémon could step into the same tile at once; they now wait for each other.
 
 ## 1.11.2 (2026-10-29)
 

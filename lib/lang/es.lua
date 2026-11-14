@@ -10,7 +10,7 @@ return {
   ["option|Flying Mons"] = "Voladores",
   ["option|Water Life"] = "Vida acuática",
   ["option|Local Scenes"] = "Escenas",
-  ["option|Wild Reacts"] = "Reacciones",
+  ["option|Pokecology"] = "Pokecology",
   ["option|Sprite Style"] = "Estilo sprite",
   ["option|Follower"] = "Acompañante",
   ["option|Battler: Pad"] = "Lucha: mando",
@@ -41,8 +41,8 @@ return {
   ["toggle|OFF"] = "NO",
 
   -- options: descriptions
-  ["The language of Wilds of Hoenn's own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games."] =
-    "El idioma de los textos de Wilds of Hoenn: estas opciones, las palabras de tu compañero, sus menús y los rótulos sobre él. Los textos del juego no cambian. El japonés se escribe en kana, como en los juegos japoneses originales.",
+  ["The language of Vivid Worlds' own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games."] =
+    "El idioma de los textos de Vivid Worlds: estas opciones, las palabras de tu compañero, sus menús y los rótulos sobre él. Los textos del juego no cambian. El japonés se escribe en kana, como en los juegos japoneses originales.",
   ["Spawn visible wild Pokemon in eligible grass/water encounter areas."] =
     "Muestra Pokémon salvajes visibles en las zonas de hierba y agua donde aparecen.",
   ["How many wild Pokemon are out at once, for grass and water each, growing with the size of the area. Low: about half (up to 4). Normal: up to 8. High: about one and a half times (up to 12)."] =
@@ -53,8 +53,8 @@ return {
     "Vida en el agua, solo de ambiente: los peces de la zona (Magikarp, Goldeen, Luvdisc...) saltan fuera del agua y vuelven a caer, y Wailmer y Wailord salen a la superficie un rato, echando un chorro, antes de hundirse. En el mar, algún Finizen salta de vez en cuando (y a veces llega todo un grupo a jugar). Buceando, los peces pasan bajo el mar como sombras oscuras con burbujas. Nunca se lucha con ellos.",
   ["Little moments in a few special places: ghosts drift through Lavender Town, bug Pokemon dangle from the trees of Petalburg Woods where Slakoth naps and Vigoroth dances on the treetops, and a great Tropius rises out of Fortree's trees. Just for the scenery."] =
     "Pequeños momentos en algunos lugares especiales: fantasmas que flotan por Pueblo Lavanda, Pokémon bicho colgando de los árboles del Bosque Petalia, donde Slakoth duerme la siesta y Vigoroth baila en las copas, y un gran Tropius que surge de los árboles de Arborada. Solo de ambiente.",
-  ["Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs nobody. Off: they just wander."] =
-    "Si pasas corriendo o en bici cerca de Pokémon salvajes, reaccionan: los más débiles que tu primer Pokémon se asustan y huyen (las aves pequeñas salen volando) y los más fuertes se enfadan y te persiguen (si te alcanzan, empieza el combate). Andando no molestas a nadie. No: solo deambulan.",
+  ["Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs only the skittish (they run) and the territorial (they charge). They also live like their kind: packs and schools keep together, fish leap out of the water, whales blow spouts, sea birds dive for fish, some sleep by night (or by day) and diggers burrow. Off: they just wander on their own."] =
+    "Si pasas corriendo o en bici cerca de Pokémon salvajes, reaccionan: los más débiles que tu primer Pokémon se asustan y huyen (las aves pequeñas salen volando) y los más fuertes se enfadan y te persiguen (si te alcanzan, empieza el combate). Andando solo molestas a los asustadizos (huyen) y a los territoriales (atacan). Además viven como su especie: las manadas y los bancos van juntos, los peces saltan del agua, las ballenas echan chorros, las aves marinas se zambullen a pescar, algunos duermen de noche (o de día) y los excavadores se entierran. No: solo deambulan cada uno a su aire.",
   ["Overworld sprite style for wild Pokemon and your follower. HGSS / PokeMMO draws each species at its own native size (\"True Size\"), anchored at its feet -- a Snorlax is drawn much bigger than a Rattata."] =
     "Estilo de los sprites de los Pokémon salvajes y de tu compañero. HGSS / PokeMMO dibuja cada especie a su tamaño real, apoyada en sus pies: un Snorlax se ve mucho más grande que un Rattata.",
   ["PMDCollab uses the PMD Explorers-style sprites with fully animated walking and idle loops (species without PMD art fall back to HGSS / PokeMMO)."] =

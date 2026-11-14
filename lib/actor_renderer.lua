@@ -168,9 +168,33 @@ local quadCache = {} -- [path] = { [frameIndex] = quad }
 --- (scripts/build-mod.py, atlas mode) and ships assets/atlas/ instead, so
 --- when the real-file attempts fail, SpriteAtlas.image is the fallback
 --- that makes the game unaware anything changed.
+-- New sheets cost real time (a release build slices each one out of an atlas shard: up to
+-- ~10 ms with the shard's decode), and several arriving in ONE frame -- a map's first fill,
+-- a pack starting a new pose -- stacked into a visible hitch. The draw paths therefore load
+-- through `drawImage`, which stops once `LOAD_BUDGET` seconds went into loading within the
+-- current `LOAD_WINDOW` (about a frame; at least one sheet always loads): the rest wait for
+-- the next frame and are skipped / drawn with a sheet already loaded meanwhile. Other callers
+-- (sizes, portraits) load at once, but their time counts toward the window too.
+ActorRenderer.LOAD_BUDGET = 0.004
+ActorRenderer.LOAD_WINDOW = 0.014
+local loadWin = { at = -math.huge, spent = 0 }
+local function clock()
+  if love and love.timer and love.timer.getTime then return love.timer.getTime() end
+  return os.clock()
+end
+
+--- Whether a new sheet may load at time `now` (seconds) given the window `win` ({at, spent}):
+--- a window older than `window` starts over. Pure (tested).
+function ActorRenderer.loadAllowed(win, now, budget, window)
+  if now - win.at > window then win.at, win.spent = now, 0 end
+  return win.spent < budget
+end
+
 local function loadImage(mod, path)
   local cached = imageCache[path]
   if cached then return cached end
+  local t0 = clock()
+  if t0 - loadWin.at > ActorRenderer.LOAD_WINDOW then loadWin.at, loadWin.spent = t0, 0 end
   local img
   if mod and mod.assets and type(mod.assets.image) == "function" then
     local ok, loaded = pcall(mod.assets.image, mod, path)
@@ -196,10 +220,27 @@ local function loadImage(mod, path)
     end
     HdField.tag(mod, img, path, pivot)
   end
+  loadWin.spent = loadWin.spent + (clock() - t0)
   return img
 end
 
 ActorRenderer.loadImage = loadImage -- shared with lib/pmd_renderer.lua
+
+--- loadImage for a DRAW: nil (try again next frame) when this frame's loading budget is spent.
+local function drawImage(mod, path)
+  local cached = imageCache[path]
+  if cached then return cached end
+  if not ActorRenderer.loadAllowed(loadWin, clock(), ActorRenderer.LOAD_BUDGET, ActorRenderer.LOAD_WINDOW) then
+    return nil
+  end
+  return loadImage(mod, path)
+end
+ActorRenderer.drawImage = drawImage
+
+--- The sheet when it is already loaded (never loads).
+function ActorRenderer.cachedImage(path)
+  return imageCache[path]
+end
 
 -- `rows` (optional): only the frame's top `rows` rows
 local function quadFor(path, image, frameIndex, frameCount, rows)
@@ -514,7 +555,7 @@ function ActorRenderer:reflectionGeometry(x, y, facing, walkPhase)
   if act and act.facing then facing = act.facing end
   if act and (tonumber(act.sink) or 0) > 0 then return nil end
   local path = self:imagePath()
-  local image = path and loadImage(self.mod, path)
+  local image = path and drawImage(self.mod, path)
   if not image then return nil end
   local frameIndex = ActorRenderer.frameIndexFor(facing, self.poseOverride or walkPhase, self.frameCount)
   local quad = quadFor(path, image, frameIndex, self.frameCount)
@@ -547,7 +588,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   if act and act.facing then facing = act.facing end
   local path = self:imagePath()
   if not path then return end
-  local image = loadImage(self.mod, path)
+  local image = drawImage(self.mod, path)
   if not image then return end
   -- The follower's renderer is drawn through a path this mod does not
   -- control the arguments of (src/world/game3/Follower.lua's `actor()`

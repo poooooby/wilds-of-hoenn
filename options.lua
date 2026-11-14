@@ -1,7 +1,7 @@
 -- Mod Manager option schema for wilds_of_hoenn.
 -- Labels are limited to 14 characters (tools/validate_option_labels.py).
 --
--- Wandering is Idle or Roam; Wild Reacts adds fleeing / chasing when the player runs or
+-- Wandering is Idle or Roam; Pokecology (wild_reacts) adds fleeing / chasing when the player runs or
 -- bikes close by (lib/wild_reactions.lua). Local Scenes are place-specific ambient moments
 -- (lib/local_scenes.lua). Not offered: Sprite Fade, Control Mode /
 -- Trainer Trail, Water Mons presentation modes, a Hidden behaviour.
@@ -20,7 +20,7 @@ return {
       { "ESPAÑOL", "es" },
       { "DEUTSCH", "de" },
     },
-    description = "The language of Wilds of Hoenn's own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games.",
+    description = "The language of Vivid Worlds' own text: these options, your partner's words, its menus and the labels over it. The game's own text is not changed. Japanese is written in kana, like the original Japanese games.",
   },
   {
     key = "enabled",
@@ -69,10 +69,10 @@ return {
   },
   {
     key = "wild_reacts",
-    label = "Wild Reacts",
+    label = "Pokecology",
     type = "toggle",
     default = true,
-    description = "Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs nobody. Off: they just wander.",
+    description = "Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs only the skittish (they run) and the territorial (they charge). They also live like their kind: packs and schools keep together, fish leap out of the water, whales blow spouts, sea birds dive for fish, some sleep by night (or by day) and diggers burrow. Off: they just wander on their own.",
   },
   {
     key = "sprite_style",

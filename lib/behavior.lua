@@ -69,6 +69,10 @@ local function canStep(entity, game, tx, ty, anyGround)
   elseif EnginePatch.terrainAt(tx, ty) ~= entity.terrain then
     return false
   end
+  -- never into another wild Pokemon's cell or the one it is stepping into (the engine's
+  -- blocks hook only sees where each one stands, so two movers could share a target cell)
+  local occupied = Behavior.occupied
+  if occupied and occupied(tx, ty, entity) then return false end
   -- a swimmer keeps off the last water row before a bank (EncounterSource.openWater)
   if onWater and EnginePatch.isWater and not EnginePatch.isWater(tx, ty + 1) then return false end
   -- A swimmer passes no elevation: spawns carry 3 (their draw layer), Gen 3 water is
@@ -160,7 +164,7 @@ function Behavior.tick(entity, game, rng)
     return
   end
   -- a water spawn swims (Config.SWIM) instead of idling / roaming
-  local swim = entity.terrain == "water" and Config.SWIM
+  local swim = entity.terrain == "water" and (entity.swimCfg or Config.SWIM)
   if swim then return Behavior.swimTick(entity, game, rng, swim) end
   entity.ticksUntilAction = (entity.ticksUntilAction or 0) - 1
   if entity.ticksUntilAction > 0 then return end
@@ -201,6 +205,10 @@ function Behavior.tryStep(entity, game, dir, frames, opts)
   entity.stepParity = not entity.stepParity
   return true
 end
+--- `occupied(tx, ty, entity)`: is that cell taken by another wild Pokemon (standing there or
+--- stepping in)? Set by lib/spawn_manager.lua; nil = only the engine's own collision.
+Behavior.occupied = nil
+
 Behavior.STEP_FRAMES = STEP_FRAMES
 Behavior.DELTA = DELTA
 

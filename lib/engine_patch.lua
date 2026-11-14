@@ -445,7 +445,7 @@ function EnginePatch.install(hooks, log)
   end
 
   -- option_rows.lua Rows.group(rows, openPage): builds the game's top OPTIONS page (all
-  -- five Gen 3 games). The hook returns ONE extra row (the WILDS OF HOENN entry, opening a
+  -- five Gen 3 games). The hook returns ONE extra row (the VIVID WORLDS entry, opening a
   -- page of this mod's options); it gets `openPage`, which the engine's own
   -- `ui.options.rows` hook never hands a mod -- so a single expandable entry needs this
   -- wrap. Not a probed target: without it the options stay in the Mods menu only.
@@ -1703,7 +1703,12 @@ end
 
 --- pokemon.lua:313 Pokemon.stats(species): the species' base-stat total (hp + atk + def
 --- + spe + spa + spd), or nil when unknown.
+-- (kept per species: asked every tick for the lead and per Wild Reacts check; a species' base
+-- stats never change. Unknown answers are not kept -- the stat table may not be loaded yet)
+local bstCache = {}
 function EnginePatch.baseStatTotal(species)
+  local hit = species ~= nil and bstCache[species]
+  if hit then return hit end
   local Pokemon = loadModule(EnginePatch.READONLY.speciesTypes.mod)
   if not (Pokemon and Pokemon.stats) then return nil end
   local ok, st = pcall(Pokemon.stats, species)
@@ -1712,7 +1717,9 @@ function EnginePatch.baseStatTotal(species)
   for _, v in pairs(st) do
     if type(v) == "number" then sum = sum + v end
   end
-  return sum > 0 and sum or nil
+  if sum <= 0 then return nil end
+  if species ~= nil then bstCache[species] = sum end
+  return sum
 end
 
 --- pokemon.lua Pokemon.speciesMeta(species): its two egg groups (Gen 3 numbering: 2 Water 1,
@@ -2305,6 +2312,25 @@ end
 
 --- Is the nurse's heal machine running (pokecenter_heal.lua PokecenterHeal.isActive: the
 --- Poke Balls on the tray, the jingle)? The follower goes into its ball meanwhile.
+--- The hour of the day, 0-23: the game's own clock where it keeps one (Ruby / Sapphire /
+--- Emerald: rtc.lua calcLocalTime, as the day / night evolutions read it), else the
+--- computer's (FireRed / LeafGreen have no clock). nil when neither can be read.
+function EnginePatch.localHour()
+  local Rtc = loadModule("src.core.game3.rtc")
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  local okS, session = pcall(Runtime and Runtime.getSession)
+  if Rtc and Rtc.enabled and Rtc.calcLocalTime and okS and session then
+    local okE, on = pcall(Rtc.enabled, session)
+    if okE and on then
+      local okT, t = pcall(Rtc.calcLocalTime, session)
+      local h = okT and type(t) == "table" and tonumber(t.hours)
+      if h then return math.floor(h) % 24 end
+    end
+  end
+  local okD, d = pcall(os.date, "*t")
+  return okD and type(d) == "table" and tonumber(d.hour) or nil
+end
+
 function EnginePatch.healingActive()
   local Heal = loadModule("src.core.game3.pokecenter_heal")
   if not (Heal and Heal.isActive) then return false end

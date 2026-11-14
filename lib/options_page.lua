@@ -1,4 +1,4 @@
--- WILDS OF HOENN in the game's own OPTIONS menu: one entry on the top page that opens a
+-- VIVID WORLDS in the game's own OPTIONS menu: one entry on the top page that opens a
 -- page of this mod's options, so they can be changed while playing without going through
 -- the Mods menu. (Idea and first version: the Project Highlander author.)
 --
@@ -29,7 +29,7 @@ end
 
 local OptionsPage = {}
 
-OptionsPage.TITLE = "WILDS OF HOENN"
+OptionsPage.TITLE = "VIVID WORLDS"
 
 local function gameOf(c)
   if type(c) == "table" and type(c.game) == "table" then return c.game end

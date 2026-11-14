@@ -37,6 +37,13 @@ function PmdRenderer.rowFor(facing)
   return ROW[facing] or ROW.down
 end
 
+--- Row of a facing in animation `entry`'s sheet: a one-row animation (Sleep, Eat: they have
+--- no facing; index.json `rows = 1`) shows its only row whichever way it faces.
+function PmdRenderer.rowIn(entry, facing)
+  if type(entry) == "table" and entry.rows == 1 then return 0 end
+  return ROW[facing] or ROW.down
+end
+
 --- 0-based frame column for `clock` ticks into a looping animation with the
 --- given per-frame tick durations. Pure; split out for testing.
 function PmdRenderer.frameAt(durations, clock)
@@ -95,6 +102,28 @@ local function firstBottoms(mod, path, entry)
   return out
 end
 
+-- the sheet path of `anim` (foam = its swim band), kept per renderer: asked every draw, and
+-- string.format each time was a few strings a sprite a frame
+local function pathOf(self, anim, foam)
+  local c = self._paths
+  if not (c and c.dex == self.dex and c.shiny == self.shiny and c.info == self.info) then
+    c = { dex = self.dex, shiny = self.shiny, info = self.info, sheet = {}, foam = {} }
+    self._paths = c
+  end
+  local list = foam and c.foam or c.sheet
+  local p = list[anim]
+  if p == nil then
+    if foam then
+      p = SpriteSource.pmdFoamPath(self.info, anim, self.dex, self.shiny) or false
+    else
+      p = SpriteSource.pmdPath(self.info, anim, self.dex, self.shiny) or false
+    end
+    list[anim] = p
+  end
+  return p or nil
+end
+PmdRenderer._pathOf = pathOf
+
 --- Px (cell scale) Idle's first frame is raised facing `row` while resting, x the ease
 --- (`restEase`, 1 while held, eased to 0 once the loop plays). Measured once per sheet,
 --- and only for a renderer that rests (a follower): 0 otherwise.
@@ -103,7 +132,7 @@ function PmdRenderer:restOffset(row)
   if ease <= 0 or self.anim ~= "idle" then return 0 end
   local entry = self.info and self.info.idle
   if type(entry) ~= "table" then return 0 end
-  local path = SpriteSource.pmdPath(self.info, "idle", self.dex, self.shiny)
+  local path = pathOf(self, "idle")
   if not path then return 0 end
   local lift = liftCache[path]
   if lift == nil then
@@ -150,7 +179,7 @@ function PmdRenderer:frontReach(facing)
   local anim = (self.anim == "idle" and type(self.info and self.info.idle) == "table") and "idle" or "walk"
   local entry = self.info and self.info[anim]
   if type(entry) ~= "table" or not (entry.cw and entry.ch and entry.ax) then return nil end
-  local path = SpriteSource.pmdPath(self.info, anim, self.dex, self.shiny)
+  local path = pathOf(self, anim)
   if not path then return nil end
   local row = PmdRenderer.rowFor(facing)
   local key = path .. "#" .. row
@@ -263,7 +292,8 @@ function PmdRenderer:advance(moving)
   end
   if want ~= self.anim then
     self.anim = want
-    self.clock = 0
+    -- (`idleOffset`: a group member starts its Idle loop at its own point, out of step)
+    self.clock = (want == "idle") and (self.idleOffset or 0) or 0
     -- `idleDelay` (the follower sets it): after stopping, rest on the Idle
     -- loop's first frame this many ticks before the loop starts playing.
     self.idleHold = (want == "idle") and (self.idleDelay or 0) or 0
@@ -309,6 +339,37 @@ function PmdRenderer:advanceAs(anim, speed, fallback)
   end
   self.restEase = 0
   self.clock = self.clock + rate
+  if PmdRenderer.ONCE[want] then
+    -- played once and held on its last frame; a negative `speed` plays it back to frame 0
+    -- (sitting down -> getting up again)
+    local total = PmdRenderer.animTicks(self.info, want)
+    if self.clock >= total then self.clock = math.max(0, total - 0.001) end
+    if self.clock < 0 then self.clock = 0 end
+  end
+end
+
+--- Animations played once and held on their last frame (a Pokemon keeling over, sitting
+--- down, looking up, leaping off), not looped.
+PmdRenderer.ONCE = { faint = true, sit = true, lookup = true, leapforth = true }
+
+--- Ticks one run of `anim` takes (the sum of its frame durations); 0 without it.
+function PmdRenderer.animTicks(info, anim)
+  local entry = info and info[anim]
+  if type(entry) ~= "table" then return 0 end
+  local total = entry._ticks
+  if not total then
+    total = 0
+    for _, d in ipairs(entry.durations or {}) do total = total + d end
+    entry._ticks = total
+  end
+  return total
+end
+
+--- The way a Pokemon must face for `anim` to read right: "up" for the one-row back views
+--- (Sit, LookUp, most LeapForths -- index.json `facing`), nil when any facing works.
+function PmdRenderer.facingOf(info, anim)
+  local entry = info and info[anim]
+  return type(entry) == "table" and entry.facing or nil
 end
 
 --- Holds the first frame of Idle, not playing it (a perched bird with its wings folded).
@@ -319,7 +380,7 @@ end
 --- The size gen3-hd-sprites draws this sprite at on top of its own (its Species
 --- Sizes factor, lib/hd_field.lua); 1 without that mod.
 function PmdRenderer:hdScale()
-  local path = SpriteSource.pmdPath(self.info, "walk", self.dex, self.shiny)
+  local path = pathOf(self, "walk")
   return path and HdField.scaleOfPath(self.mod, path) or 1
 end
 
@@ -417,11 +478,11 @@ function PmdRenderer:reflectionGeometry(x, y, facing)
   if act and (tonumber(act.sink) or 0) > 0 then return nil end
   local entry = self.info[self.anim]
   if type(entry) ~= "table" then return nil end
-  local path = SpriteSource.pmdPath(self.info, self.anim, self.dex, self.shiny)
-  local image = path and ActorRenderer.loadImage(self.mod, path)
+  local path = pathOf(self, self.anim)
+  local image = path and ActorRenderer.drawImage(self.mod, path)
   if not image then return nil end
   local col = PmdRenderer.frameAt(entry.durations, self.clock)
-  local row = PmdRenderer.rowFor(facing)
+  local row = PmdRenderer.rowIn(entry, facing)
   local _, band
   if self.swimming then _, band = PmdRenderer.cropHeight(entry) end
   local anchorY = band or entry.ay
@@ -451,22 +512,33 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   -- and slides the sprite by a cosmetic pixel offset
   local act = self.act
   if act and act.facing then facing = act.facing end
-  local entry = self.info[self.anim]
+  local anim = self.anim
+  local entry = self.info[anim]
   if type(entry) ~= "table" then return end
-  local path = SpriteSource.pmdPath(self.info, self.anim, self.dex, self.shiny)
+  local path = pathOf(self, anim)
   if not path then return end
-  local image = ActorRenderer.loadImage(self.mod, path)
-  if not image then return end
+  local image = ActorRenderer.drawImage(self.mod, path)
+  if not image then
+    -- its sheet waits for the next frame's loading budget: the one shown last frame meanwhile
+    local last = self._drawnAnim
+    entry = last and last ~= anim and self.info[last]
+    if type(entry) ~= "table" then return end
+    anim = last
+    path = pathOf(self, anim)
+    image = path and ActorRenderer.cachedImage(path)
+    if not image then return end
+  end
+  self._drawnAnim = anim
   local col = PmdRenderer.frameAt(entry.durations, self.clock)
-  local row = PmdRenderer.rowFor(facing)
+  local row = PmdRenderer.rowIn(entry, facing)
   -- swimming: the sheet cut off at the top of the foam bowl, the band sheet (the bowl
   -- and the body inside it) drawn right after with the same transform
   local crop, bandCrop
   if self.swimming then crop, bandCrop = PmdRenderer.cropHeight(entry) end
   local foamImage, foamQuad
   if crop then
-    local foamPath = SpriteSource.pmdFoamPath(self.info, self.anim, self.dex, self.shiny)
-    foamImage = foamPath and ActorRenderer.loadImage(self.mod, foamPath)
+    local foamPath = pathOf(self, anim, true)
+    foamImage = foamPath and ActorRenderer.drawImage(self.mod, foamPath)
     foamQuad = foamImage and quadFor(foamPath, foamImage, entry, col, row, bandCrop)
     if not foamQuad then crop = bandCrop end -- no band art: a straight cut at the waterline
   end

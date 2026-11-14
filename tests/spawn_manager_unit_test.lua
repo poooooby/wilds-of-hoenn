@@ -118,6 +118,227 @@ do
   fakeEngine.mapBounds = realBounds
 end
 
+-- ------- special spawns (lib/eco_profile.lua social): now and then a pack comes clustered on
+-- its leader's tile, as ONE Pokemon
+do
+  local EcoProfile = V.require("eco_profile")
+  local Config = V.require("config")
+  local realOf, realBounds, realChance = EcoProfile.of, fakeEngine.mapBounds, Config.ECO.group.chance
+  fakeEngine.mapBounds = function() return 40, 5 end -- 200 land tiles: Normal wants 8
+  EcoProfile.of = function() return { social = "pack", group = { 3, 3 }, diet = "predator", temper = "territorial",
+    water = "swimmer", activity = "any" } end
+  Config.ECO.group.chance = 100
+  local realShiny = fakeEngine.isShiny
+  fakeEngine.isShiny = function() return true end -- (every roll shiny: only leaders may be)
+  local sm = SpawnManager.new(mod)
+  sm:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  fakeEngine.isShiny = realShiny
+  local shinyLeaders, shinyRiders = 0, 0
+  for _, e in pairs(sm.entities) do
+    if e.shiny then if e.rider then shinyRiders = shinyRiders + 1 else shinyLeaders = shinyLeaders + 1 end end
+  end
+  check(shinyLeaders > 0, "a group's leader rolls shiny as usual (" .. shinyLeaders .. ")")
+  eq(shinyRiders, 0, "...its members never: they can never be battled")
+  local leaders, riders, sameTile = 0, 0, true
+  for _, e in pairs(sm.entities) do
+    if e.group then
+      if e.group.leader == e.id then leaders = leaders + 1 else
+        riders = riders + 1
+        local l = sm.entities[e.group.leader]
+        if not (e.rider and e.cellX == l.cellX and e.cellY == l.cellY and e.species == l.species) then sameTile = false end
+      end
+    end
+  end
+  eq(sm:_activeCountFor("land"), 8, "special spawns: the Spawn Amount counts 8 Pokemon")
+  eq(leaders, 8, "...8 groups")
+  eq(riders, 16, "...each with 2 riders")
+  check(sameTile, "...riders are the leader's species, on the leader's own tile")
+  local g
+  for _, e in pairs(sm.entities) do if e.group and e.group.leader == e.id then g = e.group break end end
+  local leader = sm.entities[g.leader]
+  eq(sm:entityAt(leader.cellX, leader.cellY), leader, "touching the tile meets the leader")
+  local riderIn = false
+  for _, t in ipairs(sm:fightTargets()) do if t.rider then riderIn = true end end
+  check(not riderIn, "riders are never the Battler's targets")
+  -- the leader moves: its riders keep their places round it, drawn offset, on its tile
+  leader.fx = nil
+  for _, mid in ipairs(g.members) do local m = sm.entities[mid] if m then m.fx = nil end end
+  leader.cellX, leader.px = leader.cellX + 1, leader.px + 16
+  local mates = {}
+  for _, mid in ipairs(g.members) do if mid ~= leader.id then mates[#mates + 1] = sm.entities[mid] end end
+  for _ = 1, 30 do for _, m in ipairs(mates) do sm:_tickRider(m) end end
+  local placedOk = true
+  local vc = Config.ECO.group.vary
+  for _, m in ipairs(mates) do
+    local slot = Config.ECO.group.slots[m.rider]
+    if m.cellX ~= leader.cellX or math.abs(m.px - (leader.px + slot[1])) > vc.jitter + vc.mill.px then placedOk = false end
+  end
+  check(placedOk, "riders follow their leader to its new tile, in their places round it")
+  -- each member its own: follow speed, Idle pace, Idle starting point
+  local a, b = mates[1].vary, mates[2].vary
+  check(a and b and (a.catchUp ~= b.catchUp or a.idleMul ~= b.idleMul or a.phase ~= b.phase),
+    "pack members each follow and idle at their own pace")
+  -- the leader rears up: who joins in, when, how fast
+  local function fakeR()
+    local r = { isPmd = true, info = { idle = {}, rearup = {}, eat = {}, hop = {},
+      sit = { facing = "up", durations = { 8, 8, 8 } } } }
+    function r:advanceAs(anim, speed) self.anim, self.speed = anim, speed end
+    return r
+  end
+  for _, m in ipairs(mates) do m.renderer, m.vary = fakeR(), nil end
+  leader.moving = false
+  local realJoin = vc.join.pack
+  vc.join.pack = 100
+  leader.eco = { kind = "pose", groupAnim = "rearup" }
+  sm.ticks = 1000
+  local started = {}
+  for t = 1, vc.joinLag[2] + 2 do
+    sm.ticks = sm.ticks + 1
+    for i, m in ipairs(mates) do
+      sm:_tickRider(m)
+      if m.riderAnim and m.renderer.anim == "rearup" and not started[i] then started[i] = t end
+    end
+  end
+  check(started[1] and started[2], "all joining: every member rears up with its leader, after its own lag")
+  local sp = mates[1].renderer.speed
+  check(sp >= vc.poseSpeed[1] and sp <= vc.poseSpeed[2], "...at its own speed (" .. sp .. ")")
+  vc.join.pack = 0
+  leader.eco = { kind = "pose", groupAnim = "rearup" } -- a new howl, nobody joins
+  for _ = 1, vc.joinLag[2] + 2 do
+    sm.ticks = sm.ticks + 1
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  check(not mates[1].riderAnim and not mates[2].riderAnim, "a member that does not join just looks about")
+  vc.join.pack = realJoin
+  -- the leader sits down (a back view): the members sit with it, then get up when it does
+  vc.join.pack = 100
+  leader.eco = { kind = "pose", groupAnim = "sit" }
+  for _ = 1, vc.joinLag[2] + 2 do
+    sm.ticks = sm.ticks + 1
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  check(mates[1].renderer.anim == "sit" and mates[1].facing == "up", "sitting with the leader, back to the camera")
+  leader.eco.unwinding = true
+  sm.ticks = sm.ticks + 1
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(mates[1].renderer.speed < 0, "...and getting up when it does (the pose played back)")
+  vc.join.pack = realJoin
+  leader.eco = nil
+  -- the leader standing: now and then a member does its own thing
+  leader.eco = nil
+  for _, m in ipairs(mates) do m.vary.asideAt = sm.ticks + 1 end
+  sm.ticks = sm.ticks + 1
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  local own = 0
+  for _, m in ipairs(mates) do
+    local a = m.renderer.anim
+    if m.riderAnim and (a == "eat" or a == "hop" or a == "sit") then own = own + 1 end
+    if a == "sit" then check(m.facing == "up", "...one sitting down turns its back to the camera") end
+  end
+  eq(own, 2, "the leader standing: a member eats, hops or sits on its own")
+  leader.moving = true
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(not mates[1].riderAnim and not mates[1].vary.aside, "...and stops when the pack moves off")
+  -- on the move the whole pack faces the leader's way, even one catching up from below
+  leader.facing = "left"
+  mates[1].py, mates[2].px = leader.py + 40, leader.px + 40
+  for _, m in ipairs(mates) do m.vary.face = "up" end
+  sm.ticks = sm.ticks + 1
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(mates[1].facing == "left" and mates[2].facing == "left", "the pack moving: all face the leader's way")
+  leader.moving = nil
+  for _ = 1, 10 do
+    sm.ticks = sm.ticks + 1
+    for _, m in ipairs(mates) do m.vary.asideAt = sm.ticks sm:_tickRider(m) end
+  end
+  check(mates[1].facing == "left" and mates[2].facing == "left" and not mates[1].riderAnim and not mates[2].riderAnim,
+    "...still, while the others catch up: no looking about, no poses of their own")
+  for _ = 1, Config.ECO.group.moveSettle + 30 do
+    sm.ticks = sm.ticks + 1
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  for _, m in ipairs(mates) do m.vary.face, m.vary.lookAt = "down", math.huge end
+  sm.ticks = sm.ticks + 1
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(not mates[1].vary.onMove and mates[1].facing == "down", "...settled: each looks its own way again")
+  for _, m in ipairs(mates) do m.vary.aside, m.riderAnim = nil, nil end
+  -- the leader charges the player: the pack charges with it
+  leader.react = { mode = "chase", t = 0 }
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(mates[1].riderAnim and mates[1].renderer.anim == "attack" and mates[2].renderer.anim == "attack",
+    "the leader charging: its pack charges with it")
+  leader.react = nil
+  -- the leader asleep (lib/eco_sleep.lua): the whole group sleeps, even ones that never join in
+  vc.join.pack = 0
+  leader.eco = { kind = "sleep", sleeping = true, groupAnim = "sleep", anim = "sleep", zzz = 0 }
+  for _, m in ipairs(mates) do m.renderer.info.sleep = {} end
+  for _ = 1, vc.joinLag[2] + 2 do
+    sm.ticks = sm.ticks + 1
+    leader.eco.zzz = leader.eco.zzz + 1
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  check(mates[1].renderer.anim == "sleep" and mates[2].renderer.anim == "sleep", "the leader asleep: its group sleeps with it")
+  leader.eco.zzz = 60
+  local zActors = {}
+  sm:collectActors(zActors)
+  local zz = 0
+  for _, act in ipairs(zActors) do
+    if act.kind == "ow_zzz" and (act.i == 99000 + mates[1].id or act.i == 99000 + mates[2].id) then zz = zz + 1 end
+  end
+  eq(zz, 2, "...z's over each of them")
+  vc.join.pack = realJoin
+  -- the leader burrows (lib/eco_burrow.lua): its group goes down and up with it, a moment late
+  leader.eco = nil
+  for _, m in ipairs(mates) do sm:_tickRider(m) m.vary.reactLag = 4 end
+  local bs = { kind = "burrow", burrowing = true, sinkTicks = 10, t = 0 }
+  leader.eco = bs
+  for t = 1, 12 do
+    sm.ticks, bs.t = sm.ticks + 1, t
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  local sk = mates[1].renderer.act and mates[1].renderer.act.sink or 0
+  check(sk > 0 and sk < 1, "the leader gone under: its group goes down after it (" .. sk .. ")")
+  leader.cellX, leader.px = leader.cellX + 2, leader.px + 32 -- it comes up two tiles on
+  for t = 13, 30 do
+    sm.ticks, bs.t = sm.ticks + 1, t
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  eq(mates[1].renderer.act and mates[1].renderer.act.sink, 1, "...under with it")
+  eq(mates[1].cellX, leader.cellX, "...over to its new place")
+  bs.riseAt = 30
+  for t = 31, 50 do
+    sm.ticks, bs.t = sm.ticks + 1, t
+    if t > 40 then leader.eco = nil end
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  eq(mates[1].renderer.act, nil, "...and up again beside it")
+  -- the leader battled (gone): the riders scatter
+  sm:despawn(leader.id)
+  local scattering = 0
+  for _, m in ipairs(mates) do if m.runAway and not m.rider and not m.group then scattering = scattering + 1 end end
+  eq(scattering, 2, "the leader gone: its riders scatter")
+  -- Wild Reacts off: no special spawns
+  optionStore.wild_reacts = false
+  local off = SpawnManager.new(mod)
+  off:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local any = false
+  for _, e in pairs(off.entities) do if e.group then any = true end end
+  check(not any and off:count() == 8, "Wild Reacts off: no groups, 8 single Pokemon as before")
+  optionStore.wild_reacts = nil
+  -- the usual chance: most spawns of a pack species come alone
+  Config.ECO.group.chance = realChance
+  local groups, total = 0, 0
+  for _ = 1, 10 do
+    local s2 = SpawnManager.new(mod)
+    s2:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+    for _, e in pairs(s2.entities) do
+      if not e.rider then total = total + 1 if e.group then groups = groups + 1 end end
+    end
+  end
+  check(groups > 0 and groups < total / 2, ("about 1 in 4 come as a group (%d of %d)"):format(groups, total))
+  EcoProfile.of, fakeEngine.mapBounds = realOf, realBounds
+end
+
 -- ------- onMapEntered places visible wild Pokemon, converted to national dex
 local sm = SpawnManager.new(mod)
 sm:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
@@ -922,6 +1143,49 @@ do
     for _ = 1, 400 do smS:tick(smS.game) end
   end
 
+  -- Wild Ecology: a flock comes down together and takes off together
+  do
+    for _ = 1, 400 do smS:tick(smS.game) end
+    smS:despawn(smS.order[1])
+    smS:tick(smS.game)
+    local lead
+    for _, e in pairs(smS.entities) do if e.fx and e.fx.kind == "land" and e.fx.mode == "swoop" then lead = e end end
+    if lead then
+      lead.profile = { social = "swarm", group = { 3, 3 }, diet = "neutral", temper = "skittish", water = "swimmer",
+        activity = "any" }
+      eq(smS:_spawnGroup(lead), 2, "a flock of three")
+      local mates = {}
+      for _, mid in ipairs(lead.group.members) do if mid ~= lead.id then mates[#mates + 1] = smS.entities[mid] end end
+      local following = 0
+      for _, m in ipairs(mates) do
+        local lp, mp = lead.fx.plan.phases, m.fx and m.fx.plan and m.fx.plan.phases
+        if mp and m.fx.kind == "land" and mp[#mp].to.x == lp[#lp].to.x + (m.px - lead.px) then following = following + 1 end
+      end
+      eq(following, 2, "...the others come down on their leader's flight, each to its place")
+      for _ = 1, 600 do
+        smS:tick(smS.game)
+        if not lead.fx and not mates[1].fx and not mates[2].fx then break end
+      end
+      check(not lead.fx and not mates[1].fx and not mates[2].fx, "...all down")
+      check(mates[1].rider and mates[2].rider, "...and together on the ground")
+      smS:despawn(lead.id, { animate = true })
+      local leaving = 0
+      for _, m in ipairs(mates) do
+        if m.state == "leaving" and m.fx and m.fx.kind == "leave" and m.fx.mode == "swoop" and m.fx.plan.phases[1].type == "sit" then
+          leaving = leaving + 1
+        end
+      end
+      eq(leaving, 2, "the leader takes off: the flock flies off after it, each a moment later")
+      for _ = 1, 600 do
+        smS:tick(smS.game)
+        if not smS.entities[lead.id] and not smS.entities[mates[1].id] and not smS.entities[mates[2].id] then break end
+      end
+      check(not smS.entities[mates[1].id] and not smS.entities[mates[2].id], "...and all are gone")
+    else
+      check(false, "a lander came for the flock test")
+    end
+  end
+
   -- Flying Mons off: the usual rise / fade
   optionStore.flyers = false
   for _ = 1, 400 do smS:tick(smS.game) end
@@ -1180,6 +1444,213 @@ do
   fakeEngine.terrainAt, fakeEngine.isWater, fakeEngine.playerCell = realT, realW, realPC
   fakeEngine.startRipple = nil
 end
+-- ------- group spacing by art size, and a pod at rest swimming round its leader
+do
+  local Config = V.require("config")
+  local sp = Config.ECO.group.spread
+  local function pmd(cw) return { isPmd = true, info = { walk = { cw = cw, ch = 40 }, gutter = 2 } } end
+  eq(SpawnManager._groupSpread(pmd(4 + sp.base)), 1, "spread: art the slots were made for sits at the slots")
+  eq(SpawnManager._groupSpread(pmd(4 + sp.base * 1.5)), 1.5, "spread: art 1.5x as wide sits 1.5x as far out")
+  eq(SpawnManager._groupSpread(pmd(200)), sp.max, "spread: capped")
+  eq(SpawnManager._groupSpread(pmd(12)), 1, "spread: small art never closer than the slots")
+  local hgss = { imagePath = function() return "never/loaded.png" end, visualWidth = function() return 48 end }
+  eq(SpawnManager._groupSpread(hgss), nil, "spread: an HGSS sheet not loaded yet is not loaded for it")
+
+  -- the ring: evenly round the leader, centred on it, turning with time
+  local L = { px = 160, py = 160, profile = { water = "leaper" } }
+  local g = { spin = 1 }
+  local ax, ay = SpawnManager.podPlace(1, 2, 0, g, L, 1)
+  local bx, by = SpawnManager.podPlace(2, 2, 0, g, L, 1)
+  check(math.abs((ax + bx) / 2 - 160) < 0.01 and math.abs((ay + by) / 2 - 160) < 0.01,
+    "pod: two members opposite each other round the leader")
+  local cx, cy, f1 = SpawnManager.podPlace(1, 2, Config.ECO.group.pod.lapTicks / 4, g, L, 1)
+  check(math.abs(cx - ax) > 1 or math.abs(cy - ay) > 1, "pod: a quarter lap on, it has swum round")
+  local wx = SpawnManager.podPlace(1, 1, 0, g, L, 2)
+  eq(wx - 160, Config.ECO.group.pod.ring[1] * 2, "pod: bigger art swims a wider ring")
+  check(f1 == "left" or f1 == "right" or f1 == "up" or f1 == "down", "pod: it faces along the ring")
+
+  -- a pod of three on the water: the two others swim round, taking turns to leap
+  local realPC, realIW = fakeEngine.playerCell, fakeEngine.isWater
+  fakeEngine.playerCell = function() return { x = 0, y = 0, moving = false } end
+  fakeEngine.isWater = function() return true end
+  local sm = SpawnManager.new(mod)
+  local pg = { leader = 1, members = { 1, 2, 3 }, social = "pod", spread = 1 }
+  local leader = { id = 1, cellX = 10, cellY = 10, px = 160, py = 160, terrain = "water", state = "available",
+    profile = { water = "leaper" }, group = pg, facing = "left", renderer = {} }
+  sm.entities[1] = leader
+  local mates = {}
+  for k = 1, 2 do
+    local m = { id = k + 1, rider = k, cellX = 10, cellY = 10, px = 160, py = 160, terrain = "water",
+      state = "available", profile = { water = "leaper" }, group = pg, facing = "left",
+      vary = SpawnManager._riderVary(), renderer = { presentation = "swimming" } }
+    sm.entities[m.id] = m
+    mates[k] = m
+  end
+  local ctx = {}
+  local leaps, both, maxR = 0, false, 0
+  local was = {}
+  for t = 1, 1500 do
+    sm.ticks = t
+    for k, m in ipairs(mates) do
+      sm:_tickRider(m, ctx)
+      local up = m.vary.podLeap ~= nil
+      if up and not was[k] then leaps = leaps + 1 end
+      was[k] = up
+      if t > 200 then
+        local dx = (m.px - 160) / Config.ECO.group.pod.ring[1]
+        local dy = (m.py - 160) / Config.ECO.group.pod.ring[2]
+        maxR = math.max(maxR, math.sqrt(dx * dx + dy * dy))
+      end
+    end
+    if was[1] and was[2] then both = true end
+  end
+  check(maxR > 0.8 and maxR < 1.3, ("pod: the others swim round the leader on its ring (%.2f)"):format(maxR))
+  check(leaps >= 3, ("pod: leaping kinds jump out of the ring now and then (%d)"):format(leaps))
+  check(not both, "pod: they take turns, never two in the air at once")
+  -- mid-leap, the leader dives: the member ends its leap (back to its swimming art) and goes too
+  local m = mates[1]
+  if m.vary.podLeap then sm:_endPodLeap(m) end
+  m.vary.leapAt = sm.ticks
+  pg.leapBusy = 0
+  local guard = 0
+  repeat
+    sm.ticks = sm.ticks + 1
+    guard = guard + 1
+    sm:_tickRider(m, ctx)
+  until m.vary.podLeap or guard > 600
+  eq(m.renderer.presentation, "land", "pod leap: its land art while in the air")
+  sm:startDive(leader)
+  check(m.vary.podLeap == nil and m.renderer.presentation == "swimming" and m.fx and m.fx.dive,
+    "pod leap: the leader diving ends it, and it dives too")
+  -- the leader on the move: no ring, they trail in their places
+  m.fx, leader.fx = nil, nil
+  leader.moving = true
+  local m2 = mates[2]
+  if m2.vary.podLeap then sm:_endPodLeap(m2) end
+  sm.ticks = sm.ticks + 1
+  for _ = 1, 40 do sm:_tickRider(m2, ctx) end
+  local slot = Config.ECO.group.slots[2]
+  local v = m2.vary
+  check(math.abs(m2.px - (160 + slot[1] + v.jx + v.mx)) < 0.5, "pod on the move: members trail in their places")
+  -- Wild Reacts off (no ctx): no ring either
+  leader.moving = false
+  pg.stillAt = -1000
+  for _ = 1, 40 do sm.ticks = sm.ticks + 1 sm:_tickRider(m2, nil) end
+  check(math.abs(m2.px - (160 + slot[1] + v.jx + v.mx)) < 0.5, "no ecology: the pod just sits in its places")
+  -- by the shore: a spot over land is pulled in toward the leader
+  pg.spread = 2.5
+  leader.moving = true
+  for _ = 1, 60 do sm.ticks = sm.ticks + 1 sm:_tickRider(m2, ctx) end
+  eq(math.floor((m2.px + 8) / 16), 11, "a big pod's member sits out on the next tile over open water")
+  fakeEngine.isWater = function(x) return x <= 10 end
+  m2.vary.okc = nil
+  for _ = 1, 60 do sm.ticks = sm.ticks + 1 sm:_tickRider(m2, ctx) end
+  check(math.floor((m2.px + 8) / 16) <= 10, "by the shore: a member is never drawn out over the land")
+  fakeEngine.playerCell, fakeEngine.isWater = realPC, realIW
+end
+
+-- ------- a huddle a player runs right past scatters, watches, and drifts back together
+do
+  local Config = V.require("config")
+  local realRun, realCF, realBike = fakeEngine.playerIsRunning, fakeEngine.cellFree, fakeEngine.playerBiking
+  local running = false
+  fakeEngine.playerIsRunning = function() return running end
+  fakeEngine.playerBiking = function() return false end
+  fakeEngine.cellFree = function() return true end
+  local sm = SpawnManager.new(mod)
+  local hg = { leader = 1, members = { 1, 2, 3 }, social = "huddle", spread = 1 }
+  local leader = { id = 1, cellX = 10, cellY = 10, px = 160, py = 160, terrain = "land", state = "available",
+    profile = {}, group = hg, facing = "down", renderer = {} }
+  sm.entities[1] = leader
+  local mates = {}
+  for k = 1, 2 do
+    local m = { id = k + 1, rider = k, cellX = 10, cellY = 10, px = 160, py = 160, terrain = "land",
+      state = "available", profile = {}, group = hg, facing = "down", vary = SpawnManager._riderVary(),
+      renderer = {} }
+    m.vary.millAt = math.huge -- (no milling about in this test)
+    sm.entities[m.id] = m
+    mates[k] = m
+  end
+  local ctx = { player = { x = 12, y = 10, moving = true } }
+  local function home(m)
+    local slot, v = Config.ECO.group.slots[m.rider], m.vary
+    return 160 + slot[1] + v.jx + v.mx, 160 + slot[2] + v.jy + v.my
+  end
+  local function off(m) local hx, hy = home(m) return math.sqrt((m.px - hx) ^ 2 + (m.py - hy) ^ 2) end
+  sm.ticks = 0
+  for _ = 1, 30 do sm.ticks = sm.ticks + 1 for _, m in ipairs(mates) do sm:_tickRider(m, ctx) end end
+  check(off(mates[1]) < 0.5 and off(mates[2]) < 0.5, "huddle: a walker going by leaves it be")
+  running = true
+  for _ = 1, 30 do sm.ticks = sm.ticks + 1 for _, m in ipairs(mates) do sm:_tickRider(m, ctx) end end
+  local hc = Config.ECO.group.huddle
+  check(off(mates[1]) >= hc.dist[1] - 0.5 and off(mates[2]) >= hc.dist[1] - 0.5,
+    ("huddle: a runner going by scatters it (%.1f, %.1f px)"):format(off(mates[1]), off(mates[2])))
+  check(mates[1].px < home(mates[1]) + 1 and mates[2].px < home(mates[2]) + 1,
+    "...away from the side the player passed on")
+  check(mates[1].facing == "right" and mates[2].facing == "right", "...and they watch the way the player went")
+  -- gone by: after the regroup time they drift back to their places
+  ctx.player = { x = 20, y = 10, moving = false }
+  hg.scatterUntil = sm.ticks
+  for _ = 1, 60 do sm.ticks = sm.ticks + 1 for _, m in ipairs(mates) do sm:_tickRider(m, ctx) end end
+  check(off(mates[1]) < 0.5 and off(mates[2]) < 0.5, "huddle: later it drifts back together")
+  -- Wild Reacts off: no scatter
+  ctx.player = { x = 12, y = 10, moving = true }
+  for _ = 1, 30 do sm.ticks = sm.ticks + 1 for _, m in ipairs(mates) do sm:_tickRider(m, nil) end end
+  check(off(mates[1]) < 0.5, "huddle: no ecology, no scatter")
+  fakeEngine.playerIsRunning, fakeEngine.cellFree, fakeEngine.playerBiking = realRun, realCF, realBike
+end
+
+-- ------- companions of another species (profile `escort`): one Pokemon, the leader; the rest
+-- ride / cling / buzz round it, and scatter when it is gone
+do
+  local Config = V.require("config")
+  local realSFN, realPC = fakeEngine.speciesForNational, fakeEngine.playerCell
+  fakeEngine.speciesForNational = function(d) if d == 978 then return 999 end return nil end
+  fakeEngine.playerCell = function() return { x = 40, y = 40, moving = false } end
+  local sm = SpawnManager.new(mod)
+  sm.mapId = "ROUTE_1"
+  local ok, lead = sm:_place("land", { x = 2, y = 0 }, { species = 999, level = 30, personality = 1 }, true)
+  check(ok and lead, "a leader is out")
+  lead.fx = nil
+  lead.renderer = { headLift = function() return 40 end, visualWidth = function() return 48 end, bobDy = 2 }
+  local esc = { dex = 978, count = { 1, 1 }, place = "ride", level = { -4, 0 } }
+  eq(sm:_spawnGroup(lead, esc), 1, "a Dondozo comes with one Tatsugiri")
+  local mid = lead.group.members[2]
+  local t = sm.entities[mid]
+  check(t and t.rider and t.group == lead.group and lead.group.escort == esc, "...a member of its group")
+  check(t.level >= 26 and t.level <= 30, "...at its own level (" .. tostring(t.level) .. ")")
+  local inView = 0
+  for _, e in pairs(sm.entities) do if e.state == "available" and not e.rider then inView = inView + 1 end end
+  eq(inView, 1, "the pair counts as one Pokemon: the leader")
+  t.fx = nil
+  t.renderer = { presentation = "swimming", isPmd = true, swimming = true }
+  lead.facing = "left"
+  sm.ticks = 10
+  sm:_tickRider(t, {})
+  local up = 40 * Config.ECO.group.rideAt
+  check(t.px == lead.px and t.py == lead.py + 1, "riding: on its leader's tile, drawn after it")
+  check(t.renderer.act and t.renderer.act.ecoRide and math.abs(t.renderer.act.dy - (-up + 2)) < 0.01,
+    "...lifted up onto its back, bobbing with it")
+  check(t.renderer.act.dx < 0, "...toward its head (it faces left)")
+  check(t.renderer.presentation == "land" and t.renderer.swimming == false, "...drawn whole, not cut at a waterline")
+  eq(t.facing, "left", "...facing its leader's way")
+  lead.renderer.act = { sink = 0.6 }
+  sm:_tickRider(t, {})
+  eq(t.renderer.act.sink, 0.6, "its leader going under: so does it, on its back")
+  lead.renderer.act = nil
+  -- the leader met (battled / gone): the rider lets go and scatters
+  sm:despawn(lead.id)
+  check(not t.rider and not t.group, "the leader gone: it is on its own")
+  check(not (t.renderer.act and t.renderer.act.ecoRide) and t.renderer.presentation == "swimming"
+    and t.renderer.swimming == true, "...off its back, its own look again")
+  check(t.runAway ~= nil, "...and it scatters")
+  -- no such species in this game (no National Dex): no group at all
+  local ok2, lone = sm:_place("land", { x = 4, y = 0 }, { species = 999, level = 30, personality = 2 }, true)
+  eq(ok2 and sm:_spawnGroup(lone, { dex = 9999, count = { 1, 2 } }), 0, "a companion this game lacks: it comes alone")
+  eq(lone.group, nil, "...no group")
+  fakeEngine.speciesForNational, fakeEngine.playerCell = realSFN, realPC
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

@@ -1,4 +1,4 @@
--- Wilds of Hoenn (id: wilds_of_hoenn): visible wild Pokemon for Ruby,
+-- Vivid Worlds, formerly Wilds of Hoenn (id: wilds_of_hoenn, kept): visible wild Pokemon for Ruby,
 -- Sapphire and Emerald.
 --
 -- Architecture
@@ -94,10 +94,11 @@ return function(mod)
   -- index, so this is a normal, silent false everywhere except a release
   -- ZIP built with the atlas (scripts/build-mod.py's default mode).
   local atlasOk, atlasReason = SpriteAtlas.install(mod)
+  SpriteAtlas.configure({ maxShards = Config.ATLAS_MAX_SHARDS })
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "1.11.2"
+  mod.exports.version = "1.12.0-beta.4"
   mod.exports.engineReady = false
   -- Public extension points for consumers; defaults stay unchanged.
   mod.exports.spriteAtlas = SpriteAtlas
@@ -133,6 +134,8 @@ return function(mod)
   -- fish leaping, whales surfacing (ambient)
   local waterLife = WaterLife.new(mod, {
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
+    -- real wild spawns already leaping / spouting here (Wild Ecology): no ambient copy
+    spawnHas = function(kind) return Config.wildReacts(mod) and spawnManager:hasWaterKind(kind) end,
   })
   spawnManager.water = waterLife -- wild fish swim in / out under the sea
   -- little moments in a few places (Lavender's ghosts, Petalburg Woods' bugs, Fortree's Tropius)
@@ -335,7 +338,7 @@ return function(mod)
     fromMenu = function(label, ctx)
       return partyRoles:fromMenu(label, ctx)
     end,
-    -- the WILDS OF HOENN entry on the game's top OPTIONS page (lib/options_page.lua)
+    -- the VIVID WORLDS entry on the game's top OPTIONS page (lib/options_page.lua)
     optionsRow = function(openPage)
       return OptionsPage.entry(mod, openPage)
     end,

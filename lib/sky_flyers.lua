@@ -440,6 +440,68 @@ function SkyFlyers:planDeparture(e)
   return { kind = "leave", mode = "swoop", plan = FlightPath.plan(phases, rng), view = view }
 end
 
+--- A sea bird resting on the water (entity `e`, lib/eco_air.lua) goes fishing: up off the
+--- water, a circle out over cell (tx, ty), a plunge into it (a splash: the plan's "splash"
+--- events, lib/spawn_manager.lua), a moment under, and up again sitting on the water there.
+--- Returns its fx table (kind "land": it touches down on (tx, ty) at the end).
+function SkyFlyers:planFishing(e, tx, ty)
+  local cfg, rng = Config.ECO.fish, self.rng
+  local fx0, fy0 = e.cellX * 16, e.cellY * 16
+  local wx, wy = tx * 16, ty * 16
+  -- the top of its climb: off to one side above the spot it dives on
+  local a = rng(0, 359) * math.pi / 180
+  local d = between(rng, cfg.circle)
+  local mx, my = wx + math.cos(a) * d, wy + math.sin(a) * d * 0.6 - 10
+  local side = rng(0, 1) == 0 and -1 or 1
+  local at = { x = wx, y = wy }
+  local phases = {
+    { type = "fly", from = { x = fx0, y = fy0, h = 0 }, to = { x = mx, y = my, h = cfg.h },
+      n = between(rng, cfg.climb), curve = side * rng(8, 16) },
+    { type = "fly", from = { x = mx, y = my, h = cfg.h }, to = { x = wx, y = wy, h = 0 },
+      n = between(rng, cfg.plunge), curve = side * rng(2, 6) },
+    { type = "sink", at = at, n = cfg.sinkTicks, event = "splash" },
+    { type = "under", at = at, n = between(rng, cfg.under) },
+    { type = "rise", at = at, n = cfg.sinkTicks, event = "splash" },
+  }
+  local view = SkyFlyers.newView(e.id, e.renderer, e.dex, self.mod)
+  return { kind = "land", mode = "swoop", plan = FlightPath.plan(phases, rng), view = view, fishing = true }
+end
+
+-- a copy of point `pt` moved by (dx, dy)
+local function moved(pt, dx, dy)
+  if not pt then return nil end
+  local q = {}
+  for k, v in pairs(pt) do q[k] = v end
+  q.x, q.y = (q.x or 0) + dx, (q.y or 0) + dy
+  return q
+end
+
+--- A flock member flying with its leader (entity `e`, `lead` = the leader's arriving /
+--- leaving fx): the rest of the leader's flight moved by (dx, dy), the member's place in the
+--- flock, `lag` ticks behind it (a little longer on its way in; sitting a moment before it
+--- takes off after it), each arc bent its own way. Returns its fx table.
+function SkyFlyers:planFollow(lead, e, dx, dy, lag)
+  local rng = self.rng
+  local src = lead.plan.phases
+  local phases = {}
+  for i = lead.plan.i, #src do
+    local ph, q = src[i], {}
+    for k, v in pairs(ph) do q[k] = v end
+    q.from, q.to, q.at = moved(ph.from, dx, dy), moved(ph.to, dx, dy), moved(ph.at, dx, dy)
+    q.age, q.nextFidget, q.hopAt = nil, nil, nil
+    if q.type == "fly" and q.curve then q.curve = q.curve + rng(-6, 6) end
+    phases[#phases + 1] = q
+  end
+  if lead.kind == "leave" then
+    table.insert(phases, 1, { type = "sit", at = { x = e.px, y = e.py }, n = math.max(1, lag), facing = e.facing,
+      fidget = { 999, 999 } })
+  elseif phases[1] then
+    phases[1].n = (phases[1].n or 1) + lag
+  end
+  local view = SkyFlyers.newView(e.id, e.renderer, e.dex, self.mod)
+  return { kind = lead.kind, mode = "swoop", plan = FlightPath.plan(phases, rng), view = view }
+end
+
 --- One tick of an arriving / leaving wild Pokemon's flight. True once it is over.
 function SkyFlyers:stepFlight(fx)
   local view = fx.view
@@ -709,6 +771,7 @@ function SkyFlyers:collectActors(actors, camX, camY)
       local sx = b.sx - (camX - b.cam0.x) * p
       local sy = b.sy - (camY - b.cam0.y) * p
       b.x, b.y = FlightPath.fromScreen(sx - 8, sy - 16, p, camX, camY, vw, vh)
+      b.onScreen = sx >= 0 and sx <= vw and sy >= 0 and sy <= vh
     end
     SkyDraw.push(actors, b, camX or 0, camY or 0, vw, vh)
     if b.rings and b.cellX then
@@ -718,6 +781,15 @@ function SkyFlyers:collectActors(actors, camX, camY)
       end
     end
   end
+end
+
+--- A passer flying across the view right now (wild Pokemon look up at it: lib/eco_land.lua),
+--- or nil.
+function SkyFlyers:passerOver()
+  for _, b in ipairs(self.birds) do
+    if b.kind == "passer" and b.onScreen then return b end
+  end
+  return nil
 end
 
 --- How many ambient birds are out (tests, tools).

@@ -83,8 +83,12 @@ FAMILIES: dict[str, list[str]] = {
     "pmd_hurt": ["assets/pmd/hurt"],
     # a flying Pokemon's wing-beat in the sky (SpriteCollab Hover): optional per species
     "pmd_fly": ["assets/pmd/fly"],
-    # a small fish's leap out of the water (SpriteCollab Hop): only the leaping fish
+    # a leap / hop (SpriteCollab Hop): every species (Wild Ecology's leaping fish ...)
     "pmd_hop": ["assets/pmd/hop"],
+    # Wild Ecology's poses (RearUp, Eat, EventSleep, Wake, Bite, Faint, Sit, LookUp, LeapForth):
+    # real sheets only, per species
+    "pmd_eco": ["assets/pmd/rearup", "assets/pmd/eat", "assets/pmd/nap", "assets/pmd/wake", "assets/pmd/bite",
+                "assets/pmd/faint", "assets/pmd/sit", "assets/pmd/lookup", "assets/pmd/leapforth"],
     # the Local Scenes' extra animations (Sleep, Dance, Rotate): a few species only
     "pmd_scene": ["assets/pmd/sleep", "assets/pmd/dance", "assets/pmd/rotate"],
     # the foam overlays a swimming Pokemon is drawn with (mostly transparent, tiny)
@@ -93,7 +97,10 @@ FAMILIES: dict[str, list[str]] = {
 }
 INDEX_VERSION = 1
 MAX_SHARD_H = 32768  # tallest shard (also the GPU texture limit that is safe everywhere)
-DEFAULT_MAX_SHARD_PX = 1_500_000
+# a shard is decoded whole (in the game's draw) the first time a sheet in it is drawn: 500k px
+# = <= 2 MB of pixels, ~3 ms to decode (1.5M px was 6 MB / ~9 ms, a visible hitch, for the
+# same ZIP size -- measured 2026-11-13: 38.98 -> 38.25 MB, 955 -> 2627 files)
+DEFAULT_MAX_SHARD_PX = 500_000
 
 
 def natural_key(text: str):

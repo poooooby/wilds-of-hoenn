@@ -138,6 +138,136 @@ Config.FLYERS = {
 -- so a diagonal counts as the steps it takes). Strength is level x base-stat total against the lead Pokemon's: under
 -- `weakRatio` it is startled ("!") and flees (a bird takes off), over `strongRatio` it gets
 -- angry and chases; an even match in between is not bothered.
+-- Wild Ecology (lib/eco.lua, lib/eco_profile.lua): what wild Pokemon do on their own, by
+-- how their kind lives. Part of the Wild Reacts option. Ticks.
+Config.ECO = {
+  chooseEvery = 60,   -- each Pokemon is asked whether to start something this often
+  -- the water (lib/eco_water.lua), by the profile's `water`
+  water = {
+    clearRadius = 2,                                  -- nothing starts this close to the player
+    -- a fish leaps out in an arc (Water Life's look), landing a tile on or back where it went in
+    leap = { every = { 360, 900 }, ticks = { 34, 44 }, height = 18, pmdHeight = 8 },
+    -- a whale lies at the surface, blows a spout or two, then sounds (dives)
+    whale = { every = { 600, 1500 }, stay = { 150, 300 }, sprays = { 1, 2 }, sprayTicks = 48, rearTicks = 40 },
+    -- a school gathering into one big dark shape under the water (profile `schoolForm`: Wishiwashi)
+    school = { every = { 1500, 3000 }, sinkTicks = 22, under = { 300, 480 }, fadeTicks = 40, alpha = 0.4,
+               ring = { 18, 6 }, lapTicks = 360, cryRadius = 8, hgssScale = 3 },
+    diveEvery = { 300, 900 },                         -- a diver goes under this often (Config.SWIM.dive otherwise)
+    -- a drifter (Tentacool, Staryu ...) floats: slow steps, long rests, a deeper bob
+    drift = { stepFrames = 40, runMin = 1, runMax = 2, pauseMin = 300, pauseMax = 600, bobAmp = 2, bobTicks = 150 },
+  },
+  -- special spawns: `chance` % of a pack / school species' spawns come as a group (lib/
+  -- eco_profile.lua social), every member on the leader's tile at these px offsets round
+  -- it (at most #slots besides the leader), easing after it `catchUp` px a tick
+  group = { chance = 25, slots = { { -7, -3 }, { 7, -2 }, { -3, 5 } }, catchUp = 1.6,
+            -- companions of another species (profile `escort`): a rider sits `rideAt` of its leader's
+            -- height up its back, `rideReach` of the way to its head; one clinging on keeps up at
+            -- `escortCling` px a tick
+            rideAt = 0.62, rideReach = 0.45, escortCling = 3,
+            -- the group moving, and `moveSettle` ticks after its leader stops (the others still
+            -- catching up): every member faces the leader's way and plays no pose of its own
+            moveSettle = 40,
+            swarmWobble = 3, swarmWobbleTicks = 40,          -- a swarm's riders buzz round their places
+            -- the slots / jitter / mill / pod ring are for art `base` px wide; bigger art spreads
+            -- them out (width / base, at most `max`), so four Tauros do not sit in one heap; a
+            -- member's spot is pulled in toward its leader when it would be off its own terrain
+            -- (a pod by the shore, a herd by a tree)
+            spread = { base = 20, max = 2.5 },
+            -- a pod at rest (Finizen, Wailmer, Mantine, Lapras, Seel): the others swim round
+            -- their leader on a ring (px half-axes, x the spread), one lap every `lapTicks`
+            -- (a whale's x `whaleLap`), and leaping kinds take turns jumping out of it
+            pod = { ring = { 14, 5 }, lapTicks = 300, whaleLap = 1.6, settle = 30, -- (still ticks first)
+                    leapEvery = { 240, 600 }, leapTicks = { 30, 38 }, leapGap = 20,
+                    height = 14, pmdHeight = 8 },
+            -- a huddle a player runs / bikes past within `radius` tiles scatters: each member
+            -- scurries `dist` px (x the spread) away at `dartSpeed`, `angle` rad off straight
+            -- away, watches from there, and drifts back after `regroup` ticks
+            huddle = { radius = 2, dist = { 14, 24 }, dartSpeed = 3, angle = 0.7, regroup = { 300, 600 } },
+            -- each member its own: no two move or pose in step (SpawnManager._riderVary)
+            vary = {
+              catchUp = { 1.1, 2.1 },     -- px a tick it follows at (the leader walks 16 px in 16)
+              idleSpeed = { 0.8, 1.25 },  -- x PMD_WILD_IDLE_SPEED
+              jitter = 2,                 -- px off its slot, its own spot in the cluster
+              mill = { every = { 240, 720 }, px = 4 },     -- a land member shifts about its place
+              look = { every = { 120, 420 } },             -- standing, it looks another way
+              -- % of members joining the leader's pose (the rest look about), after a lag,
+              -- at their own speed
+              join = { pack = 65, herd = 75, huddle = 90 },
+              joinLag = { 0, 36 },
+              poseSpeed = { 0.8, 1.2 },
+              -- now and then, while the leader stands, a member does its own thing
+              aside = { every = { 600, 1500 }, ticks = { 60, 140 },
+                        anims = { pack = { "eat", "hop", "sit" }, herd = { "eat", "sit" },
+                                  huddle = { "nap", "sit" } } },
+            } },
+  -- on land (lib/eco_land.lua), by the group's `social` (a lone Pokemon: soloGraze)
+  land = {
+    clearRadius = 2,                                        -- nothing starts this close to the player
+    trot = { every = { 240, 600 }, steps = { 2, 4 }, frames = 12 },   -- a pack's burst at a trot
+    howl = { every = { 1800, 3600 }, ticks = 60, cryRadius = 8 },     -- a pack rears up (RearUp), crying when near
+    graze = { every = { 300, 700 }, ticks = { 180, 420 } },          -- a herd stops to eat (Eat)
+    drift = { every = { 200, 500 }, steps = { 1, 2 }, frames = 24 },  -- ... and drifts on slowly
+    buzz = { every = { 90, 240 }, steps = { 1, 3 }, frames = 10 },   -- a swarm darts about
+    nap = { every = { 900, 2400 }, ticks = { 600, 1500 }, wakeRadius = 1, wakeTicks = 40 }, -- a huddle naps (EventSleep, Wake)
+    soloGraze = { every = { 1200, 2400 } },                 -- a lone grazer with Eat art stops to eat
+    -- sits down a while, its back to the camera (Sit), getting up when the player comes close
+    sit = { every = { 1800, 3600 }, ticks = { 240, 480 }, rouseRadius = 1 },
+    -- a bird flying over: those with LookUp art look up at it (each once per bird)
+    lookUp = { chance = 60, ticks = { 50, 110 } },
+  },
+  -- a Pokemon passing for something else (lib/eco_land.lua "mimic": Sudowoodo, Bonsly): found out
+  -- by a player within `radius` tiles (`runRadius` running / biking), it bolts `bolt` steps
+  mimic = { radius = 2, runRadius = 3, bolt = { 3, 5 } },
+  -- lights at night (lib/eco_glow.lua, profile `glow`): radius px of the core, a breath every `pulseTicks`;
+  -- a firefly's trail drops a point every `trailEvery` ticks while it moves (up to `trailMax`), each fading
+  -- over `trailTicks`; under the water the light is `underAlpha` as strong and `underGrow` as wide
+  glow = { radius = 1.5, pulseTicks = 90, trailEvery = 3, trailMax = 12, trailTicks = 40, underAlpha = 0.6,
+           underGrow = 1.6 },
+  -- predators and prey (lib/eco_hunt.lua): one hunt at a time per map
+  hunt = {
+    scanEvery = 45,             -- ticks between looks for a hunter with prey near it
+    chance = 10,                -- % a found hunter / prey pair starts a hunt (a rivalry: rivalChance)
+    rivalChance = 80,
+    radius = 4,                 -- prey within this many tiles of the hunter
+    minPlayerDist = 3,          -- never right beside the player ...
+    maxPlayerDist = 9,          -- ... but where they can see it
+    sizeRatio = 1.3,            -- a hunter is this much stronger (level x base stats) than its prey
+    leash = 7,                  -- tiles a hunter chases before it gives up
+    preyFlee = { 3, 5 },        -- steps a fleeing prey runs
+    cooldown = { 1800, 3600 },  -- ticks between hunts
+    missCooldown = 0,
+    faceTicks = 20,             -- caught: they square up ...
+    attackSpeed = 1.6,
+    maxTurns = 8,               -- ... fight at most this many turns (then the prey gets away)
+    escapeFrac = 0.35,          -- a prey hurt below this share of its HP ...
+    escapeChance = 40,          -- ... breaks away this % of its turns
+    winPause = 30, sinkTicks = 40,  -- a fainted prey's cry, then it sinks away
+  },
+  -- asleep by day or by night (lib/eco_sleep.lua), by the profile's `activity`. Night is
+  -- hours night[1]..night[2] of the game's clock (Ruby / Sapphire / Emerald) or the
+  -- computer's (FireRed / LeafGreen keep none), read every `hourEvery` ticks. `chance` % of
+  -- them sleep: a day Pokemon at night, a night one by day, any other at night. A walker
+  -- right beside it (`wake` tiles; running / biking farther) wakes it: a territorial or
+  -- aggressive one angry, a skittish one running; it stays up `awake` ticks.
+  sleep = { night = { 20, 6 }, hourEvery = 600,
+            chance = { dayAtNight = 70, nightByDay = 50, anyAtNight = 20 },
+            wake = { walk = 1, run = 3, bike = 4 }, wakeTicks = 40, awake = { 1800, 3600 },
+            zzzEvery = 44 },
+  -- a burrower (Diglett, Sandshrew, Trapinch ...: lib/eco_burrow.lua) sinks into the ground
+  -- in a puff of dust and pops up `hop` tiles away; startled, it ducks under instead of running
+  burrow = { every = { 600, 1500 }, sinkTicks = 22, under = { 90, 240 }, hop = { 2, 4 },
+             fleeHop = { 3, 5 }, clearRadius = 2, dustEvery = 4 },
+  -- a sea bird resting on the water (lib/eco_air.lua) flies up and plunges for a fish a few
+  -- tiles off, coming up where it went in; `h` = how high it climbs (lib/flight_path.lua)
+  fish = { every = { 900, 2100 }, range = { 2, 4 }, climb = { 34, 46 }, h = 0.14, circle = { 20, 34 },
+           plunge = { 14, 20 }, sinkTicks = 12, under = { 40, 90 }, clearRadius = 3,
+           -- a bird with a profile `catch` (Cramorant: Arrokuda) comes up with that Pokemon in its
+           -- beak, holds it `hold` ticks (drawn `scale` of its size, wriggling), then gulps it down
+           catch = { hold = { 150, 240 }, gulpTicks = 18, scale = 0.55, beak = 0.78 } },
+  -- a flock lands and takes off together, each bird a few ticks after the one before
+  flock = { lag = { 3, 18 } },
+}
+
 Config.REACT = {
   radius = 2, bikeRadius = 4,     -- how close the running / biking player has to come
   aggroRadius = 1, bikeAggroRadius = 2, -- ...for a stronger one to get angry: right beside it
@@ -167,6 +297,18 @@ Config.REACT = {
             -- planning up to `homeSearch` cells, or leaves with the fade if it can't
             anyGround = true, homeSearch = 24 },
   cooldown = 600, chaseCooldown = 900, -- before the same Pokemon reacts again
+  -- Wild Ecology tempers (lib/eco_profile.lua `temper`): how far a species notices the player
+  -- WALKING / running / biking past (tiles, Manhattan) and the % it reacts at least. "calm"
+  -- (and no profile) keeps the rules above: only running or biking, by strength; "placid"
+  -- never reacts. Strength still counts: a much stronger lead (`fleeBelow` x its strength)
+  -- scares off even an aggressive one.
+  temper = {
+    skittish = { walk = 2, run = 3, bike = 5, chance = 60 },          -- runs from anyone
+    territorial = { walk = 2, run = 3, bike = 4, chance = 35, fleeBelow = 0.7 },
+    aggressive = { walk = 3, run = 4, bike = 5, chance = 60, fleeBelow = 0.4 },
+    -- a group's members join its leader's "!" / anger mark one by one
+    memberLag = { 4, 16 },
+  },
 }
 
 -- A wild Pokemon whose fight with the Battler is broken off (its job changed: lib/
@@ -185,7 +327,8 @@ Config.RUN_AWAY = { partTicks = 30, lungePx = 6 }
 Config.WATER_LIFE = {
   maxFishHeightDm = 10,
   fishExtra = { [349] = true },                                -- Feebas (Water 1 / Dragon egg groups)
-  notFish = { [116] = true, [224] = true, [686] = true },      -- Horsea, Octillery, Inkay
+  -- Horsea, Octillery, Inkay, Malamar, Tatsugiri
+  notFish = { [116] = true, [224] = true, [686] = true, [687] = true, [978] = true },
   whales = { [320] = true, [321] = true },                     -- Wailmer, Wailord
   leap = { every = { 420, 1200 }, max = 2, ticks = { 34, 44 }, height = 18, pmdHeight = 8, drift = 12 },
   whale = { every = { 1500, 3300 }, max = 1, riseTicks = 50, stay = { 240, 480 }, drift = { 0, 1 },
@@ -204,8 +347,19 @@ Config.WATER_LIFE = {
               puffTicks = 16, puffPower = 0.55, puffChance = 50, surfaceShow = 0.45,
               podChance = 12, pod = { 3, 5 }, ring = { 26, 10 }, lapTicks = 170, play = { 480, 720 },
               podLeapEvery = 95, podStagger = 12 },
-  seaMarkers = { [72] = true, [73] = true, [222] = true, [278] = true, [279] = true, [318] = true,
-                 [319] = true, [320] = true, [321] = true, [370] = true },
+  -- sea species of every generation (national dex): one in a map's Surf / fishing tables makes it the sea
+  seaMarkers = {
+    [72] = true, [73] = true, [116] = true, [117] = true, [120] = true, [121] = true, [131] = true, -- Tentacool .. Lapras
+    [222] = true, [223] = true, [224] = true, [226] = true, [230] = true,                         -- Corsola .. Kingdra
+    [278] = true, [279] = true, [318] = true, [319] = true, [320] = true, [321] = true, [370] = true, -- Wingull .. Luvdisc
+    [456] = true, [457] = true, [458] = true,                                                     -- Finneon, Lumineon, Mantyke
+    [592] = true, [593] = true, [594] = true,                                                     -- Frillish, Jellicent, Alomomola
+    [688] = true, [689] = true, [690] = true, [691] = true, [692] = true, [693] = true,             -- Binacle .. Clawitzer
+    [746] = true, [747] = true, [748] = true, [771] = true, [779] = true, [781] = true,             -- Wishiwashi .. Dhelmise
+    [845] = true, [846] = true, [847] = true, [871] = true,                                       -- Cramorant .. Pincurchin
+    [940] = true, [941] = true, [960] = true, [961] = true, [963] = true, [964] = true,             -- Wattrel .. Palafin
+    [976] = true, [977] = true, [978] = true,                                                     -- Veluza, Dondozo, Tatsugiri
+  },
   -- under the sea (Dive maps): every fish the game knows, National Dex included (Water 2 egg group, no
   -- legendary -- the Undiscovered group -- nothing over swim.maxHeightDm) swim across as dark
   -- shadows of themselves, wiggling, trailing bubbles; small ones sometimes in a school.
@@ -378,6 +532,11 @@ Config.FORAGE = {
 -- PMD_WALK_SPEED multiplies the Walk animation clock (1 = the durations in
 -- AnimData.xml). All three are meant to be tuned by eye in game.
 Config.PMD_SCALE = 1
+-- The most decoded atlas shards a release build keeps (lib/sprite_atlas.lua, LRU). Each is up
+-- to ~2 MB of pixels (500k px shards) and a sheet is cut from one only the first time it is
+-- drawn, so kept shards are seldom used again: unlimited, a few routes held 240 MB of them
+-- (measured with the old 6 MB shards). 8 = at most ~16 MB.
+Config.ATLAS_MAX_SHARDS = 8
 -- The bake records a per-species upscale (HGSS true size / PMD height) in
 -- index.json. It made big species look oversized, so it is OFF: every PMD
 -- sprite draws at PMD_SCALE x 1. Set true to apply the baked scales again.
