@@ -41,8 +41,8 @@ return {
   [298] = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "calm" },          -- Azurill
   [299] = { temper = "calm" },                                                             -- Nosepass
   [300] = { diet = "prey", temper = "skittish" }, [301] = { temper = "calm" },            -- Skitty, Delcatty
-  [302] = { temper = "territorial", activity = "night" },                                  -- Sableye
-  [303] = { temper = "territorial" },                                                      -- Mawile
+  [302] = { temper = "territorial", activity = "night", rival = { [303] = true } },         -- Sableye (vs Mawile: Granite Cave)
+  [303] = { temper = "territorial", rival = { [302] = true } },                            -- Mawile
   [304] = { social = HUDDLE, group = { 2, 3 }, temper = "calm" },                         -- Aron
   [305] = { temper = "territorial" }, [306] = { temper = "aggressive" },
   [307] = { temper = "calm" }, [308] = { temper = "calm" },                               -- Meditite, Medicham
@@ -55,9 +55,11 @@ return {
   [315] = { temper = "calm" },                                                             -- Roselia
   [316] = { temper = "calm" }, [317] = { temper = "calm" },                               -- Gulpin, Swalot
   [318] = { social = SCHOOL, group = { 2, 4 }, diet = "predator", temper = "aggressive", water = "diver" }, -- Carvanha
-  [319] = { diet = "predator", temper = "aggressive", water = "diver", prey = { "WATER" } }, -- Sharpedo
-  [320] = { social = POD, group = { 2, 3 }, diet = "neutral", temper = "placid", water = "whale" }, -- Wailmer
-  [321] = { diet = "neutral", temper = "placid", water = "whale" },                         -- Wailord
+  [319] = { diet = "predator", temper = "aggressive", water = "diver", prey = { "WATER" },
+            rival = { [320] = true, [321] = true } },                                    -- Sharpedo (vs the whales)
+  [320] = { social = POD, group = { 2, 3 }, diet = "neutral", temper = "placid", water = "whale",
+            rival = { [319] = true } },                                                  -- Wailmer
+  [321] = { diet = "neutral", temper = "placid", water = "whale", rival = { [319] = true } }, -- Wailord
   [322] = { social = HERD, group = { 2, 4 }, temper = "calm" },                           -- Numel
   [323] = { temper = "territorial" },                                                      -- Camerupt
   [324] = { temper = "calm" },                                                             -- Torkoal
@@ -72,7 +74,8 @@ return {
   [334] = { temper = "calm" },                                                             -- Altaria
   [335] = { diet = "predator", temper = "territorial", rival = { [336] = true } },         -- Zangoose
   [336] = { diet = "predator", temper = "territorial", rival = { [335] = true } },         -- Seviper
-  [337] = { temper = "calm", activity = "night" }, [338] = { temper = "calm", activity = "day" }, -- Lunatone, Solrock
+  [337] = { temper = "calm", activity = "night", rival = { [338] = true } },               -- Lunatone (vs Solrock: moon and sun)
+  [338] = { temper = "calm", activity = "day", rival = { [337] = true } },                 -- Solrock
   [339] = { social = SCHOOL, group = { 2, 3 }, temper = "skittish", water = "diver" },    -- Barboach
   [340] = { temper = "territorial", water = "diver" },                                     -- Whiscash
   [341] = { diet = "predator", temper = "territorial", prey = { "WATER" } },               -- Corphish
@@ -118,7 +121,7 @@ return {
   [118] = { social = SCHOOL, group = { 2, 3 }, diet = "prey", temper = "skittish", water = "leaper" }, -- Goldeen
   [119] = { temper = "territorial", water = "leaper" },                                    -- Seaking
   [120] = { temper = "calm", water = "drifter" }, [121] = { temper = "calm", water = "drifter" }, -- Staryu, Starmie
-  [127] = { temper = "aggressive", rival = { [214] = true } },                             -- Pinsir
+  [127] = { temper = "aggressive", rival = { [214] = true, [123] = true } },              -- Pinsir (vs Heracross, Scyther)
   [129] = { social = SCHOOL, group = { 2, 4 }, diet = "prey", temper = "skittish", water = "leaper" }, -- Magikarp
   [130] = { diet = "predator", temper = "aggressive", water = "diver", prey = { "WATER" } }, -- Gyarados
   [170] = { social = SCHOOL, group = { 2, 3 }, temper = "calm", water = "drifter", activity = "night" }, -- Chinchou
@@ -209,7 +212,7 @@ return {
   [115] = { temper = "aggressive" },                                                       -- Kangaskhan
   [117] = { temper = "territorial", water = "swimmer" },                                   -- Seadra
   [122] = { temper = "calm" },
-  [123] = { diet = "predator", temper = "aggressive", prey = { "BUG" } },                  -- Scyther
+  [123] = { diet = "predator", temper = "aggressive", prey = { "BUG" }, rival = { [127] = true } }, -- Scyther (vs Pinsir)
   [124] = { temper = "calm" }, [125] = { temper = "territorial" }, [126] = { temper = "territorial" },
   [128] = { social = HERD, group = { 2, 4 }, temper = "aggressive" },                     -- Tauros
   [131] = { social = POD, group = { 2, 2 }, temper = "placid", water = "swimmer" },         -- Lapras

@@ -12,6 +12,10 @@
 - **Huddles scatter.** Run or bike right past a huddle (Seedot, Wurmple, Caterpie ...) and
   its members scurry off a little way, watch you go, and bunch up again a little later.
   Walking by leaves them be.
+- **More rivals.** Sableye and Mawile, Solrock and Lunatone, Scyther and Pinsir, and Sharpedo
+  against Wailmer and Wailord now fight whenever they meet, like Zangoose and Seviper.
+- **Hunts happen where you can see them.** A hunt or a rivalry only starts with both Pokémon
+  on screen; before, one could start just above or below the view and play out unseen.
 
 ## 1.12.0-beta.3 (2026-11-13)
 

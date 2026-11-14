@@ -125,6 +125,10 @@ do
   player = { x = 10, y = 15 }
   ctx.player = player
   ctx.now = 2000
+  check(not EcoHunt.scan(list, ctx, state), "...nor just off the top of the screen (5 tiles up on 240 x 160)")
+  player = { x = 10, y = 14 }
+  ctx.player = player
+  ctx.now = 3000
   check(EcoHunt.scan(list, ctx, state), "in sight, a few tiles off: the hunt starts")
   eq(pred.react and pred.react.target, prey, "...the hunter chases its prey")
   eq(prey.react and prey.react.target, pred, "...the prey runs from it")

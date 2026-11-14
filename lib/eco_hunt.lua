@@ -82,7 +82,7 @@ function EcoHunt.relation(pred, prey)
 end
 
 --- Once in a while (every `scanEvery` ticks, no hunt on, the cooldown over): a hunter on
---- screen -- between `minPlayerDist` and `maxPlayerDist` tiles from the player -- with prey
+--- screen -- at least `minPlayerDist` tiles from the player and inside the view -- with prey
 --- within `radius` tiles starts a hunt (`chance` %, a rivalry `rivalChance` %). `state` is
 --- the map's hunt bookkeeping (lib/spawn_manager.lua keeps it). Returns true when one began.
 function EcoHunt.scan(list, ctx, state)
@@ -94,13 +94,21 @@ function EcoHunt.scan(list, ctx, state)
   local p = ctx.player
   if not p then return false end
   local rng = ctx.rng or math.random
+  -- both on screen (the view is centred on the player; a tile's margin kept): 6 x 4 tiles
+  -- each way on the GBA's 240 x 160
+  local vw, vh = 240, 160
+  if EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
+  local hx = math.min(cfg.maxPlayerDist, math.floor(vw / 32) - 1)
+  local hy = math.min(cfg.maxPlayerDist, math.floor(vh / 32) - 1)
+  local function seen(e)
+    local dx, dy = math.abs(e.cellX - p.x), math.abs(e.cellY - p.y)
+    return dx <= hx and dy <= hy and math.max(dx, dy) >= cfg.minPlayerDist
+  end
   for _, pred in ipairs(list) do
-    local d = math.max(math.abs(pred.cellX - p.x), math.abs(pred.cellY - p.y))
     if EcoHunt.free(pred) and pred.profile and (pred.profile.diet == "predator" or pred.profile.rival)
-      and d >= cfg.minPlayerDist and d <= cfg.maxPlayerDist then
+      and seen(pred) then
       for _, prey in ipairs(list) do
-        local pd = math.max(math.abs(prey.cellX - p.x), math.abs(prey.cellY - p.y))
-        if prey ~= pred and EcoHunt.free(prey) and pd >= cfg.minPlayerDist and cheb(pred, prey) <= cfg.radius then
+        if prey ~= pred and EcoHunt.free(prey) and seen(prey) and cheb(pred, prey) <= cfg.radius then
           local rel = EcoHunt.relation(pred, prey)
           if rel and rng(1, 100) <= (rel == "rival" and cfg.rivalChance or cfg.chance) then
             return EcoHunt.start(pred, prey, rel, ctx, state)

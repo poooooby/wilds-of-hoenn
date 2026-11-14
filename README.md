@@ -145,7 +145,9 @@ rooftops, with little scenes waiting in special places.*
   sleeping and rearing-up animations where the species has them. And they hunt: now and then a
   hunter like Mightyena or Seviper chases down a smaller Pokémon in view and fights it with its
   real moves, health bars and all. The prey may break away and run, or faint and sink out of
-  sight. Zangoose and Seviper fight whenever they meet. Walk into either fighter to battle it at
+  sight. Old rivals fight whenever they meet: Zangoose and Seviper, Sableye and Mawile,
+  Solrock and Lunatone, Heracross, Pinsir and Scyther, and Sharpedo against Wailmer and
+  Wailord out at sea. Walk into either fighter to battle it at
   the HP the fight left it with. Part of **Wild Reacts**.
 - 🌙 **Day and night:** wild Pokémon keep their own hours by the game's clock (FireRed and
   LeafGreen keep none, so they go by your computer's). At night many birds, bugs and plants are
