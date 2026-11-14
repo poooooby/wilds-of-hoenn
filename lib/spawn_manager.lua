@@ -362,9 +362,13 @@ function SpawnManager:_spawnOne(terrain, cell)
   local ok, e = self:_place(terrain, cell, enc)
   -- now and then (Config.ECO.group.chance %) a pack / school species comes as a group:
   -- a special spawn, clustered on its leader's tile and counting as one Pokemon
-  if ok and e and not e.roamer and Config.wildReacts(self.mod)
-    and math.random(1, 100) <= Config.ECO.group.chance then
-    self:_spawnGroup(e)
+  if ok and e and not e.roamer and Config.wildReacts(self.mod) then
+    local esc = e.profile and e.profile.escort
+    if esc and math.random(1, 100) <= (esc.chance or 100) and self:_spawnGroup(e, esc) > 0 then
+      -- (it came with its companions of another kind: Dondozo and Tatsugiri ...)
+    elseif math.random(1, 100) <= Config.ECO.group.chance then
+      self:_spawnGroup(e)
+    end
   end
   return ok
 end
@@ -375,22 +379,34 @@ end
 --- are RIDERS: they go where the leader goes and are never met, fought or startled on their
 --- own; touching the tile battles the leader, and when it goes the others scatter. The whole
 --- group counts once toward the Spawn Amount.
-function SpawnManager:_spawnGroup(leader)
+function SpawnManager:_spawnGroup(leader, escort)
   local prof = leader.profile
-  if not prof or prof.social == "solo" then return 0 end
+  if not prof then return 0 end
+  if not escort and prof.social == "solo" then return 0 end
   local slots = Config.ECO.group.slots
-  local want = math.min(#slots, math.random(prof.group[1], prof.group[2]) - 1)
+  -- `escort` (profile `escort`): its companions are another species (Tatsugiri on a Dondozo,
+  -- Remoraid on a Mantine, Combee round their Vespiquen); still one Pokemon: the leader
+  local species, levelBy = leader.species, { -2, 1 }
+  local count = prof.group
+  if escort then
+    species = EnginePatch.speciesForNational and EnginePatch.speciesForNational(escort.dex)
+    if not species or species == 0 then return 0 end -- (not in this game: no National Dex)
+    count, levelBy = escort.count, escort.level or levelBy
+  end
+  local want = math.min(#slots, math.random(count[1], count[2]) - (escort and 0 or 1))
   if want <= 0 then return 0 end
-  local g = { leader = leader.id, members = { leader.id }, social = prof.social }
+  local g = { leader = leader.id, members = { leader.id },
+              social = escort and (escort.social or "escort") or prof.social, escort = escort }
   leader.group = g
   -- a group on the move has a leader that goes somewhere; a huddle mostly stays put
-  leader.behavior = (prof.social == "huddle" or prof.social == "herd") and Behavior.IDLE or Behavior.ROAM
+  local social = escort and prof.social or g.social
+  leader.behavior = (social == "huddle" or social == "herd") and Behavior.IDLE or Behavior.ROAM
   local here = { x = leader.cellX, y = leader.cellY }
   local placed = 0
   for _ = 1, want do
-    local level = math.max(2, (tonumber(leader.level) or 5) + math.random(-2, 1))
+    local level = math.max(2, (tonumber(leader.level) or 5) + math.random(levelBy[1], levelBy[2]))
     if EnginePatch.repelAllows(level) then
-      local enc = { species = leader.species, level = level, shiny = false,
+      local enc = { species = species, level = level, shiny = false,
         personality = EnginePatch.randomPersonality and EnginePatch.randomPersonality()
           or math.random(0, 0x7fffffff) }
       local ok, m = self:_place(leader.terrain, here, enc)
@@ -401,7 +417,7 @@ function SpawnManager:_spawnGroup(leader)
         g.members[#g.members + 1] = m.id
         m.facing = leader.facing
         m.behavior = Behavior.IDLE
-        local slot = slots[placed]
+        local slot = (escort and escort.slots and escort.slots[placed]) or slots[placed]
         m.px, m.py = leader.px + slot[1], leader.py + slot[2]
         -- a flock comes down together: each one on its leader's flight, a moment behind it
         if travelling(leader) and leader.fx.kind == "land" and leader.fx.mode == "swoop" and self.sky then
@@ -448,6 +464,7 @@ function SpawnManager:_leaveGroup(e, flight)
           math.random(lag[1], lag[2]) * (#mates > 1 and math.random(1, #mates) or 1))
       elseif m then
         m.group, m.rider, m.riderMoving = nil, nil, nil
+        SpawnManager._endRide(m)
         m.px, m.py = m.cellX * 16, m.cellY * 16
         if flyer then
           -- the leader was met (or left on foot): the flock scatters into the air
@@ -464,6 +481,55 @@ function SpawnManager:_leaveGroup(e, flight)
 end
 
 local FACINGS = { "down", "up", "left", "right" }
+
+--- A rider's place on its leader's back: px across from the leader's tile (toward the way it
+--- faces by `reach`) and px up from its tile's bottom (`at` of the leader's `lift`). Pure.
+function SpawnManager.ridePlace(facing, lift, reach, at)
+  local up = lift * (at or Config.ECO.group.rideAt)
+  if facing == "left" then return -reach, up end
+  if facing == "right" then return reach, up end
+  return 0, up
+end
+
+--- Lets go of its ride: its own presentation back, no lift (scattering, or its leader gone).
+function SpawnManager._endRide(m)
+  if not m then return end
+  local r = m.renderer
+  if r and m.rideBase then
+    r.presentation = m.rideBase.presentation
+    if r.isPmd then r.swimming = m.rideBase.swimming end
+  end
+  if r and r.act and r.act.ecoRide then r.act = nil end
+  m.rideBase = nil
+end
+
+--- One tick of a member riding on its leader: kept on the leader's tile, drawn up on its back
+--- (whole, not cut at a waterline), bobbing and going under with it, facing its way.
+function SpawnManager:_tickRide(e, l)
+  local r, lr = e.renderer, l.renderer
+  if r and not e.rideBase then
+    e.rideBase = { presentation = r.presentation, swimming = r.swimming }
+    r.presentation = SpriteSource.PRESENTATION_LAND
+    if r.isPmd then r.swimming = false end
+  end
+  local lift = (lr and lr.headLift and lr:headLift()) or 24
+  local reach = ((lr and lr.frontReach and lr:frontReach(l.facing))
+    or ((lr and lr.visualWidth and lr:visualWidth()) or 32) * 0.35) * Config.ECO.group.rideReach
+  local dx, up = SpawnManager.ridePlace(l.facing, lift, reach)
+  local sunk = lr and lr.act and lr.act.sink or 0
+  e.px, e.py = l.px, l.py + 1 -- (drawn after the leader: on top of it)
+  e.facing = l.facing
+  e.cellX, e.cellY = l.cellX, l.cellY
+  e.riderMoving = l.moving or false
+  e.stepParity = l.stepParity
+  if r then
+    local act = (r.act and r.act.ecoRide) and r.act or { ecoRide = true }
+    act.dx, act.dy = dx, -up + (lr and lr.bobDy or 0)
+    act.sink = sunk > 0 and sunk or nil -- (it goes under with its leader)
+    r.act = act
+  end
+  e.riderAnim = nil
+end
 
 --- A group member's own ways (Config.ECO.group.vary), so no two move or pose in step: its
 --- follow speed, Idle pace and starting point, its own spot by its slot. Timers start unset.
@@ -662,8 +728,15 @@ function SpawnManager:_tickRider(e, ctx)
   if land and g.social ~= "swarm" and not l.moving and due(v, "millAt", now, c.mill.every, rng) then
     v.mx, v.my = rng(-c.mill.px, c.mill.px), rng(-c.mill.px, c.mill.px)
   end
-  local slot = gcfg.slots[e.rider] or gcfg.slots[1]
-  local tx, ty = l.px + (slot[1] + v.jx + v.mx) * spread, l.py + (slot[2] + v.jy + v.my) * spread
+  local esc = g.escort
+  if esc and esc.place == "ride" then
+    -- riding on its leader (Tatsugiri on Dondozo): on its back, a little toward its head
+    return self:_tickRide(e, l)
+  end
+  local slot = (esc and esc.slots and esc.slots[e.rider]) or gcfg.slots[e.rider] or gcfg.slots[1]
+  local jig = (esc and esc.place == "cling") and 0 or 1 -- (one clinging on sits tight)
+  local tx = l.px + (slot[1] + (v.jx + v.mx) * jig) * spread
+  local ty = l.py + (slot[2] + (v.jy + v.my) * jig) * spread
   -- a pod at rest swims round its leader (and its leaping kinds take turns jumping)
   local ringFacing
   if l.moving or l.fx then g.stillAt = now end
@@ -722,6 +795,7 @@ function SpawnManager:_tickRider(e, ctx)
   local d = math.sqrt(dx * dx + dy * dy)
   local speed = v.catchUp or gcfg.catchUp
   if scattered then speed = gcfg.huddle.dartSpeed end -- (it scurries off)
+  if esc and esc.place == "cling" then speed = gcfg.escortCling end -- (it keeps right with it)
   if d <= speed then
     e.px, e.py = tx, ty
   else
@@ -1520,7 +1594,8 @@ function SpawnManager:startDive(e)
   self:_applyFx(e)
   -- a school / pod goes under together with its leader, and comes up beside it
   local g = e.group
-  if g and g.leader == e.id then
+  -- (one riding on it goes down on its back, mirrored by _tickRide: no dive of its own)
+  if g and g.leader == e.id and not (g.escort and g.escort.place == "ride") then
     for _, mid in ipairs(g.members) do
       local m = self.entities[mid]
       if m and m ~= e and m.state == Config.STATE.AVAILABLE and not m.fx and not m.engaged and not m.react

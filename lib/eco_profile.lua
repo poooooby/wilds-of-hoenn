@@ -21,6 +21,9 @@
 --            (lib/eco_glow.lua; table only)
 --   mimic    "tree": it stands stock-still passing for one until the player comes close, then
 --            bolts (lib/eco_land.lua "mimic"; table only)
+--   escort   { dex, count = {min, max}, chance %, place = "ride" | "cling" | nil, social, level = {lo, hi},
+--            slots }: now and then it comes with companions of ANOTHER species (Dondozo + a Tatsugiri
+--            riding it, Mantine + Remoraid, Vespiquen + Combee): one group, met through the leader
 --   catch    national dex: a fishing bird comes up with one in its beak (lib/eco_air.lua; table only)
 --   schoolForm  an art key ("746-school"): the school gathers into that big form under the water
 --               now and then (lib/eco_water.lua "school"; table only)

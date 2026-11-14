@@ -160,6 +160,10 @@ Config.ECO = {
   -- eco_profile.lua social), every member on the leader's tile at these px offsets round
   -- it (at most #slots besides the leader), easing after it `catchUp` px a tick
   group = { chance = 25, slots = { { -7, -3 }, { 7, -2 }, { -3, 5 } }, catchUp = 1.6,
+            -- companions of another species (profile `escort`): a rider sits `rideAt` of its leader's
+            -- height up its back, `rideReach` of the way to its head; one clinging on keeps up at
+            -- `escortCling` px a tick
+            rideAt = 0.62, rideReach = 0.45, escortCling = 3,
             swarmWobble = 3, swarmWobbleTicks = 40,          -- a swarm's riders buzz round their places
             -- the slots / jitter / mill / pod ring are for art `base` px wide; bigger art spreads
             -- them out (width / base, at most `max`), so four Tauros do not sit in one heap; a

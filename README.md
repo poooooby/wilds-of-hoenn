@@ -139,7 +139,9 @@ rooftops, with little scenes waiting in special places.*
   Wailmer pods ...), clustered together on one tile and moving, diving and surfacing as one.
   Bigger Pokémon stand further apart, so a Tauros herd never ends up in one heap. A pod at
   rest swims round its leader, and Mantine and Finizen take turns leaping out of the ring.
-  A group counts as one Pokémon: walk into it to battle one of them, and the rest scatter.
+  Some come with companions of another kind: a Dondozo with a Tatsugiri riding on its head, a
+  Mantine with Remoraid clinging beside it, a Vespiquen with her Combee buzzing round her.
+  A group counts as one Pokémon: walk into it to battle its leader, and the rest scatter.
   Each member keeps its own pace and looks its own way. Some join in when the leader howls or
   grazes and some don't, and now and then one wanders off to nibble, hop about or doze.
   On land, packs trot about in short bursts and rear up to howl, herds drift slowly and stop

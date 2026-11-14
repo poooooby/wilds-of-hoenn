@@ -1569,6 +1569,57 @@ do
   fakeEngine.playerIsRunning, fakeEngine.cellFree, fakeEngine.playerBiking = realRun, realCF, realBike
 end
 
+-- ------- companions of another species (profile `escort`): one Pokemon, the leader; the rest
+-- ride / cling / buzz round it, and scatter when it is gone
+do
+  local Config = V.require("config")
+  local realSFN, realPC = fakeEngine.speciesForNational, fakeEngine.playerCell
+  fakeEngine.speciesForNational = function(d) if d == 978 then return 999 end return nil end
+  fakeEngine.playerCell = function() return { x = 40, y = 40, moving = false } end
+  local sm = SpawnManager.new(mod)
+  sm.mapId = "ROUTE_1"
+  local ok, lead = sm:_place("land", { x = 2, y = 0 }, { species = 999, level = 30, personality = 1 }, true)
+  check(ok and lead, "a leader is out")
+  lead.fx = nil
+  lead.renderer = { headLift = function() return 40 end, visualWidth = function() return 48 end, bobDy = 2 }
+  local esc = { dex = 978, count = { 1, 1 }, place = "ride", level = { -4, 0 } }
+  eq(sm:_spawnGroup(lead, esc), 1, "a Dondozo comes with one Tatsugiri")
+  local mid = lead.group.members[2]
+  local t = sm.entities[mid]
+  check(t and t.rider and t.group == lead.group and lead.group.escort == esc, "...a member of its group")
+  check(t.level >= 26 and t.level <= 30, "...at its own level (" .. tostring(t.level) .. ")")
+  local inView = 0
+  for _, e in pairs(sm.entities) do if e.state == "available" and not e.rider then inView = inView + 1 end end
+  eq(inView, 1, "the pair counts as one Pokemon: the leader")
+  t.fx = nil
+  t.renderer = { presentation = "swimming", isPmd = true, swimming = true }
+  lead.facing = "left"
+  sm.ticks = 10
+  sm:_tickRider(t, {})
+  local up = 40 * Config.ECO.group.rideAt
+  check(t.px == lead.px and t.py == lead.py + 1, "riding: on its leader's tile, drawn after it")
+  check(t.renderer.act and t.renderer.act.ecoRide and math.abs(t.renderer.act.dy - (-up + 2)) < 0.01,
+    "...lifted up onto its back, bobbing with it")
+  check(t.renderer.act.dx < 0, "...toward its head (it faces left)")
+  check(t.renderer.presentation == "land" and t.renderer.swimming == false, "...drawn whole, not cut at a waterline")
+  eq(t.facing, "left", "...facing its leader's way")
+  lead.renderer.act = { sink = 0.6 }
+  sm:_tickRider(t, {})
+  eq(t.renderer.act.sink, 0.6, "its leader going under: so does it, on its back")
+  lead.renderer.act = nil
+  -- the leader met (battled / gone): the rider lets go and scatters
+  sm:despawn(lead.id)
+  check(not t.rider and not t.group, "the leader gone: it is on its own")
+  check(not (t.renderer.act and t.renderer.act.ecoRide) and t.renderer.presentation == "swimming"
+    and t.renderer.swimming == true, "...off its back, its own look again")
+  check(t.runAway ~= nil, "...and it scatters")
+  -- no such species in this game (no National Dex): no group at all
+  local ok2, lone = sm:_place("land", { x = 4, y = 0 }, { species = 999, level = 30, personality = 2 }, true)
+  eq(ok2 and sm:_spawnGroup(lone, { dex = 9999, count = { 1, 2 } }), 0, "a companion this game lacks: it comes alone")
+  eq(lone.group, nil, "...no group")
+  fakeEngine.speciesForNational, fakeEngine.playerCell = realSFN, realPC
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

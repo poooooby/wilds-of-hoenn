@@ -133,7 +133,10 @@ return {
   [222] = { social = HUDDLE, group = { 2, 3 }, temper = "calm", water = "drifter" },      -- Corsola
   [223] = { social = SCHOOL, group = { 2, 4 }, diet = "prey", temper = "skittish", water = "diver" }, -- Remoraid
   [224] = { temper = "territorial", water = "diver" },                                     -- Octillery
-  [226] = { social = POD, group = { 2, 2 }, temper = "calm", water = "leaper" },          -- Mantine
+  [226] = { social = POD, group = { 2, 2 }, temper = "calm", water = "leaper",            -- Mantine
+            -- now and then with Remoraid clinging on beside it
+            escort = { dex = 223, count = { 1, 2 }, chance = 35, place = "cling", level = { -8, -2 },
+                       slots = { { -6, 3 }, { 6, 4 } } } },
   [227] = { diet = "predator", temper = "territorial" },                                   -- Skarmory
 
   -- ------- Kanto (FireRed / LeafGreen): the species not already listed above
@@ -339,7 +342,8 @@ return {
   [412] = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "calm" },          -- Burmy
   [413] = { temper = "calm" }, [414] = { temper = "calm", activity = "night" },           -- Wormadam, Mothim
   [415] = { social = SWARM, group = { 2, 4 }, diet = "prey", temper = "calm" },           -- Combee
-  [416] = { temper = "territorial" },                                                      -- Vespiquen
+  [416] = { temper = "territorial",                                                        -- Vespiquen
+            escort = { dex = 415, count = { 2, 3 }, chance = 80, social = SWARM, level = { -10, -4 } } }, -- (her Combee)
   [417] = { social = HUDDLE, group = { 2, 2 }, diet = "prey", temper = "skittish" },      -- Pachirisu
   [418] = { diet = "predator", temper = "calm", water = "swimmer", prey = { "WATER" } },  -- Buizel
   [419] = { diet = "predator", temper = "calm", water = "swimmer", prey = { "WATER" } },  -- Floatzel
@@ -733,7 +737,8 @@ return {
   [974] = { social = HERD, group = { 2, 3 }, temper = "calm" },                           -- Cetoddle
   [975] = { temper = "calm" },                                                             -- Cetitan
   [976] = { diet = "predator", temper = "territorial", water = "diver", prey = { "WATER" } }, -- Veluza
-  [977] = { diet = "predator", temper = "calm", water = "diver", prey = { "WATER" } },    -- Dondozo
+  [977] = { diet = "predator", temper = "calm", water = "diver", prey = { "WATER" },      -- Dondozo
+            escort = { dex = 978, count = { 1, 1 }, chance = 70, place = "ride", level = { -4, 0 } } }, -- (a Tatsugiri riding it)
   [978] = { social = SCHOOL, group = { 2, 3 }, temper = "skittish", water = "swimmer" },  -- Tatsugiri
   [979] = { temper = "aggressive" },                                                       -- Annihilape
   [980] = { temper = "calm", water = "swimmer" },                                          -- Clodsire

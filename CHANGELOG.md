@@ -26,6 +26,10 @@
 - **Wishiwashi schools.** Now and then a Wishiwashi school sinks together and gathers into its
   giant School Form, swimming slow circles as a great dark shape under the water before it
   breaks up and the fish come back up.
+- **Companions of another kind.** A Dondozo now and then turns up with a Tatsugiri riding on its
+  head (going under with it when it dives), a Mantine with Remoraid clinging beside it, and a
+  Vespiquen with her Combee buzzing round her. Like any group they count as one Pokémon: walk
+  into it to battle the leader, and the others scatter.
 - **Sudowoodo pretends to be a tree.** Sudowoodo and Bonsly stand stock-still in the grass and
   only give themselves away when you come within a couple of tiles, jumping and running off.
 - **Lights at night.** After dark, Pokémon that glow light up: Volbeat leave trails of light as
