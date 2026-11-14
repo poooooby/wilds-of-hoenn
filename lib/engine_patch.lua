@@ -1703,7 +1703,12 @@ end
 
 --- pokemon.lua:313 Pokemon.stats(species): the species' base-stat total (hp + atk + def
 --- + spe + spa + spd), or nil when unknown.
+-- (kept per species: asked every tick for the lead and per Wild Reacts check; a species' base
+-- stats never change. Unknown answers are not kept -- the stat table may not be loaded yet)
+local bstCache = {}
 function EnginePatch.baseStatTotal(species)
+  local hit = species ~= nil and bstCache[species]
+  if hit then return hit end
   local Pokemon = loadModule(EnginePatch.READONLY.speciesTypes.mod)
   if not (Pokemon and Pokemon.stats) then return nil end
   local ok, st = pcall(Pokemon.stats, species)
@@ -1712,7 +1717,9 @@ function EnginePatch.baseStatTotal(species)
   for _, v in pairs(st) do
     if type(v) == "number" then sum = sum + v end
   end
-  return sum > 0 and sum or nil
+  if sum <= 0 then return nil end
+  if species ~= nil then bstCache[species] = sum end
+  return sum
 end
 
 --- pokemon.lua Pokemon.speciesMeta(species): its two egg groups (Gen 3 numbering: 2 Water 1,

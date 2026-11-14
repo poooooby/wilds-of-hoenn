@@ -184,6 +184,7 @@ end
 function SpawnManager:onMapEntered(mapId, game)
   self:clearAll()
   self.mapId = mapId
+  self._safariAt = nil -- (a Safari visit begins or ends with a map change: asked afresh)
   self.game = game
   -- a Dive map: its wild Pokemon are drawn whole (not cut at a surface they are far below)
   self.underwater = EnginePatch.mapType ~= nil and EnginePatch.mapType() == 5
@@ -937,7 +938,13 @@ function SpawnManager:_reactContext()
   if not Config.wildReacts(self.mod) then return nil end
   if EnginePatch.fieldBusy and EnginePatch.fieldBusy() then return nil end
   if EnginePatch.battleActive and EnginePatch.battleActive() then return nil end
-  if EnginePatch.safariActive and EnginePatch.safariActive() then return nil end
+  -- (a Safari visit starts / ends with a map change: asked again on entry and twice a second)
+  local now = self.ticks or 0
+  if self._safariAt == nil or now - self._safariAt >= 30 or now < self._safariAt then
+    self._safari = EnginePatch.safariActive and EnginePatch.safariActive() or false
+    self._safariAt = now
+  end
+  if self._safari then return nil end
   local lead = EnginePatch.leadPartyMon and EnginePatch.leadPartyMon()
   local bst = EnginePatch.baseStatTotal
   local ctx = self._reactCtx or {}
