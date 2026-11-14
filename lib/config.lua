@@ -208,6 +208,11 @@ Config.ECO = {
     -- a bird flying over: those with LookUp art look up at it (each once per bird)
     lookUp = { chance = 60, ticks = { 50, 110 } },
   },
+  -- lights at night (lib/eco_glow.lua, profile `glow`): radius px of the core, a breath every `pulseTicks`;
+  -- a firefly's trail drops a point every `trailEvery` ticks while it moves (up to `trailMax`), each fading
+  -- over `trailTicks`; under the water the light is `underAlpha` as strong and `underGrow` as wide
+  glow = { radius = 1.5, pulseTicks = 90, trailEvery = 3, trailMax = 12, trailTicks = 40, underAlpha = 0.6,
+           underGrow = 1.6 },
   -- predators and prey (lib/eco_hunt.lua): one hunt at a time per map
   hunt = {
     scanEvery = 45,             -- ticks between looks for a hunter with prey near it

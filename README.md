@@ -159,6 +159,9 @@ rooftops, with little scenes waiting in special places.*
   found curled up asleep, z's floating over them; by day the night owls doze (Zubat, Hoothoot,
   Gastly, Poochyena packs ...). Tiptoe past and they sleep on, but walk right up to one, or run
   or bike close by, and it wakes: a territorial one comes at you angry, a skittish one bolts.
+  After dark the ones that glow light up: Volbeat drawing trails of light as they fly about,
+  Chinchou and Lanturn lures (still shining when they dive), Charmander tail flames, Litwick
+  and Chandelure candles, Morelull caps, Finneon and Lumineon fins, Ponyta manes.
   Part of **Wild Reacts**.
 - 🕳️ **Diggers and sea birds:** Diglett, Sandshrew, Trapinch and other diggers sink into the
   ground in a puff of dust and pop up a few tiles away, and duck underground instead of running

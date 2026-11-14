@@ -26,6 +26,9 @@
 - **Wishiwashi schools.** Now and then a Wishiwashi school sinks together and gathers into its
   giant School Form, swimming slow circles as a great dark shape under the water before it
   breaks up and the fish come back up.
+- **Lights at night.** After dark, Pokémon that glow light up: Volbeat leave trails of light as
+  they fly about, Chinchou and Lanturn lures shine (even under the water), and Charmander's
+  tail, Litwick's candle, Morelull's caps, Finneon's fins and more glow softly.
 - **Cramorant's catch.** A Cramorant that plunges after a fish comes back up with an Arrokuda
   wriggling in its beak, holds it a few seconds, then gulps it down.
 - **Finizen on every sea.** A sea whose Pokémon all come from later generations counts as the

@@ -17,6 +17,8 @@
 --   water    "leaper" | "diver" | "whale" | "drifter" | "swimmer" (how a water spawn swims)
 --   activity "day" | "night" | "any" (asleep the other half: lib/eco_sleep.lua)
 --   burrower true: digs down and comes up elsewhere (lib/eco_burrow.lua; table only)
+--   glow     { color = {r, g, b}, at = "top" | "body" | "tail", trail = true }: its light at night
+--            (lib/eco_glow.lua; table only)
 --   catch    national dex: a fishing bird comes up with one in its beak (lib/eco_air.lua; table only)
 --   schoolForm  an art key ("746-school"): the school gathers into that big form under the water
 --               now and then (lib/eco_water.lua "school"; table only)

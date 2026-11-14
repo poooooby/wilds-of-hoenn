@@ -52,7 +52,7 @@ return {
   [310] = { social = PACK, group = { 2, 3 }, diet = "predator", temper = "aggressive" },  -- Manectric
   [311] = { social = HUDDLE, group = { 2, 2 }, temper = "skittish" },                     -- Plusle
   [312] = { social = HUDDLE, group = { 2, 2 }, temper = "skittish" },                     -- Minun
-  [313] = { social = SWARM, group = { 2, 3 }, temper = "calm", activity = "night" },      -- Volbeat
+  [313] = { glow = { color = { 1.0, 0.95, 0.45 }, at = "tail", trail = true }, social = SWARM, group = { 2, 3 }, temper = "calm", activity = "night" },      -- Volbeat
   [314] = { social = SWARM, group = { 2, 3 }, temper = "calm", activity = "night" },      -- Illumise
   [315] = { temper = "calm" },                                                             -- Roselia
   [316] = { temper = "calm" }, [317] = { temper = "calm" },                               -- Gulpin, Swalot
@@ -126,8 +126,8 @@ return {
   [127] = { temper = "aggressive", rival = { [214] = true, [123] = true } },              -- Pinsir (vs Heracross, Scyther)
   [129] = { social = SCHOOL, group = { 2, 4 }, diet = "prey", temper = "skittish", water = "leaper" }, -- Magikarp
   [130] = { diet = "predator", temper = "aggressive", water = "diver", prey = { "WATER" } }, -- Gyarados
-  [170] = { social = SCHOOL, group = { 2, 3 }, temper = "calm", water = "drifter", activity = "night" }, -- Chinchou
-  [171] = { temper = "calm", water = "drifter", activity = "night" },                     -- Lanturn
+  [170] = { glow = { color = { 1.0, 0.95, 0.6 }, at = "top" }, social = SCHOOL, group = { 2, 3 }, temper = "calm", water = "drifter", activity = "night" }, -- Chinchou
+  [171] = { glow = { color = { 1.0, 0.95, 0.6 }, at = "top" }, temper = "calm", water = "drifter", activity = "night" },                     -- Lanturn
   [183] = { social = HUDDLE, group = { 2, 3 }, temper = "calm" },                         -- Marill
   [214] = { temper = "territorial", rival = { [127] = true } },                            -- Heracross
   [222] = { social = HUDDLE, group = { 2, 3 }, temper = "calm", water = "drifter" },      -- Corsola
@@ -138,7 +138,10 @@ return {
 
   -- ------- Kanto (FireRed / LeafGreen): the species not already listed above
   [1]   = { temper = "calm" }, [2] = { temper = "calm" }, [3] = { temper = "territorial" },
-  [4]   = { temper = "calm" }, [5] = { temper = "territorial" }, [6] = { temper = "aggressive" },
+  -- (glow: the light they show at night -- lib/eco_glow.lua)
+  [4]   = { temper = "calm", glow = { color = { 1.0, 0.6, 0.2 }, at = "tail" } },                     -- Charmander (its tail flame)
+  [5]   = { temper = "territorial", glow = { color = { 1.0, 0.6, 0.2 }, at = "tail" } },              -- Charmeleon
+  [6]   = { temper = "aggressive", glow = { color = { 1.0, 0.6, 0.2 }, at = "tail" } },               -- Charizard
   [7]   = { temper = "calm" }, [8] = { temper = "calm" }, [9] = { temper = "territorial" },
   [10]  = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "skittish" },      -- Caterpie
   [11]  = { diet = "prey", temper = "calm" },                                              -- Metapod
@@ -185,8 +188,8 @@ return {
   [69]  = { social = HUDDLE, group = { 2, 3 }, diet = "predator", temper = "calm", prey = { "BUG" } }, -- Bellsprout
   [70]  = { diet = "predator", temper = "calm", prey = { "BUG" } }, [71] = { diet = "predator", temper = "territorial", prey = { "BUG" } },
   [75]  = { temper = "calm" }, [76] = { temper = "territorial" },                         -- Graveler, Golem
-  [77]  = { social = HERD, group = { 2, 3 }, temper = "skittish" },                       -- Ponyta
-  [78]  = { social = HERD, group = { 2, 3 }, temper = "territorial" },                    -- Rapidash
+  [77]  = { glow = { color = { 1.0, 0.65, 0.25 }, at = "top" }, social = HERD, group = { 2, 3 }, temper = "skittish" },                       -- Ponyta
+  [78]  = { glow = { color = { 1.0, 0.65, 0.25 }, at = "top" }, social = HERD, group = { 2, 3 }, temper = "territorial" },                    -- Rapidash
   [79]  = { temper = "placid", water = "swimmer" }, [80] = { temper = "placid", water = "swimmer" }, -- Slowpoke, Slowbro
   [82]  = { temper = "calm" },                                                             -- Magneton
   [83]  = { temper = "territorial" },                                                      -- Farfetch'd
@@ -282,7 +285,7 @@ return {
   [174] = { temper = "skittish" }, [175] = { temper = "skittish" }, [176] = { temper = "calm" }, -- Igglybuff, Togepi, Togetic
   [178] = { temper = "placid" },                                                           -- Xatu
   [180] = { diet = "neutral", temper = "calm" },                                           -- Flaaffy
-  [181] = { diet = "neutral", temper = "calm" },                                           -- Ampharos
+  [181] = { glow = { color = { 1.0, 0.45, 0.3 }, at = "tail" }, diet = "neutral", temper = "calm" },                                           -- Ampharos
   [182] = { social = HUDDLE, group = { 2, 3 }, temper = "calm" },                         -- Bellossom
   [184] = { temper = "calm", water = "swimmer" },                                          -- Azumarill
   [185] = { temper = "calm" },                                                             -- Sudowoodo
@@ -370,8 +373,8 @@ return {
   [452] = { diet = "predator", temper = "aggressive" },                                    -- Drapion
   [453] = { temper = "territorial" }, [454] = { temper = "territorial" },                 -- Croagunk, Toxicroak
   [455] = { diet = "predator", temper = "calm", prey = { "BUG" } },                        -- Carnivine
-  [456] = { social = SCHOOL, group = { 2, 4 }, diet = "prey", temper = "skittish", water = "leaper" }, -- Finneon
-  [457] = { temper = "calm", water = "diver" },                                            -- Lumineon
+  [456] = { glow = { color = { 0.6, 0.8, 1.0 }, at = "tail" }, social = SCHOOL, group = { 2, 4 }, diet = "prey", temper = "skittish", water = "leaper" }, -- Finneon
+  [457] = { glow = { color = { 1.0, 0.6, 0.9 }, at = "tail" }, temper = "calm", water = "diver" },                                            -- Lumineon
   [458] = { social = POD, group = { 2, 3 }, temper = "skittish", water = "leaper" },      -- Mantyke
   [459] = { temper = "calm" }, [460] = { temper = "calm" },                               -- Snover, Abomasnow
   [461] = { social = PACK, group = { 2, 4 }, diet = "predator", temper = "aggressive" },  -- Weavile
@@ -477,8 +480,9 @@ return {
   [603] = { diet = "predator", temper = "territorial", water = "diver" },                  -- Eelektrik
   [604] = { diet = "predator", temper = "aggressive", water = "diver" },                   -- Eelektross
   [605] = { temper = "calm" }, [606] = { temper = "calm" },                               -- Elgyem, Beheeyem
-  [607] = { social = SWARM, group = { 2, 3 }, temper = "calm" },                          -- Litwick
-  [608] = { temper = "territorial" }, [609] = { temper = "territorial" },                 -- Lampent, Chandelure
+  [607] = { glow = { color = { 0.75, 0.5, 1.0 }, at = "top" }, social = SWARM, group = { 2, 3 }, temper = "calm" },                          -- Litwick
+  [608] = { glow = { color = { 0.75, 0.5, 1.0 }, at = "body" }, temper = "territorial" },                   -- Lampent
+  [609] = { glow = { color = { 0.75, 0.5, 1.0 }, at = "top" }, temper = "territorial" },                    -- Chandelure
   [610] = { temper = "calm" }, [611] = { temper = "territorial" }, [612] = { temper = "territorial" }, -- Axew line
   [613] = { social = HUDDLE, group = { 2, 3 }, diet = "prey", temper = "skittish" },      -- Cubchoo
   [614] = { diet = "predator", temper = "territorial", prey = { "WATER" } },              -- Beartic
@@ -582,8 +586,8 @@ return {
   [751] = { diet = "prey", temper = "skittish" },                                           -- Dewpider
   [752] = { diet = "predator", temper = "territorial", prey = { "BUG", "WATER" } },        -- Araquanid
   [753] = { temper = "skittish" }, [754] = { temper = "territorial" },                     -- Fomantis, Lurantis
-  [755] = { social = HUDDLE, group = { 2, 3 }, temper = "calm", activity = "night" },      -- Morelull
-  [756] = { temper = "calm", activity = "night" },                                          -- Shiinotic
+  [755] = { glow = { color = { 0.5, 1.0, 0.9 }, at = "top" }, social = HUDDLE, group = { 2, 3 }, temper = "calm", activity = "night" },      -- Morelull
+  [756] = { glow = { color = { 0.5, 1.0, 0.9 }, at = "top" }, temper = "calm", activity = "night" },                                          -- Shiinotic
   [757] = { social = PACK, group = { 2, 3 }, diet = "predator", temper = "territorial", prey = { "BUG" } }, -- Salandit
   [758] = { diet = "predator", temper = "territorial" },                                    -- Salazzle
   [759] = { temper = "calm" },                                                              -- Stufful

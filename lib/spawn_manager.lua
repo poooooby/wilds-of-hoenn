@@ -30,6 +30,7 @@ local EcoHunt = V.require("eco_hunt")
 local EcoSleep = V.require("eco_sleep")   -- (each registers its activities with lib/eco.lua)
 local EcoBurrow = V.require("eco_burrow")
 local EcoAir = V.require("eco_air")
+local EcoGlow = V.require("eco_glow")
 local CellPath = V.require("cell_path")
 
 local SpawnManager = {}
@@ -1109,8 +1110,12 @@ function SpawnManager:tick(game)
     EcoHunt.finish(self.hunt, { now = self.ticks })
   end
   local gone
+  -- lights at night (lib/eco_glow.lua): Wild Reacts' ecology, by the game's clock
+  local lights = Config.wildReacts(self.mod) and self:_night() == true
+  self._lightsOn = lights
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
+    if e and e.profile and e.profile.glow then EcoGlow.tick(e, lights) end
     if e and e.rings then -- they outlast the rise, so they keep their own clock
       e.rings.age = e.rings.age + 1
       if e.rings.age >= SpawnFx.ringsTicks() then e.rings = nil end
@@ -1345,6 +1350,7 @@ function SpawnManager:collectActors(actors, camX, camY)
       if e.ecoFx then EcoWater.collectFx(e, actors) end
       if e.eco and e.eco.shadow then EcoWater.collectSchool(e, actors) end -- a school's big shape
       if e.eco and e.eco.fish then EcoAir.collectCatch(e, actors) end      -- a catch in a bird's beak
+      if self._lightsOn and e.profile and e.profile.glow then EcoGlow.collect(e, actors, self.ticks) end
       if e.rings then
         local a = SpawnFx.ringsActor(e.rings.age, e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end

@@ -22,6 +22,7 @@ tests/config_unit_test.lua
 tests/eave_duck_unit_test.lua
 tests/eco_air_unit_test.lua
 tests/eco_burrow_unit_test.lua
+tests/eco_glow_unit_test.lua
 tests/eco_hunt_unit_test.lua
 tests/eco_land_unit_test.lua
 tests/eco_profile_unit_test.lua
@@ -128,6 +129,12 @@ DEVELOPMENT.md
 TODO.md
 
 # local build output
+dist/vivid-worlds-v1.12.0-beta.1-hgss-pmd.zip
+dist/vivid-worlds-v1.12.0-beta.1.zip
+dist/vivid-worlds-v1.12.0-beta.2-hgss-pmd.zip
+dist/vivid-worlds-v1.12.0-beta.2.zip
+dist/vivid-worlds-v1.12.0-beta.3-hgss-pmd.zip
+dist/vivid-worlds-v1.12.0-beta.3.zip
 dist/wilds-of-hoenn-v1.10.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.10.0-hgss.zip
 dist/wilds-of-hoenn-v1.10.1-hgss-pmd.zip
