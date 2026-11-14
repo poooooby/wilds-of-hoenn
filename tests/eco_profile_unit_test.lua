@@ -125,6 +125,7 @@ do
       and (e.burrower == nil or e.burrower == true)
       and (e.glow == nil or (type(e.glow) == "table" and type(e.glow.color) == "table" and #e.glow.color == 3
         and (e.glow.at == "top" or e.glow.at == "body" or e.glow.at == "tail")))
+      and (e.mimic == nil or e.mimic == "tree")
       and (e.catch == nil or (type(e.catch) == "number" and e.catch >= 1 and e.catch <= 1025))
       and (e.schoolForm == nil or (type(e.schoolForm) == "string" and e.schoolForm:match("^%d%d%d%-%l")))
       and (e.group == nil or (type(e.group) == "table" and e.group[1] >= 1 and e.group[2] >= e.group[1] and e.group[2] <= 4))

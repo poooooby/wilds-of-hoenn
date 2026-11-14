@@ -19,6 +19,8 @@
 --   burrower true: digs down and comes up elsewhere (lib/eco_burrow.lua; table only)
 --   glow     { color = {r, g, b}, at = "top" | "body" | "tail", trail = true }: its light at night
 --            (lib/eco_glow.lua; table only)
+--   mimic    "tree": it stands stock-still passing for one until the player comes close, then
+--            bolts (lib/eco_land.lua "mimic"; table only)
 --   catch    national dex: a fishing bird comes up with one in its beak (lib/eco_air.lua; table only)
 --   schoolForm  an art key ("746-school"): the school gathers into that big form under the water
 --               now and then (lib/eco_water.lua "school"; table only)

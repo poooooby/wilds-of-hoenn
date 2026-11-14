@@ -121,7 +121,9 @@ rooftops, with little scenes waiting in special places.*
   the water or through a door) — and if they catch you, the battle starts. Each one gives up at
   its own distance and heads back to its grass. The
   bigger the gap in strength, the likelier they react: a near match often lets you pass.
-  An even match isn't bothered, and walking past calmly disturbs most of them. Each species
+  An even match isn't bothered, and walking past calmly disturbs most of them. Sudowoodo and
+  Bonsly stand stock-still passing for a little tree, until you get too close: then they jump
+  and bolt. Each species
   has its own temper, though: skittish ones like Zigzagoon or Wingull run (or fly) off even
   when you only walk by, territorial ones like Poochyena, Seviper or Sharpedo turn on a walker
   that comes too close (a much stronger partner still scares them off), aggressive ones like

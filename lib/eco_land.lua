@@ -14,6 +14,7 @@ local EnginePatch = V.require("engine_patch")
 local Eco = V.require("eco")
 local Behavior = V.require("behavior")
 local PmdRenderer = V.require("pmd_renderer")
+local WildReactions = V.require("wild_reactions")
 
 local EcoLand = {}
 
@@ -195,6 +196,38 @@ function EcoLand.choose(e, ctx, sm)
 end
 Eco.addChooser(EcoLand.choose)
 
+-- ------- a Pokemon pretending to be something it is not (profile `mimic`: Sudowoodo, Bonsly
+-- pass for a tree): it stands stock-still -- no wandering, no idle motion, nothing Wild Reacts
+-- would make of it -- until the player comes too close; then it jumps ("!") and bolts.
+
+Eco.register("mimic", {
+  step = function(e, ctx, _sm, s)
+    local cfg = Config.ECO.mimic
+    local r = e.renderer
+    if r and r.isPmd and r.holdIdle then r:holdIdle() elseif r and r.advance then r:advance(false) end
+    e.facing = s.facing or e.facing
+    local d, running = playerNear(e, ctx)
+    if d <= cfg.radius or (running and d <= cfg.runRadius) then
+      local p = ctx.player
+      -- found out: it bolts (not a "!"-then-maybe: it always does)
+      e.eco = nil
+      if WildReactions.begin(e, "flee", p.x, p.y, ctx) == "weak" and e.react then
+        e.react.fleeSteps = between(ctx.rng or math.random, cfg.bolt)
+      end
+      return false
+    end
+    return false
+  end,
+})
+
+--- A mimic at rest goes back to standing stock-still (asked first: before anything else).
+function EcoLand.chooseMimic(e, ctx)
+  local prof = e.profile
+  if not (prof and prof.mimic) or e.terrain ~= "land" then return nil end
+  if e.roamer or e.lured or e.react or e.engaged or e.fx or e.moving then return nil end
+  return "mimic", { facing = "down" }
+end
+
 --- A bird flying over (lib/sky_flyers.lua `passerOver`): a land Pokemon with LookUp art that
 --- has not looked at this one yet may stop and look up at it. Asked first (before what it
 --- would do otherwise), on each Pokemon's own choosing timer, so they notice one by one.
@@ -210,5 +243,6 @@ function EcoLand.chooseLookUp(e, ctx, sm)
   return "pose", EcoLand.poseState(e, "lookup", between(rng, cfg.lookUp.ticks))
 end
 Eco.addChooser(EcoLand.chooseLookUp, true)
+Eco.addChooser(EcoLand.chooseMimic, true)
 
 return EcoLand

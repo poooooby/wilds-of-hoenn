@@ -844,6 +844,9 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
     profile = EcoProfile.of(enc.species),
   }
   local e = self.entities[id]
+  -- one passing for a tree (Sudowoodo) never wanders off, even before it is asked to stand
+  -- still (lib/eco_land.lua "mimic")
+  if e.profile and e.profile.mimic then e.behavior = "idle" end
   if e.isFlyer then
     local stay = Config.FLYERS.land.groundStay
     e.groundStay = math.random(stay[1], stay[2])

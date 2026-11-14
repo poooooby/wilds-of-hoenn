@@ -26,6 +26,8 @@
 - **Wishiwashi schools.** Now and then a Wishiwashi school sinks together and gathers into its
   giant School Form, swimming slow circles as a great dark shape under the water before it
   breaks up and the fish come back up.
+- **Sudowoodo pretends to be a tree.** Sudowoodo and Bonsly stand stock-still in the grass and
+  only give themselves away when you come within a couple of tiles, jumping and running off.
 - **Lights at night.** After dark, Pokémon that glow light up: Volbeat leave trails of light as
   they fly about, Chinchou and Lanturn lures shine (even under the water), and Charmander's
   tail, Litwick's candle, Morelull's caps, Finneon's fins and more glow softly.

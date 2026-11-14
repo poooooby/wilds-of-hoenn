@@ -288,7 +288,7 @@ return {
   [181] = { glow = { color = { 1.0, 0.45, 0.3 }, at = "tail" }, diet = "neutral", temper = "calm" },                                           -- Ampharos
   [182] = { social = HUDDLE, group = { 2, 3 }, temper = "calm" },                         -- Bellossom
   [184] = { temper = "calm", water = "swimmer" },                                          -- Azumarill
-  [185] = { temper = "calm" },                                                             -- Sudowoodo
+  [185] = { temper = "calm", mimic = "tree" },                                             -- Sudowoodo (stands still as a tree)
   [186] = { temper = "calm", water = "swimmer" },                                          -- Politoed
   [188] = { social = SWARM, group = { 2, 3 }, temper = "skittish" },                     -- Skiploom
   [189] = { social = SWARM, group = { 2, 3 }, temper = "calm" },                         -- Jumpluff
@@ -359,7 +359,7 @@ return {
   [434] = { diet = "predator", temper = "territorial", prey = { "BUG" } },                 -- Stunky
   [435] = { diet = "predator", temper = "territorial" },                                   -- Skuntank
   [436] = { temper = "calm" }, [437] = { temper = "calm" },                               -- Bronzor, Bronzong
-  [438] = { temper = "skittish" }, [439] = { temper = "skittish" }, [440] = { temper = "skittish" }, -- Bonsly, Mime Jr., Happiny
+  [438] = { temper = "skittish", mimic = "tree" }, [439] = { temper = "skittish" }, [440] = { temper = "skittish" }, -- Bonsly, Mime Jr., Happiny
   [441] = { social = SWARM, group = { 2, 3 }, temper = "calm" },                          -- Chatot
   [442] = { temper = "territorial" },                                                      -- Spiritomb
   [443] = { diet = "predator", temper = "territorial" },                                   -- Gible

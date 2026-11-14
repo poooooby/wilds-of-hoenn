@@ -208,6 +208,9 @@ Config.ECO = {
     -- a bird flying over: those with LookUp art look up at it (each once per bird)
     lookUp = { chance = 60, ticks = { 50, 110 } },
   },
+  -- a Pokemon passing for something else (lib/eco_land.lua "mimic": Sudowoodo, Bonsly): found out
+  -- by a player within `radius` tiles (`runRadius` running / biking), it bolts `bolt` steps
+  mimic = { radius = 2, runRadius = 3, bolt = { 3, 5 } },
   -- lights at night (lib/eco_glow.lua, profile `glow`): radius px of the core, a breath every `pulseTicks`;
   -- a firefly's trail drops a point every `trailEvery` ticks while it moves (up to `trailMax`), each fading
   -- over `trailTicks`; under the water the light is `underAlpha` as strong and `underGrow` as wide

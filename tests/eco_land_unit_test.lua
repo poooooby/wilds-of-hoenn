@@ -204,6 +204,29 @@ do
   eq(EcoLand.chooseLookUp(mon("solo", { "lookup" }), quick, sm), nil, "a missed roll: it does not notice")
 end
 
+-- ------- a Sudowoodo passes for a tree: stock-still until found out, then it bolts
+do
+  local e = mon("solo", {})
+  e.profile.mimic = "tree"
+  local kind, st = EcoLand.chooseMimic(e, ctx())
+  eq(kind, "mimic", "a mimic stands still as a tree")
+  Eco.start(e, kind, st)
+  local x0, y0 = e.cellX, e.cellY
+  for _ = 1, 120 do Eco.step(e, ctx(), nil) end
+  check(e.eco and e.cellX == x0 and e.cellY == y0 and e.renderer.anim == "hold", "...not moving, not even its idle")
+  check(e.facing == "down", "...facing the way a tree would (straight out)")
+  player = { x = 8, y = 5 }
+  Eco.step(e, ctx(), nil)
+  check(e.eco and not e.react, "the player 3 tiles off, walking: still a tree")
+  player = { x = 7, y = 5 }
+  Eco.step(e, ctx(), nil)
+  local cfg = Config.ECO.mimic
+  check(e.eco == nil and e.react and e.react.next == "flee" and e.react.emote == "!", "2 tiles off: found out -- it jumps (!) and flees")
+  check(e.react.fleeSteps >= cfg.bolt[1] and e.react.fleeSteps <= cfg.bolt[2], "...bolting several steps")
+  player = { x = 30, y = 30 }
+  eq(EcoLand.chooseMimic(mon("solo", {}), ctx()), nil, "a Pokemon that is no mimic never does it")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)
