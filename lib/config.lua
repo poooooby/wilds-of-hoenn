@@ -169,6 +169,10 @@ Config.ECO = {
             pod = { ring = { 14, 5 }, lapTicks = 300, whaleLap = 1.6, settle = 30, -- (still ticks first)
                     leapEvery = { 240, 600 }, leapTicks = { 30, 38 }, leapGap = 20,
                     height = 14, pmdHeight = 8 },
+            -- a huddle a player runs / bikes past within `radius` tiles scatters: each member
+            -- scurries `dist` px (x the spread) away at `dartSpeed`, `angle` rad off straight
+            -- away, watches from there, and drifts back after `regroup` ticks
+            huddle = { radius = 2, dist = { 14, 24 }, dartSpeed = 3, angle = 0.7, regroup = { 300, 600 } },
             -- each member its own: no two move or pose in step (SpawnManager._riderVary)
             vary = {
               catchUp = { 1.1, 2.1 },     -- px a tick it follows at (the leader walks 16 px in 16)

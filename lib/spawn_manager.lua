@@ -667,6 +667,34 @@ function SpawnManager:_tickRider(e, ctx)
       EcoWater.splashAt(e, e.px, e.py)
     end
   end
+  -- a huddle a player runs / bikes right past scatters a little way, then drifts back together
+  local scattered = false
+  if g.social == "huddle" and land then
+    local hc = gcfg.huddle
+    local p = ctx and ctx.player
+    if p and p.moving and now >= (g.scatterUntil or 0) and not l.react
+      and math.max(math.abs(p.x - l.cellX), math.abs(p.y - l.cellY)) <= hc.radius
+      and ((EnginePatch.playerIsRunning and EnginePatch.playerIsRunning())
+        or (EnginePatch.playerBiking and EnginePatch.playerBiking())) then
+      g.scatterAt, g.scatterUntil = now, now + rng(hc.regroup[1], hc.regroup[2])
+      g.scatterX, g.scatterY = p.x * 16, p.y * 16
+    end
+    if g.scatterUntil and now < g.scatterUntil then
+      if v.scatAt ~= g.scatterAt then
+        -- away from where the player went by, each a little off straight away
+        local ax, ay = tx - g.scatterX, ty - g.scatterY
+        local len = math.sqrt(ax * ax + ay * ay)
+        if len < 1 then ax, ay, len = slot[1], slot[2], math.sqrt(slot[1] ^ 2 + slot[2] ^ 2) end
+        local turn = (rng(0, 1000) / 1000 * 2 - 1) * hc.angle
+        local ca, sa = math.cos(turn), math.sin(turn)
+        ax, ay = (ax * ca - ay * sa) / len, (ax * sa + ay * ca) / len
+        local dist = rng(hc.dist[1], hc.dist[2]) * spread
+        v.scatAt, v.sx, v.sy = g.scatterAt, ax * dist, ay * dist
+      end
+      tx, ty = tx + v.sx, ty + v.sy
+      scattered = true
+    end
+  end
   -- never drawn out over the shore / into a tree: pulled in toward the leader instead
   if not spotOk(e, v, tx, ty) then
     tx, ty = l.px + (tx - l.px) * 0.5, l.py + (ty - l.py) * 0.5
@@ -680,6 +708,7 @@ function SpawnManager:_tickRider(e, ctx)
   local dx, dy = tx - e.px, ty - e.py
   local d = math.sqrt(dx * dx + dy * dy)
   local speed = v.catchUp or gcfg.catchUp
+  if scattered then speed = gcfg.huddle.dartSpeed end -- (it scurries off)
   if d <= speed then
     e.px, e.py = tx, ty
   else
@@ -693,6 +722,11 @@ function SpawnManager:_tickRider(e, ctx)
     else e.facing = dy > 0 and "down" or "up" end
   elseif l.moving then
     v.face = nil
+  elseif scattered then
+    -- out of the way, it keeps an eye on where the player went by
+    local wx, wy = g.scatterX - e.px, g.scatterY - e.py
+    if math.abs(wx) > math.abs(wy) then e.facing = wx > 0 and "right" or "left"
+    else e.facing = wy > 0 and "down" or "up" end
   elseif not e.riderMoving then
     -- standing about: it looks its own way now and then, else the leader's
     if due(v, "lookAt", now, c.look.every, rng) then
@@ -711,8 +745,10 @@ function SpawnManager:_tickRider(e, ctx)
     local sink = 0
     if p < 0.15 then sink = 1 - p / 0.15 elseif p > 0.85 then sink = (p - 0.85) / 0.15 end
     if r then
-      r.act = { dy = -math.sin(math.pi * p) * ((r.isPmd and pc.pmdHeight or pc.height) * spread),
-                sink = math.min(0.95, sink), ecoLeap = true }
+      local act = (r.act and r.act.ecoLeap) and r.act or { ecoLeap = true }
+      act.dy = -math.sin(math.pi * p) * ((r.isPmd and pc.pmdHeight or pc.height) * spread)
+      act.sink = math.min(0.95, sink)
+      r.act = act
       if r.isPmd and r.advanceAs then r:advanceAs("hop", 1, "idle") end
     end
     if lp.t >= lp.n then
@@ -728,7 +764,8 @@ function SpawnManager:_tickRider(e, ctx)
     r.idleSpeed = Config.PMD_WILD_IDLE_SPEED * v.idleMul
     r.idleOffset = v.phase
   end
-  local anim, aspeed, fallback = riderPose(e, l, g, v, now, rng)
+  local anim, aspeed, fallback
+  if not scattered then anim, aspeed, fallback = riderPose(e, l, g, v, now, rng) end
   if anim and r and r.isPmd and r.advanceAs then
     r:advanceAs(anim, aspeed, fallback or "idle")
     e.riderAnim = true

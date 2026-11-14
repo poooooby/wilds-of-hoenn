@@ -1501,6 +1501,57 @@ do
   fakeEngine.playerCell, fakeEngine.isWater = realPC, realIW
 end
 
+-- ------- a huddle a player runs right past scatters, watches, and drifts back together
+do
+  local Config = V.require("config")
+  local realRun, realCF, realBike = fakeEngine.playerIsRunning, fakeEngine.cellFree, fakeEngine.playerBiking
+  local running = false
+  fakeEngine.playerIsRunning = function() return running end
+  fakeEngine.playerBiking = function() return false end
+  fakeEngine.cellFree = function() return true end
+  local sm = SpawnManager.new(mod)
+  local hg = { leader = 1, members = { 1, 2, 3 }, social = "huddle", spread = 1 }
+  local leader = { id = 1, cellX = 10, cellY = 10, px = 160, py = 160, terrain = "land", state = "available",
+    profile = {}, group = hg, facing = "down", renderer = {} }
+  sm.entities[1] = leader
+  local mates = {}
+  for k = 1, 2 do
+    local m = { id = k + 1, rider = k, cellX = 10, cellY = 10, px = 160, py = 160, terrain = "land",
+      state = "available", profile = {}, group = hg, facing = "down", vary = SpawnManager._riderVary(),
+      renderer = {} }
+    m.vary.millAt = math.huge -- (no milling about in this test)
+    sm.entities[m.id] = m
+    mates[k] = m
+  end
+  local ctx = { player = { x = 12, y = 10, moving = true } }
+  local function home(m)
+    local slot, v = Config.ECO.group.slots[m.rider], m.vary
+    return 160 + slot[1] + v.jx + v.mx, 160 + slot[2] + v.jy + v.my
+  end
+  local function off(m) local hx, hy = home(m) return math.sqrt((m.px - hx) ^ 2 + (m.py - hy) ^ 2) end
+  sm.ticks = 0
+  for _ = 1, 30 do sm.ticks = sm.ticks + 1 for _, m in ipairs(mates) do sm:_tickRider(m, ctx) end end
+  check(off(mates[1]) < 0.5 and off(mates[2]) < 0.5, "huddle: a walker going by leaves it be")
+  running = true
+  for _ = 1, 30 do sm.ticks = sm.ticks + 1 for _, m in ipairs(mates) do sm:_tickRider(m, ctx) end end
+  local hc = Config.ECO.group.huddle
+  check(off(mates[1]) >= hc.dist[1] - 0.5 and off(mates[2]) >= hc.dist[1] - 0.5,
+    ("huddle: a runner going by scatters it (%.1f, %.1f px)"):format(off(mates[1]), off(mates[2])))
+  check(mates[1].px < home(mates[1]) + 1 and mates[2].px < home(mates[2]) + 1,
+    "...away from the side the player passed on")
+  check(mates[1].facing == "right" and mates[2].facing == "right", "...and they watch the way the player went")
+  -- gone by: after the regroup time they drift back to their places
+  ctx.player = { x = 20, y = 10, moving = false }
+  hg.scatterUntil = sm.ticks
+  for _ = 1, 60 do sm.ticks = sm.ticks + 1 for _, m in ipairs(mates) do sm:_tickRider(m, ctx) end end
+  check(off(mates[1]) < 0.5 and off(mates[2]) < 0.5, "huddle: later it drifts back together")
+  -- Wild Reacts off: no scatter
+  ctx.player = { x = 12, y = 10, moving = true }
+  for _ = 1, 30 do sm.ticks = sm.ticks + 1 for _, m in ipairs(mates) do sm:_tickRider(m, nil) end end
+  check(off(mates[1]) < 0.5, "huddle: no ecology, no scatter")
+  fakeEngine.playerIsRunning, fakeEngine.cellFree, fakeEngine.playerBiking = realRun, realCF, realBike
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

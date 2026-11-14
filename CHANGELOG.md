@@ -9,6 +9,9 @@
 - **Big Pokémon give each other room.** A group's members stand apart by the size of their
   art, so four Tauros or a Mantine pod no longer sit in one heap, and a member is never drawn
   out over the shore or into a tree beside its group.
+- **Huddles scatter.** Run or bike right past a huddle (Seedot, Wurmple, Caterpie ...) and
+  its members scurry off a little way, watch you go, and bunch up again a little later.
+  Walking by leaves them be.
 
 ## 1.12.0-beta.3 (2026-11-13)
 
