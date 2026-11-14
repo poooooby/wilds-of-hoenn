@@ -313,6 +313,31 @@ do
   check(drawn > 0 and splashes > 0, "it is drawn, with splashes / puffs")
 end
 
+-- ------- a fish taking shape: its shadow and its solid sprite are two separate actors,
+-- each drawn with its own fade and look (they used to share the view's draw state)
+do
+  local drawn = {}
+  local r = { draw = function(self) drawn[#drawn + 1] = { alpha = self.alpha, sil = self.silhouette } end }
+  local view = { id = 7, renderer = r, x = 64, y = 64, h = 0.05, facing = "down", alpha = 1, silhouette = true }
+  local fx = { view = view }
+  local wl = { viewSize = function() return 240, 160 end }
+  local first = {}
+  WL.pushFlight(wl, fx, first, 0, 0) -- swimming in: the view alone (its draw state made now)
+  check(#first >= 1 and rawget(view, "_skyDraw"), "swimming in: the view is drawn (and has its state)")
+  view.solid = 0.25
+  local acts = {}
+  WL.pushFlight(wl, fx, acts, 0, 0)
+  eq(#acts, 2, "taking shape: two actors, shadow and sprite")
+  check(acts[1] ~= acts[2], "...two different actor tables")
+  for _, a in ipairs(acts) do a.draw(a, 0, 0) end
+  check(drawn[1] and drawn[2] and drawn[1].sil == true and drawn[2].sil == false,
+    "...one a shadow, one the sprite")
+  check(drawn[1] and drawn[2] and drawn[1].alpha > drawn[2].alpha, "...the shadow the stronger at 25 %")
+  local again = {}
+  WL.pushFlight(wl, fx, again, 0, 0)
+  check(again[1] == acts[1] and again[2] == acts[2], "...the same two actors next frame (nothing made per frame)")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

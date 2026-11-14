@@ -883,15 +883,20 @@ function FollowerAdapter:reflections(list)
   local npc = EnginePatch.followerCurrent()
   local r = self.renderer
   if not (npc and r and r.reflectionGeometry) or npc.hidden then return end
+  -- one record, refilled every frame (lib/reflection.lua remembers its tile check on it)
+  local rec = self._refl
+  if not rec then
+    rec = { geo = {}, cell = {} }
+    self._refl = rec
+  end
   local geo = r:reflectionGeometry(npc.px or npc.cellX * CELL, npc.py or npc.cellY * CELL,
-    npc.facing, ActorRenderer.POSE_STAND)
+    npc.facing, ActorRenderer.POSE_STAND, rec.geo)
   if not geo then return end
   local moving = npc.moving and npc.targetX ~= nil
-  list[#list + 1] = {
-    geo = geo,
-    cell = { cx = moving and npc.targetX or npc.cellX, cy = moving and npc.targetY or npc.cellY,
-             pcx = npc.cellX, pcy = npc.cellY },
-  }
+  local cell = rec.cell
+  cell.cx, cell.cy = moving and npc.targetX or npc.cellX, moving and npc.targetY or npc.cellY
+  cell.pcx, cell.pcy = npc.cellX, npc.cellY
+  list[#list + 1] = rec
 end
 
 function FollowerAdapter:collectActors(actors)

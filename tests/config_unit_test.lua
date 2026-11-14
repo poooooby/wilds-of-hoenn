@@ -155,6 +155,31 @@ eq(Config.rolePad(mod), "off", "a bad saved value reads as the default (pad)")
 eq(Config.roleKey(mod), "off", "...and (key)")
 optionStore = {}
 
+-- ------- the option-value cache (main.lua turns it on)
+do
+  local reads = 0
+  local store = { spawn_amount = "high" }
+  local cmod = { options = { get = function(_, k) reads = reads + 1 return store[k] end } }
+  Config.cacheOptions(true)
+  eq(Config.get(cmod, "spawn_amount"), "high", "cached: the stored value")
+  Config.get(cmod, "spawn_amount")
+  Config.get(cmod, "spawn_amount")
+  eq(reads, 1, "...read once, then kept")
+  Config.get(cmod, "never_set_key")
+  Config.get(cmod, "never_set_key")
+  eq(reads, 2, "an unset option (nil) is kept too")
+  store.spawn_amount = "low"
+  eq(Config.get(cmod, "spawn_amount"), "high", "a change nobody announced is not seen at once")
+  Config.optionsChanged()
+  eq(Config.get(cmod, "spawn_amount"), "low", "an announced change is read afresh")
+  store.spawn_amount = "normal"
+  for _ = 1, 120 do Config.tickOptions() end
+  eq(Config.get(cmod, "spawn_amount"), "normal", "...and an unannounced one within 120 ticks")
+  Config.cacheOptions(false)
+  store.spawn_amount = "high"
+  eq(Config.get(cmod, "spawn_amount"), "high", "cache off: read live")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

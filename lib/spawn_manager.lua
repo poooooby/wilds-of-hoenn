@@ -184,6 +184,8 @@ end
 
 function SpawnManager:onMapEntered(mapId, game)
   self:clearAll()
+  GrassCover.reset() -- (its per-tile answers belong to the old map)
+  SpawnFx.reset()
   self.mapId = mapId
   self._safariAt = nil -- (a Safari visit begins or ends with a map change: asked afresh)
   self.game = game
@@ -1372,22 +1374,40 @@ SpawnManager._inView = inView
 
 --- Every live wild Pokemon's water reflection, for lib/reflection.lua (the
 --- drawBehind hook). Off-screen ones are skipped when the camera is given.
+-- How often (frames) a sprite with no water under it re-checks anyway while it stands
+-- on the same tiles (its art can change size: another animation, Species Sizes).
+local REFLECT_RECHECK = 30
+
+--- Appends each visible wild Pokemon's reflection record ({ geo, cell }, kept on the
+--- entity and refilled: lib/reflection.lua). One standing on the same tiles as last
+--- frame with no reflective tile below (Reflection.kindOf said 0) is skipped without
+--- building its frame at all -- most of them, on most maps.
 function SpawnManager:reflections(list, camX, camY)
   local vw, vh = 240, 160
   if camX ~= nil and EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
+  local frame = (self._reflFrame or 0) + 1
+  self._reflFrame = frame
   for _, id in ipairs(self.order) do
     local e = self.entities[id]
     local r = e and e.state ~= Config.STATE.DESPAWNED and not travelling(e)
       and inView(e, camX, camY, vw, vh) and e.renderer
     if r and r.reflectionGeometry then
-      local geo = r:reflectionGeometry(e.px, e.py, e.facing, poseOf(e))
-      if geo then
-        local moving = e.moving and e.targetX ~= nil
-        list[#list + 1] = {
-          geo = geo,
-          cell = { cx = moving and e.targetX or e.cellX, cy = moving and e.targetY or e.cellY,
-                   pcx = e.cellX, pcy = e.cellY },
-        }
+      local rec = e._refl
+      if not rec then
+        rec = { geo = {}, cell = {}, at = 0 }
+        e._refl = rec
+      end
+      local moving = e.moving and e.targetX ~= nil
+      local cell = rec.cell
+      local cx, cy = moving and e.targetX or e.cellX, moving and e.targetY or e.cellY
+      local same = cell.cx == cx and cell.cy == cy and cell.pcx == e.cellX and cell.pcy == e.cellY
+      if not (same and cell.kind == 0 and frame - rec.at < REFLECT_RECHECK) then
+        cell.cx, cell.cy, cell.pcx, cell.pcy = cx, cy, e.cellX, e.cellY
+        local geo = r:reflectionGeometry(e.px, e.py, e.facing, poseOf(e), rec.geo)
+        if geo then
+          rec.at = frame
+          list[#list + 1] = rec
+        end
       end
     end
   end
@@ -1415,18 +1435,21 @@ function SpawnManager:collectActors(actors, camX, camY)
       end
     elseif e and e.state ~= Config.STATE.DESPAWNED and inView(e, camX, camY, vw, vh) then
       if e.wakes then -- no `or {}`: that built an empty table per visible entity per frame
-        for _, w in ipairs(e.wakes) do
-          local a = SpawnFx.wakeActor(w.age, Config.SWIM.wake, w.x, w.y, e.elevation, id)
+        for k, w in ipairs(e.wakes) do
+          local a = SpawnFx.wakeActor(w.age, Config.SWIM.wake, w.x, w.y, e.elevation, id, k)
           if a then actors[#actors + 1] = a end
         end
       end
-      local pose = poseOf(e)
-      actors[#actors + 1] = {
-        kind = "wild_mon", i = id,
-        x = e.px, y = e.py, sortY = e.py, elevation = e.elevation,
-        facing = e.facing, walkPhase = pose,
-        renderer = e.renderer,
-      }
+      -- its actor: one table per Pokemon, refilled each frame (the field reads it only in
+      -- the frame it is pushed, and rewrites its draw-order fields every time)
+      local a = e._actor
+      if not a then
+        a = { kind = "wild_mon", i = id }
+        e._actor = a
+      end
+      a.x, a.y, a.sortY, a.elevation = e.px, e.py, e.py, e.elevation
+      a.facing, a.walkPhase, a.renderer = e.facing, poseOf(e), e.renderer
+      actors[#actors + 1] = a
       -- "Sinking into grass" overlay -- see lib/grass_cover.lua. A water
       -- spawn's cell is never grass, so this is a no-op for those without
       -- needing its own terrain check here.

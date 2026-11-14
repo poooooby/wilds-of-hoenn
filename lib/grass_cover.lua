@@ -37,12 +37,62 @@ local FEET_H = 8
 
 -- the cover for one tile: long grass's own art on Route 119 / 120 long grass
 -- (EnginePatch.grassCover), else the tall-grass tuft, frame 4
-local function coverFor(cx, cy)
+local function lookUp(cx, cy)
   if EnginePatch.grassCover then return EnginePatch.grassCover(cx, cy) end
   local sheet = EnginePatch.grassSheet()
   local q = sheet and sheet.quadsFront and sheet.quadsFront[4]
   if q then return sheet, q end
   return nil
+end
+
+-- A map's tiles never change their grass, so each tile's answer is kept until the
+-- next map (GrassCover.reset, lib/spawn_manager.lua onMapEntered): asking the engine
+-- was a few pcalls and a closure per Pokemon in grass per frame. key -> { sheet, quad }
+-- or false (no grass). A grass tile whose sheet is not loaded yet is not kept.
+local tiles = {}
+local NO_GRASS = false
+
+local function coverFor(cx, cy)
+  local k = cy * 65536 + cx
+  local hit = tiles[k]
+  if hit ~= nil then
+    if hit then return hit[1], hit[2] end
+    return nil
+  end
+  if not EnginePatch.isGrass(cx, cy) then
+    tiles[k] = NO_GRASS
+    return nil
+  end
+  local sheet, q = lookUp(cx, cy)
+  if q then tiles[k] = { sheet, q } end
+  return sheet, q
+end
+
+-- One tuft actor per (owner, slot), refilled every frame: the field reads an actor only
+-- in the frame it is pushed, and rewrites its draw-order fields each time. Its draw is
+-- one shared function reading the actor's own fields.
+local pool, pooled = {}, 0
+local POOL_MAX = 512 -- a long stay on one map with churn: start over now and then
+
+local function drawTuft(a, camX, camY)
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(a.sheet.image, a.quad, a.x - camX, a.y - camY)
+end
+
+local function tuft(key)
+  local a = pool[key]
+  if not a then
+    if pooled >= POOL_MAX then pool, pooled = {}, 0 end
+    a = { kind = "field_effect_wild_grass", draw = drawTuft }
+    pool[key] = a
+    pooled = pooled + 1
+  end
+  return a
+end
+
+--- A new map: forget the tiles and the actors.
+function GrassCover.reset()
+  tiles, pool, pooled = {}, {}, 0
 end
 
 --- Appends a grass-tuft overlay actor to `actors` if (cellX, cellY) is a
@@ -59,27 +109,19 @@ end
 --- lib/follower_adapter.lua uses a fixed 0, which no wild-mon id is).
 function GrassCover.append(actors, cellX, cellY, py, elevation, idBase)
   if type(cellX) ~= "number" or type(cellY) ~= "number" or type(py) ~= "number" then return end
-  if not EnginePatch.isGrass(cellX, cellY) then return end
-  local sheet, qStatic = coverFor(cellX, cellY)
-  if not qStatic then return end
-
   local feetY = py + CELL
   local grassTop = cellY * CELL
   local grassBot = grassTop + CELL
   if feetY < grassTop + FEET_H or feetY > grassBot + 2 then return end
+  local sheet, qStatic = coverFor(cellX, cellY)
+  if not qStatic then return end
 
-  local gx, gy = cellX * CELL, cellY * CELL + (CELL - FEET_H)
-  actors[#actors + 1] = {
-    kind = "field_effect_wild_grass",
-    elevation = elevation or 3,
-    sortY = py + 0.5,
-    x = gx, y = gy,
-    i = 90000 + (tonumber(idBase) or 0),
-    draw = function(_, camX, camY)
-      love.graphics.setColor(1, 1, 1, 1)
-      love.graphics.draw(sheet.image, qStatic, gx - camX, gy - camY)
-    end,
-  }
+  local id = tonumber(idBase) or 0
+  local a = tuft(id * 4)
+  a.elevation, a.sortY = elevation or 3, py + 0.5
+  a.x, a.y, a.i = cellX * CELL, cellY * CELL + (CELL - FEET_H), 90000 + id
+  a.sheet, a.quad = sheet, qStatic
+  actors[#actors + 1] = a
 end
 
 --- The same tuft for a sprite drawn away from its own tile (the follower trails
@@ -96,22 +138,15 @@ function GrassCover.appendFeet(actors, fx, fy, width, py, elevation, idBase)
   local half = math.max(1, (tonumber(width) or CELL) / 2)
   local first = math.floor((fx - half) / CELL)
   local last = math.floor((fx + half - 1) / CELL)
+  local id = tonumber(idBase) or 0
   for col = first, math.min(last, first + 2) do
-    local sheet, qStatic
-    if EnginePatch.isGrass(col, row) then sheet, qStatic = coverFor(col, row) end
+    local sheet, qStatic = coverFor(col, row)
     if qStatic then
-      local gx, gy = col * CELL, row * CELL + (CELL - FEET_H)
-      actors[#actors + 1] = {
-        kind = "field_effect_wild_grass",
-        elevation = elevation or 3,
-        sortY = py + 0.5,
-        x = gx, y = gy,
-        i = 90000 + (tonumber(idBase) or 0),
-        draw = function(_, camX, camY)
-          love.graphics.setColor(1, 1, 1, 1)
-          love.graphics.draw(sheet.image, qStatic, gx - camX, gy - camY)
-        end,
-      }
+      local a = tuft(id * 4 + 1 + (col - first))
+      a.elevation, a.sortY = elevation or 3, py + 0.5
+      a.x, a.y, a.i = col * CELL, row * CELL + (CELL - FEET_H), 90000 + id
+      a.sheet, a.quad = sheet, qStatic
+      actors[#actors + 1] = a
     end
   end
 end

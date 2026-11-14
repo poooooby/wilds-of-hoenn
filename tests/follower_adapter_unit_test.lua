@@ -54,6 +54,7 @@ fakeEngine.nationalFor = function(id) if id == 999 then return 252 end return ni
 fakeEngine.isWater = function() return false end
 fakeEngine.playerIsRunning = function() return false end
 fakeEngine.isGrass = function() return false end
+V.require("grass_cover").reset() -- (new grass: forget the old tiles)
 -- shiny by personality (the follower asks with its own trainer ids)
 local shinyPersonalities, shinyAsked = {}, {}
 fakeEngine.isShiny = function(personality, otId, otSecretId)
@@ -61,6 +62,7 @@ fakeEngine.isShiny = function(personality, otId, otSecretId)
   return shinyPersonalities[personality] == true
 end
 fakeEngine.grassSheet = function() return nil end
+V.require("grass_cover").reset() -- (new grass: forget the old tiles)
 
 local FollowerAdapter = V.require("follower_adapter")
 -- these tests are about the Walk <-> Idle switch itself: no grace period (see the linger tests in pmd_renderer_unit_test.lua)
@@ -175,7 +177,9 @@ fakeEngine.isWater = function() return false end
 -- the engine itself, not by this module -- see FollowerAdapter:collectActors).
 npc.cellX, npc.cellY, npc.py, npc.elevation = 2, 3, 3 * 16, 3
 fakeEngine.isGrass = function() return true end
+V.require("grass_cover").reset() -- (new grass: forget the old tiles)
 fakeEngine.grassSheet = function() return { image = "fake_image", quadsFront = { [4] = "fake_quad" } } end
+V.require("grass_cover").reset() -- (new grass: forget the old tiles)
 local followerActors = {}
 fa:collectActors(followerActors)
 check(#followerActors >= 1, "collectActors appends the grass overlay for the follower")
@@ -183,6 +187,7 @@ eq(followerActors[1].kind, "field_effect_wild_grass", "the appended actor is the
 -- every tuft sits on a grass tile, snapped to the grid, however the sprite is offset
 local onlyCol = 2
 fakeEngine.isGrass = function(x, _y) return x == onlyCol end
+V.require("grass_cover").reset() -- (new grass: forget the old tiles)
 fa.renderer.pushY, fa.renderer.pushX, fa.renderer.act = -6, 5, { dy = -2 }
 local movedActors = {}
 fa:collectActors(movedActors)
@@ -193,6 +198,7 @@ for _, a in ipairs(movedActors) do
   eq((a.y - 8) % 16, 0, "...and to a tile row")
 end
 fakeEngine.isGrass = function() return true end
+V.require("grass_cover").reset() -- (new grass: forget the old tiles)
 fa.renderer.pushY, fa.renderer.pushX, fa.renderer.act = nil, nil, nil
 -- a companion inside the player has no grass around it
 fa.renderer.recall = 0
@@ -201,7 +207,9 @@ fa:collectActors(innerActors)
 eq(#innerActors, 0, "a recalled companion has no grass overlay")
 fa.renderer.recall = 1
 fakeEngine.isGrass = function() return false end
+V.require("grass_cover").reset() -- (new grass: forget the old tiles)
 fakeEngine.grassSheet = function() return nil end
+V.require("grass_cover").reset() -- (new grass: forget the old tiles)
 
 -- collectActors on a hidden follower appends nothing.
 npc.hidden = true

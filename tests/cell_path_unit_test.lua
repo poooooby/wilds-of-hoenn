@@ -57,6 +57,33 @@ eq(CellPath.facingOf(0, 1), "down", "facingOf down")
 eq(CellPath.facingOf(0, -1), "up", "facingOf up")
 eq(CellPath.facingOf(1, 1), nil, "a diagonal is not a facing")
 
+-- a goal: stops when it gets there, with the very path a full search finds
+do
+  local asked = 0
+  local counting = function(x, y) asked = asked + 1 return free(x, y) end
+  local full = CellPath.search(1, 1, { free = counting, maxDepth = 20 })
+  local fullAsked = asked
+  asked = 0
+  local toGoal = CellPath.search(1, 1, { free = counting, maxDepth = 20, goalX = 2, goalY = 1 })
+  check(toGoal.found, "the goal is found")
+  check(asked < fullAsked, "...asking about fewer cells (" .. asked .. " < " .. fullAsked .. ")")
+  for _, g in ipairs({ { 2, 1 }, { 5, 1 }, { 2, 3 } }) do
+    local a = CellPath.pathTo(full, g[1], g[2])
+    local b = CellPath.pathTo(CellPath.search(1, 1, { free = free, maxDepth = 20, goalX = g[1], goalY = g[2] }), g[1], g[2])
+    local same = a ~= nil and b ~= nil and #a == #b
+    for i = 1, (same and #a or 0) do same = same and a[i][1] == b[i][1] and a[i][2] == b[i][2] end
+    check(same, ("the path to %d,%d is the same as without a goal"):format(g[1], g[2]))
+  end
+  local none = CellPath.search(1, 1, { free = free, maxDepth = 20, goalX = 3, goalY = 2 })
+  check(not none.found and CellPath.pathTo(none, 3, 2) == nil, "an unreachable goal: not found, no path")
+  check(CellPath.search(4, 4, { free = free, goalX = 4, goalY = 4 }).found, "the start is the goal: found at once")
+  -- keys: negative and big coordinates round-trip
+  for _, c in ipairs({ { 0, 0 }, { -5, 7 }, { 300, -2 }, { 1000, 1000 } }) do
+    local x, y = CellPath.unkey(CellPath.key(c[1], c[2]))
+    check(x == c[1] and y == c[2], ("key %d,%d round-trips"):format(c[1], c[2]))
+  end
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

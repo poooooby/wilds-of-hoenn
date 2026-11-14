@@ -732,15 +732,30 @@ function WaterLife:stepFlight(fx)
   return false
 end
 
+-- One of a fish view's two stand-ins while it takes shape: its shadow and its solid
+-- sprite, each read through to the view but with its own fade / silhouette AND its own
+-- SkyDraw state (`_skyDraw = false` here, so SkyDraw makes one for it -- read through
+-- to the view, both had shared the view's, so the crossfade never showed: the shadow
+-- drawn twice, then the sprite popping in). Made once per view, not per frame.
+local function standIn(view, field)
+  local p = rawget(view, field)
+  if not p then
+    p = setmetatable({ _skyDraw = false }, { __index = view })
+    rawset(view, field, p)
+  end
+  return p
+end
+WaterLife._standIn = standIn
+
 --- Appends the actors of a fish swimming in / out: its shadow, and while it takes shape
 --- (or fades) the solid sprite over it.
 function WaterLife:pushFlight(fx, actors, camX, camY)
   local view = fx.view
   local vw, vh = self.viewSize()
   if view.solid then
-    local shadow = setmetatable({ alpha = (1 - view.solid) * (view.alpha or 1), silhouette = true }, { __index = view })
-    local solid = setmetatable({ id = view.id + 50000, alpha = view.solid * (view.alpha or 1), silhouette = false },
-      { __index = view })
+    local shadow, solid = standIn(view, "_shadowView"), standIn(view, "_solidView")
+    shadow.alpha, shadow.silhouette = (1 - view.solid) * (view.alpha or 1), true
+    solid.id, solid.alpha, solid.silhouette = view.id + 50000, view.solid * (view.alpha or 1), false
     if shadow.alpha > 0.01 then SkyDraw.push(actors, shadow, camX or 0, camY or 0, vw, vh) end
     if solid.alpha > 0.01 then SkyDraw.push(actors, solid, camX or 0, camY or 0, vw, vh) end
   else
@@ -932,8 +947,8 @@ function WaterLife:_dolphinActors(actors, c, cfg)
       if m.puff then puffActor(actors, m.puff, x, y, r, dc, m.scale, c.id * 8 + k) end
     end
   end
-  for _, rg in ipairs(c.rings or {}) do
-    local a = SpawnFx.ringsActor(rg.age, rg.x * 16, rg.y * 16, rg.y * 16, 3, 96500 + c.id)
+  for k, rg in ipairs(c.rings or {}) do
+    local a = SpawnFx.ringsActor(rg.age, rg.x * 16, rg.y * 16, rg.y * 16, 3, 96500 + c.id, k)
     if a then actors[#actors + 1] = a end
   end
   for _, s in ipairs(c.splashes or {}) do
@@ -976,8 +991,8 @@ function WaterLife:collectActors(actors, camX, camY)
         end,
       }
     end
-    for _, rg in ipairs(c.rings or {}) do
-      local a = SpawnFx.ringsActor(rg.age, rg.x * 16, rg.y * 16, rg.y * 16, 3, 96500 + c.id)
+    for k, rg in ipairs(c.rings or {}) do
+      local a = SpawnFx.ringsActor(rg.age, rg.x * 16, rg.y * 16, rg.y * 16, 3, 96500 + c.id, k)
       if a then actors[#actors + 1] = a end
     end
     for _, s in ipairs(c.splashes or {}) do

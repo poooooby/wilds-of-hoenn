@@ -704,11 +704,8 @@ function Config.hasPmdArt(mod)
   if type(mod) ~= "table" then return false end
   local hit = pmdArtCache[mod]
   if hit ~= nil then return hit end
-  local has = false
-  if type(mod.read) == "function" then
-    local ok, data = pcall(mod.read, mod, "assets/pmd/index.json")
-    has = ok and data ~= nil
-  end
+  -- mod:info, not a read: the index is 1.1 MB (it is decoded once, by SpriteSource)
+  local has = V.require("data_file").exists(mod, "assets/pmd/index.json")
   pmdArtCache[mod] = has
   return has
 end
@@ -732,12 +729,55 @@ function Config.withoutPmdStyle(schema)
   return schema
 end
 
-local function optGet(mod, key)
+-- Option values are read many times a tick (Spawn Amount, Sprite Style, Pokecology ...)
+-- and the engine's options:get walks the whole schema for any option the player never
+-- changed. Once main.lua turns the cache on, each value is kept until an option changes
+-- (Config.optionsChanged, from mod.options_changed) or, as a backstop for a change that
+-- was never announced, OPT_CACHE_TICKS field ticks pass (Config.tickOptions).
+local optCache, optCacheOn, optCacheAge = {}, false, 0
+local OPT_CACHE_TICKS = 120
+local NIL = {}
+
+local function optRead(mod, key)
   if mod and mod.options and type(mod.options.get) == "function" then
     local v = mod.options:get(key)
     if v ~= nil then return v end
   end
   return Config.DEFAULTS[key]
+end
+
+local function optGet(mod, key)
+  if not optCacheOn then return optRead(mod, key) end
+  local perMod = optCache[mod or NIL]
+  if not perMod then
+    perMod = {}
+    optCache[mod or NIL] = perMod
+  end
+  local v = perMod[key]
+  if v == nil then
+    v = optRead(mod, key)
+    perMod[key] = v == nil and NIL or v
+    return v
+  end
+  if v == NIL then return nil end
+  return v
+end
+
+--- Turns the option-value cache on (main.lua; the unit tests read options live).
+function Config.cacheOptions(on)
+  optCacheOn = on ~= false
+  optCache, optCacheAge = {}, 0
+end
+
+--- An option changed: read every value afresh.
+function Config.optionsChanged()
+  optCache, optCacheAge = {}, 0
+end
+
+--- Once per field tick (main.lua): forgets the values every OPT_CACHE_TICKS ticks.
+function Config.tickOptions()
+  optCacheAge = optCacheAge + 1
+  if optCacheAge >= OPT_CACHE_TICKS then optCache, optCacheAge = {}, 0 end
 end
 
 function Config.get(mod, key)

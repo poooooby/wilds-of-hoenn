@@ -184,6 +184,7 @@ function Forager:_pathToSpot()
   local res = CellPath.search(cellOf(self.wx), cellOf(self.wy), {
     maxDepth = self.cfg.maxWalk,
     free = function(x, y) return (x == spot.x and y == spot.y) or self:_free(x, y) end,
+    goalX = spot.x, goalY = spot.y,
   })
   local path = CellPath.pathTo(res, spot.x, spot.y)
   if path and #path == 0 then path = { { spot.x, spot.y } } end
@@ -196,6 +197,7 @@ function Forager:_planBack(env)
   local res = CellPath.search(cellOf(self.wx), cellOf(self.wy), {
     maxDepth = self.cfg.maxWalk * 2,
     free = function(x, y) return (x == env.fx and y == env.fy) or self:_free(x, y) end,
+    goalX = env.fx, goalY = env.fy,
   })
   local path = CellPath.pathTo(res, env.fx, env.fy)
   self.path, self.idx = path or {}, 1

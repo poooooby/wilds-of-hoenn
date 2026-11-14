@@ -82,6 +82,12 @@ return function(mod)
   local I18n = V.require("i18n")
   I18n.setLanguage(Config.language(mod))
   Config.defineOptions(mod)
+  -- option values are cached from here on (lib/config.lua); a change clears them first,
+  -- before any other handler reads the new value (this handler is registered first)
+  Config.cacheOptions(true)
+  mod.events:on("mod.options_changed", function(ev)
+    if ev and ev.mod == mod.id then Config.optionsChanged() end
+  end)
   mod.events:on("mod.options_changed", function(ev)
     if not (ev and ev.mod == mod.id and ev.key == "language") then return end
     I18n.setLanguage(Config.language(mod))
@@ -96,6 +102,16 @@ return function(mod)
   local atlasOk, atlasReason = SpriteAtlas.install(mod)
   SpriteAtlas.configure({ maxShards = Config.ATLAS_MAX_SHARDS })
   mod.log:info("[wilds_of_hoenn] sprite atlas: %s", atlasOk and "installed" or tostring(atlasReason))
+  -- The big JSON indexes are decoded now, while the game boots, not in the middle of
+  -- play: the PMD index (1.1 MB) used to be read on the first map's first spawn
+  -- (~146 ms in game), each atlas family's on its first sheet.
+  do
+    local t0 = os.clock()
+    local families = atlasOk and SpriteAtlas.preload() or 0
+    if Config.hasPmdArt(mod) then V.require("sprite_source").pmdIndex(mod) end
+    mod.log:info("[wilds_of_hoenn] indexes read at boot (%d atlas families): %.0f ms", families,
+      (os.clock() - t0) * 1000)
+  end
 
   mod.exports = mod.exports or {}
   mod.exports.version = "2.0.0"
@@ -276,6 +292,7 @@ return function(mod)
   followerAdapter.behaviors.battle = battler
   mod.exports.battler = battler
 
+  local reflList = {} -- the drawBehind hook's reflection list, emptied and refilled each frame
   local installed = EnginePatch.install({
     collectActors = function(actors, camX, camY)
       spawnManager:collectActors(actors, camX, camY)
@@ -317,7 +334,8 @@ return function(mod)
     -- water reflections of the wild Pokemon and the follower (lib/reflection.lua),
     -- drawn just before the engine's own reflections of the player and NPCs
     drawBehind = function(camX, camY)
-      local list = {}
+      local list = reflList
+      for i = #list, 1, -1 do list[i] = nil end
       spawnManager:reflections(list, camX, camY)
       followerAdapter:reflections(list)
       if #list > 0 then Reflection.drawAll(list, camX, camY) end
@@ -352,6 +370,8 @@ return function(mod)
       return true
     end,
     followerTick = function(game)
+      HdField.beginFrame()
+      Config.tickOptions()
       spawnManager:tick(game)
       skyFlyers:tick()
       waterLife:tick()

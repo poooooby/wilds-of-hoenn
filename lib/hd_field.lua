@@ -30,11 +30,34 @@ local MIN_SCALE, MAX_SCALE = 0.2, 2
 
 local specs = setmetatable({}, { __mode = "k" }) -- image -> { scale, factor, path, ... }
 
-local function library(mod)
+-- Per-frame caching. The renderers ask "is the library there, is it drawing the
+-- field?" 10-30 times a frame (sizes, head heights, reflections), and every mod.find
+-- builds a fresh table (Loader) plus pcalls. HdField.beginFrame() (main.lua, once per
+-- field tick) advances `frame`; while it is 0 (the unit tests) nothing is cached.
+HdField.frame = 0
+local RECHECK_FRAMES = 60 -- a missing library is looked for again about once a second
+local libCache = setmetatable({}, { __mode = "k" }) -- mod -> { ex | false, frame }
+local activeCache = setmetatable({}, { __mode = "k" }) -- mod -> { on, frame }
+
+function HdField.beginFrame()
+  HdField.frame = HdField.frame + 1
+end
+
+local function findLibrary(mod)
   if not (mod and type(mod.find) == "function") then return nil end
   local ok, found = pcall(mod.find, mod, "gen3-hd-sprites")
   local ex = ok and found and found.exports
   if type(ex) ~= "table" or type(ex.tag) ~= "function" then return nil end
+  return ex
+end
+
+local function library(mod)
+  local frame = HdField.frame
+  if frame == 0 or not mod then return findLibrary(mod) end
+  local hit = libCache[mod]
+  if hit and (hit[1] or frame - hit[2] < RECHECK_FRAMES) then return hit[1] or nil end
+  local ex = findLibrary(mod)
+  if hit then hit[1], hit[2] = ex or false, frame else libCache[mod] = { ex or false, frame } end
   return ex
 end
 
@@ -187,8 +210,7 @@ function HdField.setSpeciesSizes(on)
   return HdField.speciesSizes
 end
 
---- Is the library there and drawing the field at full resolution right now?
-function HdField.active(mod)
+local function activeNow(mod)
   local ex = library(mod)
   if not ex then return false end
   if type(ex.isActive) == "function" then
@@ -200,6 +222,18 @@ function HdField.active(mod)
     if ok and on == false then return false end
   end
   return true
+end
+
+--- Is the library there and drawing the field at full resolution right now? (Answered
+--- once per frame.)
+function HdField.active(mod)
+  local frame = HdField.frame
+  if frame == 0 or not mod then return activeNow(mod) end
+  local hit = activeCache[mod]
+  if hit and hit[2] == frame then return hit[1] end
+  local on = activeNow(mod)
+  if hit then hit[1], hit[2] = on, frame else activeCache[mod] = { on, frame } end
+  return on
 end
 
 --- How big the sheet at `path` is actually drawn (1 without the library): what a

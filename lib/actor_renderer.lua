@@ -196,7 +196,14 @@ local function loadImage(mod, path)
   local t0 = clock()
   if t0 - loadWin.at > ActorRenderer.LOAD_WINDOW then loadWin.at, loadWin.spent = t0, 0 end
   local img
-  if mod and mod.assets and type(mod.assets.image) == "function" then
+  -- a release ZIP has no per-file sheets: the atlas first (two failing file loads
+  -- per new sheet otherwise, each building an error string)
+  local atlased = mod and SpriteAtlas.only() and SpriteAtlas.has(path)
+  if atlased then
+    local ok, loaded = pcall(SpriteAtlas.image, mod, path)
+    if ok then img = loaded end
+  end
+  if not img and mod and mod.assets and type(mod.assets.image) == "function" then
     local ok, loaded = pcall(mod.assets.image, mod, path)
     if ok then img = loaded end
   end
@@ -204,7 +211,7 @@ local function loadImage(mod, path)
     local ok, loaded = pcall(love.graphics.newImage, path)
     if ok then img = loaded end
   end
-  if not img and mod and SpriteAtlas.installed() then
+  if not img and mod and SpriteAtlas.installed() and not atlased then
     local ok, loaded = pcall(SpriteAtlas.image, mod, path)
     if ok then img = loaded end
   end
@@ -337,10 +344,15 @@ function ActorRenderer:visualWidth()
 end
 
 --- A sheet's pixels (ImageData) for measuring its art: the per-file sheet first, then the
---- atlas (lib/sprite_atlas.lua), like loadImage. nil when unreadable (no love context,
---- missing sheet). Not cached: callers cache what they measure.
+--- atlas (lib/sprite_atlas.lua), like loadImage (the atlas first in a release ZIP). nil
+--- when unreadable (no love context, missing sheet). Read only: an atlas sheet's pixels
+--- are shared with its recent-sheets cache. Callers cache what they measure.
 function ActorRenderer.sheetData(mod, path)
   if not (love and love.image and love.image.newImageData) then return nil end
+  if mod and SpriteAtlas.only() and SpriteAtlas.has(path) then
+    local okA, a = pcall(SpriteAtlas.sheetData, mod, path)
+    if okA and a then return a end
+  end
   local full = mod and mod.assets and type(mod.assets.path) == "function"
     and select(2, pcall(mod.assets.path, mod.assets, path)) or path
   local ok, d = pcall(love.image.newImageData, full)
@@ -549,7 +561,8 @@ function ActorRenderer.swimDropFor(path)
   return 0
 end
 
-function ActorRenderer:reflectionGeometry(x, y, facing, walkPhase)
+-- `out` (optional): a table to fill instead of a new one (the callers keep one per sprite)
+function ActorRenderer:reflectionGeometry(x, y, facing, walkPhase, out)
   if self.silhouette or (self.recall or 1) < 1 then return nil end
   local act = self.act
   if act and act.facing then facing = act.facing end
@@ -572,13 +585,13 @@ function ActorRenderer:reflectionGeometry(x, y, facing, walkPhase)
   local boxLeft = x + (flipX < 0 and drawX - frameW or drawX) + pushX
   local bottom = y + drawY + pushY + frameH
   local k = HdField.scaleOfPath(self.mod, path) or 1
-  return {
-    mod = self.mod, image = image,
-    qx = qx, qy = qy, qw = frameW, rows = frameH - pad,
-    left = boxLeft + frameW / 2 - frameW * k / 2, mirror = bottom - pad * k,
-    sx = flipX * k, sy = k,
-    alpha = ActorRenderer.alphaOf(self),
-  }
+  local g = out or {}
+  g.mod, g.image = self.mod, image
+  g.qx, g.qy, g.qw, g.rows = qx, qy, frameW, frameH - pad
+  g.left, g.mirror = boxLeft + frameW / 2 - frameW * k / 2, bottom - pad * k
+  g.sx, g.sy = flipX * k, k
+  g.alpha = ActorRenderer.alphaOf(self)
+  return g
 end
 
 function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
