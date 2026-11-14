@@ -159,7 +159,7 @@ rooftops, with little scenes waiting in special places.*
   sight. Old rivals fight whenever they meet: Zangoose and Seviper, Sableye and Mawile,
   Solrock and Lunatone, Heracross, Pinsir and Scyther, Heatmor and Durant, Karrablast and
   Shelmet, Tinkaton and Corviknight, and Sharpedo against Wailmer and Wailord out at sea. Walk into either fighter to battle it at
-  the HP the fight left it with. Part of **Wild Reacts**.
+  the HP the fight left it with. Part of **Pokecology**.
 - 🌙 **Day and night:** wild Pokémon keep their own hours by the game's clock (FireRed and
   LeafGreen keep none, so they go by your computer's). At night many birds, bugs and plants are
   found curled up asleep, z's floating over them; by day the night owls doze (Zubat, Hoothoot,
@@ -168,13 +168,13 @@ rooftops, with little scenes waiting in special places.*
   After dark the ones that glow light up: Volbeat drawing trails of light as they fly about,
   Chinchou and Lanturn lures (still shining when they dive), Charmander tail flames, Litwick
   and Chandelure candles, Morelull caps, Finneon and Lumineon fins, Ponyta manes.
-  Part of **Wild Reacts**.
+  Part of **Pokecology**.
 - 🕳️ **Diggers and sea birds:** Diglett, Sandshrew, Trapinch and other diggers sink into the
   ground in a puff of dust and pop up a few tiles away, and duck underground instead of running
   when startled. Wingull and Pelipper resting on the sea fly up now and then and plunge in after
   a fish (a Cramorant comes back up with an Arrokuda in its beak, and gulps it down). A flock
   of birds comes down together and takes off together, one after another.
-  Part of **Wild Reacts**.
+  Part of **Pokecology**.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
   softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on
   roofs, trees and signposts (and fly off when you walk up); real sea birds (Wingull, Pelipper and
@@ -221,7 +221,7 @@ menu opens the same list.
 | **Flying Mons** | FULL / AMBIENT / OFF | FULL | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. Full adds big birds flying high overhead, softly out of focus; Ambient leaves those out. |
 | **Water Life** | ON / OFF | ON | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, Finizen porpoising out at sea (sometimes a whole pod at play), and fish swimming by under the sea when you dive, just for the scenery. |
 | **Local Scenes** | ON / OFF | ON | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
-| **Wild Reacts** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Skittish and territorial kinds react to walking too, placid ones never. They also live like their kind: packs and schools keep together, fish leap, whales blow spouts, sea birds dive for fish, some sleep by night (or by day), diggers burrow. Off: they each just wander. |
+| **Pokecology** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Skittish and territorial kinds react to walking too, placid ones never. They also live like their kind: packs and schools keep together, fish leap, whales blow spouts, sea birds dive for fish, some sleep by night (or by day), diggers burrow. Off: they each just wander. |
 | **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. |
 | **Follower** | ON / OFF | ON | Your partner walks behind you. Off: it stays in its Poké Ball, and its Battle and Forage jobs and Pet / Play / Talk wait until it is out again. Changing your party order still picks your partner. |
 | **Battler: Pad** | R / L / OFF | OFF | A controller shoulder button that switches your partner between Battle and Follow while you walk around. In FireRed / LeafGreen that button no longer opens Help in the overworld (the other one still does). |

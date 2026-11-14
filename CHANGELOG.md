@@ -4,6 +4,8 @@
 
 ### Changed
 
+- **Wild Reacts is now called Pokecology.** The option covers far more than reactions now:
+  packs, herds, hunts, sleepers, leaping fish and the rest. Your setting carries over.
 - **Groups move as one.** While a pack, herd or other group is on the move, every member faces
   the way its leader is going, and nobody stops for a pose of its own. Only once the group is
   standing still do the members look about and do their own thing.

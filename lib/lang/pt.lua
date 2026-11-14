@@ -11,7 +11,7 @@ return {
   ["option|Flying Mons"] = "Voadores",
   ["option|Water Life"] = "Vida aquática",
   ["option|Local Scenes"] = "Cenas locais",
-  ["option|Wild Reacts"] = "Reagir",
+  ["option|Pokecology"] = "Pokecology",
   ["option|Sprite Style"] = "Estilo sprite",
   ["option|Follower"] = "Companheiro",
   ["option|Battler: Pad"] = "Luta: controle",

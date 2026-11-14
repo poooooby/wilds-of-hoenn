@@ -11,7 +11,7 @@ return {
   ["option|Flying Mons"] = "とぶ ポケモン",
   ["option|Water Life"] = "みずの いきもの",
   ["option|Local Scenes"] = "ばしょの けしき",
-  ["option|Wild Reacts"] = "やせい はんのう",
+  ["option|Pokecology"] = "ポケコロジー",
   ["option|Sprite Style"] = "スプライト",
   ["option|Follower"] = "つれあるき",
   ["option|Battler: Pad"] = "バトラー：パッド",
