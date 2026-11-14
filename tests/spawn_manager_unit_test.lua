@@ -171,7 +171,8 @@ do
     "pack members each follow and idle at their own pace")
   -- the leader rears up: who joins in, when, how fast
   local function fakeR()
-    local r = { isPmd = true, info = { idle = {}, rearup = {}, eat = {}, hop = {} } }
+    local r = { isPmd = true, info = { idle = {}, rearup = {}, eat = {}, hop = {},
+      sit = { facing = "up", durations = { 8, 8, 8 } } } }
     function r:advanceAs(anim, speed) self.anim, self.speed = anim, speed end
     return r
   end
@@ -200,6 +201,20 @@ do
   end
   check(not mates[1].riderAnim and not mates[2].riderAnim, "a member that does not join just looks about")
   vc.join.pack = realJoin
+  -- the leader sits down (a back view): the members sit with it, then get up when it does
+  vc.join.pack = 100
+  leader.eco = { kind = "pose", groupAnim = "sit" }
+  for _ = 1, vc.joinLag[2] + 2 do
+    sm.ticks = sm.ticks + 1
+    for _, m in ipairs(mates) do sm:_tickRider(m) end
+  end
+  check(mates[1].renderer.anim == "sit" and mates[1].facing == "up", "sitting with the leader, back to the camera")
+  leader.eco.unwinding = true
+  sm.ticks = sm.ticks + 1
+  for _, m in ipairs(mates) do sm:_tickRider(m) end
+  check(mates[1].renderer.speed < 0, "...and getting up when it does (the pose played back)")
+  vc.join.pack = realJoin
+  leader.eco = nil
   -- the leader standing: now and then a member does its own thing
   leader.eco = nil
   for _, m in ipairs(mates) do m.vary.asideAt = sm.ticks + 1 end
@@ -207,9 +222,11 @@ do
   for _, m in ipairs(mates) do sm:_tickRider(m) end
   local own = 0
   for _, m in ipairs(mates) do
-    if m.riderAnim and (m.renderer.anim == "eat" or m.renderer.anim == "hop") then own = own + 1 end
+    local a = m.renderer.anim
+    if m.riderAnim and (a == "eat" or a == "hop" or a == "sit") then own = own + 1 end
+    if a == "sit" then check(m.facing == "up", "...one sitting down turns its back to the camera") end
   end
-  eq(own, 2, "the leader standing: a member eats or hops on its own")
+  eq(own, 2, "the leader standing: a member eats, hops or sits on its own")
   leader.moving = true
   for _, m in ipairs(mates) do sm:_tickRider(m) end
   check(not mates[1].riderAnim and not mates[1].vary.aside, "...and stops when the pack moves off")

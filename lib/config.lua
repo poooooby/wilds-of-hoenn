@@ -187,7 +187,8 @@ Config.ECO = {
               poseSpeed = { 0.8, 1.2 },
               -- now and then, while the leader stands, a member does its own thing
               aside = { every = { 600, 1500 }, ticks = { 60, 140 },
-                        anims = { pack = { "eat", "hop" }, herd = { "eat" }, huddle = { "nap" } } },
+                        anims = { pack = { "eat", "hop", "sit" }, herd = { "eat", "sit" },
+                                  huddle = { "nap", "sit" } } },
             } },
   -- on land (lib/eco_land.lua), by the group's `social` (a lone Pokemon: soloGraze)
   land = {
@@ -199,6 +200,10 @@ Config.ECO = {
     buzz = { every = { 90, 240 }, steps = { 1, 3 }, frames = 10 },   -- a swarm darts about
     nap = { every = { 900, 2400 }, ticks = { 600, 1500 }, wakeRadius = 1, wakeTicks = 40 }, -- a huddle naps (EventSleep, Wake)
     soloGraze = { every = { 1200, 2400 } },                 -- a lone grazer with Eat art stops to eat
+    -- sits down a while, its back to the camera (Sit), getting up when the player comes close
+    sit = { every = { 1800, 3600 }, ticks = { 240, 480 }, rouseRadius = 1 },
+    -- a bird flying over: those with LookUp art look up at it (each once per bird)
+    lookUp = { chance = 60, ticks = { 50, 110 } },
   },
   -- predators and prey (lib/eco_hunt.lua): one hunt at a time per map
   hunt = {

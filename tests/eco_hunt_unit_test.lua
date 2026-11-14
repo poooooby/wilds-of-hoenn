@@ -144,8 +144,9 @@ do
   local state, ctx, tick, despawned = world(list)
   local realEscape = Config.ECO.hunt.escapeChance
   Config.ECO.hunt.escapeChance = 0 -- this one fights it out
+  prey.renderer.info.faint = { durations = { 8, 12, 4, 10 } }
   EcoHunt.start(pred, prey, "hunt", ctx, state)
-  local sawFight, sawBars, sawKo = false, false, false
+  local sawFight, sawBars, sawKo, sawFaint = false, false, false, false
   for _ = 1, 3000 do
     tick()
     local a = state.active
@@ -154,13 +155,14 @@ do
       local actors = {}
       EcoHunt.collectActors(state, actors)
       if #actors >= 2 then sawBars = true end
-      if a.sk.phase == "ko" then sawKo = true end
+      if a.sk.phase == "ko" then sawKo = true sawFaint = sawFaint or prey.renderer.anim == "faint" end
     end
     if #despawned > 0 then break end
   end
   check(sawFight, "caught: they fight")
   check(sawBars, "...with health bars over both")
   check(sawKo, "...the prey faints")
+  check(sawFaint, "...keeling over (its Faint art)")
   eq(despawned[1], prey, "...and is gone once it has sunk away")
   eq(pred.eco, nil, "the hunter is free again")
   eq(state.active, nil, "the hunt is over")

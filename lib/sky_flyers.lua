@@ -771,6 +771,7 @@ function SkyFlyers:collectActors(actors, camX, camY)
       local sx = b.sx - (camX - b.cam0.x) * p
       local sy = b.sy - (camY - b.cam0.y) * p
       b.x, b.y = FlightPath.fromScreen(sx - 8, sy - 16, p, camX, camY, vw, vh)
+      b.onScreen = sx >= 0 and sx <= vw and sy >= 0 and sy <= vh
     end
     SkyDraw.push(actors, b, camX or 0, camY or 0, vw, vh)
     if b.rings and b.cellX then
@@ -780,6 +781,15 @@ function SkyFlyers:collectActors(actors, camX, camY)
       end
     end
   end
+end
+
+--- A passer flying across the view right now (wild Pokemon look up at it: lib/eco_land.lua),
+--- or nil.
+function SkyFlyers:passerOver()
+  for _, b in ipairs(self.birds) do
+    if b.kind == "passer" and b.onScreen then return b end
+  end
+  return nil
 end
 
 --- How many ambient birds are out (tests, tools).

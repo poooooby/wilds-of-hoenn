@@ -630,13 +630,16 @@ function OverworldBattle:_mode_win(env)
   self.wx, self.wy = self.baseX, self.baseY
   local sink = 0
   if self.t > cfg.winPause then sink = math.min(1, (self.t - cfg.winPause) / cfg.sinkTicks) end
+  -- it keels over where it stood (Faint art, on land), then lies there while it sinks
+  local r = e.renderer
+  local down = (r and r.isPmd and not r.swimming and r.info and r.info.faint) and "faint" or "idle"
   -- a Ghost-type knockout: it fades away where it stood instead of sinking
-  if self.koFades and e.renderer then
-    e.renderer.alpha = 1 - sink
+  if self.koFades and r then
+    r.alpha = 1 - sink
     self.shadedBy = e
-    self:_wildVisual("idle", 1, 0, 0, nil, nil)
+    self:_wildVisual(down, 1, 0, 0, nil, nil)
   else
-    self:_wildVisual("idle", 1, 0, 0, nil, sink)
+    self:_wildVisual(down, 1, 0, 0, nil, sink)
   end
   if sink >= 1 then
     -- gone; the EXP

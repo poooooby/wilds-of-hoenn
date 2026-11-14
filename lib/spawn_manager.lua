@@ -506,7 +506,14 @@ local function riderPose(e, l, g, v, now, rng)
       v.ga = ga -- the same pose going on (a nap waking): with a short lag of its own
       v.joinAt = now + rng(0, math.floor(c.joinLag[2] / 2))
     end
-    if v.joins and now >= v.joinAt then return ga, v.poseSpeed end
+    if v.joins and now >= v.joinAt then
+      local r = e.renderer
+      -- a back-view pose (Sit, LookUp) turns it away from the camera too
+      local f = r and r.isPmd and PmdRenderer.facingOf(r.info, ga)
+      if f then e.facing = f end
+      -- the leader getting up again / looking back down: so does it
+      return ga, l.eco.unwinding and -v.poseSpeed or v.poseSpeed
+    end
     return nil
   end
   v.gaEco, v.ga = nil, nil
@@ -519,18 +526,22 @@ local function riderPose(e, l, g, v, now, rng)
     if a.t > a.n or near then
       if a.anim == "nap" and EcoLand._hasAnim(e, "wake") then
         v.aside = { anim = "wake", n = Config.ECO.land.nap.wakeTicks, t = 0 }
+      elseif PmdRenderer.ONCE[a.anim] and not a.back then
+        -- (sat down: it gets up again, the pose played back)
+        a.back, a.t, a.n = true, 0, PmdRenderer.animTicks(e.renderer.info, a.anim)
       else
         v.aside = nil
         return nil
       end
     end
-    return v.aside.anim, 1
+    return v.aside.anim, v.aside.back and -1 or 1
   end
   local list = c.aside.anims[g.social]
   if list and due(v, "asideAt", now, c.aside.every, rng) then
     local anim = list[rng(1, #list)]
     if EcoLand._hasAnim(e, anim) then
       v.aside = { anim = anim, n = rng(c.aside.ticks[1], c.aside.ticks[2]), t = 0 }
+      e.facing = PmdRenderer.facingOf(e.renderer.info, anim) or e.facing
       return anim, 1
     end
   end
@@ -1215,6 +1226,8 @@ function SpawnManager:tick(game)
             e.charging = e.charging > 1 and e.charging - 1 or nil
           end
         end
+      elseif r and r.isPmd and e.react and e.react.anim then
+        r:advanceAs(e.react.anim, 1) -- a startled bound away (LeapForth)
       elseif r and r.advance and not e.eco and not e.riderAnim then
         -- (an ecology activity drives its own animation: a leap's Hop, a whale's RearUp)
         e.charging = nil

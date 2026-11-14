@@ -287,6 +287,17 @@ WildReactions._goalOf = goalOf
 
 --- One tick of `e`'s reaction. `ctx` = { now, rng, game, player = playerCell(),
 --- occupied(x, y, self), onContact(e), onCatch(e, target), takeoff(e) }.
+--- Ticks a bound away takes when `e` can make one heading `dir` (PMD LeapForth art, on
+--- land, its sheet showing that facing -- most are one back-view row: "up" only), else nil.
+function WildReactions.leapTicks(e, dir)
+  local r = e.renderer
+  local entry = e.terrain == "land" and r and r.isPmd and r.info and r.info.leapforth
+  if type(entry) ~= "table" or (entry.facing and entry.facing ~= dir) then return nil end
+  local n = 0
+  for _, d in ipairs(entry.durations or {}) do n = n + d end
+  return n > 0 and n or nil
+end
+
 function WildReactions.tick(e, ctx)
   local cfg, rng = Config.REACT, ctx.rng or math.random
   local r = e.react
@@ -344,6 +355,15 @@ function WildReactions.tick(e, ctx)
   end
 
   if r.mode == "flee" then
+    if r.leap then
+      -- mid-bound: the art leaps off (LeapForth climbs about a tile); it lands a tile on
+      r.leap.t = r.leap.t + 1
+      if r.leap.t < r.leap.n then return end
+      local dir = r.leap.dir
+      r.leap, r.anim = nil, nil
+      if Behavior.tryStep(e, ctx.game, dir, 1) then r.steps = r.steps - 1 end
+      return
+    end
     if r.steps <= 0 or not p then
       finish(e, ctx.now, cfg.cooldown, rng)
       -- at the end of its run some of them disappear into the grass / the cave's dark
@@ -354,6 +374,16 @@ function WildReactions.tick(e, ctx)
       local dd = Behavior.DELTA[d]
       return not (ctx.occupied and ctx.occupied(e.cellX + dd[1], e.cellY + dd[2], e))
     end)
+    -- its first step away, if the art can: a bound instead of a step
+    local leap = dir and not r.leapt and WildReactions.leapTicks(e, dir)
+    if leap then
+      r.leapt = true
+      local dd = Behavior.DELTA[dir]
+      if Behavior._canStep(e, ctx.game, e.cellX + dd[1], e.cellY + dd[2]) then
+        r.leap, r.anim, e.facing = { t = 0, n = leap, dir = dir }, "leapforth", dir
+        return
+      end
+    end
     if dir and Behavior.tryStep(e, ctx.game, dir, cfg.flee.frames) then
       r.steps = r.steps - 1
     else

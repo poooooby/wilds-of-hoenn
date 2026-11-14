@@ -69,11 +69,12 @@ ANIMS = ("walk", "idle")  # output names; SpriteCollab names are Walk / Idle
 # Used by the overworld fights (the Battler's blows and a struck Pokemon's flinch);
 # a species without one simply plays a rapid Idle instead, so they never fail a bake.
 OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop", "sleep", "dance", "rotate",
-                  "rearup", "eat", "nap", "wake", "bite")
+                  "rearup", "eat", "nap", "wake", "bite", "faint", "sit", "lookup", "leapforth")
 # SpriteCollab: Attack (else Strike) / Hurt / Hover / Hop / Sleep / Dance / Rotate, and for
 # Wild Ecology (lib/eco*.lua) RearUp / Eat / EventSleep / Wake / Bite.
 # Output name -> SpriteCollab animation name when they differ.
-SOURCE_ANIM = {"fly": "Hover", "rearup": "RearUp", "nap": "EventSleep"}
+SOURCE_ANIM = {"fly": "Hover", "rearup": "RearUp", "nap": "EventSleep", "lookup": "LookUp",
+               "leapforth": "LeapForth"}
 # Wild Ecology's animations are baked only from a REAL sheet of that name: an AnimData entry
 # that is a <CopyOf> another animation (RearUp copying Idle ...) is not that pose. Eat's sheet
 # has one row (no facing): eight_rows repeats it for every direction, like Sleep.
@@ -84,7 +85,18 @@ SOURCE_ANIM = {"fly": "Hover", "rearup": "RearUp", "nap": "EventSleep"}
 #   bite   -- a hunter's catch (Bite: Carvanha, Sharpedo, Seviper, Trapinch ...)
 #   sleep  -- curled up asleep, one row (Sleep, every Gen 1-3 species): a day Pokemon at night,
 #             a night one by day (lib/eco_sleep.lua), Slakoth on its tree top (Local Scenes)
-ECO_ANIMS = {"rearup", "eat", "nap", "wake", "bite", "sleep"}
+#   faint  -- a knocked-out Pokemon keeling over (Faint: a hunt's prey, the Battler's foe)
+#   sit    -- sitting down to rest, seen from behind (Sit, one row)
+#   lookup -- looking up at a bird flying over, seen from behind (LookUp, one row)
+#   leapforth -- a startled Pokemon's bound away up the screen (LeapForth, one row seen from
+#             behind for nearly every species; the art itself climbs about a tile)
+ECO_ANIMS = {"rearup", "eat", "nap", "wake", "bite", "sleep", "faint", "sit", "lookup", "leapforth"}
+# One-row animations that are BACK views (PMD's "looking at the sky" cutscene poses): baked
+# with `facing = "up"`, so the game turns the Pokemon away from the camera to play them.
+BACK_VIEW_ANIMS = {"sit", "lookup", "leapforth"}
+# Played once and held on their last frame (lib/pmd_renderer.lua ONCE): stand on frame 0, not
+# the duration-weighted median (LeapForth's frames after the first are all in the air).
+FOOT_FIRST_FRAME = {"leapforth"}
 # "fly" (a flying Pokemon in the sky, lib/sky_flyers.lua): a REAL Hover-Anim.png only (an
 # AnimData "Hover" that is a <CopyOf> another animation -- Zubat's Shoot, Applin's Charge --
 # is not flight art), unless the species is listed here (the flyer audit, national dex ->
@@ -121,7 +133,8 @@ def fly_meta(dex: int, anims: dict) -> dict | None:
         meta = dict(meta, pick=FLAP_PICK, pickDurations=[FLAP_TICKS] * len(FLAP_PICK))
     return meta
 # Animations never drawn swimming: no foam band is baked for them.
-NO_WATER_ANIMS = {"fly", "hop", "sleep", "dance", "rotate", "rearup", "eat", "nap", "wake", "bite"}
+NO_WATER_ANIMS = {"fly", "hop", "sleep", "dance", "rotate", "rearup", "eat", "nap", "wake", "bite",
+                  "faint", "sit", "lookup", "leapforth"}
 # "hop" is baked for every species that has one (SpriteCollab: all of them): a fish's leap out
 # of the water (lib/eco_water.lua, lib/water_life.lua), and Wild Ecology's other hops.
 # Only for the Local Scenes that use them (lib/local_scenes.lua, Petalburg Woods): Vigoroth
@@ -410,7 +423,7 @@ def waterline_of(sheet: Image.Image, entry: dict, keep: float) -> int | None:
     return max(3, min(ch, round(statistics.median(ws))))
 
 
-def foot_of(sheet: Image.Image, entry: dict) -> float | None:
+def foot_of(sheet: Image.Image, entry: dict, first_frame: bool = False) -> float | None:
     """Where the art stands (cell pixels): the bottom edge it shows most of the time --
     the median of the frames' bottom edges, each frame weighted by how long it is held
     (`durations`), so a bouncing sprite (Kakuna's Idle: 40 ticks resting on its shadow,
@@ -421,6 +434,8 @@ def foot_of(sheet: Image.Image, entry: dict) -> float | None:
     durations = entry.get("durations") or []
     weighted = []  # (bottom, ticks)
     for x, y in cells_of(entry):
+        if first_frame and x // cw != 0:
+            continue  # (`first_frame`: where it stands before it leaps -- LeapForth)
         box = sheet.crop((x, y, x + cw, y + ch)).getchannel("A").getbbox()
         if box:
             col = x // cw
@@ -911,8 +926,13 @@ def main() -> int:
                         (out / f"foam{anim}" / f"{key}-{variant}.png").unlink(missing_ok=True)
                     continue
                 info, normal, shiny = result
-                info["foot"] = foot_of(normal, info)
+                info["foot"] = foot_of(normal, info, first_frame=anim in FOOT_FIRST_FRAME)
                 info["top"] = top_of(normal, info)
+                if anim in BACK_VIEW_ANIMS and info.get("rows") == 1:
+                    info["facing"] = "up"
+                if anim in FOOT_FIRST_FRAME and info["foot"] is not None:
+                    # LeapForth's shadow point marks mid-leap: it stands where it takes off
+                    info["shadowY"], info["ay"] = info["ay"], info["foot"] - 1
                 walk_shift = walk_recolorer(walk_pair, entry) if shiny is None else None
                 if walk_shift is not None:
                     # no shiny art for this animation upstream, but SpriteCollab's own shiny

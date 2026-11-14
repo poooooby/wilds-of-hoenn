@@ -141,6 +141,69 @@ do
   player = { x = 30, y = 30 }
 end
 
+-- ------- sitting down (a back view: it turns away first), getting up again
+do
+  local e = mon("solo", {})
+  local speeds = {}
+  e.renderer.info.sit = { durations = { 8, 8, 8 }, rows = 1, facing = "up" }
+  function e.renderer:advanceAs(a, speed) self.anim = a speeds[#speeds + 1] = speed end
+  Eco.start(e, "pose", EcoLand.poseState(e, "sit", 40, { rouse = 1 }))
+  Eco.step(e, ctx(), nil)
+  eq(e.facing, "up", "sitting down: it turns its back to the camera")
+  eq(e.renderer.anim, "sit", "...and sits (Sit)")
+  eq(e.eco.groupAnim, "sit", "...its group with it")
+  for _ = 1, 45 do Eco.step(e, ctx(), nil) end
+  check(e.eco and e.eco.unwinding and speeds[#speeds] == -1, "the time up: it gets up again, the pose played back")
+  for _ = 1, 30 do if e.eco then Eco.step(e, ctx(), nil) end end
+  eq(e.eco, nil, "...then it is done")
+  -- the player walking right up to it: it gets up at once
+  local s = mon("solo", {})
+  s.renderer.info.sit = { durations = { 8, 8, 8 }, rows = 1, facing = "up" }
+  Eco.start(s, "pose", EcoLand.poseState(s, "sit", 400, { rouse = 1 }))
+  for _ = 1, 5 do Eco.step(s, ctx(), nil) end
+  player = { x = 6, y = 5 }
+  Eco.step(s, ctx(), nil)
+  check(s.eco and s.eco.unwinding, "the player beside it: it gets up")
+  player = { x = 30, y = 30 }
+  -- the chooser: only with Sit art, never a swarm
+  local plain, sitter = mon("solo", {}), mon("solo", {})
+  sitter.renderer.info.sit = { durations = { 8, 8, 8 }, rows = 1, facing = "up" }
+  local cfg = Config.ECO.land.sit
+  sitter.ecoDue, plain.ecoDue = { sit = 0, graze = math.huge }, { sit = 0 }
+  local kind, st = EcoLand.choose(sitter, ctx(10), nil)
+  check(kind == "pose" and st.anim == "sit", "a Pokemon with Sit art sits down now and then")
+  check(EcoLand.choose(plain, ctx(10), nil) == nil, "...one without just stands")
+  local sw = mon("swarm", {})
+  sw.renderer.info.sit = sitter.renderer.info.sit
+  sw.ecoDue = { sit = 0, buzz = math.huge }
+  check(EcoLand.choose(sw, ctx(10), nil) == nil, "...a swarm never sits")
+  check(cfg.ticks[1] > 0, "(sit lengths set)")
+end
+
+-- ------- a bird flying over: those with LookUp art look up at it, once per bird
+do
+  local bird = { id = 7 }
+  local sm = { sky = { passerOver = function() return bird end } }
+  local e = mon("solo", {})
+  e.renderer.info.lookup = { durations = { 6, 6, 6 }, rows = 1, facing = "up" }
+  local kind, st = EcoLand.chooseLookUp(e, ctx(), sm)
+  check(kind == "pose" and st.anim == "lookup" and st.face == "up", "a bird overhead: it looks up at it")
+  eq(EcoLand.chooseLookUp(e, ctx(), sm), nil, "...only once for the same bird")
+  bird = { id = 8 }
+  check(EcoLand.chooseLookUp(e, ctx(), sm) ~= nil, "...but again for the next")
+  sm.sky.passerOver = function() return nil end
+  eq(EcoLand.chooseLookUp(mon("solo", { "lookup" }), ctx(), sm), nil, "no bird: nobody looks up")
+  bird = { id = 9 }
+  sm.sky.passerOver = function() return bird end
+  eq(EcoLand.chooseLookUp(mon("solo", {}), ctx(), sm), nil, "no LookUp art: nothing")
+  local r = mon("solo", { "lookup" })
+  r.react = { mode = "flee" }
+  eq(EcoLand.chooseLookUp(r, ctx(), sm), nil, "busy reacting: nothing")
+  local quick = ctx()
+  quick.rng = function(_, b) return b end -- the roll misses
+  eq(EcoLand.chooseLookUp(mon("solo", { "lookup" }), quick, sm), nil, "a missed roll: it does not notice")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

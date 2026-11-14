@@ -268,7 +268,14 @@ local function step(sk, ctx)
   if sk.phase == "ko" then
     -- the prey faints: its cry, then it sinks away; the hunter stands over it
     local sink = sk.t > cfg.winPause and math.min(1, (sk.t - cfg.winPause) / cfg.sinkTicks) or 0
-    if prey.renderer then prey.renderer.act = { sink = sink, ecoSkirmish = true } end
+    local pr = prey.renderer
+    if pr then
+      pr.act = { sink = sink, ecoSkirmish = true }
+      -- it keels over (Faint art, on land), then lies there while it sinks
+      if pr.isPmd and pr.advanceAs and not pr.swimming and pr.info and pr.info.faint then
+        pr:advanceAs("faint", 1)
+      end
+    end
     pose(pred, prey, 0, nil, 0)
     if sink >= 1 then
       clearPose(pred)

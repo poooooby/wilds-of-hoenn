@@ -339,6 +339,37 @@ function PmdRenderer:advanceAs(anim, speed, fallback)
   end
   self.restEase = 0
   self.clock = self.clock + rate
+  if PmdRenderer.ONCE[want] then
+    -- played once and held on its last frame; a negative `speed` plays it back to frame 0
+    -- (sitting down -> getting up again)
+    local total = PmdRenderer.animTicks(self.info, want)
+    if self.clock >= total then self.clock = math.max(0, total - 0.001) end
+    if self.clock < 0 then self.clock = 0 end
+  end
+end
+
+--- Animations played once and held on their last frame (a Pokemon keeling over, sitting
+--- down, looking up, leaping off), not looped.
+PmdRenderer.ONCE = { faint = true, sit = true, lookup = true, leapforth = true }
+
+--- Ticks one run of `anim` takes (the sum of its frame durations); 0 without it.
+function PmdRenderer.animTicks(info, anim)
+  local entry = info and info[anim]
+  if type(entry) ~= "table" then return 0 end
+  local total = entry._ticks
+  if not total then
+    total = 0
+    for _, d in ipairs(entry.durations or {}) do total = total + d end
+    entry._ticks = total
+  end
+  return total
+end
+
+--- The way a Pokemon must face for `anim` to read right: "up" for the one-row back views
+--- (Sit, LookUp, most LeapForths -- index.json `facing`), nil when any facing works.
+function PmdRenderer.facingOf(info, anim)
+  local entry = info and info[anim]
+  return type(entry) == "table" and entry.facing or nil
 end
 
 --- Holds the first frame of Idle, not playing it (a perched bird with its wings folded).

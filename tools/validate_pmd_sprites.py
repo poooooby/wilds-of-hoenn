@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PMD = ROOT / "assets" / "pmd"
 ANIMS = ("walk", "idle")
 OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop", "sleep", "dance", "rotate",
-                  "rearup", "eat", "nap", "wake", "bite")  # present for some species, never required
+                  "rearup", "eat", "nap", "wake", "bite", "faint", "sit", "lookup", "leapforth")  # present for some species, never required
 DIRECTIONS = 4
 
 

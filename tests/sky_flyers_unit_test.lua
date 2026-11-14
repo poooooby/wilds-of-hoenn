@@ -472,6 +472,19 @@ do
   sky:onMapExited()
 end
 
+-- ------- a passer crossing the view is "over" the field (wild Pokemon look up at it)
+do
+  local sky = setmetatable({ birds = {} }, { __index = SkyFlyers })
+  eq(sky:passerOver(), nil, "no birds: nothing overhead")
+  local b = { kind = "passer", id = 3, onScreen = false }
+  sky.birds[1] = b
+  eq(sky:passerOver(), nil, "a passer not in view yet: nothing")
+  b.onScreen = true
+  eq(sky:passerOver(), b, "...once it is in view: that bird")
+  sky.birds[1] = { kind = "percher", onScreen = true }
+  eq(sky:passerOver(), nil, "a percher is not flying over")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

@@ -141,8 +141,11 @@ rooftops, with little scenes waiting in special places.*
   On land, packs trot about in short bursts and rear up to howl, herds drift slowly and stop
   to graze, swarms buzz around, huddles nap together (waking if you come right up to them, and
   scattering when you dash past, only to bunch up again a little later), and
-  a lone grazer stops to eat now and then. In PMDCollab style they use their own eating,
-  sleeping and rearing-up animations where the species has them. And they hunt: now and then a
+  a lone grazer stops to eat now and then. Now and then one sits down for a rest with its back
+  to you, getting up again if you come close, and when a bird flies over, some of them stop and
+  look up at it. In PMDCollab style they use their own eating, sleeping, rearing-up, sitting and
+  looking-up animations where the species has them; a startled one bounds off with a leap, and a
+  knocked-out one keels over before it sinks away. And they hunt: now and then a
   hunter like Mightyena or Seviper chases down a smaller Pokémon in view and fights it with its
   real moves, health bars and all. The prey may break away and run, or faint and sink out of
   sight. Old rivals fight whenever they meet: Zangoose and Seviper, Sableye and Mawile,

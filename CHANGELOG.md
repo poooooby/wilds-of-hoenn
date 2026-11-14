@@ -14,6 +14,10 @@
   Walking by leaves them be.
 - **More rivals.** Sableye and Mawile, Solrock and Lunatone, Scyther and Pinsir, and Sharpedo
   against Wailmer and Wailord now fight whenever they meet, like Zangoose and Seviper.
+- **New poses (PMDCollab style).** Wild Pokémon sit down for a rest now and then, look up at
+  a bird flying over, bound off with a leap when startled, and keel over when knocked out
+  (in a hunt or by your Battler) before they sink away. About 230 species have these
+  animations; the others behave as before.
 - **Hunts happen where you can see them.** A hunt or a rivalry only starts with both Pokémon
   on screen; before, one could start just above or below the view and play out unseen.
 

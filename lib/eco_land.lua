@@ -13,6 +13,7 @@ local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
 local Eco = V.require("eco")
 local Behavior = V.require("behavior")
+local PmdRenderer = V.require("pmd_renderer")
 
 local EcoLand = {}
 
@@ -72,29 +73,39 @@ Eco.register("burst", {
 -- ------- a pose held a while (graze, howl, nap + wake)
 
 --- State for holding `anim` (when the art has it) for `n` ticks; `wake`: a nap ends with the
---- Wake animation, and the player coming close wakes it early.
+--- Wake animation, and the player coming close wakes it early. `rouse`: the player coming
+--- within that many tiles (one more running) ends it early too. A pose played once (Sit,
+--- LookUp: PmdRenderer.ONCE) is played back to its first frame at the end (getting up,
+--- looking back down), and a back-view pose turns the Pokemon away first (`face`).
 function EcoLand.poseState(e, anim, n, opts)
   opts = opts or {}
   local have = hasAnim(e, anim)
+  local info = have and e.renderer.info or nil
   return { n = n, anim = have and anim or nil, groupAnim = have and anim or nil,
-           wake = opts.wake and hasAnim(e, "wake"), cry = opts.cry, napping = anim == "nap" }
+           wake = opts.wake and hasAnim(e, "wake"), cry = opts.cry, napping = anim == "nap",
+           rouse = opts.rouse, face = info and PmdRenderer.facingOf(info, anim) or nil,
+           unwind = have and PmdRenderer.ONCE[anim] and PmdRenderer.animTicks(info, anim) or nil }
 end
 
 Eco.register("pose", {
   step = function(e, ctx, _sm, s)
     local r = e.renderer
     local cfg = Config.ECO.land
+    if s.t == 1 and s.face then e.facing = s.face end
     if s.cry and s.t == 1 and EnginePatch.playCry then pcall(EnginePatch.playCry, e.species) end
-    -- a napper wakes when the player comes right up to it (or runs close by)
-    if s.napping and not s.waking then
+    -- a napper wakes when the player comes right up to it (or runs close by); a sitter gets up
+    if (s.napping or s.rouse) and not s.waking and not s.unwinding then
       local d, running = playerNear(e, ctx)
-      if d <= cfg.nap.wakeRadius or (running and d <= cfg.nap.wakeRadius + 1) then
+      local radius = s.rouse or cfg.nap.wakeRadius
+      if d <= radius or (running and d <= radius + 1) then
         s.n = s.t -- it wakes now
       end
     end
-    if s.t >= s.n and not s.waking then
+    if s.t >= s.n and not s.waking and not s.unwinding then
       if s.wake then
         s.waking, s.anim, s.groupAnim, s.wakeT = true, "wake", "wake", 0
+      elseif s.unwind and s.unwind > 0 then
+        s.unwinding, s.wakeT = true, 0 -- played back: up again / looking back down
       else
         return true
       end
@@ -103,8 +114,12 @@ Eco.register("pose", {
       s.wakeT = s.wakeT + 1
       if s.wakeT > cfg.nap.wakeTicks then return true end
     end
+    if s.unwinding then
+      s.wakeT = s.wakeT + 1
+      if s.wakeT > s.unwind then return true end
+    end
     if r and r.isPmd and s.anim and r.advanceAs then
-      r:advanceAs(s.anim, s.waking and 1 or (s.speed or 1), "idle")
+      r:advanceAs(s.anim, s.unwinding and -1 or s.waking and 1 or (s.speed or 1), "idle")
     elseif r and r.isPmd and s.napping and r.holdIdle then
       r:holdIdle() -- no sleeping art: it rests still
     elseif r and r.advance then
@@ -172,8 +187,28 @@ function EcoLand.choose(e, ctx, sm)
     -- a lone Pokemon with something to nibble: now and then it stops to eat
     return "pose", EcoLand.poseState(e, "eat", between(rng, cfg.graze.ticks))
   end
+  -- anyone but a swarm: now and then it sits down a while (Sit art only)
+  if social ~= "swarm" and hasAnim(e, "sit") and due(e, "sit", cfg.sit.every, rng, now) then
+    return "pose", EcoLand.poseState(e, "sit", between(rng, cfg.sit.ticks), { rouse = cfg.sit.rouseRadius })
+  end
   return nil
 end
 Eco.addChooser(EcoLand.choose)
+
+--- A bird flying over (lib/sky_flyers.lua `passerOver`): a land Pokemon with LookUp art that
+--- has not looked at this one yet may stop and look up at it. Asked first (before what it
+--- would do otherwise), on each Pokemon's own choosing timer, so they notice one by one.
+function EcoLand.chooseLookUp(e, ctx, sm)
+  if e.terrain ~= "land" or e.roamer or e.lured or e.react or e.engaged or e.fx or e.moving then return nil end
+  if e.isFlyer or not hasAnim(e, "lookup") then return nil end
+  local bird = sm and sm.sky and sm.sky.passerOver and sm.sky:passerOver()
+  if not bird or e.lookedAt == bird.id then return nil end
+  e.lookedAt = bird.id
+  local cfg = Config.ECO.land
+  local rng = ctx.rng or math.random
+  if playerNear(e, ctx) <= cfg.clearRadius or rng(1, 100) > cfg.lookUp.chance then return nil end
+  return "pose", EcoLand.poseState(e, "lookup", between(rng, cfg.lookUp.ticks))
+end
+Eco.addChooser(EcoLand.chooseLookUp, true)
 
 return EcoLand

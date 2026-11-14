@@ -509,6 +509,45 @@ do
   check(not WR.eligible(busy, 0), "a Pokemon busy with its ecology does not react")
 end
 
+-- ------- a startled Pokemon with LeapForth art bounds off up the screen
+do
+  local function leaper(x, y, facing)
+    local e = entity(x, y, 3)
+    e.id = 40
+    local r = { isPmd = true, info = { leapforth = { durations = { 6, 1, 1, 2, 2, 2 }, rows = 1, facing = facing } } }
+    e.renderer = r
+    return e
+  end
+  local up = leaper(10, 20, "up")
+  eq(WR.leapTicks(up, "up"), 14, "LeapForth art, fleeing up: a bound of its length")
+  eq(WR.leapTicks(up, "left"), nil, "...the back-view art cannot bound any other way")
+  eq(WR.leapTicks(leaper(10, 20, nil), "left"), 14, "art with every facing bounds any way")
+  eq(WR.leapTicks(entity(10, 20, 3), "up"), nil, "no art: no bound")
+  local wet = leaper(10, 20, "up")
+  wet.terrain = "water"
+  eq(WR.leapTicks(wet, "up"), nil, "...nor on the water")
+  -- the player just below it: it flees up, bounding first
+  local ctx = ctxFor({ x = 10, y = 22, moving = false }, 30)
+  check(WR.startAt(up, { cellX = 10, cellY = 22, state = Config.STATE.AVAILABLE }, "flee", ctx, 3),
+    "a flight starts")
+  local leapT, y0 = nil, up.cellY
+  for t = 1, 200 do
+    if not up.react then break end
+    WR.tick(up, ctx)
+    ctx.now = ctx.now + 1
+    if up.react and up.react.anim == "leapforth" and not leapT then leapT = t end
+    if leapT and up.react and up.react.leap then
+      check(up.cellY == y0, "mid-bound: still on its cell (the art does the leaping)")
+      break
+    end
+  end
+  check(leapT ~= nil, "...its first step away is a LeapForth bound")
+  for _ = 1, 16 do WR.tick(up, ctx) ctx.now = ctx.now + 1 end
+  check(up.cellY < y0 and up.react and not up.react.leap, "...landing a tile on, then running on")
+  run(up, ctx, 200)
+  check(up.cellY <= y0 - 2, "it got away (y " .. up.cellY .. ")")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)
