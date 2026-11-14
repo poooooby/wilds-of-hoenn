@@ -222,6 +222,13 @@ do
   local _, _, pondSea = WL.poolFor("POND")
   check(not pondSea, "...a pond of Magikarp and Poliwag is not")
   pond = false
+  -- a sea of later species only (National Dex tables: Finneon, Wattrel, Wiglett)
+  local realNat, realTable = fake.nationalFor, fake.tableFor
+  fake.nationalFor = function(s) return ({ 456, 940, 960 })[s] end
+  fake.tableFor = function() return { water = { slots = { { species = 1 }, { species = 2 }, { species = 3 } } } } end
+  local _, _, laterSea = WL.poolFor("PALDEA_SEA")
+  check(laterSea, "...and so is a sea of later generations' species")
+  fake.nationalFor, fake.tableFor = realNat, realTable
 
   -- one Finizen's run: surface, porpoise in a row of leaps, dive
   local plan = WL.dolphinPlan(3, 1, cfg, function() return true end)

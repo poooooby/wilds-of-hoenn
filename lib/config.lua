@@ -326,8 +326,19 @@ Config.WATER_LIFE = {
               puffTicks = 16, puffPower = 0.55, puffChance = 50, surfaceShow = 0.45,
               podChance = 12, pod = { 3, 5 }, ring = { 26, 10 }, lapTicks = 170, play = { 480, 720 },
               podLeapEvery = 95, podStagger = 12 },
-  seaMarkers = { [72] = true, [73] = true, [222] = true, [278] = true, [279] = true, [318] = true,
-                 [319] = true, [320] = true, [321] = true, [370] = true },
+  -- sea species of every generation (national dex): one in a map's Surf / fishing tables makes it the sea
+  seaMarkers = {
+    [72] = true, [73] = true, [116] = true, [117] = true, [120] = true, [121] = true, [131] = true, -- Tentacool .. Lapras
+    [222] = true, [223] = true, [224] = true, [226] = true, [230] = true,                         -- Corsola .. Kingdra
+    [278] = true, [279] = true, [318] = true, [319] = true, [320] = true, [321] = true, [370] = true, -- Wingull .. Luvdisc
+    [456] = true, [457] = true, [458] = true,                                                     -- Finneon, Lumineon, Mantyke
+    [592] = true, [593] = true, [594] = true,                                                     -- Frillish, Jellicent, Alomomola
+    [688] = true, [689] = true, [690] = true, [691] = true, [692] = true, [693] = true,             -- Binacle .. Clawitzer
+    [746] = true, [747] = true, [748] = true, [771] = true, [779] = true, [781] = true,             -- Wishiwashi .. Dhelmise
+    [845] = true, [846] = true, [847] = true, [871] = true,                                       -- Cramorant .. Pincurchin
+    [940] = true, [941] = true, [960] = true, [961] = true, [963] = true, [964] = true,             -- Wattrel .. Palafin
+    [976] = true, [977] = true, [978] = true,                                                     -- Veluza, Dondozo, Tatsugiri
+  },
   -- under the sea (Dive maps): every fish the game knows, National Dex included (Water 2 egg group, no
   -- legendary -- the Undiscovered group -- nothing over swim.maxHeightDm) swim across as dark
   -- shadows of themselves, wiggling, trailing bubbles; small ones sometimes in a school.
