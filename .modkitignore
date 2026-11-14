@@ -114,7 +114,7 @@ scripts/build-mod.py
 docs/MANUAL_TEST.md
 
 # README banner and showcase images
-imgs/WoH.png
+imgs/vividworlds.png
 imgs/wohbattle.gif
 imgs/wohforage.gif
 imgs/wohlife.gif
@@ -135,6 +135,8 @@ dist/vivid-worlds-v1.12.0-beta.2-hgss-pmd.zip
 dist/vivid-worlds-v1.12.0-beta.2.zip
 dist/vivid-worlds-v1.12.0-beta.3-hgss-pmd.zip
 dist/vivid-worlds-v1.12.0-beta.3.zip
+dist/vivid-worlds-v1.12.0-beta.4-hgss-pmd.zip
+dist/vivid-worlds-v1.12.0-beta.4.zip
 dist/wilds-of-hoenn-v1.10.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.10.0-hgss.zip
 dist/wilds-of-hoenn-v1.10.1-hgss-pmd.zip

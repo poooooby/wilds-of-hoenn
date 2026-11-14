@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="imgs/WoH.png" alt="Vivid Worlds" width="640">
+<img src="imgs/vividworlds.png" alt="Vivid Worlds" width="480">
 
 # Vivid Worlds 🌿
 
@@ -258,7 +258,7 @@ left.
 ## 💾 Installation
 
 1. Download the latest release from the [Releases](https://github.com/poooooby/wilds-of-hoenn/releases)
-   page (about 30 MB): both art styles, HGSS / PokeMMO and animated PMDCollab sprites with
+   page (about 40 MB): both art styles, HGSS / PokeMMO and animated PMDCollab sprites with
    portraits, in one download.
 2. Import it with the Gen1Recomp Mod Manager, or drop it in your mods folder.
 3. Enable **Vivid Worlds**.
