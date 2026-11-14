@@ -15,6 +15,7 @@ local EnginePatch = V.require("engine_patch")
 local Eco = V.require("eco")
 local SpriteSource = V.require("sprite_source")
 local WaterLife = V.require("water_life")
+local RendererFactory = V.require("renderer_factory")
 
 local EcoWater = {}
 
@@ -222,6 +223,136 @@ Eco.register("spout", {
   end,
 })
 
+-- ------- a school gathering into one big shape under the water (Wishiwashi's School Form)
+--
+-- The Pokemon (and its group) sink with rings, then the big form (profile `schoolForm`: an art
+-- key, "746-school") swims slow circles under the surface as a dark shape, and breaks up again:
+-- they come back up where they went down. Under the water it is `untouchable`.
+
+--- The dark shape's renderer: the form's PMD art whatever the Sprite Style (only its outline
+--- shows), else the species' own art grown `hgssScale` times.
+function EcoWater.schoolShadow(mod, key, base)
+  local cfg = Config.ECO.water.school
+  local r, grow
+  if Config.hasPmdArt and Config.hasPmdArt(mod) then
+    r = RendererFactory.new(mod, key, false, SpriteSource.STYLE_PMD, SpriteSource.PRESENTATION_LAND)
+    if r and not r.isPmd then r = nil end
+  end
+  if not r then
+    r = RendererFactory.new(mod, base, false, Config.spriteStyle(mod), SpriteSource.PRESENTATION_LAND)
+    grow = cfg.hgssScale
+  end
+  if not r then return nil end
+  r.silhouette, r.swimming, r.alpha = true, false, 0
+  if grow then r.act = { scale = grow } end
+  return r
+end
+
+function EcoWater.schoolState(e, sm, rng)
+  rng = rng or math.random
+  local cfg = Config.ECO.water.school
+  local key = e.profile and e.profile.schoolForm
+  local base = (e.renderer and e.renderer.dex) or (EnginePatch.nationalFor and EnginePatch.nationalFor(e.species))
+  local shadow = key and EcoWater.schoolShadow(sm and sm.mod, key, base)
+  return { phase = "sink", pt = 0, n = between(rng, cfg.under), shadow = shadow,
+           spin = rng(0, 1) == 0 and -1 or 1, phase0 = rng(0, 628) / 100 }
+end
+
+--- Where the shape is `t` ticks under: a slow ellipse round the spot they went down, and
+--- the way it faces (along its path). Pure.
+function EcoWater.schoolPlace(t, s, cx, cy)
+  local cfg = Config.ECO.water.school
+  local a = s.phase0 + s.spin * (t / cfg.lapTicks) * 2 * math.pi
+  local x, y = cx + math.cos(a) * cfg.ring[1], cy + math.sin(a) * cfg.ring[2]
+  local vx, vy = -math.sin(a) * s.spin * cfg.ring[1], math.cos(a) * s.spin * cfg.ring[2]
+  local facing
+  if math.abs(vx) >= math.abs(vy) then facing = vx > 0 and "right" or "left"
+  else facing = vy > 0 and "down" or "up" end
+  return x, y, facing
+end
+
+-- the Pokemon and the rest of its group, sunk `k` (0 .. 1) under
+local function sinkAll(e, sm, k)
+  local function one(m)
+    local r = m.renderer
+    if not r then return end
+    if k <= 0 then
+      if r.act and r.act.ecoSchool then r.act = nil end
+      return
+    end
+    local act = (r.act and r.act.ecoSchool) and r.act or { ecoSchool = true }
+    act.sink = k
+    r.act = act
+  end
+  one(e)
+  for _, mid in ipairs(e.group and e.group.members or {}) do
+    local m = sm and sm.entities and sm.entities[mid]
+    if m and m ~= e and m.rider then one(m) end
+  end
+end
+
+local function splashAll(e, sm)
+  EcoWater.splash(e, e.cellX, e.cellY)
+  for _, mid in ipairs(e.group and e.group.members or {}) do
+    local m = sm and sm.entities and sm.entities[mid]
+    if m and m ~= e and m.rider then EcoWater.splashAt(e, m.px, m.py) end
+  end
+end
+
+Eco.register("school", {
+  step = function(e, ctx, sm, s)
+    local cfg = Config.ECO.water.school
+    s.pt = s.pt + 1
+    local r = e.renderer
+    if r and r.advance then r:advance(false) end
+    local sh = s.shadow
+    if s.phase == "sink" then
+      if s.pt == 1 then
+        splashAll(e, sm)
+        local p = ctx and ctx.player
+        if p and math.max(math.abs(p.x - e.cellX), math.abs(p.y - e.cellY)) <= cfg.cryRadius
+            and EnginePatch.playCry then
+          pcall(EnginePatch.playCry, e.species)
+        end
+      end
+      sinkAll(e, sm, math.min(1, s.pt / cfg.sinkTicks))
+      if s.pt >= cfg.sinkTicks then s.phase, s.pt, s.untouchable = "under", 0, true end
+    elseif s.phase == "under" then
+      sinkAll(e, sm, 1)
+      if sh then
+        local fade = math.min(1, s.pt / cfg.fadeTicks, (s.n - s.pt) / cfg.fadeTicks)
+        sh.alpha = cfg.alpha * math.max(0, fade)
+        local _, _, facing = EcoWater.schoolPlace(s.pt, s, 0, 0)
+        s.facing = facing
+        if sh.advance then sh:advance(true) end
+      end
+      if s.pt >= s.n then
+        s.phase, s.pt, s.untouchable = "rise", 0, nil
+        if sh then sh.alpha = 0 end
+        splashAll(e, sm)
+      end
+    else
+      sinkAll(e, sm, math.max(0, 1 - s.pt / cfg.sinkTicks))
+      if s.pt >= cfg.sinkTicks then return true end
+    end
+    return false
+  end,
+  abort = function(e, sm, s)
+    sinkAll(e, sm, 0)
+    if s then s.untouchable, s.shadow = nil, nil end
+  end,
+})
+
+--- Appends the dark shape of a school under the water (nothing before it has formed).
+function EcoWater.collectSchool(e, actors)
+  local s = e.eco
+  local sh = s and s.kind == "school" and s.shadow
+  if not (sh and s.phase == "under" and (sh.alpha or 0) > 0) then return end
+  local x, y = EcoWater.schoolPlace(s.pt, s, e.px, e.py)
+  actors[#actors + 1] = { kind = "wild_mon", i = 97000 + (e.id or 0), x = x, y = y, sortY = e.py - 8,
+    elevation = e.elevation, facing = s.facing or e.facing, walkPhase = 0, renderer = sh }
+end
+
 -- ------- what a water Pokemon does next (an Eco chooser)
 
 --- Is (`e`) a water spawn that can do its kind's thing here and now?
@@ -253,6 +384,10 @@ function EcoWater.choose(e, ctx, sm)
   local cfg = Config.ECO.water
   -- never right beside the player: a leap onto / a spout over them reads wrong
   if p and math.max(math.abs(p.x - e.cellX), math.abs(p.y - e.cellY)) <= cfg.clearRadius then return nil end
+  -- a school that gathers into one big shape now and then (Wishiwashi)
+  if prof.schoolForm and due(e, "school", cfg.school.every, rng, now) then
+    return "school", EcoWater.schoolState(e, sm, rng)
+  end
   if prof.water == "leaper" and due(e, "leap", cfg.leap.every, rng, now) then
     return "leap", EcoWater.leapState(e, sm, rng)
   end

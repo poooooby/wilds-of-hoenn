@@ -131,7 +131,8 @@ rooftops, with little scenes waiting in special places.*
 - 🐟 **They live like their kind:** wild Pokémon go about the way their species would, every
   species of all nine generations in its own way (those after Gen 3 with National Dex Gen 3). Fish
   leap out of the water and splash back in, Wailmer lie at the surface and blow spouts before
-  they sound, and Tentacool drift slowly about. Now and then a pack, herd or school turns up
+  they sound, Tentacool drift slowly about, and a Wishiwashi school now and then sinks out of
+  sight and gathers into its giant School Form, a great dark shape gliding under the waves. Now and then a pack, herd or school turns up
   instead of a single Pokémon (Poochyena packs, Seedot huddles, Magikarp and Carvanha schools,
   Wailmer pods ...), clustered together on one tile and moving, diving and surfacing as one.
   Bigger Pokémon stand further apart, so a Tauros herd never ends up in one heap. A pod at

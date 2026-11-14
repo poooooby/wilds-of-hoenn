@@ -148,6 +148,52 @@ do
   eq(EcoWater.choose(deep, { now = 999, rng = rng }, { underwater = true }), nil, "nothing leaps under the sea")
 end
 
+-- ------- a Wishiwashi school gathers into its School Form under the water, then breaks up
+do
+  ripples = {}
+  local cfg = Config.ECO.water.school
+  local e = fish(4, 4)
+  e.id, e.profile.schoolForm = 5, "746-school"
+  local mate = fish(4, 4)
+  mate.id, mate.rider = 6, 1
+  e.group = { leader = 5, members = { 5, 6 } }
+  local sm2 = { entities = { [5] = e, [6] = mate }, occupiedBy = function() return nil end }
+  local shadow = { alpha = 0, advance = function(r, moving) r.moved = moving end }
+  local s = { phase = "sink", pt = 0, n = 120, shadow = shadow, spin = 1, phase0 = 0 }
+  check(Eco.start(e, "school", s), "a school starts to gather")
+  for _ = 1, cfg.sinkTicks do Eco.step(e, {}, sm2) end
+  check(e.renderer.act and e.renderer.act.sink >= 1 and mate.renderer.act and mate.renderer.act.sink >= 1,
+    "...it and its group sink out of sight")
+  check(#ripples >= 2, "...with splashes")
+  check(not Eco.touchable(e), "under the water it cannot be met")
+  for _ = 1, 60 do Eco.step(e, {}, sm2) end
+  check(shadow.alpha > 0 and shadow.alpha <= cfg.alpha and shadow.moved, "the big shape swims under the surface")
+  local actors = {}
+  EcoWater.collectSchool(e, actors)
+  check(#actors == 1 and actors[1].renderer == shadow, "...drawn as one dark shape")
+  local x1, y1 = actors[1].x, actors[1].y
+  for _ = 1, 30 do Eco.step(e, {}, sm2) end
+  actors = {}
+  EcoWater.collectSchool(e, actors)
+  check(actors[1] and (actors[1].x ~= x1 or actors[1].y ~= y1), "...circling round where they went down")
+  for _ = 1, 200 do if e.eco then Eco.step(e, {}, sm2) end end
+  eq(e.eco, nil, "it breaks up again")
+  check(not e.renderer.act and not mate.renderer.act, "...and they are all back at the surface")
+  check(Eco.touchable(e), "...where they can be met")
+  -- the place is pure: an ellipse round the spot
+  local px, py, f = EcoWater.schoolPlace(0, { spin = 1, phase0 = 0 }, 100, 100)
+  check(px == 100 + cfg.ring[1] and py == 100 and f == "down", "the shape's path: an ellipse, facing along it")
+  -- the chooser: only a species with a School Form
+  local plain = fish(4, 4)
+  plain.ecoDue = { school = 0, leap = math.huge }
+  check(EcoWater.choose(plain, { now = 10, rng = function(a) return a end }, sm) == nil, "a plain fish never gathers")
+  local w = fish(4, 4)
+  w.profile.schoolForm = "746-school"
+  w.ecoDue = { school = 0, leap = math.huge }
+  local kind = EcoWater.choose(w, { now = 10, rng = function(a) return a end, player = { x = 20, y = 20 } }, sm)
+  eq(kind, "school", "a Wishiwashi gathers now and then")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

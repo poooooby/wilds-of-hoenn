@@ -1343,6 +1343,7 @@ function SpawnManager:collectActors(actors, camX, camY)
       -- needing its own terrain check here.
       GrassCover.append(actors, e.cellX, e.cellY, e.py, e.elevation, id)
       if e.ecoFx then EcoWater.collectFx(e, actors) end
+      if e.eco and e.eco.shadow then EcoWater.collectSchool(e, actors) end -- a school's big shape
       if e.rings then
         local a = SpawnFx.ringsActor(e.rings.age, e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end

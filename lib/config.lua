@@ -149,6 +149,9 @@ Config.ECO = {
     leap = { every = { 360, 900 }, ticks = { 34, 44 }, height = 18, pmdHeight = 8 },
     -- a whale lies at the surface, blows a spout or two, then sounds (dives)
     whale = { every = { 600, 1500 }, stay = { 150, 300 }, sprays = { 1, 2 }, sprayTicks = 48, rearTicks = 40 },
+    -- a school gathering into one big dark shape under the water (profile `schoolForm`: Wishiwashi)
+    school = { every = { 1500, 3000 }, sinkTicks = 22, under = { 300, 480 }, fadeTicks = 40, alpha = 0.4,
+               ring = { 18, 6 }, lapTicks = 360, cryRadius = 8, hgssScale = 3 },
     diveEvery = { 300, 900 },                         -- a diver goes under this often (Config.SWIM.dive otherwise)
     -- a drifter (Tentacool, Staryu ...) floats: slow steps, long rests, a deeper bob
     drift = { stepFrames = 40, runMin = 1, runMax = 2, pauseMin = 300, pauseMax = 600, bobAmp = 2, bobTicks = 150 },

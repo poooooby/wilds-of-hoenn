@@ -573,7 +573,8 @@ return {
   [743] = { temper = "calm" },                                                              -- Ribombee
   [744] = { social = PACK, group = { 2, 3 }, temper = "calm" },                            -- Rockruff
   [745] = { social = PACK, group = { 2, 3 }, diet = "predator", temper = "territorial", prey = { "NORMAL", "BUG" } }, -- Lycanroc
-  [746] = { social = SCHOOL, group = { 2, 4 }, diet = "prey", temper = "skittish", water = "leaper" }, -- Wishiwashi
+  [746] = { social = SCHOOL, group = { 2, 4 }, diet = "prey", temper = "skittish", water = "leaper",
+            schoolForm = "746-school" },                                                 -- Wishiwashi (gathers into its School Form)
   [747] = { diet = "predator", temper = "territorial", water = "drifter", prey = { "WATER" } }, -- Mareanie
   [748] = { diet = "predator", temper = "territorial", water = "drifter", prey = { "WATER" } }, -- Toxapex
   [749] = { social = HERD, group = { 2, 3 }, temper = "calm" },                            -- Mudbray

@@ -23,6 +23,11 @@
   Yamper packs, Wooloo and Lechonk herds, Combee swarms, Finneon schools, Bunnelby and Orthworm
   burrowing, Litleo prides, and so on. Legendary and mythical Pokémon keep to themselves as
   before. New rivals: Heatmor and Durant, Karrablast and Shelmet, Tinkaton and Corviknight.
+- **Wishiwashi schools.** Now and then a Wishiwashi school sinks together and gathers into its
+  giant School Form, swimming slow circles as a great dark shape under the water before it
+  breaks up and the fish come back up.
+- **Finizen on every sea.** A sea whose Pokémon all come from later generations counts as the
+  sea too, so Finizen can turn up there.
 - **Hunts happen where you can see them.** A hunt or a rivalry only starts with both Pokémon
   on screen; before, one could start just above or below the view and play out unseen.
 
