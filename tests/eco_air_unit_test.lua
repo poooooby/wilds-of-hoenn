@@ -109,6 +109,33 @@ do
   eq(EcoAir.choose(close, { now = 10, rng = math.random }, sm), nil, "never with the player close by")
 end
 
+-- ------- the catch: up from its plunge with a fish in its beak, held, then gulped down
+do
+  local cfg = Config.ECO.fish.catch
+  local fish = { act = { scale = cfg.scale }, advance = function(r, m) r.wriggle = m end }
+  local e = { id = 3, px = 160, py = 160, facing = "left", elevation = 3, profile = { catch = 846 },
+              renderer = { headLift = function() return 30 end, frontReach = function() return 10 end,
+                           advance = function() end } }
+  check(Eco.start(e, "catch", { fish = fish, n = 20 }), "a catch starts")
+  Eco.step(e, {}, nil)
+  local actors = {}
+  EcoAir.collectCatch(e, actors)
+  check(#actors == 1 and actors[1].renderer == fish and fish.wriggle, "...the fish shows in its beak, wriggling")
+  local bx = EcoAir.beakAt("left", 30, 10)
+  eq(bx, -2, "facing left: the beak is ahead of it, on the left")
+  check(actors[1].x < e.px, "...so the fish is drawn left of the bird")
+  for _ = 1, 25 do Eco.step(e, {}, nil) end
+  check(e.eco and fish.act.scale < cfg.scale, "after a while it gulps it down")
+  for _ = 1, cfg.gulpTicks + 2 do if e.eco then Eco.step(e, {}, nil) end end
+  eq(e.eco, nil, "...and it is gone")
+  actors = {}
+  EcoAir.collectCatch(e, actors)
+  eq(#actors, 0, "...no fish drawn any more")
+  local _, yUp = EcoAir.beakAt("up", 30, 10)
+  local _, yDown = EcoAir.beakAt("down", 30, 10)
+  check(yUp < yDown, "facing away the beak is higher on screen than facing the camera")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

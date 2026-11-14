@@ -12,6 +12,8 @@ local EnginePatch = V.require("engine_patch")
 local Eco = V.require("eco")
 local EcoWater = V.require("eco_water")
 local SkyFlyers = V.require("sky_flyers")
+local RendererFactory = V.require("renderer_factory")
+local SpriteSource = V.require("sprite_source")
 
 local EcoAir = {}
 
@@ -95,6 +97,68 @@ function EcoAir.choose(e, ctx, sm)
   return "fish", { tx = x, ty = y }
 end
 Eco.addChooser(EcoAir.choose)
+
+-- ------- the catch: a bird with a profile `catch` (Cramorant) comes up from its plunge with
+-- that Pokemon in its beak, holds it a while, wriggling, then gulps it down
+
+function EcoAir.catchState(e, sm, rng)
+  rng = rng or math.random
+  local cfg = Config.ECO.fish.catch
+  local dex = e.profile and e.profile.catch
+  local mod = sm and sm.mod
+  local fish = dex and RendererFactory.new(mod, dex, false, Config.spriteStyle(mod), SpriteSource.PRESENTATION_LAND)
+  if not fish then return nil end
+  fish.swimming = false
+  fish.act = { scale = cfg.scale }
+  return { fish = fish, n = between(rng, cfg.hold) }
+end
+
+Eco.register("catch", {
+  step = function(e, _ctx, _sm, s)
+    local cfg = Config.ECO.fish.catch
+    local r = e.renderer
+    if r and r.advance then r:advance(false) end
+    local f = s.fish
+    if f then
+      if f.advance then f:advance(true) end -- (its walk: a wriggle)
+      local k = 1
+      if s.t > s.n then k = math.max(0, 1 - (s.t - s.n) / cfg.gulpTicks) end
+      f.act.scale = cfg.scale * k
+      s.k = k
+      if k <= 0 then return true end
+    end
+    return not f
+  end,
+})
+
+--- Where the beak is: px offsets from the bird's tile top-left (x across, y down) for its
+--- facing, `lift` px its head reaches above the tile's bottom, `reach` px its snout reaches
+--- ahead (left / right). Pure.
+function EcoAir.beakAt(facing, lift, reach, cfgBeak)
+  local y = 16 - lift * (cfgBeak or 0.78)
+  if facing == "left" then return 8 - reach, y end
+  if facing == "right" then return 8 + reach, y end
+  if facing == "up" then return 8, y - 2 end
+  -- facing the camera: across its front, about halfway down its head (not on top of it)
+  return 8, 16 - lift * 0.4
+end
+
+--- Appends the Pokemon in `e`'s beak (nothing while it is not holding one).
+function EcoAir.collectCatch(e, actors)
+  local s = e.eco
+  local f = s and s.kind == "catch" and s.fish
+  if not f or (s.k or 1) <= 0 then return end
+  local r = e.renderer
+  local lift = (r and r.headLift and r:headLift()) or 24
+  local reach = (r and r.frontReach and r:frontReach(e.facing))
+    or ((r and r.visualWidth and r:visualWidth() or 24) * 0.4)
+  local bx, by = EcoAir.beakAt(e.facing, lift, reach, Config.ECO.fish.catch.beak)
+  -- the fish is drawn standing on the beak point: its feet there, a little below for its size
+  local fishFacing = (e.facing == "right" or e.facing == "up") and "right" or "left"
+  actors[#actors + 1] = { kind = "wild_mon", i = 98000 + (e.id or 0),
+    x = e.px + bx - 8, y = e.py + by - 16 + 4, sortY = e.py + (e.facing == "up" and -1 or 1),
+    elevation = e.elevation, facing = fishFacing, walkPhase = 0, renderer = f }
+end
 
 --- A splash event in a fishing flight (lib/spawn_manager.lua, each tick of a travelling one):
 --- droplets, a ripple and rings where it hits / leaves the water.

@@ -163,7 +163,8 @@ rooftops, with little scenes waiting in special places.*
 - 🕳️ **Diggers and sea birds:** Diglett, Sandshrew, Trapinch and other diggers sink into the
   ground in a puff of dust and pop up a few tiles away, and duck underground instead of running
   when startled. Wingull and Pelipper resting on the sea fly up now and then and plunge in after
-  a fish. A flock of birds comes down together and takes off together, one after another.
+  a fish (a Cramorant comes back up with an Arrokuda in its beak, and gulps it down). A flock
+  of birds comes down together and takes off together, one after another.
   Part of **Wild Reacts**.
 - 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
   softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on

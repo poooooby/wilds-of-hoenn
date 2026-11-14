@@ -123,6 +123,7 @@ do
       and (e.temper == nil or TEMPER[e.temper]) and (e.water == nil or WATER[e.water])
       and (e.activity == nil or ACT[e.activity])
       and (e.burrower == nil or e.burrower == true)
+      and (e.catch == nil or (type(e.catch) == "number" and e.catch >= 1 and e.catch <= 1025))
       and (e.schoolForm == nil or (type(e.schoolForm) == "string" and e.schoolForm:match("^%d%d%d%-%l")))
       and (e.group == nil or (type(e.group) == "table" and e.group[1] >= 1 and e.group[2] >= e.group[1] and e.group[2] <= 4))
       and (e.social == nil or e.social == "solo" or e.group ~= nil)

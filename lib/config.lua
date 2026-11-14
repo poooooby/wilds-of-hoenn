@@ -245,7 +245,10 @@ Config.ECO = {
   -- a sea bird resting on the water (lib/eco_air.lua) flies up and plunges for a fish a few
   -- tiles off, coming up where it went in; `h` = how high it climbs (lib/flight_path.lua)
   fish = { every = { 900, 2100 }, range = { 2, 4 }, climb = { 34, 46 }, h = 0.14, circle = { 20, 34 },
-           plunge = { 14, 20 }, sinkTicks = 12, under = { 40, 90 }, clearRadius = 3 },
+           plunge = { 14, 20 }, sinkTicks = 12, under = { 40, 90 }, clearRadius = 3,
+           -- a bird with a profile `catch` (Cramorant: Arrokuda) comes up with that Pokemon in its
+           -- beak, holds it `hold` ticks (drawn `scale` of its size, wriggling), then gulps it down
+           catch = { hold = { 150, 240 }, gulpTicks = 18, scale = 0.55, beak = 0.78 } },
   -- a flock lands and takes off together, each bird a few ticks after the one before
   flock = { lag = { 3, 18 } },
 }

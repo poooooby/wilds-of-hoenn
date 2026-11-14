@@ -26,6 +26,8 @@
 - **Wishiwashi schools.** Now and then a Wishiwashi school sinks together and gathers into its
   giant School Form, swimming slow circles as a great dark shape under the water before it
   breaks up and the fish come back up.
+- **Cramorant's catch.** A Cramorant that plunges after a fish comes back up with an Arrokuda
+  wriggling in its beak, holds it a few seconds, then gulps it down.
 - **Finizen on every sea.** A sea whose Pokémon all come from later generations counts as the
   sea too, so Finizen can turn up there.
 - **Hunts happen where you can see them.** A hunt or a rivalry only starts with both Pokémon

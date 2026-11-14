@@ -1344,6 +1344,7 @@ function SpawnManager:collectActors(actors, camX, camY)
       GrassCover.append(actors, e.cellX, e.cellY, e.py, e.elevation, id)
       if e.ecoFx then EcoWater.collectFx(e, actors) end
       if e.eco and e.eco.shadow then EcoWater.collectSchool(e, actors) end -- a school's big shape
+      if e.eco and e.eco.fish then EcoAir.collectCatch(e, actors) end      -- a catch in a bird's beak
       if e.rings then
         local a = SpawnFx.ringsActor(e.rings.age, e.cellX * 16, e.cellY * 16, e.py, e.elevation, id)
         if a then actors[#actors + 1] = a end
@@ -1671,6 +1672,10 @@ function SpawnManager:_touchDown(e)
   local p = EnginePatch.playerCell and EnginePatch.playerCell()
   if p and ((p.x == e.cellX and p.y == e.cellY) or (p.moving and p.targetX == e.cellX and p.targetY == e.cellY)) then
     self:despawn(e.id, { animate = true })
+  elseif fx and fx.fishing and e.profile and e.profile.catch and not e.eco then
+    -- up from its plunge with a fish in its beak (Cramorant)
+    local s = EcoAir.catchState(e, self)
+    if s then Eco.start(e, "catch", s) end
   end
 end
 

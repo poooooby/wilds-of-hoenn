@@ -635,7 +635,8 @@ return {
   [841] = { temper = "calm" }, [842] = { temper = "calm" },                               -- Flapple, Appletun
   [843] = { temper = "calm", burrower = true },                                            -- Silicobra
   [844] = { temper = "territorial" },                                                      -- Sandaconda
-  [845] = { diet = "predator", temper = "calm", water = "swimmer", prey = { "WATER" } },   -- Cramorant
+  [845] = { diet = "predator", temper = "calm", water = "swimmer", prey = { "WATER" },
+            catch = 846 },                                                               -- Cramorant (comes up with an Arrokuda)
   [846] = { social = SCHOOL, group = { 2, 4 }, diet = "predator", temper = "territorial", water = "diver", prey = { "WATER" } }, -- Arrokuda
   [847] = { diet = "predator", temper = "aggressive", water = "diver", prey = { "WATER" } }, -- Barraskewda
   [848] = { temper = "skittish" }, [849] = { temper = "territorial" },                    -- Toxel, Toxtricity
