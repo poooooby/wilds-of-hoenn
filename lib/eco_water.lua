@@ -33,10 +33,17 @@ EcoWater.addFx = addFx
 
 --- A splash where `e` leaves / meets the water at cell (cx, cy): droplets, a ripple, rings.
 function EcoWater.splash(e, cx, cy)
-  addFx(e, { kind = "splash", x = cx * 16 + 8, y = cy * 16 + 13, sortY = cy * 16 + 1, age = 0,
-             seed = (e.id or 1) * 7 + cx })
-  if EnginePatch.startRipple then EnginePatch.startRipple(cx, cy) end
+  EcoWater.splashAt(e, cx * 16, cy * 16)
   e.rings = { age = 0 }
+end
+
+--- A splash at a sprite's place in px (its tile-space top left, like e.px / e.py), for a
+--- group member drawn off its tile: droplets and the nearest tile's ripple (no rings: they
+--- are drawn on the entity's own tile).
+function EcoWater.splashAt(e, x, y)
+  addFx(e, { kind = "splash", x = x + 8, y = y + 13, sortY = y + 1, age = 0,
+             seed = (e.id or 1) * 7 + math.floor(x / 16) })
+  if EnginePatch.startRipple then EnginePatch.startRipple(math.floor((x + 8) / 16), math.floor((y + 8) / 16)) end
 end
 
 --- Ages `e`'s droplets one tick (drops the finished ones). Called for every Pokemon each tick.
@@ -111,6 +118,7 @@ local function backToWater(e, s)
   if r.isPmd then r.swimming = s.baseSwimming end
   if r.act and r.act.ecoLeap then r.act = nil end
 end
+EcoWater.toAir, EcoWater.backToWater = toAir, backToWater
 
 -- ------- leap
 

@@ -8,6 +8,7 @@ local EncounterSource = V.require("encounter_source")
 local Behavior = V.require("behavior")
 local Shiny = V.require("shiny")
 local ActorRenderer = V.require("actor_renderer")
+local PmdRenderer = V.require("pmd_renderer")
 local RendererFactory = V.require("renderer_factory")
 local Reachability = V.require("reachability")
 local SpriteSource = V.require("sprite_source")
@@ -431,6 +432,7 @@ function SpawnManager:_leaveGroup(e, flight)
     g.members = {}
     for _, mid in ipairs(mates) do
       local m = self.entities[mid]
+      self:_endPodLeap(m)
       local flyer = m and m.state == Config.STATE.AVAILABLE and not m.fx and self.sky and self.sky:canFly(m)
       if m and flyer and flight then
         -- a flock takes off together, each one a moment after the one before
@@ -534,12 +536,82 @@ local function riderPose(e, l, g, v, now, rng)
   return nil
 end
 
+--- How far apart `r`'s group sits (Config.ECO.group.spread): its art's drawn width over the
+--- width the slots were made for, 1 .. max. nil until the width can be read without loading
+--- anything (an HGSS sheet not drawn yet).
+function SpawnManager._groupSpread(r)
+  if not r then return nil end
+  local w
+  if r.isPmd then
+    w = PmdRenderer.contentSize(r.info, r.hdScale and r:hdScale() or 1)
+  elseif r.imagePath and r.visualWidth then
+    local path = r:imagePath()
+    if path and ActorRenderer.cachedImage(path) then w = r:visualWidth() end
+  end
+  if not w or w <= 0 then return nil end
+  local c = Config.ECO.group.spread
+  return math.max(1, math.min(c.max, w / c.base))
+end
+
+--- Pod member `k` of `n` swimming round leader `l` at tick `now` (pure but for `g.spin`,
+--- rolled once): its px place and the way it faces along the ring.
+function SpawnManager.podPlace(k, n, now, g, l, spread)
+  local pc = Config.ECO.group.pod
+  if not g.spin then g.spin = math.random(0, 1) == 0 and -1 or 1 end
+  local lap = pc.lapTicks * ((l.profile and l.profile.water == "whale") and pc.whaleLap or 1)
+  local w = g.spin * math.pi * 2 / lap
+  local a = (k - 1) / math.max(1, n, k) * math.pi * 2 + w * now
+  local rx, ry = pc.ring[1] * (spread or 1), pc.ring[2] * (spread or 1)
+  local vx, vy = -math.sin(a) * rx * w, math.cos(a) * ry * w
+  local facing
+  if math.abs(vx) >= math.abs(vy) then facing = vx > 0 and "right" or "left"
+  else facing = vy > 0 and "down" or "up" end
+  return l.px + math.cos(a) * rx, l.py + math.sin(a) * ry, facing
+end
+
+-- Is a group member's spot (px) on ground it belongs on: water for a swimmer, open ground
+-- for a walker? Its own tile always is. Asked again only when the spot's tile changes.
+local function spotOk(e, v, x, y)
+  local tx, ty = math.floor((x + 8) / 16), math.floor((y + 8) / 16)
+  if tx == e.cellX and ty == e.cellY then return true end
+  -- the answers kept per tile round the leader's current one (a handful of tiles)
+  local c = v.okc
+  if not c or c.x ~= e.cellX or c.y ~= e.cellY then
+    c = c or {}
+    for k in pairs(c) do c[k] = nil end
+    c.x, c.y = e.cellX, e.cellY
+    v.okc = c
+  end
+  local key = (tx - e.cellX + 8) * 32 + (ty - e.cellY + 8)
+  local ok = c[key]
+  if ok == nil then
+    ok = true
+    if e.terrain == "water" then
+      if EnginePatch.isWater then ok = EnginePatch.isWater(tx, ty) and true or false end
+    elseif EnginePatch.cellFree then
+      ok = EnginePatch.cellFree(tx, ty) and true or false
+    end
+    c[key] = ok
+  end
+  return ok
+end
+SpawnManager._spotOk = spotOk
+
+--- Ends a pod member's leap at once (it dives, its leader left): back to its swimming art.
+function SpawnManager:_endPodLeap(m)
+  local lp = m and m.vary and m.vary.podLeap
+  if not lp then return end
+  m.vary.podLeap = nil
+  m.riderAnim = nil
+  EcoWater.backToWater(m, lp)
+end
+
 --- A rider's tick: it keeps its place in the cluster round its leader (eased at its own
 --- speed, so they trail a step or a leap one by one), on the leader's tile, bobbing in the
 --- water. `riderMoving` drives its walk / swim animation while it catches up. Standing, each
 --- shifts about, looks its own way and plays its own Idle; the leader's poses it joins or not
 --- (riderPose).
-function SpawnManager:_tickRider(e)
+function SpawnManager:_tickRider(e, ctx)
   local g = e.group
   local l = g and g.leader and self.entities[g.leader]
   if not l then return end
@@ -570,12 +642,36 @@ function SpawnManager:_tickRider(e)
       return
     end
   end
+  -- bigger art sits further apart (measured once the leader's art is at hand)
+  if not g.spread then g.spread = SpawnManager._groupSpread(l.renderer) end
+  local spread = g.spread or 1
   -- now and then a land member shifts about its place (a swarm buzzes instead)
   if land and g.social ~= "swarm" and not l.moving and due(v, "millAt", now, c.mill.every, rng) then
     v.mx, v.my = rng(-c.mill.px, c.mill.px), rng(-c.mill.px, c.mill.px)
   end
   local slot = gcfg.slots[e.rider] or gcfg.slots[1]
-  local tx, ty = l.px + slot[1] + v.jx + v.mx, l.py + slot[2] + v.jy + v.my
+  local tx, ty = l.px + (slot[1] + v.jx + v.mx) * spread, l.py + (slot[2] + v.jy + v.my) * spread
+  -- a pod at rest swims round its leader (and its leaping kinds take turns jumping)
+  local ringFacing
+  if l.moving or l.fx then g.stillAt = now end
+  if g.social == "pod" and ctx and not land and now - (g.stillAt or 0) >= gcfg.pod.settle and not e.fx
+    and self:_atSurface(e) and not (l.eco and l.eco.kind == "leap") then
+    tx, ty, ringFacing = SpawnManager.podPlace(e.rider, #g.members - 1, now, g, l, spread)
+    if e.profile and e.profile.water == "leaper" and not v.podLeap and not l.eco
+      and (g.leapBusy or 0) <= now and due(v, "leapAt", now, gcfg.pod.leapEvery, rng) then
+      local pc = gcfg.pod
+      local lp = { t = 0, n = rng(pc.leapTicks[1], pc.leapTicks[2]) }
+      v.podLeap = lp
+      g.leapBusy = now + lp.n + pc.leapGap
+      EcoWater.toAir(e, lp)
+      EcoWater.splashAt(e, e.px, e.py)
+    end
+  end
+  -- never drawn out over the shore / into a tree: pulled in toward the leader instead
+  if not spotOk(e, v, tx, ty) then
+    tx, ty = l.px + (tx - l.px) * 0.5, l.py + (ty - l.py) * 0.5
+    if not spotOk(e, v, tx, ty) then tx, ty = l.px, l.py end
+  end
   if g.social == "swarm" then
     -- a swarm's members never sit still: each buzzes round its place
     local ph = (now + e.rider * 13) / gcfg.swarmWobbleTicks * math.pi * 2
@@ -590,7 +686,9 @@ function SpawnManager:_tickRider(e)
     e.px, e.py = e.px + dx / d * speed, e.py + dy / d * speed
   end
   e.riderMoving = d > 0.5
-  if e.riderMoving and math.abs(dx) + math.abs(dy) > 2 then
+  if ringFacing then
+    e.riderMoving, e.facing = true, ringFacing -- (swimming its lap)
+  elseif e.riderMoving and math.abs(dx) + math.abs(dy) > 2 then
     if math.abs(dx) > math.abs(dy) then e.facing = dx > 0 and "right" or "left"
     else e.facing = dy > 0 and "down" or "up" end
   elseif l.moving then
@@ -604,8 +702,28 @@ function SpawnManager:_tickRider(e)
   end
   e.stepParity = not l.stepParity
   e.cellX, e.cellY = l.cellX, l.cellY
-  if e.terrain == "water" then self:_swimLife(e, true) end
   local r = e.renderer
+  if v.podLeap then
+    -- out of the water in an arc and back in, still going round with the others
+    local lp, pc = v.podLeap, gcfg.pod
+    lp.t = lp.t + 1
+    local p = math.min(1, lp.t / lp.n)
+    local sink = 0
+    if p < 0.15 then sink = 1 - p / 0.15 elseif p > 0.85 then sink = (p - 0.85) / 0.15 end
+    if r then
+      r.act = { dy = -math.sin(math.pi * p) * ((r.isPmd and pc.pmdHeight or pc.height) * spread),
+                sink = math.min(0.95, sink), ecoLeap = true }
+      if r.isPmd and r.advanceAs then r:advanceAs("hop", 1, "idle") end
+    end
+    if lp.t >= lp.n then
+      EcoWater.splashAt(e, e.px, e.py)
+      self:_endPodLeap(e)
+    else
+      e.riderAnim = r and r.isPmd or nil
+      return
+    end
+  end
+  if e.terrain == "water" then self:_swimLife(e, true) end
   if r and r.isPmd then
     r.idleSpeed = Config.PMD_WILD_IDLE_SPEED * v.idleMul
     r.idleOffset = v.phase
@@ -1020,7 +1138,7 @@ function SpawnManager:tick(game)
         end
       elseif e.rider then
         -- part of a special spawn's cluster: it goes where its leader goes
-        self:_tickRider(e)
+        self:_tickRider(e, reactCtx)
       elseif e.eco then
         -- doing what its kind does (lib/eco.lua); with Wild Reacts off / a busy field it stops
         if reactCtx then
@@ -1341,6 +1459,7 @@ function SpawnManager:startDive(e)
         and not m.eco and not m.lured and m.terrain == "water" then
         if m.moving then m.moving = false m.cellX, m.cellY = m.targetX or m.cellX, m.targetY or m.cellY end
         if not m.rider then m.px, m.py = m.cellX * 16, m.cellY * 16 end
+        self:_endPodLeap(m)
         self:startDive(m)
       end
     end

@@ -158,6 +158,17 @@ Config.ECO = {
   -- it (at most #slots besides the leader), easing after it `catchUp` px a tick
   group = { chance = 25, slots = { { -7, -3 }, { 7, -2 }, { -3, 5 } }, catchUp = 1.6,
             swarmWobble = 3, swarmWobbleTicks = 40,          -- a swarm's riders buzz round their places
+            -- the slots / jitter / mill / pod ring are for art `base` px wide; bigger art spreads
+            -- them out (width / base, at most `max`), so four Tauros do not sit in one heap; a
+            -- member's spot is pulled in toward its leader when it would be off its own terrain
+            -- (a pod by the shore, a herd by a tree)
+            spread = { base = 20, max = 2.5 },
+            -- a pod at rest (Finizen, Wailmer, Mantine, Lapras, Seel): the others swim round
+            -- their leader on a ring (px half-axes, x the spread), one lap every `lapTicks`
+            -- (a whale's x `whaleLap`), and leaping kinds take turns jumping out of it
+            pod = { ring = { 14, 5 }, lapTicks = 300, whaleLap = 1.6, settle = 30, -- (still ticks first)
+                    leapEvery = { 240, 600 }, leapTicks = { 30, 38 }, leapGap = 20,
+                    height = 14, pmdHeight = 8 },
             -- each member its own: no two move or pose in step (SpawnManager._riderVary)
             vary = {
               catchUp = { 1.1, 2.1 },     -- px a tick it follows at (the leader walks 16 px in 16)

@@ -133,6 +133,8 @@ rooftops, with little scenes waiting in special places.*
   they sound, and Tentacool drift slowly about. Now and then a pack, herd or school turns up
   instead of a single Pokémon (Poochyena packs, Seedot huddles, Magikarp and Carvanha schools,
   Wailmer pods ...), clustered together on one tile and moving, diving and surfacing as one.
+  Bigger Pokémon stand further apart, so a Tauros herd never ends up in one heap. A pod at
+  rest swims round its leader, and Mantine and Finizen take turns leaping out of the ring.
   A group counts as one Pokémon: walk into it to battle one of them, and the rest scatter.
   Each member keeps its own pace and looks its own way. Some join in when the leader howls or
   grazes and some don't, and now and then one wanders off to nibble, hop about or doze.

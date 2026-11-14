@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Pods at play.** A pod of Finizen, Mantine, Wailmer, Lapras or Seel resting at sea swims
+  round its leader in a ring, and the leaping kinds take turns jumping out of it.
+- **Big Pokémon give each other room.** A group's members stand apart by the size of their
+  art, so four Tauros or a Mantine pod no longer sit in one heap, and a member is never drawn
+  out over the shore or into a tree beside its group.
+
 ## 1.12.0-beta.3 (2026-11-13)
 
 ### Changed

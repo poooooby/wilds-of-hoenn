@@ -1396,6 +1396,111 @@ do
   fakeEngine.terrainAt, fakeEngine.isWater, fakeEngine.playerCell = realT, realW, realPC
   fakeEngine.startRipple = nil
 end
+-- ------- group spacing by art size, and a pod at rest swimming round its leader
+do
+  local Config = V.require("config")
+  local sp = Config.ECO.group.spread
+  local function pmd(cw) return { isPmd = true, info = { walk = { cw = cw, ch = 40 }, gutter = 2 } } end
+  eq(SpawnManager._groupSpread(pmd(4 + sp.base)), 1, "spread: art the slots were made for sits at the slots")
+  eq(SpawnManager._groupSpread(pmd(4 + sp.base * 1.5)), 1.5, "spread: art 1.5x as wide sits 1.5x as far out")
+  eq(SpawnManager._groupSpread(pmd(200)), sp.max, "spread: capped")
+  eq(SpawnManager._groupSpread(pmd(12)), 1, "spread: small art never closer than the slots")
+  local hgss = { imagePath = function() return "never/loaded.png" end, visualWidth = function() return 48 end }
+  eq(SpawnManager._groupSpread(hgss), nil, "spread: an HGSS sheet not loaded yet is not loaded for it")
+
+  -- the ring: evenly round the leader, centred on it, turning with time
+  local L = { px = 160, py = 160, profile = { water = "leaper" } }
+  local g = { spin = 1 }
+  local ax, ay = SpawnManager.podPlace(1, 2, 0, g, L, 1)
+  local bx, by = SpawnManager.podPlace(2, 2, 0, g, L, 1)
+  check(math.abs((ax + bx) / 2 - 160) < 0.01 and math.abs((ay + by) / 2 - 160) < 0.01,
+    "pod: two members opposite each other round the leader")
+  local cx, cy, f1 = SpawnManager.podPlace(1, 2, Config.ECO.group.pod.lapTicks / 4, g, L, 1)
+  check(math.abs(cx - ax) > 1 or math.abs(cy - ay) > 1, "pod: a quarter lap on, it has swum round")
+  local wx = SpawnManager.podPlace(1, 1, 0, g, L, 2)
+  eq(wx - 160, Config.ECO.group.pod.ring[1] * 2, "pod: bigger art swims a wider ring")
+  check(f1 == "left" or f1 == "right" or f1 == "up" or f1 == "down", "pod: it faces along the ring")
+
+  -- a pod of three on the water: the two others swim round, taking turns to leap
+  local realPC, realIW = fakeEngine.playerCell, fakeEngine.isWater
+  fakeEngine.playerCell = function() return { x = 0, y = 0, moving = false } end
+  fakeEngine.isWater = function() return true end
+  local sm = SpawnManager.new(mod)
+  local pg = { leader = 1, members = { 1, 2, 3 }, social = "pod", spread = 1 }
+  local leader = { id = 1, cellX = 10, cellY = 10, px = 160, py = 160, terrain = "water", state = "available",
+    profile = { water = "leaper" }, group = pg, facing = "left", renderer = {} }
+  sm.entities[1] = leader
+  local mates = {}
+  for k = 1, 2 do
+    local m = { id = k + 1, rider = k, cellX = 10, cellY = 10, px = 160, py = 160, terrain = "water",
+      state = "available", profile = { water = "leaper" }, group = pg, facing = "left",
+      vary = SpawnManager._riderVary(), renderer = { presentation = "swimming" } }
+    sm.entities[m.id] = m
+    mates[k] = m
+  end
+  local ctx = {}
+  local leaps, both, maxR = 0, false, 0
+  local was = {}
+  for t = 1, 1500 do
+    sm.ticks = t
+    for k, m in ipairs(mates) do
+      sm:_tickRider(m, ctx)
+      local up = m.vary.podLeap ~= nil
+      if up and not was[k] then leaps = leaps + 1 end
+      was[k] = up
+      if t > 200 then
+        local dx = (m.px - 160) / Config.ECO.group.pod.ring[1]
+        local dy = (m.py - 160) / Config.ECO.group.pod.ring[2]
+        maxR = math.max(maxR, math.sqrt(dx * dx + dy * dy))
+      end
+    end
+    if was[1] and was[2] then both = true end
+  end
+  check(maxR > 0.8 and maxR < 1.3, ("pod: the others swim round the leader on its ring (%.2f)"):format(maxR))
+  check(leaps >= 3, ("pod: leaping kinds jump out of the ring now and then (%d)"):format(leaps))
+  check(not both, "pod: they take turns, never two in the air at once")
+  -- mid-leap, the leader dives: the member ends its leap (back to its swimming art) and goes too
+  local m = mates[1]
+  if m.vary.podLeap then sm:_endPodLeap(m) end
+  m.vary.leapAt = sm.ticks
+  pg.leapBusy = 0
+  local guard = 0
+  repeat
+    sm.ticks = sm.ticks + 1
+    guard = guard + 1
+    sm:_tickRider(m, ctx)
+  until m.vary.podLeap or guard > 600
+  eq(m.renderer.presentation, "land", "pod leap: its land art while in the air")
+  sm:startDive(leader)
+  check(m.vary.podLeap == nil and m.renderer.presentation == "swimming" and m.fx and m.fx.dive,
+    "pod leap: the leader diving ends it, and it dives too")
+  -- the leader on the move: no ring, they trail in their places
+  m.fx, leader.fx = nil, nil
+  leader.moving = true
+  local m2 = mates[2]
+  if m2.vary.podLeap then sm:_endPodLeap(m2) end
+  sm.ticks = sm.ticks + 1
+  for _ = 1, 40 do sm:_tickRider(m2, ctx) end
+  local slot = Config.ECO.group.slots[2]
+  local v = m2.vary
+  check(math.abs(m2.px - (160 + slot[1] + v.jx + v.mx)) < 0.5, "pod on the move: members trail in their places")
+  -- Wild Reacts off (no ctx): no ring either
+  leader.moving = false
+  pg.stillAt = -1000
+  for _ = 1, 40 do sm.ticks = sm.ticks + 1 sm:_tickRider(m2, nil) end
+  check(math.abs(m2.px - (160 + slot[1] + v.jx + v.mx)) < 0.5, "no ecology: the pod just sits in its places")
+  -- by the shore: a spot over land is pulled in toward the leader
+  pg.spread = 2.5
+  leader.moving = true
+  for _ = 1, 60 do sm.ticks = sm.ticks + 1 sm:_tickRider(m2, ctx) end
+  eq(math.floor((m2.px + 8) / 16), 11, "a big pod's member sits out on the next tile over open water")
+  fakeEngine.isWater = function(x) return x <= 10 end
+  m2.vary.okc = nil
+  for _ = 1, 60 do sm.ticks = sm.ticks + 1 sm:_tickRider(m2, ctx) end
+  check(math.floor((m2.px + 8) / 16) <= 10, "by the shore: a member is never drawn out over the land")
+  fakeEngine.playerCell, fakeEngine.isWater = realPC, realIW
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)
