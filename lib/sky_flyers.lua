@@ -775,8 +775,8 @@ function SkyFlyers:collectActors(actors, camX, camY)
     end
     SkyDraw.push(actors, b, camX or 0, camY or 0, vw, vh)
     if b.rings and b.cellX then
-      for _, age in ipairs(b.rings) do
-        local a = SpawnFx.ringsActor(age, b.cellX * 16, b.cellY * 16, b.cellY * 16, 3, 95000 + b.id)
+      for k, age in ipairs(b.rings) do
+        local a = SpawnFx.ringsActor(age, b.cellX * 16, b.cellY * 16, b.cellY * 16, 3, 95000 + b.id, k)
         if a then actors[#actors + 1] = a end
       end
     end

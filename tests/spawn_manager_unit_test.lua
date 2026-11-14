@@ -970,6 +970,33 @@ do
   local refl = {}
   smV:reflections(refl, 5000, 5000)
   eq(#refl, 0, "no reflections for Pokemon out of view")
+  -- a Pokemon with no water under it: its frame is not even built until it moves (or a
+  -- while has passed); one record per Pokemon, refilled
+  local id = smV.order[1]
+  local e = smV.entities[id]
+  local built = 0
+  local realR = e.renderer
+  e.renderer = { reflectionGeometry = function(_, _, _, _, _, out)
+    built = built + 1
+    out.image = "img"
+    return out
+  end }
+  local function oneFrame()
+    local l = {}
+    smV:reflections(l, 0, 0)
+    for _, rec in ipairs(l) do if rec == e._refl then return rec end end
+  end
+  local rec = oneFrame()
+  check(rec ~= nil and built == 1, "first frame: its frame is built")
+  rec.cell.kind = 0 -- (lib/reflection.lua found no reflective tile below it)
+  check(oneFrame() == nil and built == 1, "standing still with no water below: skipped, nothing built")
+  for _ = 1, 30 do oneFrame() end
+  check(built == 2, "...looked at again after a while (" .. built .. ")")
+  rec.cell.kind = 0
+  e.cellX = e.cellX + 1
+  local moved = oneFrame()
+  check(moved == rec and built == 3, "it moved: built again, the same record")
+  e.renderer = realR
   fakeEngine.viewSize = nil
 end
 

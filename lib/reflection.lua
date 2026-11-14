@@ -88,9 +88,69 @@ local function tintShader()
   return shader or nil
 end
 
+--- The reflection kind under a sprite (0 none, 1 ice, 2 water; EnginePatch.reflectionKind,
+--- which walks the tiles below it). Remembered on `cell` -- the caller's record, kept
+--- per sprite -- until its tiles or its drawn size change: the engine's walk is up to
+--- ~40 tile lookups per sprite, every frame, for an answer that changes only as it moves.
+function Reflection.kindOf(geo, cell)
+  local w, h = math.abs(geo.sx) * geo.qw, geo.rows * geo.sy
+  local cx, cy = cell.cx, cell.cy
+  local pcx, pcy = cell.pcx or cx, cell.pcy or cy
+  if cell.kind ~= nil and cell.kcx == cx and cell.kcy == cy and cell.kpcx == pcx and cell.kpcy == pcy
+    and cell.kw == w and cell.kh == h then
+    return cell.kind
+  end
+  local kind = EnginePatch.reflectionKind(cx, cy, pcx, pcy, w, h)
+  cell.kind, cell.kcx, cell.kcy, cell.kpcx, cell.kpcy, cell.kw, cell.kh = kind, cx, cy, pcx, pcy, w, h
+  return kind
+end
+
+-- What the slice pass draws, set by Reflection.draw just before it: the pass is a plain
+-- function (no closure built per reflection per frame), run directly or through
+-- HdField.untagged.
+local cur = { geo = nil, left = 0, top = 0, width = 0, height = 0, sx = 1, iw = 1, ih = 1,
+  flipped = false, hd = false, camX = 0, camY = 0, drawn = false }
+local tintBuf = { 1, 1, 1 }
+
+local function drawSlices()
+  local geo, left, top, width, height, sx = cur.geo, cur.left, cur.top, cur.width, cur.height, cur.sx
+  local iw, ih, flipped, hd, camX, camY = cur.iw, cur.ih, cur.flipped, cur.hd, cur.camX, cur.camY
+  local tint = Config.REFLECTION_TINT or tintBuf
+  local sh = tintShader()
+  if sh then
+    tintBuf[1], tintBuf[2], tintBuf[3] = tint[1], tint[2], tint[3]
+    pcall(sh.send, sh, "tint", tintBuf)
+    pcall(sh.send, sh, "amount", Config.REFLECTION_MIX or 0.5)
+    love.graphics.setShader(sh)
+    love.graphics.setColor(1, 1, 1, geo.alpha or 1)
+  else
+    love.graphics.setColor(tint[1], tint[2], tint[3], geo.alpha or 1)
+  end
+  for ty = math.floor(top / CELL), math.floor((top + height - 1) / CELL) do
+    for tx = math.floor(left / CELL), math.floor((left + width - 1) / CELL) do
+      if EnginePatch.reflectiveAt(tx, ty) then
+        local ix0, ix1 = math.max(left, tx * CELL), math.min(left + width, (tx + 1) * CELL)
+        local iy0, iy1 = math.max(top, ty * CELL), math.min(top + height, (ty + 1) * CELL)
+        local q = (ix1 > ix0 and iy1 > iy0) and nextQuad(iw, ih)
+        if q then
+          local srcX, srcY, srcW, srcH = Reflection.source(geo, left, top, sx, ix0, ix1, iy0, iy1, flipped)
+          q:setViewport(srcX, srcY, srcW, srcH, iw, ih)
+          if hd then HdField.quadPivot(geo.image, q, 0, 0, 1) end
+          love.graphics.draw(geo.image, q,
+            (flipped and ix1 or ix0) - camX, iy1 - camY, 0, flipped and -sx or sx, -geo.sy)
+          cur.drawn = true
+        end
+      end
+    end
+  end
+  if sh then love.graphics.setShader() end
+  love.graphics.setColor(1, 1, 1, 1)
+end
+
 --- Draw one reflection. `cell` = { cx, cy, pcx, pcy }: the tile it stands on (or is
---- stepping onto) and the one it comes from, which decide whether there is water below.
---- Returns its world box when something was drawn (for the cover pass), else nil.
+--- stepping onto) and the one it comes from, which decide whether there is water below
+--- (the answer is remembered on it, Reflection.kindOf). Returns its world box (left,
+--- top, width, height) when something was drawn (for the cover pass), else nil.
 --- With gen3-hd-sprites (one that takes per-quad scales) the slices are drawn through
 --- it at window resolution, each at scale 1 -- they are already the size the sprite is
 --- shown at, so they land exactly where the plain draw would put them; without it, or
@@ -98,65 +158,41 @@ end
 function Reflection.draw(geo, cell, camX, camY)
   if not (geo and geo.image and geo.rows and geo.rows > 0 and geo.qw and geo.qw > 0) then return nil end
   if (geo.alpha or 1) <= 0 then return nil end
-  local h = geo.rows * geo.sy
-  local kind = EnginePatch.reflectionKind(cell.cx, cell.cy, cell.pcx or cell.cx, cell.pcy or cell.cy,
-    math.abs(geo.sx) * geo.qw, h)
+  local kind = Reflection.kindOf(geo, cell)
   if kind == 0 then return nil end
   local wobble = (kind == 2) and EnginePatch.reflectionWobble() or nil
   local left, top, width, height, sx = Reflection.box(geo, wobble)
   local iw, ih = geo.image:getDimensions()
-  local flipped = geo.sx < 0
-  local hd = HdField.slicesSupported(geo.mod, geo.image)
-  local drawn = false
-  local function slices()
-    local tint = Config.REFLECTION_TINT or { 1, 1, 1 }
-    local sh = tintShader()
-    if sh then
-      pcall(sh.send, sh, "tint", { tint[1], tint[2], tint[3] })
-      pcall(sh.send, sh, "amount", Config.REFLECTION_MIX or 0.5)
-      love.graphics.setShader(sh)
-      love.graphics.setColor(1, 1, 1, geo.alpha or 1)
-    else
-      love.graphics.setColor(tint[1], tint[2], tint[3], geo.alpha or 1)
-    end
-    for ty = math.floor(top / CELL), math.floor((top + height - 1) / CELL) do
-      for tx = math.floor(left / CELL), math.floor((left + width - 1) / CELL) do
-        if EnginePatch.reflectiveAt(tx, ty) then
-          local ix0, ix1 = math.max(left, tx * CELL), math.min(left + width, (tx + 1) * CELL)
-          local iy0, iy1 = math.max(top, ty * CELL), math.min(top + height, (ty + 1) * CELL)
-          local q = (ix1 > ix0 and iy1 > iy0) and nextQuad(iw, ih)
-          if q then
-            local srcX, srcY, srcW, srcH = Reflection.source(geo, left, top, sx, ix0, ix1, iy0, iy1, flipped)
-            q:setViewport(srcX, srcY, srcW, srcH, iw, ih)
-            if hd then HdField.quadPivot(geo.image, q, 0, 0, 1) end
-            love.graphics.draw(geo.image, q,
-              (flipped and ix1 or ix0) - camX, iy1 - camY, 0, flipped and -sx or sx, -geo.sy)
-            drawn = true
-          end
-        end
-      end
-    end
-    if sh then love.graphics.setShader() end
-    love.graphics.setColor(1, 1, 1, 1)
-  end
-  if hd then slices() else HdField.untagged(geo.mod, geo.image, slices) end
-  if not drawn then return nil end
-  return { left, top, width, height }
+  cur.geo, cur.left, cur.top, cur.width, cur.height, cur.sx = geo, left, top, width, height, sx
+  cur.iw, cur.ih, cur.flipped, cur.camX, cur.camY = iw, ih, geo.sx < 0, camX, camY
+  cur.hd = HdField.slicesSupported(geo.mod, geo.image)
+  cur.drawn = false
+  if cur.hd then drawSlices() else HdField.untagged(geo.mod, geo.image, drawSlices) end
+  cur.geo = nil
+  if not cur.drawn then return nil end
+  return left, top, width, height
 end
 
---- Draw every reflection in `list` ({ geo, cell } pairs), then the map's upper layer
---- back over them.
-function Reflection.drawAll(list, camX, camY)
+-- the cover pass's boxes, 4 numbers each, reused frame to frame
+local boxes = {}
+
+--- Draw the first `n` (default all) reflections in `list` ({ geo, cell } records), then
+--- the map's upper layer back over them. Returns how many were drawn.
+function Reflection.drawAll(list, camX, camY, n)
   used = 0
-  local boxes = {}
-  for _, item in ipairs(list) do
-    local ok, box = pcall(Reflection.draw, item.geo, item.cell, camX, camY)
-    if ok and box then boxes[#boxes + 1] = box end
+  local nb = 0
+  for i = 1, n or #list do
+    local item = list[i]
+    local ok, left, top, width, height = pcall(Reflection.draw, item.geo, item.cell, camX, camY)
+    if ok and left then
+      boxes[nb + 1], boxes[nb + 2], boxes[nb + 3], boxes[nb + 4] = left, top, width, height
+      nb = nb + 4
+    end
   end
-  for _, b in ipairs(boxes) do
-    EnginePatch.coverReflections(b[1], b[2], b[3], b[4], camX, camY)
+  for b = 1, nb, 4 do
+    EnginePatch.coverReflections(boxes[b], boxes[b + 1], boxes[b + 2], boxes[b + 3], camX, camY)
   end
-  return #boxes
+  return nb / 4
 end
 
 return Reflection

@@ -471,7 +471,8 @@ end
 --- (lib/reflection.lua): mirrored about its feet, or a swimmer's waterline, at the size
 --- it is shown at (gen3-hd-sprites included). nil while it is shrunk, sinking or a
 --- silhouette.
-function PmdRenderer:reflectionGeometry(x, y, facing)
+-- `out` (optional): a table to fill instead of a new one (the callers keep one per sprite)
+function PmdRenderer:reflectionGeometry(x, y, facing, _walkPhase, out)
   if self.silhouette or (self.recall or 1) < 1 then return nil end
   local act = self.act
   if act and act.facing then facing = act.facing end
@@ -499,12 +500,12 @@ function PmdRenderer:reflectionGeometry(x, y, facing)
   -- gen3-hd-sprites grows it about that same point
   local px, py = dx + entry.ax * scale, dy + anchorY * scale
   local s = scale * (HdField.scaleOfPath(self.mod, path) or 1)
-  return {
-    mod = self.mod, image = image,
-    qx = col * entry.cw, qy = row * entry.ch, qw = entry.cw, rows = anchorY,
-    left = px - entry.ax * s, mirror = py, sx = s, sy = s,
-    alpha = ActorRenderer.alphaOf(self),
-  }
+  local g = out or {}
+  g.mod, g.image = self.mod, image
+  g.qx, g.qy, g.qw, g.rows = col * entry.cw, row * entry.ch, entry.cw, anchorY
+  g.left, g.mirror, g.sx, g.sy = px - entry.ax * s, py, s, s
+  g.alpha = ActorRenderer.alphaOf(self)
+  return g
 end
 
 function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)

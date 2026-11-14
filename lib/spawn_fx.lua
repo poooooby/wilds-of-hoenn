@@ -91,20 +91,22 @@ end
 --- The rings `age` ticks in: { {rx, ry, alpha}, ... } for those showing now (each
 --- starts RING_GAP after the last, grows from RING_R0 to RING_R1 easing out, and fades
 --- as it spreads). Pure (tested).
+-- ring i (1..RING_COUNT) `age` ticks in: rx, ry, alpha, or nil when it is not showing
+local function ringAt(age, i)
+  local t = age - (i - 1) * SpawnFx.RING_GAP
+  if t < 0 or t >= SpawnFx.RING_LIFE then return nil end
+  local p = t / SpawnFx.RING_LIFE
+  local grow = 1 - (1 - p) * (1 - p) -- fast at first, slowing as it spreads
+  local rx = SpawnFx.RING_R0 + (SpawnFx.RING_R1 - SpawnFx.RING_R0) * grow
+  return rx, rx * SpawnFx.RING_FLAT, math.min(1, p / 0.12) * (1 - p) * 0.9
+end
+
 function SpawnFx.rings(age)
   age = tonumber(age) or 0
   local out = {}
   for i = 1, SpawnFx.RING_COUNT do
-    local t = age - (i - 1) * SpawnFx.RING_GAP
-    if t >= 0 and t < SpawnFx.RING_LIFE then
-      local p = t / SpawnFx.RING_LIFE
-      local grow = 1 - (1 - p) * (1 - p) -- fast at first, slowing as it spreads
-      local rx = SpawnFx.RING_R0 + (SpawnFx.RING_R1 - SpawnFx.RING_R0) * grow
-      out[#out + 1] = {
-        rx = rx, ry = rx * SpawnFx.RING_FLAT,
-        alpha = math.min(1, p / 0.12) * (1 - p) * 0.9,
-      }
-    end
+    local rx, ry, alpha = ringAt(age, i)
+    if rx then out[#out + 1] = { rx = rx, ry = ry, alpha = alpha } end
   end
   return out
 end
@@ -141,36 +143,75 @@ function SpawnFx.ringPixels(rx, ry)
   return out
 end
 
+-- The ring / wake actors are kept (one per owner and slot) and refilled each frame, drawn
+-- by one shared function reading the actor's fields: a fresh actor + draw closure + ring
+-- list per frame was the biggest piece of a water map's per-frame garbage. The field
+-- reads an actor only in the frame it is pushed. Bounded: started over past POOL_MAX.
+local pool, pooled = {}, 0
+local POOL_MAX = 512
+
+local function pooledActor(key, kind, draw)
+  local a = pool[key]
+  if not a then
+    if pooled >= POOL_MAX then pool, pooled = {}, 0 end
+    a = { kind = kind, draw = draw }
+    pool[key] = a
+    pooled = pooled + 1
+  end
+  return a
+end
+
+--- A new map: forget the kept actors.
+function SpawnFx.reset()
+  pool, pooled = {}, 0
+end
+
+local function ringOutline(g, ox, oy, rx, ry, alpha)
+  g.setColor(0.88, 0.96, 1.0, alpha)
+  local px = SpawnFx.ringPixels(rx, ry)
+  for k = 1, #px do
+    local p = px[k]
+    g.rectangle("fill", ox + p[1], oy + p[2], 1, 1)
+  end
+end
+
+local function drawRings(a, camX, camY)
+  if not (love and love.graphics and love.graphics.rectangle) then return end
+  local g = love.graphics
+  local r, gg, b, al = g.getColor()
+  local ox, oy = math.floor(a.x - camX), math.floor(a.y - camY)
+  for i = 1, SpawnFx.RING_COUNT do
+    local rx, ry, alpha = ringAt(a.age, i)
+    if rx then ringOutline(g, ox, oy, rx, ry, alpha) end
+  end
+  g.setColor(r, gg, b, al)
+end
+
+local function drawWake(a, camX, camY)
+  if not (love and love.graphics and love.graphics.rectangle) then return end
+  local g = love.graphics
+  local r, gg, b, al = g.getColor()
+  ringOutline(g, math.floor(a.x - camX), math.floor(a.y - camY), a.rx, a.ry, a.alpha)
+  g.setColor(r, gg, b, al)
+end
+
 --- The rings around the waterline of the tile whose top-left is (gx, gy), as a field
 --- actor drawn on the water (under a Pokemon standing in it), or nil once they are done.
-function SpawnFx.ringsActor(age, gx, gy, py, elevation, id)
+--- `slot` (optional, 1-8): which of the owner's ring sets it is, so each keeps its own actor.
+function SpawnFx.ringsActor(age, gx, gy, py, elevation, id, slot)
   if age >= SpawnFx.ringsTicks() then return nil end
-  local cx, cy = gx + 8, gy + 15
-  return {
-    kind = "ow_spawn_rings",
-    elevation = elevation or 3,
-    sortY = py - 0.4, -- on the water: under the Pokemon surfacing through it
-    x = cx, y = cy,
-    i = 91700 + (tonumber(id) or 0),
-    draw = function(_, camX, camY)
-      if not (love and love.graphics and love.graphics.rectangle) then return end
-      local g = love.graphics
-      local r, gg, b, a = g.getColor()
-      local ox, oy = math.floor(cx - camX), math.floor(cy - camY)
-      for _, ring in ipairs(SpawnFx.rings(age)) do
-        g.setColor(0.88, 0.96, 1.0, ring.alpha)
-        for _, p in ipairs(SpawnFx.ringPixels(ring.rx, ring.ry)) do
-          g.rectangle("fill", ox + p[1], oy + p[2], 1, 1)
-        end
-      end
-      g.setColor(r, gg, b, a)
-    end,
-  }
+  local n = tonumber(id) or 0
+  local a = pooledActor(n * 16 + ((tonumber(slot) or 1) - 1) % 8, "ow_spawn_rings", drawRings)
+  a.elevation = elevation or 3
+  a.sortY = py - 0.4 -- on the water: under the Pokemon surfacing through it
+  a.x, a.y, a.i, a.age = gx + 8, gy + 15, 91700 + n, age
+  return a
 end
 
 --- A wake ring `age` ticks after a swimmer left a tile: { rx, ry, alpha }, or nil once it
 --- has faded. One small ring, growing r0 -> r1 (cfg = Config.SWIM.wake). Pure (tested).
-function SpawnFx.wake(age, cfg)
+-- the wake ring `age` ticks in: rx, ry, alpha, or nil once it has faded
+local function wakeAt(age, cfg)
   local life = cfg and cfg.life or 28
   age = tonumber(age) or 0
   if age < 0 or age >= life then return nil end
@@ -178,32 +219,26 @@ function SpawnFx.wake(age, cfg)
   local grow = 1 - (1 - p) * (1 - p)
   local r0, r1 = cfg and cfg.r0 or 3, cfg and cfg.r1 or 10
   local rx = r0 + (r1 - r0) * grow
-  return { rx = rx, ry = rx * SpawnFx.RING_FLAT, alpha = math.min(1, p / 0.15) * (1 - p) * 0.7 }
+  return rx, rx * SpawnFx.RING_FLAT, math.min(1, p / 0.15) * (1 - p) * 0.7
+end
+
+function SpawnFx.wake(age, cfg)
+  local rx, ry, alpha = wakeAt(age, cfg)
+  if not rx then return nil end
+  return { rx = rx, ry = ry, alpha = alpha }
 end
 
 --- A wake ring on the tile whose top-left is (gx, gy), as a field actor on the water, or nil.
-function SpawnFx.wakeActor(age, cfg, gx, gy, elevation, id)
-  local ring = SpawnFx.wake(age, cfg)
-  if not ring then return nil end
-  local cx, cy = gx + 8, gy + 15
-  return {
-    kind = "ow_swim_wake",
-    elevation = elevation or 3,
-    sortY = gy - 0.4,
-    x = cx, y = cy,
-    i = 91800 + (tonumber(id) or 0),
-    draw = function(_, camX, camY)
-      if not (love and love.graphics and love.graphics.rectangle) then return end
-      local g = love.graphics
-      local r, gg, b, a = g.getColor()
-      local ox, oy = math.floor(cx - camX), math.floor(cy - camY)
-      g.setColor(0.88, 0.96, 1.0, ring.alpha)
-      for _, p in ipairs(SpawnFx.ringPixels(ring.rx, ring.ry)) do
-        g.rectangle("fill", ox + p[1], oy + p[2], 1, 1)
-      end
-      g.setColor(r, gg, b, a)
-    end,
-  }
+--- `slot` (optional, 1-8): which of the owner's wakes it is, so each keeps its own actor.
+function SpawnFx.wakeActor(age, cfg, gx, gy, elevation, id, slot)
+  local rx, ry, alpha = wakeAt(age, cfg)
+  if not rx then return nil end
+  local n = tonumber(id) or 0
+  local a = pooledActor(n * 16 + 8 + ((tonumber(slot) or 1) - 1) % 8, "ow_swim_wake", drawWake)
+  a.elevation, a.sortY = elevation or 3, gy - 0.4
+  a.x, a.y, a.i = gx + 8, gy + 15, 91800 + n
+  a.rx, a.ry, a.alpha = rx, ry, alpha
+  return a
 end
 
 return SpawnFx

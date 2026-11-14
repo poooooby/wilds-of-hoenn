@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Smoother on new ground.** The first wild Pokémon on a map no longer cause a stall: the
+  sprite indexes are read while the game starts up (adds a fraction of a second there), and
+  are read about three times faster. The first map fill went from ~175 ms to ~20 ms, and
+  the slowest new sprite from ~50 ms to under 10 ms.
+- **Lighter every frame.** About 60 % less memory churn per frame from wild Pokémon,
+  reflections, grass, wakes and the partner, so the game's memory cleanup has less to
+  do, and a bit less work per frame too. Wild Pokémon chasing you or heading home find
+  their way with far less searching.
+
+### Fixed
+
+- **Fish taking shape under the sea.** A fish swimming in on a Dive map now really fades
+  from its shadow into the Pokémon, instead of its shadow showing twice and the Pokémon
+  popping in at the end.
+
 ## 2.0.0 (2026-11-14)
 
 The first full release with Pokecology: everything from the 1.12.0 betas below, plus:

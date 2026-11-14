@@ -250,11 +250,24 @@ local function chaseDir(e, gx, gy, ctx, leash)
       return not (ctx.occupied and ctx.occupied(x, y, e))
     end,
     maxDepth = leash + 4,
+    goalX = gx, goalY = gy, -- (stops there: the same path, a fraction of the cells)
   })
   local path = CellPath.pathTo(res, gx, gy)
   local first = path and path[1]
   if not first then return nil end
   return CellPath.facingOf(first[1] - e.cellX, first[2] - e.cellY)
+end
+
+-- With no way through, a chaser / homecomer looks again only every NO_PATH_RETRY ticks
+-- (it still gives up after the same noPathTicks): each search can cover a few hundred
+-- cells, and it used to run every tick while stuck.
+local NO_PATH_RETRY = 8
+local function plannedDir(e, r, gx, gy, ctx, depth)
+  local now = ctx.now or 0
+  if (r.searchAt or 0) > now then return nil end
+  local dir = chaseDir(e, gx, gy, ctx, depth)
+  if not dir then r.searchAt = now + NO_PATH_RETRY end
+  return dir
 end
 
 local function giveUp(e, ctx)
@@ -420,7 +433,7 @@ function WildReactions.tick(e, ctx)
       e.facing = faceToward(e.cellX, e.cellY, gx, gy) or e.facing
       return
     end
-    local dir = chaseDir(e, gx, gy, ctx, r.leash)
+    local dir = plannedDir(e, r, gx, gy, ctx, r.leash)
     if dir and Behavior.tryStep(e, ctx.game, dir, cfg.chase.frames, { anyGround = anyGround(e) }) then
       r.noPath = 0
     else
@@ -441,7 +454,7 @@ function WildReactions.tick(e, ctx)
       e.chaseHome = nil
       return finish(e, ctx.now, cfg.chaseCooldown, rng)
     end
-    local dir = home and not atHome and chaseDir(e, home.x, home.y, ctx, cfg.chase.homeSearch or 24)
+    local dir = home and not atHome and plannedDir(e, r, home.x, home.y, ctx, cfg.chase.homeSearch or 24)
     if dir and Behavior.tryStep(e, ctx.game, dir, Behavior.STEP_FRAMES, { anyGround = anyGround(e) }) then
       if not off then r.steps = r.steps - 1 end
       r.blocked = 0

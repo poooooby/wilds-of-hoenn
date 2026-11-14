@@ -50,6 +50,7 @@ local function newState()
     shardCount = 0,
     images = {}, -- sprite rel -> { img = love Image, tick = n }
     imageCount = 0,
+    recent = {}, -- the last few sliced sheets' pixels: { rel, data } (see sheetData)
     tick = 0, -- use counter: entries with the lowest tick are evicted first
     decodes = 0,
     evictedShards = 0,
@@ -187,42 +188,81 @@ end
 --- The exact RGBA bytes of a `count`-pixel sheet from its decoded number
 --- pixels (`numbers`, RGBA bytes, number in red) and its palette row (`row`,
 --- 4 bytes per colour). Pure: no love.
+-- Built in pieces of EXPAND_CHUNK pixels through one reused list, then joined: one
+-- big list of `count` 4-byte strings was ~2.3 MB of garbage per 200k-pixel sheet
+-- (now ~0.3 MB) and slower (~2.0 -> 1.4 ms, desktop LuaJIT).
+local EXPAND_CHUNK = 2048
+local expandBuf = {}
 function SpriteAtlas._expand(numbers, count, row)
-  local byte, sub = string.byte, string.sub
+  local byte, sub, concat = string.byte, string.sub, table.concat
   local colours = {}
   for i = 0, math.floor(#row / 4) - 1 do colours[i] = sub(row, i * 4 + 1, i * 4 + 4) end
-  local out = {}
   local transparent = "\0\0\0\0"
-  for i = 1, count do
-    out[i] = colours[byte(numbers, i * 4 - 3)] or transparent
+  local buf, parts, np = expandBuf, {}, 0
+  local i = 1
+  while i <= count do
+    local last = math.min(count, i + EXPAND_CHUNK - 1)
+    local n = 0
+    for k = i, last do
+      n = n + 1
+      buf[n] = colours[byte(numbers, k * 4 - 3)] or transparent
+    end
+    np = np + 1
+    parts[np] = concat(buf, "", 1, n)
+    i = last + 1
   end
-  return table.concat(out)
+  return concat(parts, "", 1, np)
 end
 
--- the family's whole palette image as one byte string (kept with the family)
-local function paletteBytes(fam)
-  if fam.paletteBytes ~= nil then return fam.paletteBytes or nil end
-  fam.paletteBytes = false
+-- One palette row's bytes (4 per colour). The family's palette image is kept as
+-- ImageData and the row read through a love.data view: holding every palette as a
+-- Lua string (the old way) kept ~10 MB in the Lua heap, which the engine's GC
+-- ceiling counts. Without newDataView (older LOVE) the string is the fallback.
+local function paletteRow(fam, row)
   local meta = fam.palette
-  if type(meta) ~= "table" or type(meta.file) ~= "string" or not haveImageApi() then return nil end
-  local full = state.mod.assets and state.mod.assets.path
-    and state.mod.assets:path(meta.file) or meta.file
-  local ok, bytes = pcall(function()
-    local data = love.image.newImageData(full)
-    local s = data:getString()
-    releaseData(data)
-    return s
-  end)
-  if ok and type(bytes) == "string" and #bytes >= meta.w * meta.h * 4 then fam.paletteBytes = bytes end
-  return fam.paletteBytes or nil
+  if type(meta) ~= "table" or type(row) ~= "number" then return nil end
+  if fam.paletteData == nil then
+    fam.paletteData = false
+    if type(meta.file) ~= "string" or not haveImageApi() then return nil end
+    local full = state.mod.assets and state.mod.assets.path
+      and state.mod.assets:path(meta.file) or meta.file
+    local ok, data = pcall(love.image.newImageData, full)
+    if not (ok and data) then return nil end
+    local okS, size = pcall(function() return data:getSize() end)
+    if okS and type(size) == "number" and size < meta.w * meta.h * 4 then
+      releaseData(data)
+      return nil
+    end
+    if love.data and type(love.data.newDataView) == "function" then
+      fam.paletteData = data
+    else
+      local okB, s = pcall(function() return data:getString() end)
+      releaseData(data)
+      if okB and type(s) == "string" and #s >= meta.w * meta.h * 4 then fam.paletteBytes = s end
+    end
+  end
+  local rowLen = meta.w * 4
+  if row < 0 or row >= meta.h then return nil end
+  if fam.paletteData then
+    local ok, s = pcall(function()
+      local view = love.data.newDataView(fam.paletteData, row * rowLen, rowLen)
+      local bytes = view:getString()
+      releaseData(view)
+      return bytes
+    end)
+    return ok and s or nil
+  end
+  local pal = fam.paletteBytes
+  return pal and pal:sub(row * rowLen + 1, (row + 1) * rowLen) or nil
 end
 
 -- swaps a sliced number sheet for the real colours; nil when anything is missing
 local function colourIn(fam, sliced, w, h, row)
-  local pal = paletteBytes(fam)
-  if not pal or type(row) ~= "number" then return nil end
-  local rowLen = fam.palette.w * 4
-  local rowBytes = pal:sub(row * rowLen + 1, (row + 1) * rowLen)
+  local rowBytes = paletteRow(fam, row)
+  if not rowBytes then
+    releaseData(sliced)
+    return nil
+  end
   local ok, out = pcall(function()
     return love.image.newImageData(w, h, "rgba8", SpriteAtlas._expand(sliced:getString(), w * h, rowBytes))
   end)
@@ -235,9 +275,33 @@ end
 --- shard the first time it's asked for, or nil when `rel` isn't covered
 --- or the shard fails to decode (the caller then falls back to its own
 --- real-file load).
---- The sheet's pixels as a fresh love ImageData (uncached), or nil.
+-- The last few sheets' pixels are kept (RECENT): a new sheet's image and the art
+-- measurements its renderer reads (feet pad, top, boxes -- lib/actor_renderer.lua,
+-- lib/pmd_renderer.lua) all ask for the same pixels within a frame or two, and each
+-- slice + colour expansion costs a few ms.
+local RECENT = 3
+local function recentGet(rel)
+  local r = state.recent
+  for i = 1, #r do
+    if r[i][1] == rel then return r[i][2] end
+  end
+  return nil
+end
+local function recentPut(rel, data)
+  local r = state.recent
+  table.insert(r, 1, { rel, data })
+  while #r > RECENT do
+    local old = table.remove(r)
+    if maxShards or maxImages then releaseData(old[2]) end
+  end
+end
+
+--- The sheet's pixels as a love ImageData, or nil. Shared with the recent-sheets
+--- cache: read it, never release or change it.
 function SpriteAtlas.sheetData(mod, rel)
   if not (state and state.mod == mod) then return nil end
+  local hit = recentGet(rel)
+  if hit then return hit end
   local fam, entry = lookup(rel)
   if not fam then return nil end
   local data = shardImageData(fam, entry[1])
@@ -250,7 +314,8 @@ function SpriteAtlas.sheetData(mod, rel)
   end)
   if not okSlice or not sliced then return nil end
   local shard = fam.shards[entry[1] + 1]
-  if shard.mode == "index" then return colourIn(fam, sliced, w, h, entry[6]) end
+  if shard.mode == "index" then sliced = colourIn(fam, sliced, w, h, entry[6]) end
+  if sliced then recentPut(rel, sliced) end
   return sliced
 end
 
@@ -267,7 +332,8 @@ function SpriteAtlas.image(mod, rel)
   if not sliced then return nil end
   local okImg, img = pcall(love.graphics.newImage, sliced)
   if not okImg or not img then return nil end
-  if maxShards or maxImages then releaseData(sliced) end -- bounded: the Image owns its pixels now, drop the temporary copy
+  -- the pixels stay in the recent-sheets cache a little longer (released as they leave
+  -- it when bounded): the art measurements read them next
   state.tick = state.tick + 1
   state.images[rel] = { img = img, tick = state.tick }
   state.imageCount = state.imageCount + 1
@@ -305,7 +371,23 @@ function SpriteAtlas.release()
   for _, entry in pairs(s.shardData) do releaseData(entry.data) end
   s.shardData, s.shardCount = {}, 0
   s.images, s.imageCount = {}, 0
+  if maxShards or maxImages then
+    for _, r in ipairs(s.recent) do releaseData(r[2]) end
+  end
+  s.recent = {}
   s.families = {}
+end
+
+--- Decodes every family's index now (at boot) instead of on that family's first
+--- sheet, which landed in the middle of play: pmd_foam's ~30 ms on the first swimmer,
+--- pmd_hop's on the first leap. Returns how many it holds.
+function SpriteAtlas.preload()
+  if not state then return 0 end
+  local n = 0
+  for name in pairs(state.familyMeta) do
+    if loadFamily(name) then n = n + 1 end
+  end
+  return n
 end
 
 function SpriteAtlas.installed()
@@ -339,8 +421,22 @@ function SpriteAtlas.install(mod)
     end
   end
   if not any then return false, "empty atlas index" end
+  -- the release layout: the atlas is all there is (no per-file sprite folders). Then
+  -- loads go to it FIRST; a dev checkout keeps its per-file sheets first (a rebake
+  -- shows before the atlas is rebuilt). Only known with mod:info.
+  local sample = next(s.dirToFamily)
+  if type(mod.info) == "function" and sample then
+    local ok, info = pcall(mod.info, mod, sample)
+    s.only = ok and info == nil
+  end
   state = s
   return true
+end
+
+--- Whether the atlas is the only copy of its sheets (a release ZIP), so a load should
+--- go to it first.
+function SpriteAtlas.only()
+  return state ~= nil and state.only == true
 end
 
 --- Test / tooling hook: forget everything.

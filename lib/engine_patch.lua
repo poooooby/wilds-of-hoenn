@@ -665,6 +665,21 @@ function EnginePatch.reachMover(game)
     return cur
   end
 
+  -- The flood fill calls this four times per cell (a big route: ~1800 cells), so it
+  -- builds nothing per call: one canEnter opts table, refilled (canEnter reads it at
+  -- once), and one shared, read-only state table per (surfing, elevation) pair.
+  local states = {}
+  local function stateOf(surfing, elev)
+    local k = (elev or -1) * 2 + (surfing and 1 or 0)
+    local st = states[k]
+    if not st then
+      st = { surfing = surfing, elev = elev }
+      states[k] = st
+    end
+    return st
+  end
+  local opts = {}
+
   return function(x, y, dir, state)
     local delta = REACH_DELTA[dir]
     if not delta then return nil end
@@ -674,20 +689,20 @@ function EnginePatch.reachMover(game)
     if not surfing and Collision.ledgeLanding then
       local okL, lx, ly = pcall(Collision.ledgeLanding, game, x, y, dir)
       if okL and lx then
-        return lx, ly, { surfing = false, elev = nextElevation(state, lx, ly, x, y) }
+        return lx, ly, stateOf(false, nextElevation(state, lx, ly, x, y))
       end
     end
 
     local tx, ty = x + delta[1], y + delta[2]
-    local opts = { fromX = x, fromY = y, dir = dir, surfing = surfing, elevation = elev }
+    opts.fromX, opts.fromY, opts.dir, opts.surfing, opts.elevation = x, y, dir, surfing, elev
     local ok, why = EnginePatch.canEnterWhy(game, tx, ty, opts)
-    if not ok and why == "entity" and not obstacleAt(tx, ty) and terrainOpen(tx, ty, opts.surfing) then
+    if not ok and why == "entity" and not obstacleAt(tx, ty) and terrainOpen(tx, ty, surfing) then
       ok = true
     end
     if not ok then return nil end
 
     local okW, water = pcall(Collision.isWater, tx, ty)
-    return tx, ty, { surfing = okW and water == true, elev = nextElevation(state, tx, ty, x, y) }
+    return tx, ty, stateOf(okW and water == true, nextElevation(state, tx, ty, x, y))
   end
 end
 
@@ -2269,16 +2284,20 @@ end
 --- Player module is unavailable. player.lua only updates cellX/cellY when a
 --- step FINISHES (finishStep), so `x, y` is where the player is standing
 --- right now; while `moving` the cell being stepped into is target*.
+-- ONE table, refilled on every call: it is asked ~30 places a tick (each wild step
+-- checks it), and a fresh table each time was a good part of the per-tick garbage.
+-- Callers read it right away and never keep or change it.
+local playerCellOut = {}
 function EnginePatch.playerCell()
   local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
   if not Player or type(Player.cellX) ~= "number" or type(Player.cellY) ~= "number" then
     return nil
   end
-  return {
-    x = Player.cellX, y = Player.cellY, moving = Player.moving == true,
-    targetX = Player.targetX, targetY = Player.targetY,
-    facing = type(Player.facing) == "string" and Player.facing or nil, -- player.lua:66
-  }
+  local c = playerCellOut
+  c.x, c.y, c.moving = Player.cellX, Player.cellY, Player.moving == true
+  c.targetX, c.targetY = Player.targetX, Player.targetY
+  c.facing = type(Player.facing) == "string" and Player.facing or nil -- player.lua:66
+  return c
 end
 
 --- Whether the player's Pokedex has `speciesId` (engine-internal id) seen

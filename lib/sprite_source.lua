@@ -212,15 +212,8 @@ function SpriteSource.pmdIndex(mod)
   local hit = pmdCache[mod]
   if hit ~= nil then return hit or nil end
   local index = false
-  if mod and type(mod.read) == "function" then
-    local ok, raw = pcall(mod.read, mod, PMD_INDEX_REL)
-    if ok and type(raw) == "string" then
-      local okJ, decoded = pcall(function() return V.require("json_decode").decode(raw) end)
-      if okJ and type(decoded) == "table" and decoded.version == 1 and type(decoded.dex) == "table" then
-        index = decoded
-      end
-    end
-  end
+  local decoded = V.require("data_file").load(mod, PMD_INDEX_REL)
+  if decoded and decoded.version == 1 and type(decoded.dex) == "table" then index = decoded end
   pmdCache[mod] = index
   return index or nil
 end
@@ -289,15 +282,8 @@ local function portraitIndex(mod)
   local hit = portraitCache[mod]
   if hit ~= nil then return hit or nil end
   local index = false
-  if mod and type(mod.read) == "function" then
-    local ok, raw = pcall(mod.read, mod, PORTRAIT_INDEX_REL)
-    if ok and type(raw) == "string" then
-      local okJ, decoded = pcall(function() return V.require("json_decode").decode(raw) end)
-      if okJ and type(decoded) == "table" and decoded.version == 1 and type(decoded.dex) == "table" then
-        index = decoded
-      end
-    end
-  end
+  local decoded = V.require("data_file").load(mod, PORTRAIT_INDEX_REL)
+  if decoded and decoded.version == 1 and type(decoded.dex) == "table" then index = decoded end
   portraitCache[mod] = index
   return index or nil
 end

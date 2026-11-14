@@ -172,5 +172,32 @@ check(n == 1025, "all 1025 species have a size")
 check(lo >= 0.5 - 1e-9 and hi <= 2 + 1e-9, "sizes stay within 0.5x to 2x, the scale tool's limits (" .. lo .. " to " .. hi .. ")")
 
 PMD_TABLE[143], PMD_TABLE[150] = pinned[143], pinned[150]
+
+-- once the field ticks (HdField.beginFrame), the library is looked up once per frame,
+-- a missing one about once a second, and "is it drawing the field" asked once per frame
+do
+  local finds, asks = 0, 0
+  local present = true
+  local cl = { exports = {
+    tag = function() end,
+    isActive = function() asks = asks + 1 return true end,
+  } }
+  local cmod = { find = function() finds = finds + 1 return present and cl or nil end }
+  HdField.beginFrame()
+  for _ = 1, 5 do HdField.active(cmod) end
+  check(finds == 1 and asks == 1, "one frame: one lookup, one ask (" .. finds .. ", " .. asks .. ")")
+  HdField.beginFrame()
+  HdField.active(cmod)
+  check(finds == 1 and asks == 2, "next frame: the library is kept, the ask is fresh")
+  present = false
+  local missing = { find = function() finds = finds + 1 return nil end }
+  finds = 0
+  for _ = 1, 30 do HdField.beginFrame() HdField.active(missing) end
+  check(finds == 1, "a missing library is not looked for every frame (" .. finds .. ")")
+  for _ = 1, 40 do HdField.beginFrame() HdField.active(missing) end
+  check(finds == 2, "...but again after about a second (" .. finds .. ")")
+  HdField.frame = 0
+end
+
 if failures > 0 then io.stderr:write(failures .. " failure(s)\n") os.exit(1) end
 print("hd_field_unit_test: all passed")

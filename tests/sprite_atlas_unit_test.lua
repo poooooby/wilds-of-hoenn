@@ -113,6 +113,21 @@ check(SpriteAtlas.has("assets/wilds_generated/true_size18/hgss/001-shiny.png"),
   "has() true for the shiny variant too")
 check(not SpriteAtlas.has("assets/wilds_generated/true_size18/hgss/999-normal.png"),
   "has() false for a sprite not in the index")
+
+-- ------- the release layout: the atlas is the only copy (no sprite folders on disk)
+check(not SpriteAtlas.only(), "a mod without mod:info: not known to be atlas-only (files first)")
+do
+  local folders = { ["assets/wilds_generated/true_size18/hgss"] = true }
+  local withInfo = setmetatable({ info = function(_, rel) if folders[rel] then return { type = "directory" } end end },
+    { __index = mod })
+  SpriteAtlas.install(withInfo)
+  check(not SpriteAtlas.only(), "a dev checkout (its sprite folders are there): files first")
+  folders = {}
+  SpriteAtlas.install(withInfo)
+  check(SpriteAtlas.only(), "a release ZIP (no sprite folders): the atlas first")
+  check(SpriteAtlas.preload() == 1, "preload() reads every family's index now")
+  SpriteAtlas.install(mod)
+end
 check(not SpriteAtlas.has("assets/wilds_generated/true_size18/swimming/700-normal.png"),
   "has() false for a directory this family doesn't claim")
 check(not SpriteAtlas.has("not/even/a/path/style/string"), "has() false for garbage input")
