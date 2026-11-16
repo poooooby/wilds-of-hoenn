@@ -20,9 +20,6 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 
 <img src="imgs/wohlife.gif" alt="Wild Pokémon living in the overworld" width="720">
 
-*A living overworld: Pokémon wander the grass, swim and dive, fly overhead and perch on
-rooftops, with little scenes waiting in special places.*
-
 <table>
 <tr>
 <td align="center" width="33%"><img src="imgs/wohplay.gif" alt="Playing with your partner" width="280"></td>
@@ -30,9 +27,9 @@ rooftops, with little scenes waiting in special places.*
 <td align="center" width="33%"><img src="imgs/wohforage.gif" alt="Your partner foraging for an item" width="280"></td>
 </tr>
 <tr>
-<td align="center"><b>Play</b><br>Turn to your partner and press A to pet it, play fetch or have a chat.</td>
-<td align="center"><b>Battle</b><br>Give it the Battler role and it takes on the wild Pokémon around you, earning EXP.</td>
-<td align="center"><b>Forage</b><br>Give it the Forager role and it runs off to dig up items as you walk.</td>
+<td align="center"><b>Play</b><br>Pet, play fetch or chat with your partner.</td>
+<td align="center"><b>Battle</b><br>Your partner fights nearby wild Pokémon for EXP.</td>
+<td align="center"><b>Forage</b><br>Your partner digs up items as you walk.</td>
 </tr>
 </table>
 
@@ -42,236 +39,89 @@ rooftops, with little scenes waiting in special places.*
 
 ### Core Mechanics
 
-- 🦌 **Wild Pokémon in the overworld:** Every area with wild encounters fills with visible
-  Pokémon wandering the grass, swimming the water and roaming caves. Walk onto one to start the
-  battle. They come straight from the game's own encounter tables, abilities, outbreaks and
-  roamers included. On land they only appear where you can actually walk to, while water
-  Pokémon fill every lake and sea, Surf or not. In the Safari Zone, walking onto one starts a
-  proper Safari battle, Safari Balls and bait included.
-- 🌿 **They arrive, they don't pop in:** new Pokémon rise out of the grass as it rustles,
-  surface from the water inside three spreading rings, or fade in on bare ground, and sink back the same way
-  when they leave.
-- 🤝 **A partner with a job:** Choose any Pokémon in your party menu and give it a role. It can
-  **follow** you, **forage** for items as you walk, or **battle** the wild Pokémon around you,
-  Scarlet and Violet style. Set a Battler button in the options and one press sends it into
-  battle and calls it back to your side.
-- 🎲 **Classic encounters, your call:** Keep the original step-based grass and Surf encounters
-  alongside the visible ones, or turn them off and only meet what you can see.
-- 💕 **Sweet Scent calls them to you:** used outside battle, it draws 2-3 wild Pokémon out
-  close by, with hearts floating over them. They wait for you for about a minute, and they're
-  easier to hit when you battle them.
-- ✨ **Shiny chains** (with [WoobleSpawns](https://github.com/poooooby/g1r_modern_spawns)): win
-  or catch the same species again and again and it turns up more, is likelier to be shiny and
-  has better stats. Shinies always show their colours on the overworld, and twinkle now and
-  then with a little sparkle, your shiny partner too.
+- 🦌 **Visible wild Pokémon:** grass, water and caves fill with wild Pokémon taken from the
+  game's own encounter tables. Walk onto one to battle it. The Safari Zone works too.
+- 🎲 **Classic encounters optional:** keep the random step encounters alongside, or only meet
+  what you can see.
+- 💕 **Sweet Scent** draws a few wild Pokémon to you, and they wait to be battled.
+- ✨ **Shiny chains** (with [WoobleSpawns](https://github.com/poooooby/g1r_modern_spawns)):
+  keep battling one species and it shows up more often, with better shiny odds and stats.
 
-### Your Companion
+### Your Partner
 
-- 🫂 **Friendship you can see:** Face your partner and press A to **Pet**, **Play** fetch or
-  **Talk**. Each one raises its friendship, and its portrait shows how it really feels from
-  its HP, status and bond with you, with a little effect over its head to match: hearts,
-  music notes, a rain cloud, an anger mark, sleepy Zs and more, plus a little puff of its own
-  type: embers from a Fire type, droplets from a Water type, leaves, sparks ... Petting can even
-  cure a status. Squeezed under a roof's edge, it lets you know it's cramped.
-- ⚔️ **Battler:** Stand still near a wild Pokémon and your partner charges in. After a win it
-  goes straight on to the next wild Pokémon within a few steps of you, and only comes back to
-  your side when none are left, it needs a rest, or you walk on. It fights with
-  its real moves, stats and PP, on land or swimming out over water, and earns EXP, shared with
-  any party member holding an Exp. Share just like in a battle (a holder that grows a level
-  gets to learn its new moves or evolve right after the fight). Battle-style
-  health bars show on both sides. Each move glows in its type's colour as it winds up; moves
-  that don't touch the target fly across as a splash, an ember or a psychic ring, and
-  contact moves leave a trail behind the lunge. Every hit sparks with its move's type (droplets, embers,
-  leaves ...), bigger when it is super effective, dimmed when it is not very effective, a grey
-  puff when it has no effect, a star on a critical hit, each with the battle's own hit sound.
-  The knockout blow bursts with its move's type: a burst of
-  water, flames, flying leaves, a lightning bolt, ice shards, Fairy sparkles and hearts, a fading
-  Ghost — every type has its own look and battle sound (Fairy with WoobleDex), at your
-  SFX volume. A fiery, watery, earthy, rocky, icy or grassy knockout leaves its mark on the
-  ground for a few seconds: a scorch, a puddle, a small crater, rubble, frost or clippings.
-  Now and then a knocked-out Pokémon drops the item it was holding — the same held items
-  (and odds) as a wild battle, like a Pikachu's Oran Berry or a rare Light Ball — and your
-  partner picks it up for your bag. When it levels up, a gold ring and sparkles rise round
-  it, and it tells you a new move or evolution is ready (sparkles drift up round it while it
-  waits to evolve), and you can open the game's own screens from its menu. It never faints: worn out,
-  it returns to you to rest.
-- 🍂 **Forager:** On routes and in caves, every 1-3 minutes of walking it catches a scent,
-  dashes to a glint on the ground and always digs something up. The fonder it is, the sooner it
-  finds things, and the rarer they get: evolution stones from friendship 130, the rarest finds
-  from 200.
-- 🚲 **Bike rides:** hop on your bike and your partner rides along in its Poké Ball, popping
-  back out when you get off. When you Fly or Teleport it goes into its ball as you take off
-  and comes back out once you have landed. It also slips into its ball at the Pokémon Center while the nurse
-  heals your team, and during story scenes where people move about, keeping out of the way
-  (just talking to someone leaves it out).
+- 🫂 **Follower:** your lead Pokémon walks behind you. Face it and press A to **Pet**, **Play**
+  or **Talk**, which raises friendship. Its portrait and mood reflect its health and your bond.
+- ⚔️ **Battler:** stand still and it fights wild Pokémon around you with its real moves, earning
+  EXP (Exp. Share works). It never faints, and new moves and evolutions are offered after a fight.
+- 🍂 **Forager:** on routes and in caves it digs up items as you walk. Friendlier partners find
+  more and rarer items.
+- 🚲 It rides along in its Poké Ball on a bike, when you Fly, and during cutscenes.
 
 ### A Living World
 
-- 🎨 **Two sprite styles:** **HGSS / PokeMMO** art for the whole National Dex, or fully
-  animated **PMDCollab** sprites with walk, idle, attack and hurt animations.
-- 🌊 **Water that feels like water:** wild Pokémon in the water swim about in little runs,
-  bob gently on the surface, leave a ring of wake behind them, and now and then dive under and
-  pop up again a few tiles away. They swim with a foam line on the water, leave ripples on ponds
-  and puddles, and cast reflections like the player and NPCs do.
-- 🏃 **They notice you:** run or bike close by and wild Pokémon react. Ones weaker than your
-  lead Pokémon jump with a "!" and run off (small birds fly away), and sometimes vanish at the end
-  of their run, ducking down into the grass or slipping away into a cave's dark; stronger ones, if
-  you come right up to them, turn on you angrily and charge (in PMDCollab style, attacking as they
-  come) — stepping out of the grass won't save you, they follow you onto the path (never into
-  the water or through a door) — and if they catch you, the battle starts. Each one gives up at
-  its own distance and heads back to its grass. The
-  bigger the gap in strength, the likelier they react: a near match often lets you pass.
-  An even match isn't bothered, and walking past calmly disturbs most of them. Sudowoodo and
-  Bonsly stand stock-still passing for a little tree, until you get too close: then they jump
-  and bolt. Each species
-  has its own temper, though: skittish ones like Zigzagoon or Wingull run (or fly) off even
-  when you only walk by, territorial ones like Poochyena, Seviper or Sharpedo turn on a walker
-  that comes too close (a much stronger partner still scares them off), aggressive ones like
-  Mightyena or Beedrill charge from farther away, and placid ones like Slakoth, Wailmer or
-  Snorlax never mind you at all. A pack or swarm charges together, each one getting angry in
-  turn.
-- 🐟 **They live like their kind:** wild Pokémon go about the way their species would, every
-  species of all nine generations in its own way (those after Gen 3 with National Dex Gen 3). Fish
-  leap out of the water and splash back in, Wailmer lie at the surface and blow spouts before
-  they sound, Tentacool drift slowly about, and a Wishiwashi school now and then sinks out of
-  sight and gathers into its giant School Form, a great dark shape gliding under the waves. Now and then a pack, herd or school turns up
-  instead of a single Pokémon (Poochyena packs, Seedot huddles, Magikarp and Carvanha schools,
-  Wailmer pods ...), clustered together on one tile and moving, diving and surfacing as one.
-  Bigger Pokémon stand further apart, so a Tauros herd never ends up in one heap. A pod at
-  rest swims round its leader, and Mantine and Finizen take turns leaping out of the ring.
-  Some come with companions of another kind: a Dondozo with a Tatsugiri riding on its head, a
-  Mantine with Remoraid clinging beside it, a Vespiquen with her Combee buzzing round her.
-  A group counts as one Pokémon: walk into it to battle its leader, and the rest scatter. Only
-  the leader can be shiny, so a shiny you see is always one you can battle.
-  On the move the whole group faces the way its leader goes. Standing, each member keeps its own
-  pace and looks its own way. Some join in when the leader howls or grazes and some don't, and
-  now and then one wanders off to nibble, hop about or doze.
-  On land, packs trot about in short bursts and rear up to howl, herds drift slowly and stop
-  to graze, swarms buzz around, huddles nap together (waking if you come right up to them, and
-  scattering when you dash past, only to bunch up again a little later), and
-  a lone grazer stops to eat now and then. Now and then one sits down for a rest with its back
-  to you, getting up again if you come close, and when a bird flies over, some of them stop and
-  look up at it. In PMDCollab style they use their own eating, sleeping, rearing-up, sitting and
-  looking-up animations where the species has them; a startled one bounds off with a leap, and a
-  knocked-out one keels over before it sinks away. And they hunt: now and then a
-  hunter like Mightyena or Seviper chases down a smaller Pokémon in view and fights it with its
-  real moves, health bars and all. The prey may break away and run, or faint and sink out of
-  sight. Old rivals fight whenever they meet: Zangoose and Seviper, Sableye and Mawile,
-  Solrock and Lunatone, Heracross, Pinsir and Scyther, Heatmor and Durant, Karrablast and
-  Shelmet, Tinkaton and Corviknight, and Sharpedo against Wailmer and Wailord out at sea. Walk into either fighter to battle it at
-  the HP the fight left it with. Part of **Pokecology**.
-- 🌙 **Day and night:** wild Pokémon keep their own hours by the game's clock (FireRed and
-  LeafGreen keep none, so they go by your computer's). At night many birds, bugs and plants are
-  found curled up asleep, z's floating over them; by day the night owls doze (Zubat, Hoothoot,
-  Gastly, Poochyena packs ...). Tiptoe past and they sleep on, but walk right up to one, or run
-  or bike close by, and it wakes: a territorial one comes at you angry, a skittish one bolts.
-  After dark the ones that glow light up: Volbeat drawing trails of light as they fly about,
-  Chinchou and Lanturn lures (still shining when they dive), Charmander tail flames, Litwick
-  and Chandelure candles, Morelull caps, Finneon and Lumineon fins, Ponyta manes.
-  Part of **Pokecology**.
-- 🕳️ **Diggers and sea birds:** Diglett, Sandshrew, Trapinch and other diggers sink into the
-  ground in a puff of dust and pop up a few tiles away, and duck underground instead of running
-  when startled. Wingull and Pelipper resting on the sea fly up now and then and plunge in after
-  a fish (a Cramorant comes back up with an Arrokuda in its beak, and gulps it down). A flock
-  of birds comes down together and takes off together, one after another.
-  Part of **Pokecology**.
-- 🕊️ **Birds in the sky:** now and then a bird of the area crosses the top of the screen,
-  softly out of focus the higher it flies, bobbing with its wingbeats. In towns, birds perch on
-  roofs, trees and signposts (and fly off when you walk up); real sea birds (Wingull, Pelipper and
-  their kind) dive into the water for food; and wild Flying types swoop in
-  from off screen to land in the grass, or take off again, always curving around you.
-- 🐟 **Life in the water:** the area's small fish (Magikarp, Goldeen, Luvdisc and friends) leap
-  out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a
-  spray from their blowhole before sinking back under. Out at sea, keep an eye out for Finizen:
-  now and then one surfaces with a puff and porpoises along in a string of leaps, and once in a
-  long while a whole pod comes up to play, swimming round in a ring and taking turns to leap. Dive down and fish glide by under the sea
-  as dark shapes trailing bubbles, sometimes a little school of them; the wild Pokémon living
-  down there arrive the same way, swimming in as a shadow before taking shape.
-- 👻 **Local scenes:** a few special places have moments of their own. Ghosts fade in around
-  Lavender Town and wander a little, straight through walls, before fading away; tell the girl there you don't believe in ghosts and you
-  may find one standing right behind you. In Petalburg Woods, Burmy and Silcoon / Cascoon dangle
-  from the trees on silk threads, Slakoth naps on the treetops, and once in a while Vigoroth
-  bounds in to dance up there. Over Fortree City, a great Tropius sometimes rises out of the treetops and wanders
-  across them, the leaves rustling around it.
-- 🌾 **Small touches:** Pokémon sink into tall grass, your partner fades in as you step out of a
-  door, and alternate forms (Rotom, Shellos, Basculin and many more) have their own art –
-  regional forms too, like Alolan Rattata, Galarian Meowth, Hisuian Growlithe and Paldean Tauros.
-- 📏 **True-to-life sizes** (with [WoobleView](https://github.com/poooooby/gen3-hd-sprites)):
-  every species is drawn at its own relative size, smoothly, at your screen's resolution.
-
-## 🌐 Languages
-
-Vivid Worlds speaks **English, Japanese, Portuguese, Spanish and German**: pick one with the
-**Language** option and its menus, your partner's words, the call-outs and the options themselves
-switch at once. Japanese is written in kana, as in the original Japanese games (the game's font has
-no kanji), and Portuguese shows ã / õ as a / o, since the Gen 3 font has no such letters.
+- 🏃 **Pokecology:** wild Pokémon behave like their species. Skittish ones flee, territorial ones
+  chase you, and packs, herds and schools move together. Some sleep by night or by day, diggers
+  burrow, hunters chase prey, and some glow after dark.
+- 🌊 **Water life:** swimmers dive and resurface, fish leap, Wailmer spout, and Finizen porpoise
+  out at sea.
+- 🕊️ **Birds in the sky:** birds fly overhead, perch on roofs and dive for fish.
+- 👻 **Local scenes:** a few special places have their own moments, in Lavender Town, Petalburg
+  Woods and Fortree City.
+- 🎨 **Two sprite styles:** HGSS / PokeMMO art or animated PMDCollab sprites, with alternate and
+  regional forms.
+- 📏 **True-to-life sizes** (with [WoobleView](https://github.com/poooooby/gen3-hd-sprites)).
 
 ## ⚙️ Options
 
-### Mod options (Mod Manager)
-
-All of these can also be changed while you play: **OPTIONS → VIVID WORLDS** in the game's own
-menu opens the same list.
+Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 
 | Option | Choices | Default | What it does |
 |---|---|---|---|
-| **Language** | ENGLISH / にほんご / PORTUGUÊS / ESPAÑOL / DEUTSCH | ENGLISH | The language of Vivid Worlds' own text: these options, your partner's words and menus, the call-outs and the labels over it. The game's own text stays as it is. Japanese is written in kana, like the original Japanese games. |
-| **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon in areas with wild encounters. |
-| **Spawn Amount** | LOW / NORMAL / HIGH | NORMAL | How many wild Pokémon are out at once, growing with the size of the area: Low about half, High about one and a half times (up to 4, 8 or 12 each in grass and water). |
-| **Flying Mons** | FULL / AMBIENT / OFF | FULL | Flying Pokémon in the sky: passing overhead, perching, diving for food, and wild Flying types arriving and leaving by air. Full adds big birds flying high overhead, softly out of focus; Ambient leaves those out. |
-| **Water Life** | ON / OFF | ON | Fish leaping out of the water, Wailmer / Wailord surfacing to blow a spray, Finizen porpoising out at sea (sometimes a whole pod at play), and fish swimming by under the sea when you dive, just for the scenery. |
-| **Local Scenes** | ON / OFF | ON | Little moments in a few special places: Lavender Town's ghosts, the bug Pokémon, Slakoth and Vigoroth of Petalburg Woods, and Fortree's Tropius. Just for the scenery. |
-| **Pokecology** | ON / OFF | ON | Wild Pokémon react when you run or bike close by: weaker ones run off, stronger ones chase you. Skittish and territorial kinds react to walking too, placid ones never. They also live like their kind: packs and schools keep together, fish leap, whales blow spouts, sea birds dive for fish, some sleep by night (or by day), diggers burrow. Off: they each just wander. |
-| **Sprite Style** | HGSS / PMD | PMD | The look of wild Pokémon and your partner: HGSS / PokeMMO or PMDCollab. Species without PMDCollab art use HGSS / PokeMMO. |
-| **Follower** | ON / OFF | ON | Your partner walks behind you. Off: it stays in its Poké Ball, and its Battle and Forage jobs and Pet / Play / Talk wait until it is out again. Changing your party order still picks your partner. |
-| **Battler: Pad** | R / L / OFF | OFF | A controller shoulder button that switches your partner between Battle and Follow while you walk around. In FireRed / LeafGreen that button no longer opens Help in the overworld (the other one still does). |
-| **Battler: Key** | E (R) / Q (L) / R / OFF | OFF | The same on the keyboard. E and Q are the game's R and L buttons; R is a free key. |
-| **Smooth Follow** | ON / OFF | ON | Your partner keeps its distance behind you either way. On: it glides round turns. Off: it snaps straight to its place, step for step like the original games. |
-| **Type Aura** | ON / OFF | OFF | Now and then your partner gives off a little puff of its type: embers, droplets, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it. |
-| **Classic Enc** | ON / OFF | ON | The original step-based grass and Surf encounters. Visible Pokémon stay either way; fishing and Rock Smash are unaffected. |
-| **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws wild Pokémon as silhouettes: species you haven't caught, or all of them. |
-| **Species Sizes** | ON / OFF | ON | Draws each species at its own size next to you: small ones knee-high, giants towering over you. Needs WoobleView. |
-| **Portraits** | ON / OFF | ON | Your partner's portrait above its messages when you Pet, Play or Talk with it. |
-
-Shiny chains are switched on and off with WoobleSpawns' **SHINY CHAINS** option.
-
-### Your partner (party menu)
-
-Select a Pokémon in the party menu and choose its job. Your party's leader follows you: put a
-different Pokémon first and it takes over as your follower. Pick someone else in the menu any
-time, and they stay out until you change your leader again. One partner is out at a time; giving the one already out a new job switches it on the spot.
-
-Out in the world, a **Battler** button (off until you pick one in the options: L or R on a
-controller, E, Q or R on the keyboard) switches your partner between BATTLE and FOLLOW without
-opening a menu -- you call it out like a trainer in a real battle ("Go! Mudkip!", "That's
-enough, Mudkip!"). Calling it off mid-fight is like running from a battle: the wild
-Pokémon gives you a parting cry and a lunge, then runs off. Or step in yourself: walk into
-a wild Pokémon your Battler has been fighting and the real battle starts with the HP it has
-left.
-
-| Row | What it does |
-|---|---|
-| **FOLLOW** | Walks with you. Press A facing it for Pet, Play or Talk. |
-| **BATTLE** | Fights wild Pokémon within 3 tiles of you while you stand still, on the ground it stands on: land Pokémon on land, water Pokémon while you Surf. |
-| **FORAGE** | Digs up items while you walk on routes and in caves. |
+| **Language** | EN / JA / PT / ES / DE | ENGLISH | Language of the mod's own text. |
+| **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon. |
+| **Spawn Amount** | LOW / NORMAL / HIGH | NORMAL | How many are out at once. |
+| **Flying Mons** | FULL / AMBIENT / OFF | FULL | Birds in the sky. Ambient leaves out the high flyers. |
+| **Water Life** | ON / OFF | ON | Leaping fish, spouting whales, Finizen and fish under the sea. |
+| **Local Scenes** | ON / OFF | ON | Scenes in a few special places. |
+| **Pokecology** | ON / OFF | ON | Species behaviour and reactions to you. Off: they just wander. |
+| **Sprite Style** | HGSS / PMD | PMD | Art for wild Pokémon and your partner. |
+| **Follower** | ON / OFF | ON | Off keeps your partner in its Poké Ball. |
+| **Battler: Pad** | R / L / OFF | OFF | Controller button that switches your partner between Battle and Follow. |
+| **Battler: Key** | E / Q / R / OFF | OFF | The same on the keyboard. |
+| **Smooth Follow** | ON / OFF | ON | Your partner glides round turns instead of snapping. |
+| **Type Aura** | ON / OFF | OFF | Your partner gives off puffs of its type now and then. |
+| **Classic Enc** | ON / OFF | ON | Random step encounters in grass and while surfing. |
+| **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws uncaught (or all) wild Pokémon as silhouettes. |
+| **Species Sizes** | ON / OFF | ON | Each species at its real relative size. Needs WoobleView. |
+| **Portraits** | ON / OFF | ON | Your partner's portrait in its messages. |
 
 ## 💾 Installation
 
-1. Download the latest release from the [Releases](https://github.com/poooooby/wilds-of-hoenn/releases)
-   page (about 40 MB): both art styles, HGSS / PokeMMO and animated PMDCollab sprites with
-   portraits, in one download.
+1. Download the latest ZIP from [Releases](https://github.com/poooooby/wilds-of-hoenn/releases)
+   (about 40 MB, both sprite styles).
 2. Import it with the Gen1Recomp Mod Manager, or drop it in your mods folder.
 3. Enable **Vivid Worlds**.
 
 ## 🔗 Works With
 
-- [WoobleDex](https://github.com/poooooby/national_dex_gen3): wild Pokémon all the way
-  to #1025, with overworld art for every one.
-- [WoobleSpritePack](https://github.com/poooooby/g9-battle-sprites-gen3): battle sprites
-  for the new species.
-- [WoobleSpawns](https://github.com/poooooby/g1r_modern_spawns): modern encounter tables and
-  shiny chains.
+- [WoobleDex](https://github.com/poooooby/national_dex_gen3): wild Pokémon up to #1025.
+- [WoobleSpritePack](https://github.com/poooooby/g9-battle-sprites-gen3): battle sprites for the new species.
+- [WoobleSpawns](https://github.com/poooooby/g1r_modern_spawns): modern encounter tables and shiny chains.
 - [WoobleView](https://github.com/poooooby/gen3-hd-sprites): smooth, true-to-size sprites.
+
+## 📌 Good to Know
+
+- **Choosing your partner:** your party's lead is your partner. To change it, pick a Pokémon in
+  the party menu and choose **FOLLOW**, **BATTLE** or **FORAGE**. Your pick stays until you
+  change your lead.
+- **Battler button:** set one in the options to send your partner in or call it back without a
+  menu. In FireRed / LeafGreen, that button no longer opens Help in the overworld.
+- **Wild Pokémon only spawn where you can walk.** Water Pokémon fill every lake and sea.
+- **Group battles:** walking into a group battles its leader.
+- **Pokémon your partner has been fighting** keep the HP it left them with when you battle them.
+- **Day and night:** the game's clock decides, or your computer's clock in FireRed and
+  LeafGreen.
+- **Japanese** is written in kana, and Portuguese shows ã / õ as a / o, because of the game's font.
 
 ## 🪪 Credits
 
@@ -279,28 +129,26 @@ left.
   [Wilds of Kanto Revival](https://github.com/poooooby/wilds-of-kanto-gen-3)
   ([full credits](THIRD_PARTY_NOTICES.md)).
 - **PMDCollab sprites and portraits:** [PMDCollab/SpriteCollab](https://github.com/PMDCollab/SpriteCollab),
-  licensed **CC BY-NC 4.0** (non-commercial). Per-species artists ship in the HGSS + PMDCollab
-  build as `assets/pmd/CREDITS.txt`.
+  **CC BY-NC 4.0** (non-commercial). Per-species artists are in `assets/pmd/CREDITS.txt`.
 - **Zygarde 100% overworld sprite:** [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion)
   (Liamjd14, kittenchilly).
-
-- **Ideas from the community:** many features started as suggestions from players on Discord.
-  See [COMMUNITY.md](COMMUNITY.md) for everyone who helped shape the mod. Thank you! 💚
+- **The community:** many features began as player suggestions on Discord. See
+  [COMMUNITY.md](COMMUNITY.md). Thank you! 💚
 
 ## 💡 Inspirations
 
 - **TTiN** and **Untamed Tohjo**: friendship-weighted foraging and shiny chains (used with
   permission).
-- **Wilds of Kanto Revival**: this mod's sister project, for Generation 1 and 2.
+- **Wilds of Kanto Revival**: the sister project for Generations 1 and 2.
 
 ## 🤖 AI Disclosure
 
-This mod was developed with help from [Claude Code](https://claude.com/claude-code) (Anthropic),
-working from the maintainer's direction, design decisions, in-game testing and bug reports. The
-maintainer approves every release. If you find a bug, please open an issue here or on Discord.
+Developed with help from [Claude Code](https://claude.com/claude-code) (Anthropic), working from
+the maintainer's direction, design and in-game testing. The maintainer approves every release.
+Found a bug? Open an issue here or on Discord.
 
 ---
 
-The mod's code is [MIT](LICENSE); the art is not (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-for every credit and licence). Pokémon is © Nintendo, Game Freak and The Pokémon Company; this is
-an unofficial fan project. Working on the mod? See [DEVELOPMENT.md](DEVELOPMENT.md).
+The mod's code is [MIT](LICENSE); the art is not (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+Pokémon is © Nintendo, Game Freak and The Pokémon Company; this is an unofficial fan project.
+Working on the mod? See [DEVELOPMENT.md](DEVELOPMENT.md).
