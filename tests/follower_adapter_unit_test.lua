@@ -148,15 +148,44 @@ check(firstWalkPose == ActorRenderer.POSE_WALK_A or firstWalkPose == ActorRender
 fa:tick() -- still moving, SAME step (no edge) -- parity must not flip
 eq(fa.renderer.poseOverride, firstWalkPose, "pose does not alternate mid-step, only on a new step")
 
-npc.moving = false
-fa:tick()
-npc.moving = true
-fa:tick() -- a NEW step (edge) -- parity flips
-check(fa.renderer.poseOverride ~= firstWalkPose, "a new step alternates walkA/walkB")
+-- the walk cycle over real steps (the engine's follower: `len - 1` ticks moving, then one
+-- tick "not moving" between steps), as a run-length string: A = walkA, B = walkB, S = stand
+local function cycle(len, steps, stepFrames)
+  npc.moving, npc.stepFrames = false, stepFrames
+  for _ = 1, 10 do fa:tick() end -- at rest: the next walk starts fresh
+  local out, last, n = {}, nil, 0
+  local short = { walkA = "A", walkB = "B", stand = "S", runA = "A", runB = "B" }
+  for _ = 1, steps do
+    for t = 1, len do
+      npc.moving = t < len
+      fa:tick()
+      local p = short[fa.renderer.poseOverride] or "?"
+      if p == last then n = n + 1 else
+        if last then out[#out + 1] = last .. n end
+        last, n = p, 1
+      end
+    end
+  end
+  out[#out + 1] = last .. n
+  npc.moving, npc.stepFrames = false, nil
+  return table.concat(out, " ")
+end
+local walk = cycle(16, 4, 16)
+check(walk == "A8 S8 B8 S8 A8 S8 B8 S8" or walk == "B8 S8 A8 S8 B8 S8 A8 S8",
+  "walking: one foot, stand, the other foot, stand, half a step each (" .. walk .. ")")
+check(cycle(16, 4, 16):sub(1, 1) ~= walk:sub(1, 1), "the next walk starts on the other foot")
+-- a faster step (a run mod's movement.speed): the stand frame stays in the cycle -- without it
+-- a GSC sheet facing up / down shows one frame and its mirror, and a flier's wings stand still
+local run = cycle(8, 4, 8)
+check(run == "A4 S4 B4 S4 A4 S4 B4 S4" or run == "B4 S4 A4 S4 B4 S4 A4 S4",
+  "running: the same cycle, each frame half the shorter step (" .. run .. ")")
+local dash = cycle(4, 8, 4)
+check(dash == "A4 S4 B4 S4 A4 S4 B4 S4" or dash == "B4 S4 A4 S4 B4 S4 A4 S4",
+  "a very fast step never strobes: WALK_HOLD_MIN ticks a frame (" .. dash .. ")")
 
 fakeEngine.playerIsRunning = function() return true end
 npc.moving = false
-fa:tick()
+for _ = 1, 3 do fa:tick() end
 npc.moving = true
 fa:tick()
 local runPose = fa.renderer.poseOverride

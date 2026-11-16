@@ -57,6 +57,7 @@ FollowerAdapter.NOTICE_TICKS = 120 -- how long a notice (the Battler hotkey's ca
 local PLAYER_HEAD = 22
 local SWAP_LOCK = "wilds_of_hoenn_follower_swap"
 FollowerAdapter.STEP_TICKS = 16 -- logic ticks per one-tile step
+FollowerAdapter.WALK_HOLD_MIN = 4 -- fewest ticks a walk-cycle frame shows (a fast step never strobes)
 
 function FollowerAdapter.new(mod, companion)
   return setmetatable({
@@ -756,40 +757,53 @@ function FollowerAdapter:tick()
     return
   end
 
-  -- Alternates walkA/walkB (or runA/runB) once per STEP, on the
-  -- not-moving -> moving edge -- not every tick -- mirroring
-  -- lib/behavior.lua's own entity.stepParity toggle for wild Pokemon.
+  -- The walk pose (walkA / walkB, or runA / runB): the walk cycle below, on its own clock.
   local moving = npc.moving or false
-  local standHalf = false -- moving, in the stand-frame half of a step
+  local standHalf = false -- walking, in a stand frame of the cycle
   if scene then
     -- a scene walks in place: alternate the A/B walk pose every half step
     moving = scene.moving == true
     if moving then self.stepParity = math.floor(self.actClock / (FollowerAdapter.STEP_TICKS / 2)) % 2 == 0 end
     self.wasMoving = moving
   else
-    if moving and not self.wasMoving then
-      self.stepParity = not self.stepParity
-      self.stepClock = 0
+    -- The walk cycle: one foot's walk frame, stand, the other foot's, stand -- each held half
+    -- a step (the follower's own step length: a run mod's movement.speed or the catch-up
+    -- shortens it), never under WALK_HOLD_MIN ticks, on one clock for as long as it keeps
+    -- walking. Timed against a fixed 16-tick step before, a faster step (a bike, a speed mod,
+    -- the catch-up) never reached its stand half: the cycle was walk, other walk, and a
+    -- flier's wings blurred or stood still. The engine's follower is "not moving" for one
+    -- tick between steps: that tick is still walking (no idle flap pops in).
+    if moving then self.restTicks = 0 else self.restTicks = (self.restTicks or 0) + 1 end
+    local walking = moving or (self.walkClock ~= nil and self.restTicks <= 1)
+    if not walking then
+      self.walkClock = nil
+    else
+      if not self.walkClock then
+        self.walkClock = 0
+        self.stepParity = not self.stepParity -- each walk starts on the other foot
+      end
+      local stepLen = tonumber(npc.stepFrames)
+        or (EnginePatch.playerIsRunning() and FollowerAdapter.STEP_TICKS / 2 or FollowerAdapter.STEP_TICKS)
+      local hold = math.max(FollowerAdapter.WALK_HOLD_MIN, math.floor(stepLen / 2))
+      local phase = math.floor(self.walkClock / hold) % 4
+      standHalf = phase % 2 == 1
+      self.footA = (phase == 0) == self.stepParity
+      self.walkClock = self.walkClock + 1
     end
+    moving = walking
     self.wasMoving = moving
-    -- the Gen 3 walk cycle: the step's walk frame for its first half, the stand frame for
-    -- the second (walkA, stand, walkB, stand ...). The engine's follower is "not moving" for
-    -- a tick between one step and the next; that tick falls in the stand half.
-    if moving then
-      self.stepClock = (self.stepClock or 0) + 1
-      local half = (EnginePatch.playerIsRunning() and FollowerAdapter.STEP_TICKS / 2 or FollowerAdapter.STEP_TICKS) / 2
-      standHalf = self.stepClock > half
-    end
   end
 
   local pose = ActorRenderer.POSE_STAND
   if scene and scene.bounce then
     pose = ActorRenderer.idleFlapPose(self.actClock, scene.flapTicks or Config.IDLE_FLAP_TICKS)
   elseif moving and not standHalf then
+    local a = self.stepParity
+    if not scene then a = self.footA end
     if EnginePatch.playerIsRunning() then
-      pose = self.stepParity and ActorRenderer.POSE_RUN_A or ActorRenderer.POSE_RUN_B
+      pose = a and ActorRenderer.POSE_RUN_A or ActorRenderer.POSE_RUN_B
     else
-      pose = self.stepParity and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
+      pose = a and ActorRenderer.POSE_WALK_A or ActorRenderer.POSE_WALK_B
     end
   end
   -- A floating/flying lead keeps flapping slowly while standing still.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.2 (2026-11-15)
+
+### Fixed
+
+- HGSS shiny sprites no longer carry a fixed blue sparkle in every frame (often drawn across
+  the Pokémon itself). The mod's own twinkle still marks a shiny on the field.
+- HGSS shiny Pokémon walk with the same steps as their normal look: about a hundred of them
+  had their walking frames picked differently from the normal sprite.
+- Your partner's wings (and legs) beat properly when it moves faster than walking (on a bike,
+  with a speed mod, or catching up): its stand frame dropped out of the cycle at the faster
+  pace, so a flier's wings blurred or stood still.
+
 ## 2.0.1 (2026-11-14)
 
 ### Changed
