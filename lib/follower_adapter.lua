@@ -46,6 +46,7 @@ end
 local ShinySparkle = V.require("shiny_sparkle")
 local PartnerFx = V.require("partner_fx")
 local FollowerSwap = V.require("follower_swap")
+local BallDrop = V.require("ball_drop")
 
 local FollowerAdapter = {}
 FollowerAdapter.__index = FollowerAdapter
@@ -388,21 +389,48 @@ function FollowerAdapter:_tickRecall(npc, r)
   if self.role == "recall" then recalled = true end
 
   local want = recalled and 0 or 1
-  if self.swap and self.swapState and not self.off then want = self.swapState.want end
+  local swapping = self.swap ~= nil and self.swapState ~= nil and not self.off
+  if swapping then want = self.swapState.want end
   if self.swapFresh then
     -- the new sprite begins inside the ball, whatever it is about to do
     r.recall, r.recallPlaced, self.swapFresh = 0, true, false
   end
-  if r.recallPlaced then
+  if self.ballRun and self.ballRenderer ~= r then self:_endBall() end -- another sprite now
+  if swapping and not self.ballRun and r.recallPlaced and r.recall == 1 - want then
+    -- a swap scene (the party menu, a new lead): a Poke Ball drops onto the partner's spot
+    -- and takes it in / lets it out (lib/ball_drop.lua). Everything else -- the bike, a
+    -- cutscene, the nurse, a Battler resting, the Follower option -- shrinks into the player.
+    self.ballRun, self.ballRenderer = BallDrop.new(want == 0 and "in" or "out"), r
+  end
+  if self.ballRun then
+    -- the run plays out whole (under half a second) even if `want` turns back meanwhile
+    local s = self.ballRun:step()
+    if s then
+      r.recall = s.recall
+      self.ballState = s.ball
+      if s.poof and EnginePatch.playSeNamed then EnginePatch.playSeNamed(Config.BALL.se) end
+    else
+      self:_endBall()
+    end
+  elseif r.recallPlaced then
     local step = 1 / math.max(1, Config.PMD_RECALL_TICKS)
     r.recall = ActorRenderer.approach(r.recall, want, step)
   else
     r.recall, r.recallPlaced = want, true -- a new sprite starts in its right state
   end
-  local px, py = nil, nil
-  if EnginePatch.playerPixel then px, py = EnginePatch.playerPixel() end
-  r.recallX, r.recallY = px, py
+  if self.ballRun then
+    -- into / out of the ball where it stands: scaled about its feet, no slide to the player
+    r.recallX, r.recallY = nil, nil
+  else
+    local px, py = nil, nil
+    if EnginePatch.playerPixel then px, py = EnginePatch.playerPixel() end
+    r.recallX, r.recallY = px, py
+  end
   self:_tickDuck(npc, r)
+end
+
+function FollowerAdapter:_endBall()
+  self.ballRun, self.ballRenderer, self.ballState = nil, nil, nil
 end
 
 -- the art's width as drawn (px), for which columns of tiles it spans
@@ -533,6 +561,7 @@ end
 --- tick shows the companion as it is, with no scene.
 function FollowerAdapter:resetDisplay()
   self:_endSwap()
+  self:_endBall()
   self.disp = nil
 end
 
@@ -926,6 +955,18 @@ function FollowerAdapter:collectActors(actors)
     if px then
       actors[#actors + 1] = FollowerActions.ballActor(held, px, py, EnginePatch.playerElevation())
     end
+  end
+  -- the Poke Ball it goes into / comes out of (lib/ball_drop.lua), under its feet where it
+  -- is drawn: its tile or the glide behind the player
+  local drop = self.ballState
+  local r = self.renderer
+  if drop and r and npc.px and npc.py then
+    local pushX, pushY = r.pushX, r.pushY
+    if pushX == nil or pushY == nil then pushX, pushY = ActorRenderer.behindOffset(npc.facing, r.largePushback) end
+    local act = r.act
+    local ox = npc.px + pushX + (act and act.dx or 0)
+    local oy = npc.py + pushY + (act and act.dy or 0)
+    actors[#actors + 1] = FollowerActions.ballActor(drop, ox, oy, npc.elevation)
   end
   local role = self.behaviors and self.behaviors[self.role]
   if role and role.collectActors and not self.away then role:collectActors(actors) end

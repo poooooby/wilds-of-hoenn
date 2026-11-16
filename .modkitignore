@@ -13,6 +13,7 @@
 
 # unit tests and engine tests
 tests/actor_renderer_unit_test.lua
+tests/ball_drop_unit_test.lua
 tests/battle_trigger_unit_test.lua
 tests/behavior_unit_test.lua
 tests/cell_path_unit_test.lua
@@ -141,6 +142,10 @@ dist/vivid-worlds-v1.12.0-beta.4-hgss-pmd.zip
 dist/vivid-worlds-v1.12.0-beta.4.zip
 dist/vivid-worlds-v2.0.0-hgss-pmd.zip
 dist/vivid-worlds-v2.0.0.zip
+dist/vivid-worlds-v2.0.1-hgss-pmd.zip
+dist/vivid-worlds-v2.0.1.zip
+dist/vivid-worlds-v2.0.2-hgss-pmd.zip
+dist/vivid-worlds-v2.0.2.zip
 dist/wilds-of-hoenn-v1.10.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.10.0-hgss.zip
 dist/wilds-of-hoenn-v1.10.1-hgss-pmd.zip

@@ -474,6 +474,7 @@ do
     biking = true
     fb:tick()
     check((fb.renderer.recall or 1) < 1, style .. ": getting on the bike starts the recall (not a snap)")
+    check(fb.ballRun == nil and fb.renderer.recallX == 40, style .. ": ...shrinking into the player, no Poke Ball drop")
     for _ = 1, T do fb:tick() end
     eq(fb.renderer.recall, 0, style .. ": inside its ball while riding")
     check(fb:isRecalled(), style .. ": recalled (no menu, no role)")
@@ -1033,7 +1034,7 @@ do
   local busy, poses, locks, unlocks, cries = false, 0, 0, 0, {}
   local pixel = { 40, 48 }
   local names = { "partyMons", "screenBusy", "canStartInteraction", "playerPose", "lockField",
-    "unlockField", "playCry", "playerPixel", "playerElevation", "nationalFor" }
+    "unlockField", "playCry", "playerPixel", "playerElevation", "nationalFor", "playSeNamed" }
   local kept = {}
   for _, k in ipairs(names) do kept[k] = fakeEngine[k] end
   fakeEngine.partyMons = function() return party end
@@ -1046,8 +1047,10 @@ do
   fakeEngine.playerPixel = function() return pixel[1], pixel[2] end
   fakeEngine.playerElevation = function() return 3 end
   fakeEngine.nationalFor = function(id) return id == 999 and 252 or (id == 998 and 255 or nil) end
+  local sounds = {}
+  fakeEngine.playSeNamed = function(name) sounds[#sounds + 1] = name return true end
 
-  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, facing = "down" }
+  npc = { sprite = nil, moving = false, cellX = 3, cellY = 3, px = 48, py = 48, facing = "down" }
   local fs = FollowerAdapter.new(mod, comp)
   fs:tick()
   eq(fs.renderer.dex, 252, "the companion is out")
@@ -1073,14 +1076,32 @@ do
   check(ball, "a ball is drawn in the player's hand")
 
   local sawOut, sawIn = false, false
+  local runs, slid, dropAtPartner = {}, false, false
   for _ = 1, 200 do
     fs:tick()
     if fs.renderer.dex == 252 and fs.renderer.recall == 0 then sawOut = true end
     if fs.renderer.dex == 255 and fs.renderer.recall == 0 then sawIn = true end
+    if fs.ballRun and runs[#runs] ~= fs.ballRun then runs[#runs + 1] = fs.ballRun end
+    if fs.renderer.recall < 1 and fs.renderer.recall > 0 and fs.renderer.recallX ~= nil then slid = true end
+    if fs.ballState then
+      local acts = {}
+      fs:collectActors(acts)
+      for _, a in ipairs(acts) do
+        -- not the hand's spot (player px 40 + 8 + ballX 6): on the partner's tile
+        if a.kind == "follower_action_ball" and a.x ~= 40 + 8 + 6 then dropAtPartner = true end
+      end
+    end
     if not fs:isBusy() then break end
   end
-  check(sawOut, "the old companion shrank all the way into the player first")
-  check(sawIn, "the new one began inside the player")
+  check(sawOut, "the old companion went all the way into its ball first")
+  check(sawIn, "the new one began inside its ball")
+  eq(#runs, 2, "a Poke Ball dropped twice: onto the old one, then for the new one")
+  eq(runs[1] and runs[1].dir, "in", "...the first takes the old one in")
+  eq(runs[2] and runs[2].dir, "out", "...the second lets the new one out")
+  check(not slid, "...each grows / shrinks where it stands, never sliding into the player")
+  check(dropAtPartner, "the dropped ball is drawn at the partner, not in the player's hand")
+  eq(#sounds, 2, "each ball pops with a sound")
+  eq(sounds[1], "SE_BALL_OPEN", "...the battle send-out's own")
   eq(fs.renderer.dex, 255, "the new companion is displayed")
   eq(fs.renderer.recall, 1, "...grown fully out")
   eq(poses, 2, "the ball went up once for each")

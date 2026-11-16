@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Switching partners (a pick in the party menu, or a new party leader) now uses a real
+  **Poké Ball**: one drops onto your old partner, pops and takes it in, then another drops
+  where your partner walks, bounces, and the new one pops out with the battle's send-out
+  sound. On the bike, Fly, cutscenes, the Pokémon Center, a resting Battler and the
+  **Follower** option, it still slips quickly into you as before.
+
 ## 2.0.2 (2026-11-15)
 
 ### Fixed

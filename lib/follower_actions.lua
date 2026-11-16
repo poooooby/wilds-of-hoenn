@@ -222,29 +222,38 @@ function FollowerActions.ballActor(ball, ox, oy, elevation)
     x = gx, y = gy,
     i = 90500,
     draw = function(_, camX, camY)
-      FollowerActions.drawBall(gx - camX, gy - camY, ball.z)
+      FollowerActions.drawBall(gx - camX, gy - camY, ball.z, ball.alpha, ball.burst)
     end,
   }
 end
 
 --- A small Poke Ball: ground shadow, red top, white bottom, dark outline.
---- (sx, sy) is the point on the ground under it; `z` the height in px.
-function FollowerActions.drawBall(sx, sy, z)
+--- (sx, sy) is the point on the ground under it; `z` the height in px. Optional: `alpha`
+--- (0..1, fading out) and `burst` (0..1: the age of a white ring spreading from it as it
+--- pops, lib/ball_drop.lua).
+function FollowerActions.drawBall(sx, sy, z, alpha, burst)
   if not (love and love.graphics and love.graphics.circle) then return end
   local g = love.graphics
+  local a = tonumber(alpha) or 1
   sx, sy = math.floor(sx + 0.5), math.floor(sy + 0.5)
   local lift = math.floor((z or 0) + 0.5)
   local r = 3
   local cy = sy - lift - r
-  g.setColor(0, 0, 0, math.max(0.12, 0.35 - lift * 0.01))
-  g.ellipse("fill", sx, sy, 3, 1.5)
-  g.setColor(0.86, 0.12, 0.12, 1)
-  g.arc("fill", "closed", sx, cy, r, math.pi, 2 * math.pi)
-  g.setColor(1, 1, 1, 1)
-  g.arc("fill", "closed", sx, cy, r, 0, math.pi)
-  g.setColor(0.1, 0.1, 0.12, 1)
-  g.circle("line", sx, cy, r)
-  g.line(sx - r, cy, sx + r, cy)
+  if a > 0 then
+    g.setColor(0, 0, 0, math.max(0.12, 0.35 - lift * 0.01) * a)
+    g.ellipse("fill", sx, sy, 3, 1.5)
+    g.setColor(0.86, 0.12, 0.12, a)
+    g.arc("fill", "closed", sx, cy, r, math.pi, 2 * math.pi)
+    g.setColor(1, 1, 1, a)
+    g.arc("fill", "closed", sx, cy, r, 0, math.pi)
+    g.setColor(0.1, 0.1, 0.12, a)
+    g.circle("line", sx, cy, r)
+    g.line(sx - r, cy, sx + r, cy)
+  end
+  if burst then
+    g.setColor(1, 1, 1, 0.9 * (1 - burst))
+    g.circle("line", sx, cy, r + burst * 6)
+  end
   g.setColor(1, 1, 1, 1)
 end
 

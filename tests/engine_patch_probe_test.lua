@@ -314,8 +314,11 @@ do
       local se = FinisherFx.hitSound(eff)
       if not (okT and type(t) == "table" and t[se]) then missingSe[#missingSe + 1] = "hit=" .. tostring(se) end
     end
+    -- the partner's Poke Ball popping in a swap scene (lib/ball_drop.lua)
+    local ballSe = V.require("config").BALL.se
+    if not (okT and type(t) == "table" and t[ballSe]) then missingSe[#missingSe + 1] = "ball=" .. tostring(ballSe) end
     check(#missingSe == 0, game .. ": every finisher's sound is in the game's own table ("
-      .. (#missingSe == 0 and "all 18 + 3 hit sounds" or table.concat(missingSe, ", ")) .. ")")
+      .. (#missingSe == 0 and "all 18 + 3 hit sounds + the ball pop" or table.concat(missingSe, ", ")) .. ")")
   end
 end
 

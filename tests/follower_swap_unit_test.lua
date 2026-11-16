@@ -43,7 +43,7 @@ do
   eq(st[1].phase, "recall", "it starts with the old companion going in")
   check(st[1].pose and st[1].ball ~= nil, "the arm goes up with a ball in hand on the first tick")
   eq(st[1].want, 1, "the old companion is still out while the ball is raised")
-  eq(st[Cfg.SWAP.recallDelay + 1].want, 0, "then it shrinks into the player")
+  eq(st[Cfg.SWAP.recallDelay + 1].want, 0, "then a ball takes it in")
   local switchAt, cryAt, sends = nil, nil, 0
   for i, s in ipairs(st) do
     if s.switch then switchAt = i end
@@ -54,6 +54,10 @@ do
   check(st[switchAt].pose, "...and the arm goes up again")
   eq(st[switchAt].want, 0, "...with the new one still inside the ball")
   check(cryAt and cryAt > switchAt, "it cries as it comes out")
+  local BallDrop = V.require("ball_drop")
+  eq(cryAt - switchAt + 1, Cfg.SWAP.sendDelay + BallDrop.popAt("out"), "...on the tick its ball pops")
+  check(st[Cfg.SWAP.recallDelay].ball ~= nil and st[Cfg.SWAP.recallDelay + 1].ball == nil,
+    "the ball leaves the hand as the drop onto the partner begins")
   eq(st[#st].want, 1, "it ends fully out")
   check(st[#st].ball == nil, "no ball is left hanging in the air")
   local pose = 0

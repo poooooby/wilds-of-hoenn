@@ -1,11 +1,12 @@
 -- The "trainer swaps Pokemon" scene: when the companion changes (another
 -- Pokemon, another job, or a recall), the player raises a Poke Ball in one
--- hand, the old companion shrinks into them, and -- unless it was a recall --
--- raises the ball again and the new one grows out.
+-- hand, a ball drops onto the old companion and takes it in, and -- unless it
+-- was a recall -- the ball goes up again, a ball drops at the partner's spot and
+-- the new one pops out (lib/ball_drop.lua, run by the adapter when `want` flips).
 --
---   recall phase  ball up; after `recallDelay` ticks the old companion shrinks
---   send phase    ball up again; after `sendDelay` ticks the new one grows out
---                 (and cries)
+--   recall phase  ball up; after `recallDelay` ticks a ball takes the old one in
+--   send phase    ball up again; after `sendDelay` ticks a ball drops and the
+--                 new one pops out of it (and cries as it does)
 --
 -- Pure: a tick-driven timeline. The adapter (lib/follower_adapter.lua) mirrors
 -- each tick's state onto the player pose, the ball actor and the renderer.
@@ -17,13 +18,14 @@
 --   phase   "recall" | "send"
 --   pose    true on the first tick of a phase: raise the player's arm now
 --   ball    { x, y, z } px relative to the centre of the player's tile (y 8 sorts
---           it in front of them), or nil
+--           it in front of them): the ball in hand, until the drop starts; else nil
 --   want    1 = the displayed companion should be out, 0 = inside the player
 --   switch  true on the tick the displayed companion becomes the new one
 --   cry     true on the tick the new companion appears
 -- }
 local V = ...
 local Config = V.require("config")
+local BallDrop = V.require("ball_drop")
 
 local FollowerSwap = {}
 FollowerSwap.__index = FollowerSwap
@@ -32,8 +34,8 @@ function FollowerSwap.new(ctx)
   ctx = ctx or {}
   local cfg = ctx.cfg or Config.SWAP
   local self = setmetatable({ cfg = cfg, t = 0, finished = false, phases = {} }, FollowerSwap)
-  local len = math.max(cfg.poseTicks, cfg.recallDelay + Config.PMD_RECALL_TICKS + 2)
-  local lenIn = math.max(cfg.poseTicks, cfg.sendDelay + Config.PMD_RECALL_TICKS + 2)
+  local len = math.max(cfg.poseTicks, cfg.recallDelay + BallDrop.length("in") + 2)
+  local lenIn = math.max(cfg.poseTicks, cfg.sendDelay + BallDrop.length("out") + 2)
   if ctx.hasOld then self.phases[#self.phases + 1] = { name = "recall", len = len } end
   if ctx.hasNew then self.phases[#self.phases + 1] = { name = "send", len = lenIn } end
   self.index, self.phaseT = 1, 0
@@ -81,11 +83,12 @@ function FollowerSwap:step()
   else
     state.want = pt <= self.cfg.sendDelay and 0 or 1
     state.switch = first
-    state.cry = pt == self.cfg.sendDelay + 1
+    -- the ball's run starts the tick `want` turns 1; the new one cries as it pops out
+    state.cry = pt == self.cfg.sendDelay + BallDrop.popAt("out")
   end
-  -- the ball drops out of the hand once the shrink / grow has begun
+  -- the ball leaves the hand as the drop begins (lib/ball_drop.lua draws that one)
   local delay = phase.name == "recall" and self.cfg.recallDelay or self.cfg.sendDelay
-  if pt > delay + 4 then state.ball = nil end
+  if pt > delay then state.ball = nil end
   return state
 end
 

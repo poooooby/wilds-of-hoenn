@@ -433,11 +433,25 @@ Config.ACTIONS = {
 -- Swapping the companion (lib/follower_swap.lua): all ticks / px.
 Config.SWAP = {
   poseTicks = 26,    -- the player's arm-up pose, a Poke Ball in hand, per phase
-  recallDelay = 10,  -- ticks of holding the ball up before the old one shrinks in
-  sendDelay = 12,    -- ... before the new one grows out
+  recallDelay = 10,  -- ticks of holding the ball up before a ball drops onto the old one
+  sendDelay = 12,    -- ... before a ball drops and the new one pops out
   ballLift = 19,     -- px the ball is held above the player's feet
   ballX = 6,         -- px to the side: the raised hand
   maxTicks = 240,    -- hard cap: the scene may not hold the field lock longer
+}
+
+-- The partner going into / coming out of a Poke Ball in a swap scene (lib/ball_drop.lua; a
+-- party-menu pick or a new lead -- not the bike, a cutscene, the nurse or a Battler resting,
+-- which shrink quickly into the player): all ticks / px.
+--   out: the ball falls `fall` ticks from `dropZ`, bounces `bounceH` px for `bounce` ticks,
+--        pops (`se`, burst) and the Pokemon grows out over `grow` ticks as the ball fades
+--   in:  the ball falls `fallIn` ticks from `dropZIn` to `hitZ` (on the Pokemon), pops, the
+--        Pokemon shrinks in over `shrink` ticks as the ball settles, rests `rest`, fades `fade`
+Config.BALL = {
+  fall = 8, dropZ = 20, bounce = 5, bounceH = 3, grow = 8,
+  fallIn = 7, dropZIn = 26, hitZ = 10, shrink = 8, rest = 3, fade = 6,
+  burst = 8, -- ticks the white pop ring spreads and fades
+  se = "SE_BALL_OPEN", -- the pop: the battle send-out's own sound
 }
 
 -- Battler role (lib/overworld_battle.lua): all ticks / px / cells.
