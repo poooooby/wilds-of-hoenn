@@ -431,6 +431,31 @@ do
   check(pr.clock > 20, "a looping animation still loops")
 end
 
+-- ------- fakeStep: a one-frame walk rises, stretches, lands squashed and sways side to side
+do
+  local cfg = { period = 16, lift = 2, stretch = 0.05, widen = 0.6, sway = 1 }
+  local lift, my, mx, sway = PmdRenderer.fakeStep(0, 1, cfg)
+  eq(lift, 0, "a footfall: on the ground")
+  check(my < 1 and mx > 1, "...squashed and wider on landing")
+  lift, my, mx, sway = PmdRenderer.fakeStep(8, 1, cfg)
+  check(math.abs(lift - 2) < 1e-9, "mid-step: up by the lift")
+  check(my > 1 and mx < 1, "...stretched and narrower")
+  check(sway > 0.99, "...swayed to the starting side")
+  local _, _, _, sway2 = PmdRenderer.fakeStep(24, 1, cfg)
+  check(sway2 < -0.99, "the next step sways to the other side")
+  local _, _, _, sway3 = PmdRenderer.fakeStep(8, -1, cfg)
+  check(sway3 < -0.99, "a B step starts on the other side")
+  local l16 = PmdRenderer.fakeStep(16, 1, cfg)
+  check(math.abs(l16) < 1e-9, "one step = one period: back on the ground")
+  -- advance() sets the side each time a walk starts, alternating
+  local pr = PmdRenderer.new({}, 1020, false, { walk = { durations = { 10 } }, idle = { durations = { 80 } } })
+  pr:advance(true)
+  local first = pr.fakeSign
+  for _ = 1, 20 do pr:advance(false) end
+  pr:advance(true)
+  check(first and pr.fakeSign == -first, "each walk from standing starts on the other foot")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

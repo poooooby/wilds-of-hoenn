@@ -273,6 +273,22 @@ function PmdRenderer.stepStart(durations, isB)
   return durations[1]
 end
 
+--- A walk with one frame (no Walk upstream, a one-frame Idle standing in): the
+--- step faked from that still frame. Pure: `clock` = the Walk clock, `sign` = 1 / -1
+--- for the step the walk started on. Returns lift (px up), scaleY / scaleX multipliers
+--- (stretched mid-step, squashed on landing) and the sway (px, + = right) of a
+--- front / back view.
+function PmdRenderer.fakeStep(clock, sign, cfg)
+  cfg = cfg or Config.PMD_FAKE_STEP or {}
+  local period = cfg.period or 16
+  local n = math.floor(clock / period)
+  local p = (clock - n * period) / period
+  local up = math.sin(math.pi * p) -- 0 at each footfall, 1 mid-step
+  local k = (cfg.stretch or 0) * (2 * up - 1)
+  local side = (n % 2 == 0) and (sign or 1) or -(sign or 1)
+  return (cfg.lift or 0) * up, 1 + k, 1 - k * (cfg.widen or 0), (cfg.sway or 0) * up * side
+end
+
 --- One field tick. Walk plays while `moving`, Idle otherwise. Each time a
 --- step begins from standing, Walk alternates between the A step and the B
 --- step (Base->A->Base, then Base->B->Base, ...); continuous walking just
@@ -303,6 +319,7 @@ function PmdRenderer:advance(moving)
       if walk and walk.durations then
         self.clock = PmdRenderer.stepStart(walk.durations, self.nextStepIsB)
       end
+      self.fakeSign = self.nextStepIsB and -1 or 1
       self.nextStepIsB = not self.nextStepIsB
     end
     return
@@ -596,6 +613,14 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   local rest = crop and 0 or self:restOffset(row) * scale -- resting: frame 0's feet on the line
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) + (self.bobDy or 0) - rest + 0.5)
   local scaleY, scaleX = scale, scale
+  -- no Walk art: a step faked from the one frame (rise, stretch, land, sway), about its feet
+  if anim == "walk" and #entry.durations == 1 and not crop and not part then
+    local lift, my, mx, sway = PmdRenderer.fakeStep(self.clock, self.fakeSign)
+    scaleY, scaleX = scale * my, scale * mx
+    dy = dy + math.floor(entry.ay * (scale - scaleY) - lift + 0.5)
+    dx = dx - math.floor(entry.ax * (scaleX - scale) + 0.5)
+    if facing == "down" or facing == "up" then dx = dx + math.floor(sway + 0.5) end
+  end
   -- ducking under an eave (a follower, lib/eave_duck.lua): squashed toward its ground
   -- point and a little wider about its anchor
   local duck = tonumber(self.duck) or 0

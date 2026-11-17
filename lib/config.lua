@@ -578,6 +578,13 @@ Config.PMD_FOLLOWER_RUN_ANIM = 2
 -- Ticks the Walk animation keeps playing after movement stops, so the one-tick
 -- gaps between chained steps do not flick the sprite to the Idle pose and back.
 Config.PMD_WALK_LINGER = 8
+-- A species SpriteCollab has no Walk for, whose Idle is one still frame (Ting-Lu, Gouging
+-- Fire, Raging Bolt, Stunfisk, Aromatisse, Toucannon, Dolliv, Grafaiai, Iron Treads): its
+-- walk is faked from that frame (PmdRenderer.fakeStep): each step (`period` Walk-clock ticks,
+-- one tile at any pace) it rises `lift` px and comes down, stretched up to `stretch` mid-step
+-- and squashed as much on landing (narrower / wider by `widen` of that), facing up or down
+-- swaying `sway` px to one side, the next step to the other.
+Config.PMD_FAKE_STEP = { period = 16, lift = 2, stretch = 0.05, widen = 0.6, sway = 1 }
 -- The PMDCollab follower: extra px of space kept behind the player on top of
 -- the sprite's own overhang (a sprite wider/taller than the 16px tile would
 -- otherwise overlap the player), and how many ticks it rests on the Idle

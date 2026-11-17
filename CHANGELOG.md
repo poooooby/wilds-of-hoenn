@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- PMDCollab sprites with no walking art (Ting-Lu, Gouging Fire, Raging Bolt, Stunfisk,
+  Aromatisse, Toucannon, Dolliv, Grafaiai and Iron Treads) no longer slide along frozen,
+  as your partner or in the wild: they step along with a little bounce and sway.
+
 ## 2.0.3 (2026-11-16)
 
 ### Changed
