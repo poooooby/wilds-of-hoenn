@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Species Sizes** retuned for long-bodied Pokémon, mostly snakes and serpents (Ekans,
+  Arbok, Dratini, Dragonair, Onix, Steelix, Gyarados, Seviper, Milotic, Serperior,
+  Silicobra, Sandaconda ...), plus Haunter, Tentacool / Tentacruel, Corviknight, Drampa,
+  Dreepy / Drakloak, Dragonite, Snivy, Huntail / Gorebyss, Zygarde and Dudunsparce:
+  most are smaller, so their winding art no longer towers over the rest.
+
 ## 2.0.4 (2026-11-17)
 
 ### Changed
