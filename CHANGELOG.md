@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 2.0.4 (2026-11-17)
+
+### Changed
+
+- Latest PMDCollab art: Pidgey's shiny is redrawn and it can now graze, sit, nap and look
+  up at the sky; Cufant and Naclstack get real shiny sprites (Naclstack redrawn too); and
+  Granbull and Urshifu have new portraits.
 
 ### Fixed
 
