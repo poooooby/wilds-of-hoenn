@@ -130,7 +130,7 @@ return {
   [127] = 0.93, -- Pinsir (human-like, 27 px -> 25 px)
   [128] = 0.90, -- Tauros (quadruped, 26 px -> 23 px)
   [129] = 0.74, -- Magikarp (fish, 20 px -> 15 px)
-  [130] = 0.77, -- Gyarados (squiggle, 54.5 px -> 42 px)
+  [130] = 0.75, -- Gyarados (squiggle, 54.5 px -> 42 px)
   [131] = 0.82, -- Lapras (fish, 38 px -> 31 px)
   [132] = 0.75, -- Ditto (ball, 18 px -> 13 px)
   [133] = 0.64, -- Eevee (quadruped, 21 px -> 13 px)
