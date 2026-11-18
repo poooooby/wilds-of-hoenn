@@ -173,6 +173,28 @@ function HdField.quadPivot(image, quad, x, y, scale)
   return true
 end
 
+--- Where the pixel (px, py) of `quad` (its own px) shows on screen when `image` was drawn
+--- through it at (x, y) with scale (sx, sy) -- what gen3-hd-sprites makes of that draw:
+--- the frame grown `k` times about its pivot (the quad's own pivot, else the sheet's ground
+--- point, else the bottom centre of the quad for a "feet" sheet), exactly as the library
+--- places it. Returns screen x, y and k (1 without the library, or for an untagged image).
+--- For things that must stay on a spot of the art (lib/tail_flame.lua).
+function HdField.drawnPoint(mod, image, quad, x, y, sx, sy, px, py)
+  local spec = image and specs[image]
+  if not (spec and HdField.active(mod)) then return x + px * sx, y + py * sy, 1 end
+  local qp = spec.quadPivots and quad and spec.quadPivots[quad]
+  local lpx, lpy
+  if spec.anchor == "feet" and quad and not qp then
+    local _, _, qw, qh = quad:getViewport()
+    lpx, lpy = qw / 2, qh
+  else
+    local lp = qp or spec.lowPivot
+    lpx, lpy = lp and lp[1] or 32, lp and lp[2] or 32
+  end
+  local k = (qp and qp[3]) or spec.scale or 1
+  return x + (lpx + (px - lpx) * k) * sx, y + (lpy + (py - lpy) * k) * sy, k
+end
+
 --- Can `image` be drawn in slices through gen3-hd-sprites (the library is installed,
 --- reads per-quad pivots and scales, and the image is tagged)? Otherwise a slice must be
 --- drawn the plain way (HdField.untagged), or the library would size it twice.

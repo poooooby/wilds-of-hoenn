@@ -69,6 +69,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   Woods and Fortree City.
 - 🎨 **Two sprite styles:** HGSS / PokeMMO art or animated PMDCollab sprites, with alternate and
   regional forms.
+- 🔥 **Living tail flames:** in the PMDCollab style, Charmander, Charmeleon and Charizard shed
+  embers from the tips of their tails as they walk, rest and play.
 - 📏 **True-to-life sizes** (with [WoobleView](https://github.com/poooooby/gen3-hd-sprites)).
 
 ## ⚙️ Options

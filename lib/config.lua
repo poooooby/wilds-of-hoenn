@@ -587,6 +587,22 @@ Config.PMD_WALK_LINGER = 8
 -- and squashed as much on landing (narrower / wider by `widen` of that), facing up or down
 -- swaying `sway` px to one side, the next step to the other.
 Config.PMD_FAKE_STEP = { period = 16, lift = 2, stretch = 0.05, widen = 0.6, sway = 1 }
+-- Tail flames (lib/tail_flame.lua, PMDCollab style): per species (national dex) `every` =
+-- ticks per particle, `size` = particle px, `speed` = how fast they rise. Each particle lives
+-- `life` ticks, rising `rise` px a tick (speeding up by `accel`), drifting up to `drift`
+-- sideways and swaying `sway` px; born within `spread` px of the flame. Colour runs through
+-- `colors` (white-hot to dark red), fading out from `fadeFrom` of its life. All sizes grow
+-- with the sprite (Species Sizes / WoobleView).
+Config.TAIL_FLAME = {
+  species = {
+    [4] = { every = 4, size = 1, speed = 0.9 },     -- Charmander
+    [5] = { every = 3, size = 1.1, speed = 1 },     -- Charmeleon
+    [6] = { every = 2, size = 1.3, speed = 1.15 },  -- Charizard
+  },
+  life = { 10, 20 }, rise = { 0.3, 0.5 }, accel = 0.004, drift = 0.06, sway = 0.5, swaySpeed = 0.35,
+  spread = 1, fadeFrom = 0.45, maxParts = 16,
+  colors = { { 1, 0.95, 0.45 }, { 1, 0.72, 0.15 }, { 0.95, 0.4, 0.08 }, { 0.75, 0.15, 0.05 } },
+}
 -- The PMDCollab follower: extra px of space kept behind the player on top of
 -- the sprite's own overhang (a sprite wider/taller than the 16px tile would
 -- otherwise overlap the player), and how many ticks it rests on the Idle

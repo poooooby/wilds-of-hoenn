@@ -119,6 +119,29 @@ do
   check(specOf(walk).lowPivot and specOf(walk).lowPivot[1] == 19.5 and specOf(walk).lowPivot[2] == 36.5, "a PMD walk sheet pivots on the point it stands on: 1 px under its ground point")
   check(specOf(idle).lowPivot and specOf(idle).lowPivot[2] == 37.5, "...each animation on its own")
   check(specOf(walk).anchor == nil, "...not on the bottom of its cell")
+  -- drawnPoint: a spot of the art where the library really draws it (lib/tail_flame.lua)
+  do
+    local spec = specOf(walk)
+    local keep = spec.scale
+    spec.scale = 1.5
+    local x, y, k = HdField.drawnPoint(pmod, walk, nil, 100, 50, 1, 1, 19.5, 36.5)
+    check(near(x, 119.5) and near(y, 86.5) and k == 1.5, "drawnPoint: the pivot stays where the low-res draw put it")
+    x, y = HdField.drawnPoint(pmod, walk, nil, 100, 50, 1, 1, 9.5, 16.5)
+    check(near(x, 104.5) and near(y, 56.5), "...any other spot moves k times as far from it")
+    x = HdField.drawnPoint(pmod, walk, nil, 100, 50, 2, 1, 9.5, 16.5)
+    check(near(x, 109), "...in the draw's own scale too (a squash, a recall)")
+    local q = {}
+    HdField.quadPivot(walk, q, 19.5, 30)
+    x, y = HdField.drawnPoint(pmod, walk, q, 100, 50, 1, 1, 9.5, 16.5)
+    check(near(y, 59.75), "...about a quad's own pivot (a swimmer's waterline)")
+    fieldOn = false
+    x, y, k = HdField.drawnPoint(pmod, walk, nil, 100, 50, 1, 1, 9.5, 16.5)
+    check(near(x, 109.5) and near(y, 66.5) and k == 1, "...and exactly the low-res spot with Field HD off")
+    fieldOn = true
+    x, y, k = HdField.drawnPoint(pmod, {}, nil, 100, 50, 2, 2, 9.5, 16.5)
+    check(near(x, 119) and near(y, 83) and k == 1, "...or for an image it never tagged")
+    spec.scale = keep
+  end
   local footJson = '{"version":1,"directions":["down","right","up","left"],"gutter":2,"dex":{"78":{"walk":{"cw":40,"ch":44,"cols":4,"ax":19.5,"ay":35.5,"foot":39.5,"durations":[4],"shiny":true},"idle":{"cw":40,"ch":44,"cols":1,"ax":19.5,"ay":35.5,"foot":39.5,"durations":[4],"shiny":true}}}}'
   local fmod = { find = mod.find, read = function(_, rel) if rel == "assets/pmd/index.json" then return footJson end end }
   local hooves = {}

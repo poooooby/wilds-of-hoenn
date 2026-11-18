@@ -23,6 +23,7 @@ local SpriteSource = V.require("sprite_source")
 local ActorRenderer = V.require("actor_renderer")
 local RecallMath = V.require("recall_math")
 local HdField = V.require("hd_field")
+local TailFlame = V.require("tail_flame")
 
 local PmdRenderer = {}
 PmdRenderer.__index = PmdRenderer
@@ -669,6 +670,15 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     love.graphics.draw(foamImage, foamQuad, dx, dy, 0, scaleX, scaleY)
   end
   if self.silhouette or shade or tint or alpha < 1 then love.graphics.setColor(1, 1, 1, 1) end
+  -- a tail flame (Charmander's line): particles from the art's own flame, placed with the
+  -- very transform the sprite was just drawn with
+  if self._flameDex ~= self.dex then
+    self._flameDex, self._flameSet = self.dex, TailFlame.settingsFor(self.dex) or false
+  end
+  if self._flameSet and not part and not self.silhouette and not shade then
+    TailFlame.draw(self, self._flameSet, TailFlame.pointsFor(self.mod, self.info, self.dex, anim), col, row,
+      image, quad, dx, dy, scaleX, scaleY, camX, camY, alpha, crop and bandCrop or nil)
+  end
 end
 
 return PmdRenderer

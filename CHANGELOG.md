@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added
+
+- Charmander, Charmeleon and Charizard's tail flames burn in the PMDCollab style: embers rise
+  from the tip of the tail and trail behind as they walk, following the flame through every
+  pose, squash and size (WoobleView's Species Sizes included).
+
 ### Changed
 
 - Pokémon in the water bob gently whenever they hold still: wild swimmers called by Sweet
