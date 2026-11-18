@@ -69,8 +69,12 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   Woods and Fortree City.
 - 🎨 **Two sprite styles:** HGSS / PokeMMO art or animated PMDCollab sprites, with alternate and
   regional forms.
-- 🔥 **Living tail flames:** in the PMDCollab style, Charmander, Charmeleon and Charizard shed
-  embers from the tips of their tails as they walk, rest and play.
+- 🔥 **Signature effects:** almost 100 Pokémon carry their own living effect, in both sprite
+  styles and wherever they are, wild or at your side: Charmander's tail flame, Ponyta's
+  burning mane, Pikachu's crackling cheeks, Magnemite's sparking magnets, Gastly's drifting
+  gas, Koffing's puffs, Torkoal's smoke, Swablu's cloud wings, Chinchou's glowing lights,
+  Chandelure's ghostly fire, and a soft glow around the legendaries (Mewtwo, Lugia, Rayquaza,
+  Xerneas' rainbow ...). Every effect sits where the art draws it and follows each step.
 - 📏 **True-to-life sizes** (with [WoobleView](https://github.com/poooooby/gen3-hd-sprites)).
 
 ## ⚙️ Options
@@ -91,7 +95,7 @@ Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 | **Battler: Pad** | R / L / OFF | OFF | Controller button that switches your partner between Battle and Follow. |
 | **Battler: Key** | E / Q / R / OFF | OFF | The same on the keyboard. |
 | **Smooth Follow** | ON / OFF | ON | Your partner glides round turns instead of snapping. |
-| **Type Aura** | ON / OFF | OFF | Your partner gives off puffs of its type now and then. |
+| **Type Aura** | ON / OFF | OFF | Your partner gives off puffs of its type now and then (a Pokémon with a signature effect shows that instead). |
 | **Classic Enc** | ON / OFF | ON | Random step encounters in grass and while surfing. |
 | **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws uncaught (or all) wild Pokémon as silhouettes. |
 | **Species Sizes** | ON / OFF | ON | Each species at its real relative size. Needs WoobleView. |

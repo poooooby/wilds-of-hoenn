@@ -44,6 +44,7 @@ local function trc(context, english, ...)
   return english
 end
 local ShinySparkle = V.require("shiny_sparkle")
+local SignatureFx = V.require("signature_fx")
 local PartnerFx = V.require("partner_fx")
 local FollowerSwap = V.require("follower_swap")
 local BallDrop = V.require("ball_drop")
@@ -1047,7 +1048,9 @@ function FollowerAdapter:collectActors(actors)
     if a then actors[#actors + 1] = a end
   end
   -- its own touches (lib/partner_fx.lua): sparkles while it is ready to evolve; a puff of its
-  -- type while you Pet / Play / Talk with it, or now and then with the Type Aura option
+  -- type while you Pet / Play / Talk with it, or now and then with the Type Aura option --
+  -- unless it has a signature effect of its own (lib/signature_fx.lua), which stands in for
+  -- that generic aura
   if sr and npc.px and npc.py and (sr.recall or 1) >= 1 and sr.headLift and not underPlayer then
     local act = sr.act
     local x = npc.px + (sr.pushX or 0) + ((act and act.dx) or 0)
@@ -1061,7 +1064,7 @@ function FollowerAdapter:collectActors(actors)
     local puff
     if self.fxKind and self.withYouAge then
       puff = PartnerFx.typePuffParts(self.fxKind, self.withYouAge, PartnerFx.PUFF_PERIOD)
-    elseif self.fxKind and Config.typeAura(self.mod) and not self.action then
+    elseif self.fxKind and Config.typeAura(self.mod) and not self.action and not SignatureFx.specFor(sr.dex) then
       puff = PartnerFx.typePuffParts(self.fxKind, self.fxClock or 0, PartnerFx.AURA_PERIOD)
     end
     if puff and #puff > 0 then

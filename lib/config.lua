@@ -587,21 +587,46 @@ Config.PMD_WALK_LINGER = 8
 -- and squashed as much on landing (narrower / wider by `widen` of that), facing up or down
 -- swaying `sway` px to one side, the next step to the other.
 Config.PMD_FAKE_STEP = { period = 16, lift = 2, stretch = 0.05, widen = 0.6, sway = 1 }
--- Tail flames (lib/tail_flame.lua, PMDCollab style): per species (national dex) `every` =
--- ticks per particle, `size` = particle px, `speed` = how fast they rise. Each particle lives
--- `life` ticks, rising `rise` px a tick (speeding up by `accel`), drifting up to `drift`
--- sideways and swaying `sway` px; born within `spread` px of the flame. Colour runs through
--- `colors` (white-hot to dark red), fading out from `fadeFrom` of its life. All sizes grow
--- with the sprite (Species Sizes / WoobleView).
-Config.TAIL_FLAME = {
-  species = {
-    [4] = { every = 4, size = 1, speed = 0.9 },     -- Charmander
-    [5] = { every = 3, size = 1.1, speed = 1 },     -- Charmeleon
-    [6] = { every = 2, size = 1.3, speed = 1.15 },  -- Charizard
+-- Signature effects (lib/signature_fx.lua; which species and where: lib/signature_species.lua):
+-- the defaults of each particle KIND, under a species emitter's own fields. `every` = ticks
+-- per particle (`burst` at once), `life` ticks, `rise` px a tick up (x `speed`, speeding up
+-- by `accel`), `drift` px a tick sideways, `out` px a tick away in a random direction,
+-- `sway` px, born within `spread` px. Colour runs through `colors` (or one of `palettes`,
+-- picked per particle), fading out from `fadeFrom` of its life (in over `fadeIn`), times
+-- `alpha`; `flicker` = blinks every that many ticks. `shape`: square (`size` px, shrinking by
+-- `shrink`), circle (radius `size`, growing to `grow` x), bolt (a zigzag `length` px), plus
+-- (a twinkle). `behind` = drawn under the sprite. Every size grows with the sprite (Species
+-- Sizes / WoobleView). `maxParts` per Pokemon.
+local FLAME = { { 1, 0.95, 0.45 }, { 1, 0.72, 0.15 }, { 0.95, 0.4, 0.08 }, { 0.75, 0.15, 0.05 } }
+Config.SIGNATURE_FX = {
+  maxParts = 40,
+  kinds = {
+    flame = { every = 3, life = { 10, 20 }, rise = { 0.3, 0.5 }, accel = 0.004, drift = 0.06, sway = 0.5,
+              swaySpeed = 0.35, spread = 1, fadeFrom = 0.45, size = 1, colors = FLAME },
+    spark = { every = 7, burst = 1, life = { 5, 9 }, rise = { 0, 0 }, out = 0.15, spread = 1, fadeFrom = 0.7,
+              shape = "bolt", length = 5, size = 1, flicker = 2, flickerAlpha = 0.55,
+              colors = { { 1, 1, 0.7 }, { 1, 0.92, 0.1 }, { 1, 0.75, 0.05 } } },
+    gas   = { every = 9, life = { 40, 70 }, rise = { 0.06, 0.14 }, drift = 0.08, out = 0.05, sway = 0.6,
+              swaySpeed = 0.08, spread = 1, fadeFrom = 0.3, fadeIn = 0.15, shape = "circle", size = 1.2, grow = 2.6,
+              alpha = 0.55, colors = { { 0.75, 0.55, 0.9 }, { 0.6, 0.4, 0.8 } } },
+    smoke = { every = 7, life = { 45, 75 }, rise = { 0.2, 0.32 }, drift = 0.1, sway = 0.8, swaySpeed = 0.07,
+              spread = 1, fadeFrom = 0.35, fadeIn = 0.1, shape = "circle", size = 1.2, grow = 3, alpha = 0.6,
+              colors = { { 0.55, 0.55, 0.55 }, { 0.7, 0.7, 0.7 }, { 0.8, 0.8, 0.8 } } },
+    cloud = { every = 10, life = { 40, 70 }, rise = { 0.02, 0.06 }, drift = 0.12, out = 0.04, sway = 0.4,
+              swaySpeed = 0.06, spread = 1.5, fadeFrom = 0.45, fadeIn = 0.15, shape = "circle", size = 2.1, grow = 1.6,
+              alpha = 0.95, colors = { { 1, 1, 1 }, { 0.9, 0.94, 1 } } },
+    sparkle = { every = 16, life = { 16, 26 }, rise = { 0.05, 0.15 }, out = 0.12, spread = 1, fadeFrom = 0.7,
+                shape = "plus", size = 1.2, colors = { { 1, 1, 1 }, { 1, 1, 0.85 } } },
+    glint = { every = 50, life = { 12, 18 }, rise = { 0, 0 }, spread = 0, fadeFrom = 0.8, shape = "plus",
+              size = 1.4, colors = { { 1, 1, 1 } } },
+    wisp  = { every = 8, life = { 30, 55 }, rise = { 0.12, 0.25 }, drift = 0.05, out = 0.06, sway = 0.7,
+              swaySpeed = 0.12, spread = 1, fadeFrom = 0.3, fadeIn = 0.2, shape = "circle", size = 1, grow = 1.6,
+              alpha = 0.55, colors = { { 0.1, 0.08, 0.12 }, { 0.2, 0.2, 0.22 } } },
+    gleam = { every = 3, life = { 10, 16 }, rise = { 0, 0 }, spread = 0.5, fadeFrom = 0.3, fadeIn = 0.3, shape = "circle",
+              size = 1.6, grow = 1.4, alpha = 0.5 },
+    mote  = { every = 22, life = { 30, 50 }, rise = { 0.12, 0.22 }, drift = 0.04, sway = 0.5, swaySpeed = 0.1,
+              spread = 1, fadeFrom = 0.4, fadeIn = 0.25, size = 1, shrink = 0, alpha = 0.8 },
   },
-  life = { 10, 20 }, rise = { 0.3, 0.5 }, accel = 0.004, drift = 0.06, sway = 0.5, swaySpeed = 0.35,
-  spread = 1, fadeFrom = 0.45, maxParts = 16,
-  colors = { { 1, 0.95, 0.45 }, { 1, 0.72, 0.15 }, { 0.95, 0.4, 0.08 }, { 0.75, 0.15, 0.05 } },
 }
 -- The PMDCollab follower: extra px of space kept behind the player on top of
 -- the sprite's own overhang (a sprite wider/taller than the 16px tile would

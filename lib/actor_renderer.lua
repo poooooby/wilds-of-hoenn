@@ -34,6 +34,13 @@ local HdField = V.require("hd_field")
 local ActorRenderer = {}
 ActorRenderer.__index = ActorRenderer
 
+-- lib/signature_fx.lua reads sheets through this module: required on first use
+local sigFx
+local function SignatureFx()
+  if not sigFx then sigFx = V.require("signature_fx") end
+  return sigFx
+end
+
 local CELL = 16
 
 local FRAME_COUNT_POKEMMO = 18
@@ -691,17 +698,48 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   elseif alpha < 1 then
     love.graphics.setColor(1, 1, 1, alpha)
   end
+  -- where quad px (0, 0) lands and the scale it is drawn at (for the signature effect)
+  local ox, oy, sx, sy
   if mul == 1 and sink <= 0 then
-    love.graphics.draw(image, quad, (x - camX) + drawX + pushX, (y - camY) + drawY + pushY, 0, flipX, 1)
+    ox, oy, sx, sy = (x - camX) + drawX + pushX, (y - camY) + drawY + pushY, flipX, 1
   else
     -- scale about the bottom centre of the frame's box (its feet)
     local boxLeft = (x - camX) + (flipX < 0 and drawX - frameW or drawX) + pushX
     local boxTop = (y - camY) + drawY + pushY
-    love.graphics.draw(image, quad, boxLeft + frameW / 2, boxTop + frameH, 0,
-      flipX * mul * wide, mul * (1 - sink), frameW / 2, frameH)
+    sx, sy = flipX * mul * wide, mul * (1 - sink)
+    ox, oy = boxLeft + frameW / 2 - frameW / 2 * sx, boxTop + frameH - frameH * sy
+  end
+  -- its signature effect (lib/signature_fx.lua), not on a part-shown or tinted sprite
+  if self._sigKey ~= self.dex then
+    self._sigKey, self._sigSpec = self.dex, SignatureFx().specFor(self.dex) or false
+  end
+  local sig = self._sigSpec
+  if sig and (reveal or self.silhouette or shade) then sig = nil end
+  if sig then
+    love.graphics.setColor(1, 1, 1, 1)
+    SignatureFx().drawBehind(self, sig, image, quad, ox, oy, sx, sy, camX, camY, alpha)
+    if self.silhouette then
+      love.graphics.setColor(0, 0, 0, alpha)
+    elseif tint then
+      love.graphics.setColor(1, tint, tint, alpha)
+    elseif alpha < 1 then
+      love.graphics.setColor(1, 1, 1, alpha)
+    end
+  end
+  if mul == 1 and sink <= 0 then
+    love.graphics.draw(image, quad, ox, oy, 0, flipX, 1)
+  else
+    local boxLeft = (x - camX) + (flipX < 0 and drawX - frameW or drawX) + pushX
+    local boxTop = (y - camY) + drawY + pushY
+    love.graphics.draw(image, quad, boxLeft + frameW / 2, boxTop + frameH, 0, sx, sy, frameW / 2, frameH)
   end
   if self.silhouette or shade or tint or alpha < 1 then
     love.graphics.setColor(1, 1, 1, 1)
+  end
+  if sig then
+    local fc = self.frameCount or 18
+    SignatureFx().drawFront(self, sig, sig.fx and SignatureFx().hgssPoints(self.mod, path, fc, frameW, frameH, sig),
+      0, frameIndex, image, quad, ox, oy, sx, sy, camX, camY, alpha)
   end
 end
 

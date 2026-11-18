@@ -23,7 +23,7 @@ local SpriteSource = V.require("sprite_source")
 local ActorRenderer = V.require("actor_renderer")
 local RecallMath = V.require("recall_math")
 local HdField = V.require("hd_field")
-local TailFlame = V.require("tail_flame")
+local SignatureFx = V.require("signature_fx")
 
 local PmdRenderer = {}
 PmdRenderer.__index = PmdRenderer
@@ -649,6 +649,14 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   local alpha = ActorRenderer.alphaOf(self)
   if alpha <= 0 then return end
   local shade = self.shade -- a colour it is drawn through (a ghost's dusk tint, lib/local_scenes.lua)
+  -- its signature effect (lib/signature_fx.lua): a glow and the particles behind it go
+  -- under the sprite, with the very transform it is drawn with
+  if self._sigKey ~= self.dex then
+    self._sigKey, self._sigSpec = self.dex, SignatureFx.specFor(self.dex) or false
+  end
+  local sig = self._sigSpec
+  if sig and (part or self.silhouette or shade) then sig = nil end
+  if sig then SignatureFx.drawBehind(self, sig, image, quad, dx, dy, scaleX, scaleY, camX, camY, alpha) end
   if self.silhouette then
     love.graphics.setColor(0, 0, 0, alpha)
   elseif shade then
@@ -670,13 +678,8 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     love.graphics.draw(foamImage, foamQuad, dx, dy, 0, scaleX, scaleY)
   end
   if self.silhouette or shade or tint or alpha < 1 then love.graphics.setColor(1, 1, 1, 1) end
-  -- a tail flame (Charmander's line): particles from the art's own flame, placed with the
-  -- very transform the sprite was just drawn with
-  if self._flameDex ~= self.dex then
-    self._flameDex, self._flameSet = self.dex, TailFlame.settingsFor(self.dex) or false
-  end
-  if self._flameSet and not part and not self.silhouette and not shade then
-    TailFlame.draw(self, self._flameSet, TailFlame.pointsFor(self.mod, self.info, self.dex, anim), col, row,
+  if sig then
+    SignatureFx.drawFront(self, sig, sig.fx and SignatureFx.pmdPoints(self.mod, self.info, self.dex, anim, sig), col, row,
       image, quad, dx, dy, scaleX, scaleY, camX, camY, alpha, crop and bandCrop or nil)
   end
 end

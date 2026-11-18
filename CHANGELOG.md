@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Signature effects for almost 100 Pokémon, in both sprite styles, wild Pokémon and your
+  partner alike: flames (Ponyta, Rapidash, Magmar, Moltres and Galarian Moltres, the
+  Cyndaquil and Chimchar lines, Magmortar, Emboar, Darmanitan, Litwick, Chandelure, Delphox,
+  Incineroar, Centiskorch, Crocalor, Skeledirge, Charcadet, Armarouge, Ceruledge, Alolan
+  Marowak's bone, Hisuian Typhlosion), electric sparks (Pichu, Pikachu, Raichu, Alolan Raichu,
+  Magnemite, Magneton, Magnezone), gas and smoke (Gastly, Koffing, Weezing, Galarian Weezing,
+  Torkoal), clouds (Swablu, Altaria, Tornadus, Landorus, Enamorus), the glowing lights of
+  Chinchou and Lanturn, and a soft glow around the legendaries and mythicals, from Mewtwo
+  to Terapagos (Ho-Oh sheds sparkles, Necrozma and Eternatus a wispy aura, Melmetal glints).
+  Each effect is placed from the sprite itself, frame by frame and facing by facing, and
+  follows every pose, squash and size (WoobleView included).
+
+### Changed
+
+- The tail flames of Charmander, Charmeleon and Charizard show in the HGSS / PokeMMO style
+  too.
+- With **Type Aura** on, a partner that has a signature effect shows it instead of the
+  generic type puffs.
+
 ## 2.0.5 (2026-11-17)
 
 ### Added

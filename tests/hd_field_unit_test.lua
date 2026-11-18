@@ -119,7 +119,7 @@ do
   check(specOf(walk).lowPivot and specOf(walk).lowPivot[1] == 19.5 and specOf(walk).lowPivot[2] == 36.5, "a PMD walk sheet pivots on the point it stands on: 1 px under its ground point")
   check(specOf(idle).lowPivot and specOf(idle).lowPivot[2] == 37.5, "...each animation on its own")
   check(specOf(walk).anchor == nil, "...not on the bottom of its cell")
-  -- drawnPoint: a spot of the art where the library really draws it (lib/tail_flame.lua)
+  -- drawnPoint: a spot of the art where the library really draws it (lib/signature_fx.lua)
   do
     local spec = specOf(walk)
     local keep = spec.scale

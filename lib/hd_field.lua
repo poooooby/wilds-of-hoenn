@@ -178,7 +178,7 @@ end
 --- the frame grown `k` times about its pivot (the quad's own pivot, else the sheet's ground
 --- point, else the bottom centre of the quad for a "feet" sheet), exactly as the library
 --- places it. Returns screen x, y and k (1 without the library, or for an untagged image).
---- For things that must stay on a spot of the art (lib/tail_flame.lua).
+--- For things that must stay on a spot of the art (lib/signature_fx.lua).
 function HdField.drawnPoint(mod, image, quad, x, y, sx, sy, px, py)
   local spec = image and specs[image]
   if not (spec and HdField.active(mod)) then return x + px * sx, y + py * sy, 1 end

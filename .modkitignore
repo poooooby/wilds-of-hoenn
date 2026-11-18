@@ -81,6 +81,7 @@ tests/role_hotkey_unit_test.lua
 tests/shiny_chain_test.lua
 tests/shiny_sparkle_unit_test.lua
 tests/shiny_unit_test.lua
+tests/signature_fx_unit_test.lua
 tests/sky_draw_unit_test.lua
 tests/sky_flyers_unit_test.lua
 tests/spawn_filters_unit_test.lua
@@ -90,7 +91,6 @@ tests/sprite_atlas_unit_test.lua
 tests/sprite_source_unit_test.lua
 tests/sweat_drop_unit_test.lua
 tests/sweet_scent_hearts_unit_test.lua
-tests/tail_flame_unit_test.lua
 tests/water_life_unit_test.lua
 tests/wild_emote_unit_test.lua
 tests/wild_reactions_unit_test.lua
@@ -151,6 +151,8 @@ dist/vivid-worlds-v2.0.3-hgss-pmd.zip
 dist/vivid-worlds-v2.0.3.zip
 dist/vivid-worlds-v2.0.4-hgss-pmd.zip
 dist/vivid-worlds-v2.0.4.zip
+dist/vivid-worlds-v2.0.5-hgss-pmd.zip
+dist/vivid-worlds-v2.0.5.zip
 dist/wilds-of-hoenn-v1.10.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.10.0-hgss.zip
 dist/wilds-of-hoenn-v1.10.1-hgss-pmd.zip
