@@ -4,6 +4,9 @@
 
 ### Changed
 
+- Pokémon in the water bob gently whenever they hold still: wild swimmers called by Sweet
+  Scent, startled, fighting your partner or resting at the surface, and your partner
+  standing in the water beside you (the bob fades away once it swims on).
 - **Species Sizes** retuned for long-bodied Pokémon, mostly snakes and serpents (Ekans,
   Arbok, Dratini, Dragonair, Onix, Steelix, Gyarados, Seviper, Milotic, Serperior,
   Silicobra, Sandaconda ...), plus Haunter, Tentacool / Tentacruel, Corviknight, Drampa,

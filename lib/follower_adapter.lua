@@ -427,6 +427,33 @@ function FollowerAdapter:_tickRecall(npc, r)
     r.recallX, r.recallY = px, py
   end
   self:_tickDuck(npc, r)
+  self:_tickBob(npc, r)
+end
+
+--- Standing still in the water (the player surfing, or stopped beside a lake) the
+--- partner bobs gently like the wild swimmers (Config.SWIM bobAmp / bobTicks); once it
+--- moves, or out of the water, the bob eases away (`bobEase` ticks) instead of snapping.
+function FollowerAdapter:_tickBob(npc, r)
+  local onWater
+  if r.isPmd then
+    onWater = r.swimming == true
+  else
+    onWater = r.presentation ~= nil and r.presentation ~= SpriteSource.PRESENTATION_LAND
+  end
+  local scene = self.sceneNow
+  local want = (onWater and not npc.moving and not (scene and scene.moving)) and 1 or 0
+  local cfg = Config.SWIM
+  local k = self.bobK or 0
+  local rate = 1 / (cfg.bobEase or 20)
+  if k < want then k = math.min(want, k + rate) elseif k > want then k = math.max(want, k - rate) end
+  self.bobK = k
+  if k <= 0 then
+    r.bobDy = nil
+    self.bobClock = 0
+    return
+  end
+  self.bobClock = (self.bobClock or 0) + 1
+  r.bobDy = math.sin(self.bobClock / cfg.bobTicks * math.pi * 2) * cfg.bobAmp * k
 end
 
 function FollowerAdapter:_endBall()

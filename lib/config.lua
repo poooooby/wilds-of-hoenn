@@ -41,7 +41,8 @@ Config.SPAWN_FX = { appearTicks = 26, leaveTicks = 22 }
 --   runs   every one swims (none just float): a heading held for runMin..runMax tiles at
 --          stepFrames a tile (16 = walking pace), a pause of pauseMin..pauseMax ticks between
 --          runs; a blocked heading tries the other directions (turning back last)
---   bob    a gentle rise and fall at the surface, bobAmp px, one cycle every bobTicks
+--   bob    a gentle rise and fall at the surface, bobAmp px, one cycle every bobTicks -- every
+--          one at the surface, whatever it is doing; the partner too while it stands in water
 --   wake   a small ring left on each tile it swims off (r0 -> r1 px, life ticks)
 --   dive   every diveMin..diveMax ticks (when more than clearRadius tiles from the player)
 --          it sinks (sinkTicks), stays under underMin..underMax ticks, and surfaces in
@@ -49,6 +50,7 @@ Config.SPAWN_FX = { appearTicks = 26, leaveTicks = 22 }
 Config.SWIM = {
   stepFrames = 22, runMin = 2, runMax = 5, pauseMin = 180, pauseMax = 360,
   bobAmp = 1, bobTicks = 96,
+  bobEase = 20, -- the partner's bob fades in / out over this many ticks (standing / moving)
   wake = { life = 28, r0 = 3, r1 = 10 },
   dive = { min = 600, max = 2700, sinkTicks = 22, underMin = 60, underMax = 180, hop = 3, clearRadius = 2 },
 }

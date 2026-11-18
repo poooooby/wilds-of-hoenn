@@ -198,6 +198,32 @@ eq(fa.renderer.presentation, "land", "land presentation when not over water")
 fakeEngine.isWater = function() return true end
 fa:tick()
 eq(fa.renderer.presentation, "swimming", "water presentation defaults to swimming")
+do
+  -- standing in the water it bobs gently (eased in), and the bob eases away again on land
+  local Config = V.require("config")
+  local wasMoving = npc.moving
+  npc.moving = false
+  local seen = {}
+  for _ = 1, Config.SWIM.bobTicks do
+    fa:tick()
+    local b = fa.renderer.bobDy or 0
+    check(math.abs(b) <= Config.SWIM.bobAmp, "the partner's bob stays within bobAmp")
+    seen[string.format("%.2f", b)] = true
+  end
+  local n = 0
+  for _ in pairs(seen) do n = n + 1 end
+  check(n > 4, "standing in the water, the partner bobs")
+  fakeEngine.isWater = function() return false end
+  for _ = 1, (Config.SWIM.bobEase or 20) + 2 do fa:tick() end
+  eq(fa.renderer.bobDy, nil, "on land the bob has eased away")
+  fakeEngine.isWater = function() return true end
+  for _ = 1, Config.SWIM.bobTicks / 2 do fa:tick() end
+  check(fa.bobK == 1, "back in the water, standing: bobbing fully")
+  npc.moving = true
+  for _ = 1, (Config.SWIM.bobEase or 20) + 2 do fa:tick() end
+  eq(fa.renderer.bobDy, nil, "swimming along, it does not bob (eased away)")
+  npc.moving = wasMoving
+end
 fakeEngine.isWater = function() return false end
 
 -- ------- collectActors appends the "sinking into grass" overlay

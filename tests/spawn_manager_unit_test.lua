@@ -1427,6 +1427,28 @@ do
   smW.ticks = math.floor(Config.SWIM.bobTicks / 4)
   smW:_swimLife(e)
   check(b0 ~= e.renderer.bobDy and math.abs(e.renderer.bobDy) <= Config.SWIM.bobAmp, "a swimmer bobs, within bobAmp")
+  -- ...and one that stands still for another reason (lured, startled, fighting) bobs too
+  e.lured = { ticks = 9999, age = 0 }
+  local bobs = {}
+  for t = 1, Config.SWIM.bobTicks do
+    smW.ticks = smW.ticks + 1
+    smW:tick()
+    bobs[string.format("%.2f", e.renderer.bobDy or 0)] = true
+  end
+  local n = 0
+  for _ in pairs(bobs) do n = n + 1 end
+  check(n > 4, "a lured swimmer keeps bobbing")
+  for id, x in pairs(smW.entities) do if x ~= e then smW:despawn(id) end end -- (the ticks refilled)
+  check(smW:_bobsStill(e), "...at the surface, no fx")
+  e.fx = {}
+  check(not smW:_bobsStill(e), "...not while arriving / leaving / diving")
+  e.fx, e.lured = nil, nil
+  e.rideBase = {}
+  check(not smW:_bobsStill(e), "...not riding on its leader's back (the leader's bob carries it)")
+  e.rideBase = nil
+  e.vary = { podLeap = {} }
+  check(not smW:_bobsStill(e), "...not leaping out of its pod")
+  e.vary = nil
 
   -- a wake where a step set off
   e.moving, e.progress, e.fromX, e.fromY = true, 0, 2, 0

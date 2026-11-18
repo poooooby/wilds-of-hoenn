@@ -1339,6 +1339,9 @@ function SpawnManager:tick(game)
       -- lands on), then stands its ground
       Behavior._advanceMove(e)
     end
+    -- every water Pokemon at the surface bobs, whatever it is busy with (a wanderer's
+    -- _swimLife already did; the same phase, so calling it twice changes nothing)
+    if e and e.terrain == "water" and self:_bobsStill(e) then self:_bobAt(e, reactCtx ~= nil) end
   end
   for _, id in ipairs(gone or {}) do
     if type(id) == "table" then self:despawn(id.takeoff or id.leave, { animate = true }) else self:despawn(id) end
@@ -1579,18 +1582,34 @@ function SpawnManager:_atSurface(e)
   return e.terrain == "water" and not self.underwater
 end
 
+--- Its gentle rise and fall at the surface (Config.SWIM bobAmp / bobTicks; a drifter's
+--- bigger, slower one with Wild Reacts on). Pure of the tick: the same phase whoever calls it.
+function SpawnManager:_bobAt(e, eco)
+  local r = e.renderer
+  if not r then return end
+  local bob = (eco and e.profile and e.profile.water == "drifter") and Config.ECO.water.drift or Config.SWIM
+  local phase = ((self.ticks or 0) + e.id * 37) / bob.bobTicks * math.pi * 2
+  r.bobDy = math.sin(phase) * bob.bobAmp
+end
+
+--- Does a water Pokemon bob this tick though nothing else moves it (lured by Sweet
+--- Scent, startled / chasing, fighting the Battler, a whale lying at the surface ...)?
+--- Not under the sea, not arriving / leaving / diving (`e.fx`), not mid-leap
+--- (`eco.untouchable`), not riding on its leader's back (`rideBase`: the leader's bob
+--- carries it) or leaping out of its pod (`vary.podLeap`).
+function SpawnManager:_bobsStill(e)
+  return e.terrain == "water" and not e.fx and not e.rideBase
+    and not (e.vary and e.vary.podLeap)
+    and not (e.eco and e.eco.untouchable) and self:_atSurface(e)
+end
+
 --- Per tick for a swimmer left to itself: its bob, and now and then a dive.
 function SpawnManager:_swimLife(e, eco)
   if not self:_atSurface(e) then return end
   local cfg = Config.SWIM
   -- Wild Ecology (`eco`: Wild Reacts on): its kind's own way in the water (lib/eco_water.lua)
   local kind = eco and e.profile and e.profile.water
-  local bob = (kind == "drifter") and Config.ECO.water.drift or cfg
-  local r = e.renderer
-  if r then
-    local phase = ((self.ticks or 0) + e.id * 37) / bob.bobTicks * math.pi * 2
-    r.bobDy = math.sin(phase) * bob.bobAmp
-  end
+  self:_bobAt(e, eco)
   -- a whale only goes under after blowing its spout (the "spout" activity), and a group
   -- member only with its leader (startDive takes the group down together)
   if kind == "whale" then return end
