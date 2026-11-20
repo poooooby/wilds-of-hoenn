@@ -81,6 +81,10 @@ Config.SWEET_SCENT = { min = 2, max = 3, minDist = 1, maxDist = 4, lureTicks = 3
 -- bigger (`scale`), sliding faster across the ground (`parallax`, about the view's
 -- centre) and out of focus (`blur`, px of the drawn sprite), hazed toward the sky and
 -- see-through. `h` 0 = low (landing, perched), 0.5 = mid, 1 = high; between, interpolated.
+-- px of air between a Pokemon's head (as drawn now: renderer:headLiftNow) and a mark over it
+-- ("!", "?", anger, hearts, z's, the partner's labels and moods)
+Config.MARK_GAP = 1
+
 Config.FLYERS = {
   layers = {
     { h = 0,   scale = 1.0, parallax = 1.0,  blur = 0,   alpha = 1.0,  haze = 0 },
@@ -114,7 +118,13 @@ Config.FLYERS = {
   -- a sea bird diving for fish; `stayChance` % come up and stay on the water `stayTicks`
   -- with the fish they caught: real wild Pokemon then (surf onto it: both at once)
   dive = { every = { 900, 2400 }, under = { 120, 300 }, flyTicks = { 70, 90 }, sinkTicks = 14,
-           stayChance = 30, stayTicks = 180 },
+           stayChance = 30, stayTicks = 180,
+           -- ...fighting to keep its catch: a burst of jerks every `every` ticks, `burst` long,
+           -- flipping side every `flip` ticks, `jerk` px across, a `hop` px up, `tilt` radians;
+           -- in between a slow `sway` (radians, over `swayTicks`); its anger mark pops up again
+           -- every `markEvery` ticks
+           fight = { every = { 34, 52 }, burst = 14, flip = 2, jerk = 2, hop = 1.5, tilt = 0.3,
+                     sway = 0.06, swayTicks = 9, markEvery = 50 } },
   -- a wild Flying-type Pokemon arriving / leaving by air instead of rising out of the grass
   land = { flyTicks = { 80, 100 }, perchChance = 0.4, perchRange = 4, sit = { 180, 480 }, hopTicks = 22,
            groundStay = { 2700, 7200 } },

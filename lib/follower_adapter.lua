@@ -1018,9 +1018,9 @@ function FollowerAdapter:collectActors(actors)
     local r = self.renderer
     local act = r and r.act
     local state = self.actState or {}
-    -- just over its head as drawn (headLift: the highest point its art reaches, Species Sizes
+    -- just over its head as drawn now (headLiftNow: its pose and facing now, Species Sizes
     -- included; squashed under an eave), not a fixed height
-    local head = (r and r.headLift and r:headLift()) or CELL
+    local head = (r and (r.headLiftNow and r:headLiftNow() or r:headLift())) or CELL
     head = head * (1 - ((r and r.duck) or 0))
     local lift = math.max(2, math.floor(head - CELL + POPUP_GAP + 0.5))
     local a = PopupText.actor(popup and popup.text or ready,
@@ -1078,14 +1078,14 @@ function FollowerAdapter:collectActors(actors)
   if self.moodKind and sr and (sr.recall or 1) >= 0.5 and sr.headLift then
     local act = sr.act
     local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
-    local top = feetY - (sr:headLift() or CELL) * (1 - (sr.duck or 0))
+    local top = feetY - ((sr.headLiftNow and sr:headLiftNow() or sr:headLift()) or CELL) * (1 - (sr.duck or 0))
     local x = npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0)
-    -- (headLift is its highest frame, an idle hop or raised ears included: a little lower
-    -- sits just over the head as it usually stands)
-    actors[#actors + 1] = MoodFx.actor(self.moodKind, self.moodAge or 0, x, top + 3, feetY + 1, math.min(1, (self.moodAge or 0) / 10))
+    -- (headLiftNow: the head as it is drawn now)
+    actors[#actors + 1] = MoodFx.actor(self.moodKind, self.moodAge or 0, x, top - Config.MARK_GAP, feetY + 1,
+      math.min(1, (self.moodAge or 0) / 10))
   end
   if self.sweatAge and sr and (sr.recall or 1) >= 0.5 and sr.headLift then
-    local height = sr:headLift() or CELL
+    local height = (sr.headLiftNow and sr:headLiftNow() or sr:headLift()) or CELL
     local squashed = height * (1 - (sr.duck or 0))
     local half = drawnWidth(sr) / 2
     -- on the side it faces (its head), touching the top of it

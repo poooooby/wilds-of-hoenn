@@ -56,8 +56,10 @@ end
 --- pose lies low.
 function EcoSleep.headOf(r, anim)
   if not r then return 12 end
+  -- PMD: its head in the sleeping pose it shows now (renderer:headLiftNow), else that pose's tallest
+  if r.isPmd and r.headLiftNow and r._drawnAnim == anim and anim then return r:headLiftNow() + Config.MARK_GAP end
   if r.isPmd and anim and r.info and r.info[anim] and r.headLift then return r:headLift({ anim }) end
-  return ((r.headLift and r:headLift()) or 16) * 0.7
+  return (((r.headLiftNow and r:headLiftNow()) or (r.headLift and r:headLift())) or 16) * 0.7
 end
 
 --- Is the player close enough to wake `e` (or keep it awake): within Config.ECO.sleep.wake

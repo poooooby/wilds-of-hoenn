@@ -10,7 +10,8 @@
   - An aggressive bird perched in town (Spearow, Fearow, Staraptor, Golbat, Aerodactyl) may
     swoop down at you instead of flying off, and charge (Pokecology on; a much stronger lead
     scares it off as before).
-  - A sea bird up from its dive sometimes stays on the water for a few seconds with its catch.
+  - A sea bird up from its dive sometimes stays on the water for a few seconds with its catch,
+    an anger mark over its head, jerking and tilting as it fights to keep the fish in its beak.
     Surf onto it and you meet both at once, in a wild double battle: while both are up no Poké
     Ball can be thrown ("Two POKéMON are out! There's no clear shot!", nothing is used up) and
     there is no running ("Can't escape!"). Once one is down, a ball flies at the one left and
@@ -20,6 +21,9 @@
 
 - **Flying Mons is On / Off again** (the high birds are always part of it). A saved Full or
   Ambient is On, Off stays Off.
+- The marks over a Pokémon's head ("!", "?", the anger mark, Sweet Scent's hearts, a sleeper's
+  "z"s, your partner's labels and moods) sit right on top of its head as it is shown, instead
+  of above the tallest pose its sprite has (a bird's raised wings put them far up).
 
 ## 2.0.8 (2026-11-20)
 

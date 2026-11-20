@@ -1331,6 +1331,36 @@ do
   check(C.FLYERS.land.groundStay[1] > 0, "a flyer stays a while on the ground")
 end
 
+-- ------- a mark over a wild Pokemon's head: over its head as drawn now, not its tallest pose
+do
+  local C = V.require("config")
+  local now = { headLiftNow = function() return 12 end, headLift = function() return 21 end }
+  eq(SpawnManager.markLift(now), 12 + C.MARK_GAP, "a mark sits just over its head as drawn now")
+  local old = { headLift = function() return 21 end }
+  eq(SpawnManager.markLift(old), 21 + C.MARK_GAP, "...a renderer that cannot tell: over its tallest pose")
+  eq(SpawnManager.markLift(nil), 20 + C.MARK_GAP, "...none: a default height")
+  eq(SpawnManager.markLift({ headLiftNow = function() return 400 end }), 96, "...never sky high")
+end
+
+-- ------- a sea bird up with its catch fights to keep it: bursts of jerks, tilting both ways
+do
+  local C = V.require("config")
+  local f = C.FLYERS.dive.fight
+  local left, right, calm, maxTilt = 0, 0, 0, 0
+  for age = 1, 200 do
+    local dx, dy, tilt = SpawnManager.fishFight(age, 7)
+    maxTilt = math.max(maxTilt, math.abs(tilt))
+    if tilt > f.sway + 1e-9 then right = right + 1 elseif tilt < -f.sway - 1e-9 then left = left + 1 else calm = calm + 1 end
+    check(math.abs(dx) <= f.jerk + 1e-9 and dy <= 0 and dy >= -f.hop - 1e-9, "fishFight: jerks stay small (" .. age .. ")")
+  end
+  check(left > 0 and right > 0, ("fishFight: it tilts both ways in its bursts (%d / %d)"):format(left, right))
+  check(calm > left + right, "...and sways gently in between, most of the time")
+  check(maxTilt <= f.tilt + 1e-9, "...never more than its tilt")
+  local a = { SpawnManager.fishFight(5, 3) }
+  local b = { SpawnManager.fishFight(5, 3) }
+  check(a[1] == b[1] and a[3] == b[3], "...the same each time for the same bird and moment (pure)")
+end
+
 -- ------- Wild Reacts: a running player close by startles them; one reacting is no Battler target
 do
   local realCell, realBounds = fakeEngine.playerCell, fakeEngine.mapBounds

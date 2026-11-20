@@ -68,8 +68,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   out at sea.
 - 🕊️ **Birds in the sky:** birds fly overhead, perch on roofs and dive for fish. They are not just
   scenery: now and then a bird high up comes down into the field to be met, an aggressive one
-  perched in town may swoop down and pick a fight, and a sea bird that stays up on the water with
-  its catch is met together with that fish, in a wild double battle: while both are up no ball
+  perched in town may swoop down and pick a fight, and a sea bird that stays up on the water,
+  angrily jerking about to keep hold of its catch, is met together with that fish, in a wild
+  double battle: while both are up no ball
   can be thrown and there is no running away; once one is down you can catch the other (or run).
 - 👻 **Local scenes:** a few special places have their own moments, in Lavender Town, Petalburg
   Woods and Fortree City.

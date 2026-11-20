@@ -1086,6 +1086,32 @@ function SpawnManager:skyAttack(b)
   return true
 end
 
+--- How high a mark over a wild Pokemon's head goes ("!", "?", the anger mark, hearts): just
+--- over its head as it is drawn now (renderer:headLiftNow -- its pose and facing now, steady
+--- while it animates -- not the tallest pose its art has: a bird's raised wings put marks far
+--- above it), `Config.MARK_GAP` px of air between; clamped to 10..96.
+function SpawnManager.markLift(r)
+  local lift = r and ((r.headLiftNow and r:headLiftNow()) or (r.headLift and r:headLift())
+    or (r.visualHeight and r:visualHeight()) or (r.frameHeight and r:frameHeight())) or 20
+  return math.max(10, math.min(96, (tonumber(lift) or 20) + Config.MARK_GAP))
+end
+
+--- A sea bird fighting to keep the fish in its beak (`age` ticks into its stay, `seed` its
+--- id): (dx, dy, tilt) for its renderer's `act` -- now and then a burst of quick jerks, tilting
+--- one way and the other, a little hop up at the start; a slow sway in between. Pure.
+function SpawnManager.fishFight(age, seed)
+  local cfg = Config.FLYERS.dive.fight
+  seed = math.floor(tonumber(seed) or 0)
+  local period = cfg.every[1] + (seed * 7) % (cfg.every[2] - cfg.every[1] + 1)
+  local t = (age + seed * 13) % period
+  if t < cfg.burst then
+    local k = 1 - t / cfg.burst                                  -- strongest at its start
+    local s = (math.floor(t / cfg.flip) % 2 == 0) and 1 or -1    -- one way, then the other
+    return s * cfg.jerk * k, -cfg.hop * k, s * cfg.tilt * k
+  end
+  return 0, 0, math.sin((age + seed * 5) / cfg.swayTicks) * cfg.sway
+end
+
 -- a fish of this map's water (its Surf / fishing tables, lib/water_life.lua WaterLife.isFish)
 -- at one of its levels, as an encounter: what a diving sea bird comes up with; or nil
 function SpawnManager:_caughtFish()
@@ -1447,11 +1473,21 @@ function SpawnManager:tick(game)
         if lure.ticks <= 0 then e.lured = nil end
       elseif e.skyStay then
         -- a sea bird up from its dive with a fish (SpawnManager:diverSurface): it sits on the
-        -- water a moment (bobbing), then flies off
+        -- water a moment (bobbing), fighting to keep its catch -- jerking and tilting, an
+        -- anger mark over its head (collectActors) -- then flies off
         e.react = nil
         e.skyStay = e.skyStay - 1
+        e.fishAge = (e.fishAge or 0) + 1
+        local r = e.renderer
+        if r then
+          local dx, dy, tilt = SpawnManager.fishFight(e.fishAge, e.id)
+          local a = r.act
+          if not (a and a.fishFight) then a = { fishFight = true } r.act = a end
+          a.dx, a.dy, a.tilt = dx, dy, tilt
+        end
         if e.skyStay <= 0 then
           e.skyStay = nil
+          if r and r.act and r.act.fishFight then r.act = nil end
           self:despawn(e.id, { animate = true, fly = true })
         end
       elseif e.runAway then
@@ -1688,12 +1724,14 @@ function SpawnManager:collectActors(actors, camX, camY)
           emote, emoteAge = lr.emote, lr.emoteAge - e.vary.reactLag
         end
       end
+      if not emote and e.caught and e.skyStay then
+        -- fighting to keep its catch: the anger mark, popping up again and again
+        emote, emoteAge = "anger", (e.fishAge or 0) % Config.FLYERS.dive.fight.markEvery
+      end
       if emote then
-        local r = e.renderer
-        local lift = r and r.headLift and r:headLift()
-          or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
+        -- right over its head as it is drawn now (SpawnManager.markLift)
         actors[#actors + 1] = WildEmote.actor(emote, emoteAge or 0, e.px, e.py,
-          math.max(10, math.min(96, (lift or 20) + 4)), e.elevation, id)
+          SpawnManager.markLift(e.renderer), e.elevation, id)
       end
       -- asleep: "z"s float up (a group member's a moment after its leader's)
       local sleep, zage = e.eco, e.eco and e.eco.zzz
@@ -1715,12 +1753,8 @@ function SpawnManager:collectActors(actors, camX, camY)
         if a then actors[#actors + 1] = a end
       end
       if e.lured then
-        -- just above the highest point its art reaches in any frame (headLift), so the
-        -- idle / walk animation never covers the hearts, plus a 4 px gap
-        local r = e.renderer
-        local lift = r and r.headLift and r:headLift()
-          or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
-        actors[#actors + 1] = SweetScentHearts.actor(e.px, e.py, math.max(10, math.min(96, (lift or 20) + 4)),
+        -- right over its head as it is drawn now (SpawnManager.markLift)
+        actors[#actors + 1] = SweetScentHearts.actor(e.px, e.py, SpawnManager.markLift(e.renderer),
           e.lured.age, e.lured.ticks, e.elevation, id)
       end
     end
