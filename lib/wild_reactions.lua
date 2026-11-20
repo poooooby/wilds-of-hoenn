@@ -202,6 +202,9 @@ function WildReactions.begin(e, what, px, py, ctx)
     e.facing = faceToward(e.cellX, e.cellY, px, py) or e.facing
     local bird = e.terrain == "land" and ctx.canFly and ctx.canFly(e)
     r.mode, r.next, r.emote, r.n, r.hop = "alert", bird and "takeoff" or "flee", "!", cfg.alertTicks, true
+    -- a skittish group's others scurry off on their own (SpawnManager:scatterStartled); the
+    -- one left behind does not run off after them but panics about its patch
+    if not bird and ctx.startled and ctx.startled(e) then r.next = "panic" end
   else
     -- a stronger one takes a moment: it stops, turns to the player, THEN the anger mark
     r.mode, r.n = "turn", cfg.turnTicks
@@ -311,6 +314,58 @@ function WildReactions.leapTicks(e, dir)
   return n > 0 and n or nil
 end
 
+local PANIC_DIRS = { "up", "down", "left", "right" }
+
+--- One tick of a panic (the leader left behind by its scattered group, lib/spawn_manager.lua
+--- scatterStartled): dashing about its own patch -- its terrain only, within `range` of where
+--- it was startled -- mostly keeping its
+--- heading, never toward the player while there is another way, now and then stopping short;
+--- the "!" pops up again every so often. Then it settles back to its wandering.
+function WildReactions._panic(e, r, p, ctx)
+  local cfg, rng = Config.REACT, ctx.rng or math.random
+  local pc = cfg.panic
+  if r.t >= r.n then return finish(e, ctx.now, cfg.cooldown, rng) end
+  if r.t >= r.alertAt then
+    r.emote, r.emoteAge, r.alertAt = "!", 0, r.t + rngRange(rng, pc.alertEvery)
+  end
+  if r.t < r.pauseUntil then return end
+  local ok, n = r._ok or {}, 0
+  r._ok = ok
+  local near = p and manhattan(e.cellX, e.cellY, p.x, p.y)
+  local fallback
+  for _, d in ipairs(PANIC_DIRS) do
+    local dd = Behavior.DELTA[d]
+    local tx, ty = e.cellX + dd[1], e.cellY + dd[2]
+    if math.max(math.abs(tx - r.home.x), math.abs(ty - r.home.y)) <= pc.range
+        and Behavior._canStep(e, ctx.game, tx, ty) then
+      if near and manhattan(tx, ty, p.x, p.y) < near then
+        fallback = fallback or d -- toward the player: only when nothing else is open
+      else
+        n = n + 1
+        ok[n] = d
+      end
+    end
+  end
+  for i = #ok, n + 1, -1 do ok[i] = nil end
+  local dir
+  if r.heading and rng(1, 100) <= pc.keepHeading then
+    for i = 1, n do if ok[i] == r.heading then dir = r.heading end end
+  end
+  dir = dir or (n > 0 and ok[rng(1, n)]) or fallback
+  if not dir then
+    -- hemmed in: it turns about on the spot
+    e.facing = PANIC_DIRS[rng(1, 4)]
+    r.pauseUntil = r.t + rngRange(rng, pc.pause)
+    return
+  end
+  if Behavior.tryStep(e, ctx.game, dir, pc.frames) then
+    r.heading = dir
+    if rng(1, 100) <= pc.pauseChance then r.pauseUntil = r.t + pc.frames + rngRange(rng, pc.pause) end
+  else
+    r.heading = nil
+  end
+end
+
 function WildReactions.tick(e, ctx)
   local cfg, rng = Config.REACT, ctx.rng or math.random
   local r = e.react
@@ -355,6 +410,10 @@ function WildReactions.tick(e, ctx)
       if ctx.takeoff then ctx.takeoff(e) end
     elseif r.next == "flee" then
       r.mode, r.steps, r.blocked = "flee", r.fleeSteps or rngRange(rng, cfg.flee.steps), 0
+    elseif r.next == "panic" then
+      r.mode, r.t, r.n, r.heading = "panic", 0, rngRange(rng, cfg.panic.ticks), nil
+      r.home = { x = e.cellX, y = e.cellY }
+      r.pauseUntil, r.alertAt = 0, rngRange(rng, cfg.panic.alertEvery)
     elseif r.next == "chase" then
       local leash = r.huntLeash or rngRange(rng, cfg.chase.leash)
       r.mode, r.leash, r.limit = "chase", leash, math.floor(leash * cfg.chase.secondsPerTile * 60)
@@ -366,6 +425,8 @@ function WildReactions.tick(e, ctx)
     end
     return
   end
+
+  if r.mode == "panic" then return WildReactions._panic(e, r, p, ctx) end
 
   if r.mode == "flee" then
     if r.leap then

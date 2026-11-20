@@ -484,6 +484,45 @@ function SpawnManager:_leaveGroup(e, flight)
   end
 end
 
+--- A skittish group's leader was startled by the player (it flees): the others scurry off
+--- on their own -- each after its own lag, a few steps away from the player, then gone (the
+--- tile's leave fx) -- leaving the leader alone. A shiny member would stay with it (members
+--- are never rolled shiny today; kept should that change). Not an escort's companions (another
+--- species) or a pod. Returns how many ran.
+function SpawnManager:scatterStartled(leader)
+  local g = leader and leader.group
+  if not g or g.leader ~= leader.id or g.escort or g.social == "pod" then return 0 end
+  if not (leader.profile and leader.profile.temper == "skittish") then return 0 end
+  local cfg = Config.ECO.group.startled
+  local kept, ran = { leader.id }, 0
+  for _, mid in ipairs(g.members) do
+    local m = mid ~= leader.id and self.entities[mid]
+    if m and m.shiny then
+      kept[#kept + 1] = mid
+    elseif m then
+      ran = ran + 1
+      self:_endPodLeap(m)
+      Eco.abort(m, self)
+      m.group, m.rider, m.riderMoving, m.riderAnim = nil, nil, nil, nil
+      SpawnManager._endRide(m)
+      if m.renderer and m.renderer.act and (m.renderer.act.ecoBurrow or m.renderer.act.ecoSchool) then
+        m.renderer.act = nil
+      end
+      m.px, m.py = m.cellX * 16, m.cellY * 16
+      m.lured, m.react = nil, nil
+      if m.state == Config.STATE.AVAILABLE and not m.fx then
+        m.runAway = { steps = math.random(cfg.steps[1], cfg.steps[2]), blocked = 0, phase = "run", t = 0,
+                      wait = math.random(cfg.lag[1], cfg.lag[2]), frames = cfg.frames, anyGround = true }
+      elseif m.state == Config.STATE.AVAILABLE then
+        self:despawn(mid, { animate = true })
+      end
+    end
+  end
+  g.members = kept
+  if #kept == 1 then leader.group = nil end
+  return ran
+end
+
 local FACINGS = { "down", "up", "left", "right" }
 
 --- A rider's place on its leader's back: px across from the leader's tile (toward the way it
@@ -1064,6 +1103,7 @@ function SpawnManager:_reactContext()
   ctx.occupied = ctx.occupied or function(x, y, me) return self:occupiedBy(x, y, me) ~= nil end
   ctx.takeoff = ctx.takeoff or function(e) self:despawn(e.id, { animate = true, fly = true }) end
   ctx.fleeVanish = ctx.fleeVanish or function(e) self:fleeVanish(e) end
+  ctx.startled = ctx.startled or function(e) return self:scatterStartled(e) > 0 end
   -- a chaser stuck off its grass with no way home leaves (its tile's leave fx: a fade)
   ctx.strand = ctx.strand or function(e) self:despawn(e.id, { animate = true }) end
   ctx.onContact = ctx.onContact or function(e) if self.onContact then self.onContact(e) end end
@@ -1142,6 +1182,8 @@ function SpawnManager:_tickParting(e, p)
   return true
 end
 
+local WIDE_STEP = { anyGround = true }
+
 -- one tick of a run-away: true when it is done (it then leaves)
 function SpawnManager:_tickRunAway(e)
   local ra = e.runAway
@@ -1153,14 +1195,19 @@ function SpawnManager:_tickRunAway(e)
     self:_tickParting(e, EnginePatch.playerCell and EnginePatch.playerCell())
     return false
   end
+  if ra.wait and ra.wait > 0 then ra.wait = ra.wait - 1 return false end -- (a startled member's lag)
   if ra.steps <= 0 or ra.blocked > 20 then return true end
   local p = EnginePatch.playerCell and EnginePatch.playerCell()
   if not p then return true end
+  -- (a startled group member scurries off over any open ground, not just its own grass:
+  -- with the others round it, a patch's edge left it no way out)
+  local wide = ra.anyGround and e.terrain ~= "water"
   local dir = WildReactions.fleeDir(e.cellX, e.cellY, p.x, p.y, function(d)
     local dd = Behavior.DELTA[d]
+    if wide then return Behavior._canStep(e, self.game, e.cellX + dd[1], e.cellY + dd[2], true) end
     return not self:blocksCell(e.cellX + dd[1], e.cellY + dd[2])
   end)
-  if dir and Behavior.tryStep(e, self.game, dir, Config.REACT.flee.frames) then
+  if dir and Behavior.tryStep(e, self.game, dir, ra.frames or Config.REACT.flee.frames, wide and WIDE_STEP or nil) then
     ra.steps = ra.steps - 1
   else
     ra.blocked = ra.blocked + 1

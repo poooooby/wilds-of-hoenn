@@ -548,6 +548,52 @@ do
   check(up.cellY <= y0 - 2, "it got away (y " .. up.cellY .. ")")
 end
 
+-- ------- startled by the player: its group's others are told (a skittish group scatters)
+do
+  local told = {}
+  local ctx = ctxFor({ x = 10, y = 12, moving = false }, 30)
+  ctx.startled = function(e) told[#told + 1] = e end
+  local e = entity(10, 10, 3)
+  WR.begin(e, "flee", 10, 12, ctx)
+  eq(told[1], e, "a flight from the player: ctx.startled is told")
+  local bird = entity(10, 10, 3)
+  ctx.canFly = function() return true end
+  WR.begin(bird, "flee", 10, 12, ctx)
+  eq(#told, 1, "...not for a bird taking off (its flock flies after it)")
+  ctx.canFly = nil
+  WR.begin(entity(10, 10, 3), "chase", 10, 12, ctx)
+  eq(#told, 1, "...nor for a charge")
+  -- its group scattered (startled answers true): the one left behind panics about its patch
+  ctx.startled = function() return true end
+  local left = entity(10, 10, 3)
+  WR.begin(left, "flee", 10, 12, ctx)
+  eq(left.react.next, "panic", "left behind: it panics instead of running off")
+  local modes, alerts, cells, maxAway = {}, 0, {}, 0
+  local hadAlert = false
+  for _ = 1, 600 do
+    if not left.react then break end
+    WR.tick(left, ctx)
+    ctx.now = ctx.now + 1
+    local r = left.react
+    if r then
+      if modes[#modes] ~= r.mode then modes[#modes + 1] = r.mode end
+      if r.mode == "panic" then
+        if r.emote == "!" and not hadAlert then alerts = alerts + 1 end
+        hadAlert = r.emote == "!"
+        cells[left.cellX .. "," .. left.cellY] = true
+        maxAway = math.max(maxAway, math.abs(left.cellX - 10) + math.abs(left.cellY - 10))
+      end
+    end
+  end
+  local nCells = 0
+  for _ in pairs(cells) do nCells = nCells + 1 end
+  eq(table.concat(modes, ">"), "alert>panic", "...alert, then the panic")
+  check(left.react == nil and left.state == Config.STATE.AVAILABLE, "...then it settles, still here")
+  check(nCells >= 4 and maxAway >= 2 and maxAway <= 2 * Config.REACT.panic.range,
+    ("...dashing about its patch (%d cells, %d tiles out)"):format(nCells, maxAway))
+  check(alerts >= 2, "...the \"!\" popping up again (" .. alerts .. ")")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

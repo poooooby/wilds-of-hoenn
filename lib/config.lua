@@ -186,6 +186,12 @@ Config.ECO = {
             -- scurries `dist` px (x the spread) away at `dartSpeed`, `angle` rad off straight
             -- away, watches from there, and drifts back after `regroup` ticks
             huddle = { radius = 2, dist = { 14, 24 }, dartSpeed = 3, angle = 0.7, regroup = { 300, 600 } },
+            -- a SKITTISH group startled by the player (its leader flees, lib/wild_reactions.lua
+            -- begin): the others scurry off on their own, each after its own `lag` ticks,
+            -- `steps` tiles away from the player at `frames` a step, and disappear (into the
+            -- grass, a fade); only the leader stays -- and a shiny member, should one exist.
+            -- Not an escort (another species), not a flock (it takes off after its leader).
+            startled = { steps = { 2, 4 }, frames = 6, lag = { 0, 10 } },
             -- each member its own: no two move or pose in step (SpawnManager._riderVary)
             vary = {
               catchUp = { 1.1, 2.1 },     -- px a tick it follows at (the leader walks 16 px in 16)
@@ -288,6 +294,13 @@ Config.REACT = {
   -- running pace; at the end of its run, `vanishChance` % of them disappear -- in grass
   -- shrinking into it with a rustle, in a cave fading out (lib/spawn_manager.lua fleeVanish)
   flee = { steps = { 1, 3 }, frames = 8, vanishChance = 30 },
+  -- the leader a startled skittish group leaves behind (Config.ECO.group.startled), and any
+  -- member that stays with it: after the "!" it dashes about its own patch in a fright for
+  -- `ticks`, within `range` tiles of where it was startled, at `frames` a step, mostly keeping its heading (`keepHeading` %), never toward the
+  -- player while it has another way, stopping short now and then (`pauseChance` % after a
+  -- step, `pause` ticks), the "!" popping up again every `alertEvery` ticks; then it settles
+  panic = { ticks = { 180, 300 }, range = 3, frames = 7, keepHeading = 60, pauseChance = 25, pause = { 4, 16 },
+            alertEvery = { 70, 110 } },
   chase = { frames = 7,           -- a touch faster than a running player (8)
             leash = { 2, 4 },     -- tiles it follows before giving up: rolled every chase
             -- PMDCollab: it charges with its Attack animation while it chases and on until

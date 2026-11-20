@@ -60,7 +60,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 ### A Living World
 
 - 🏃 **Pokecology:** wild Pokémon behave like their species. Skittish ones flee, territorial ones
-  chase you, and packs, herds and schools move together. Some sleep by night or by day, diggers
+  chase you, and packs, herds and schools move together. Startle a skittish group and the others
+  scurry off and vanish, leaving its leader dashing about its patch in a fright before it calms
+  down. Some sleep by night or by day, diggers
   burrow, hunters chase prey, and some glow after dark.
 - 🌊 **Water life:** swimmers dive and resurface, fish leap, Wailmer spout, and Finizen porpoise
   out at sea.

@@ -317,6 +317,34 @@ do
   local scattering = 0
   for _, m in ipairs(mates) do if m.runAway and not m.rider and not m.group then scattering = scattering + 1 end end
   eq(scattering, 2, "the leader gone: its riders scatter")
+  -- a SKITTISH group startled by the player: the others scurry off, the leader stays
+  do
+    local l2
+    for _, e in pairs(sm.entities) do
+      if e.group and e.group.leader == e.id and #e.group.members == 3 then l2 = e break end
+    end
+    local g2 = l2.group
+    local others = {}
+    for _, mid in ipairs(g2.members) do
+      local m = sm.entities[mid]
+      if mid ~= l2.id then m.fx, m.state = nil, Config.STATE.AVAILABLE others[#others + 1] = m end
+    end
+    eq(sm:scatterStartled(l2), 0, "a territorial pack startled: it stays together")
+    l2.profile.temper = "skittish"
+    others[2].shiny = true
+    eq(sm:scatterStartled(l2), 1, "a skittish one: the others scurry off")
+    local m1 = others[1]
+    check(m1.runAway and m1.runAway.phase == "run" and m1.runAway.frames == Config.ECO.group.startled.frames
+      and not m1.group and not m1.rider, "...each on its own, running, out of the group")
+    check(l2.group == g2 and #g2.members == 2 and others[2].group == g2 and others[2].rider,
+      "...the leader stays, and a shiny member with it")
+    others[2].shiny = nil
+    eq(sm:scatterStartled(l2), 1, "...without one, every other one runs")
+    check(l2.group == nil, "...and the leader is left alone")
+    -- the run: its lag, then steps away, then gone
+    m1.runAway.wait = 2
+    check(not sm:_tickRunAway(m1) and m1.runAway.wait == 1, "...after its own lag")
+  end
   -- Wild Reacts off: no special spawns
   optionStore.wild_reacts = false
   local off = SpawnManager.new(mod)

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Pokecology: startling a skittish group (Zigzagoon, Wurmple, Seedot, Rattata ...) sends the
+  others scurrying off on their own, over the path too if they must, and they vanish. Its
+  leader stays behind: with a "!" over its head it dashes about its patch in a fright for a few
+  seconds, then settles down.
+
 ## 2.0.7 (2026-11-19)
 
 ### Added
