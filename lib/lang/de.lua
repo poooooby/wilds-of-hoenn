@@ -17,6 +17,7 @@ return {
   ["option|Battler: Key"] = "Kämpfer: Taste",
   ["option|Smooth Follow"] = "Weich folgen",
   ["option|Type Aura"] = "Typ-Aura",
+  ["option|Fly Mount"] = "Flug-Reittier",
   ["option|Classic Enc"] = "Zufallskämpfe",
   ["option|Silhouette"] = "Silhouette",
   ["option|Species Sizes"] = "Größen",
@@ -69,6 +70,8 @@ return {
     "Dein Partner hält immer einen Abstand hinter dir, passend zu seiner Größe. An: er gleitet in Kurven sanft herum. Aus: er springt direkt an seinen Platz hinter dir, Schritt für Schritt wie in den Originalspielen.",
   ["Now and then your partner gives off a little puff of its type: embers from a Fire type, droplets from a Water type, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it."] =
     "Ab und zu gibt dein Partner einen kleinen Hauch seines Typs ab: Funken bei Typ Feuer, Tropfen bei Typ Wasser, Blätter, Blitze, Schnee, Irrlichter ... Aus: nur beim Streicheln, Spielen oder Reden.",
+  ["When you Fly, the Pokemon that knows Fly carries you instead of the plain bird. Off: the original bird."] =
+    "Wenn du fliegst, trägt dich das Pokémon, das Fliegen kann, statt des einfachen Vogels. Aus: der originale Vogel.",
   ["Classic Encounters: the original step-based random encounters in grass and water (Surf). Visible wild Pokemon stay active either way. Fishing and Rock Smash are unaffected."] =
     "Zufallskämpfe: die originalen zufälligen Begegnungen beim Laufen im Gras und beim Surfen. Sichtbare wilde Pokémon bleiben so oder so aktiv. Angeln und Zertrümmerer sind nicht betroffen.",
   ["Off keeps normal colours. Undiscovered silhouettes species not yet caught in your Pokedex. All silhouettes every visible wild Pokemon."] =

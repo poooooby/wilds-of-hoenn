@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Fly Mount** (option, off by default): when you use Fly, your own Pokémon carries you, in
+  place of the plain black bird. It is the Pokémon you chose for Fly, else the first in your
+  party that knows it, else Pidgeot (Fly without the move, through another mod). It flies
+  the whole scene: out of its ball, swooping in, carrying you off, and setting you down at
+  the other end. It uses your Sprite Style; in PMDCollab every Pokémon that can learn Fly
+  flies turned toward the camera, as the original bird does, with wings beating (Charizard,
+  Dragonite, Salamence, Latios, Rayquaza, Lugia ... over 100 of them). You ride on its back,
+  or on its head where its back will not take you (Rayquaza, small Pokémon), staying on
+  through every wing beat and swoop, flying over trees, roofs and people. A Pokémon with no
+  flying art at all (Zekrom, Kyurem, Arceus, Golurk, Genesect, Giratina's Altered Forme) or
+  one that cannot really fly (Doduo, Dodrio, Delibird) has Pidgeot fly for it. In
+  Ruby / Sapphire / Emerald the scene now shows you riding off and arriving, where the bird
+  used to vanish while carrying you.
+
 ## 2.0.6 (2026-11-18)
 
 ### Added

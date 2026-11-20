@@ -69,6 +69,9 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   Woods and Fortree City.
 - 🎨 **Two sprite styles:** HGSS / PokeMMO art or animated PMDCollab sprites, with alternate and
   regional forms.
+- 🦅 **Fly on your own Pokémon** (turn on **Fly Mount**): when you use Fly, the Pokémon that knows it carries you off
+  and sets you down at the other end, in place of the plain black bird (Pidgeot steps in if
+  nobody in your party knows Fly).
 - 🔥 **Signature effects:** almost 100 Pokémon carry their own living effect, in both sprite
   styles and wherever they are, wild or at your side: Charmander's tail flame, Ponyta's
   burning mane, Pikachu's crackling cheeks, Magnemite's sparking magnets, Gastly's drifting
@@ -96,6 +99,7 @@ Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 | **Battler: Key** | E / Q / R / OFF | OFF | The same on the keyboard. |
 | **Smooth Follow** | ON / OFF | ON | Your partner glides round turns instead of snapping. |
 | **Type Aura** | ON / OFF | OFF | Your partner gives off puffs of its type now and then (a Pokémon with a signature effect shows that instead). |
+| **Fly Mount** | ON / OFF | OFF | The Pokémon that knows Fly carries you instead of the plain bird. |
 | **Classic Enc** | ON / OFF | ON | Random step encounters in grass and while surfing. |
 | **Silhouette** | OFF / UNDISCOVERED / ALL | OFF | Draws uncaught (or all) wild Pokémon as silhouettes. |
 | **Species Sizes** | ON / OFF | ON | Each species at its real relative size. Needs WoobleView. |

@@ -36,6 +36,7 @@ tests/engine_patch_probe_test.lua
 tests/engine_patch_unit_test.lua
 tests/finisher_fx_unit_test.lua
 tests/flight_path_unit_test.lua
+tests/fly_mount_unit_test.lua
 tests/follower_actions_unit_test.lua
 tests/follower_adapter_unit_test.lua
 tests/follower_dialogue_unit_test.lua
@@ -99,6 +100,7 @@ tests/wild_reactions_unit_test.lua
 tools/check_modkitignore.py
 tools/copy_wilds_assets.py
 tools/form_art_map.py
+tools/generate_fly_seats.py
 tools/generate_pmd_scale.py
 tools/generate_pmd_sprites.py
 tools/generate_pmd_water.py
@@ -153,6 +155,8 @@ dist/vivid-worlds-v2.0.4-hgss-pmd.zip
 dist/vivid-worlds-v2.0.4.zip
 dist/vivid-worlds-v2.0.5-hgss-pmd.zip
 dist/vivid-worlds-v2.0.5.zip
+dist/vivid-worlds-v2.0.6-hgss-pmd.zip
+dist/vivid-worlds-v2.0.6.zip
 dist/wilds-of-hoenn-v1.10.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.10.0-hgss.zip
 dist/wilds-of-hoenn-v1.10.1-hgss-pmd.zip

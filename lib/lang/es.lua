@@ -17,6 +17,7 @@ return {
   ["option|Battler: Key"] = "Lucha: tecla",
   ["option|Smooth Follow"] = "Seguir suave",
   ["option|Type Aura"] = "Aura de tipo",
+  ["option|Fly Mount"] = "Montura Vuelo",
   ["option|Classic Enc"] = "Enc. clásicos",
   ["option|Silhouette"] = "Silueta",
   ["option|Species Sizes"] = "Tamaños",
@@ -69,6 +70,8 @@ return {
     "Tu compañero siempre va detrás de ti a una distancia según su tamaño. Sí: gira con suavidad al cambiar de dirección. No: se coloca directamente detrás de ti, paso a paso, como en los juegos originales.",
   ["Now and then your partner gives off a little puff of its type: embers from a Fire type, droplets from a Water type, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it."] =
     "De vez en cuando tu compañero suelta un soplo de su tipo: ascuas si es de tipo Fuego, gotas si es de tipo Agua, hojas, chispas, nieve, fuegos fatuos... No: solo al acariciarlo, jugar o hablar con él.",
+  ["When you Fly, the Pokemon that knows Fly carries you instead of the plain bird. Off: the original bird."] =
+    "Al usar Vuelo, te lleva el Pokémon que conoce Vuelo en lugar del pájaro de siempre. No: el pájaro original.",
   ["Classic Encounters: the original step-based random encounters in grass and water (Surf). Visible wild Pokemon stay active either way. Fishing and Rock Smash are unaffected."] =
     "Encuentros clásicos: los encuentros aleatorios originales al andar por la hierba o al hacer Surf. Los Pokémon salvajes visibles siguen activos igualmente. La pesca y Golpe Roca no cambian.",
   ["Off keeps normal colours. Undiscovered silhouettes species not yet caught in your Pokedex. All silhouettes every visible wild Pokemon."] =

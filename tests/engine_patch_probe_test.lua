@@ -165,6 +165,68 @@ do
   end
 end
 
+-- Fly Mount (lib/fly_mount.lua; the optional Field.flyTo / FieldEffects.drawFront wraps
+-- and EnginePatch.flyAnims / playerRide / flyMoveId): the engine pieces, and the two wraps
+-- doing what they must -- the chosen Pokemon noted first; the bird hidden only for the
+-- engine's draw call, its own `invisible` back after.
+do
+  local okFx, FieldEffects = pcall(require, "src.core.game3.field_effects")
+  local okF, Field = pcall(require, "src.core.game3.field")
+  local okM, FieldMoves = pcall(require, "src.core.game3.field_moves")
+  check(okFx and type(FieldEffects.drawFront) == "function", "engine: FieldEffects.drawFront (draws the Fly bird)")
+  check(okFx and type(FieldEffects.startFlyOut) == "function" and type(FieldEffects.startFlyIn) == "function",
+    "engine: FieldEffects.startFlyOut / startFlyIn")
+  check(okFx and type(FieldEffects._anims) == "table", "engine: FieldEffects._anims (the live Fly animations)")
+  check(okF and type(Field.flyTo) == "function", "engine: Field.flyTo (gets the Pokemon chosen for Fly)")
+  check(okM and type(FieldMoves.MOVES) == "table" and FieldMoves.MOVES.FLY == 19 and EnginePatch.flyMoveId() == 19,
+    "engine: FieldMoves.MOVES.FLY = 19")
+  local okP, Player = pcall(require, "src.core.game3.player")
+  check(okP and Player.spriteXOffset ~= nil and Player.spriteYOffset ~= nil, "engine: Player.spriteXOffset / spriteYOffset")
+  if okP then
+    local fvSrc = io.open("src/core/game3/field_view.lua"):read("a")
+    check(fvSrc:find("PlayerMod.oamPriority", 1, true) and fvSrc:find("PlayerMod.fixedPriority", 1, true)
+      and fvSrc:find("PlayerMod.subpriority", 1, true), "engine: field_view reads Player.oamPriority / fixedPriority / subpriority")
+    local before = { Player.oamPriority, Player.fixedPriority, Player.subpriority }
+    EnginePatch.liftPlayer(true)
+    check(Player.oamPriority == 1 and Player.fixedPriority == true and Player.subpriority == 1, "liftPlayer: the rider over everything")
+    EnginePatch.liftPlayer(false)
+    check(Player.oamPriority == before[1] and Player.fixedPriority == before[2] and Player.subpriority == before[3],
+      "liftPlayer(false): put back as it was")
+  end
+  if okFx and okF then
+    local realDraw, realFly = FieldEffects.drawFront, Field.flyTo
+    local seen, flown = {}, {}
+    FieldEffects.drawFront = function() local a = FieldEffects._anims[#FieldEffects._anims]; seen[#seen + 1] = a.bird.invisible end
+    Field.flyTo = function(_, mon) flown[#flown + 1] = "engine:" .. tostring(mon and mon.species) end
+    local wrapDraw, wrapFly = FieldEffects.drawFront, Field.flyTo
+    local EP = EnginePatch
+    EP.uninstall()
+    local active = true
+    local okI = EP.install({
+      flyStarted = function(mon) flown[#flown + 1] = "ours:" .. tostring(mon and mon.species) end,
+      flyMountActive = function() return active end,
+    }, function() end)
+    if okI then
+      local bird = { x = 120, y = 72 }
+      local anim = { kind = "fly_out", bird = bird }
+      table.insert(FieldEffects._anims, anim)
+      FieldEffects.drawFront(0, 0)
+      check(seen[1] == true and bird.invisible == nil, "drawFront: the bird hidden for the engine's call only")
+      local list = {}
+      check(EP.flyAnims(list) >= 1 and list[#list] == anim, "flyAnims finds the live Fly animation")
+      active = false
+      FieldEffects.drawFront(0, 0)
+      check(seen[2] == nil, "drawFront: Fly Mount off, the bird drawn as always")
+      for i = #FieldEffects._anims, 1, -1 do if FieldEffects._anims[i] == anim then table.remove(FieldEffects._anims, i) end end
+      Field.flyTo(1, { species = 18 })
+      check(flown[1] == "ours:18" and flown[2] == "engine:18", "flyTo: the chosen Pokemon noted, then the engine's Fly")
+      EP.uninstall()
+      check(FieldEffects.drawFront == wrapDraw and Field.flyTo == wrapFly, "uninstall restores drawFront / flyTo")
+    end
+    FieldEffects.drawFront, Field.flyTo = realDraw, realFly
+  end
+end
+
 -- No wild battle while a cutscene / trainer approach owns the field, and long grass gets
 -- its own cover (EnginePatch.fieldBusy / grassCover): the engine pieces they read.
 do

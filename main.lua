@@ -55,6 +55,7 @@ return function(mod)
   local Config = V.require("config")
   local HdField = V.require("hd_field")
   local SignatureFx = V.require("signature_fx")
+  local FlyMount = V.require("fly_mount")
   local EnginePatch = V.require("engine_patch")
   local SpriteAtlas = V.require("sprite_atlas")
   local SpawnFilters = V.require("spawn_filters")
@@ -293,6 +294,10 @@ return function(mod)
   followerAdapter.behaviors.battle = battler
   mod.exports.battler = battler
 
+  -- the Pokemon that carries you when you Fly, in the engine's bird's place (lib/fly_mount.lua)
+  local flyMount = FlyMount.new(mod)
+  mod.exports.flyMount = flyMount
+
   local reflList = {} -- the drawBehind hook's reflection list, emptied and refilled each frame
   local installed = EnginePatch.install({
     collectActors = function(actors, camX, camY)
@@ -301,7 +306,11 @@ return function(mod)
       waterLife:collectActors(actors, camX, camY)
       localScenes:collectActors(actors, camX, camY)
       followerAdapter:collectActors(actors)
+      flyMount:collectActors(actors)
     end,
+    -- Fly: note the Pokemon chosen (Field.flyTo), and hide the engine's bird while ours flies
+    flyStarted = function(mon) flyMount:onFlyStarted(mon) end,
+    flyMountActive = function() return flyMount:active() end,
     -- See lib/battle_trigger.lua's header: exceptLocalId == nil is the
     -- signature of the player's OWN collision check (collision.lua:1003
     -- entityBlocks -> Objects.blocks(tx, ty, nil, elevation)); every NPC
@@ -383,6 +392,7 @@ return function(mod)
       battleTrigger:tick()
       battleTrigger:checkContact()
       followerAdapter:tick()
+      flyMount:tick()
     end,
   }, mod.log)
 
@@ -417,6 +427,7 @@ return function(mod)
       pcall(function() forageSource:reset() end)
       pcall(function() followerAdapter:resetBehaviors() end)
       pcall(function() followerAdapter:resetDisplay() end)
+      pcall(function() flyMount:reset() end)
     end)
   end
 

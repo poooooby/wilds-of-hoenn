@@ -83,6 +83,8 @@ FAMILIES: dict[str, list[str]] = {
     "pmd_hurt": ["assets/pmd/hurt"],
     # a flying Pokemon's wing-beat in the sky (SpriteCollab Hover): optional per species
     "pmd_fly": ["assets/pmd/fly"],
+    # the Pokemon carrying you when you Fly (its down-left flight, one row): Fly users only
+    "pmd_mount": ["assets/pmd/mount"],
     # a leap / hop (SpriteCollab Hop): every species (Wild Ecology's leaping fish ...)
     "pmd_hop": ["assets/pmd/hop"],
     # Wild Ecology's poses (RearUp, Eat, EventSleep, Wake, Bite, Faint, Sit, LookUp, LeapForth):

@@ -444,6 +444,54 @@ function EnginePatch.install(hooks, log)
     end
   end
 
+  -- field.lua:2073 Field.flyTo(section, mon, info): Fly chosen from the party menu, once
+  -- the region map gave a destination (RSE and FRLG both call it through the Field table).
+  -- The engine passes the Pokemon that used Fly to its ShowMon cut-in only and keeps it
+  -- nowhere, so the hook notes it first (lib/fly_mount.lua). Not a probed target:
+  -- without it the mount falls back to the first party Pokemon that knows Fly.
+  local FieldFly = loadModule(EnginePatch.TARGETS.interact.mod)
+  originals.flyTo = FieldFly and FieldFly.flyTo
+  if type(originals.flyTo) == "function" then
+    FieldFly.flyTo = function(section, mon, ...)
+      if hooks.flyStarted then safeCall(log, "flyStarted", hooks.flyStarted, mon) end
+      return originals.flyTo(section, mon, ...)
+    end
+  end
+
+  -- field_effects.lua:2271 FieldEffects.drawFront(camX, camY, playerPy) paints the Fly
+  -- cutscene's black bird (a local draw_bird, over every actor). While our own mount
+  -- stands in for it (hooks.flyMountActive), each fly_out / fly_in bird is marked
+  -- `invisible` for the call -- draw_bird's own early return -- and put back right after,
+  -- so the bird's motion and timing (bird_step) stay the engine's. Not a probed target:
+  -- without it the black bird is drawn as always.
+  originals.drawFront = FieldEffects.drawFront
+  if type(originals.drawFront) == "function" then
+    local hidden = {}
+    FieldEffects.drawFront = function(camX, camY, ...)
+      local anims = FieldEffects._anims
+      local hide = hooks.flyMountActive and type(anims) == "table"
+        and safeCall(log, "flyMountActive", hooks.flyMountActive) == true
+      if not hide then return originals.drawFront(camX, camY, ...) end
+      local n = 0
+      for i = 1, #anims do
+        local a = anims[i]
+        local b = type(a) == "table" and (a.kind == "fly_out" or a.kind == "fly_in") and a.bird
+        if type(b) == "table" and not b.invisible then
+          b.invisible = true
+          n = n + 1
+          hidden[n] = b
+        end
+      end
+      local ok, r1, r2 = pcall(originals.drawFront, camX, camY, ...)
+      for i = 1, n do
+        if hidden[i].invisible == true then hidden[i].invisible = nil end
+        hidden[i] = nil
+      end
+      if not ok then error(r1, 0) end
+      return r1, r2
+    end
+  end
+
   -- option_rows.lua Rows.group(rows, openPage): builds the game's top OPTIONS page (all
   -- five Gen 3 games). The hook returns ONE extra row (the VIVID WORLDS entry, opening a
   -- page of this mod's options); it gets `openPage`, which the engine's own
@@ -490,6 +538,9 @@ function EnginePatch.uninstall()
   if FieldEffects and originals.drawBehind then
     FieldEffects.drawBehind = originals.drawBehind
   end
+  if FieldEffects and originals.drawFront then
+    FieldEffects.drawFront = originals.drawFront
+  end
 
   local Objects = loadModule(EnginePatch.TARGETS.blocks.mod)
   if Objects and originals.blocks then
@@ -512,6 +563,9 @@ function EnginePatch.uninstall()
   end
   if Field and originals.finishSweetScent then
     Field.finishSweetScent = originals.finishSweetScent
+  end
+  if Field and originals.flyTo then
+    Field.flyTo = originals.flyTo
   end
 
   local OptionRows = loadModule("src.ui.game3.option_rows")
@@ -2227,6 +2281,67 @@ function EnginePatch.playerTraveling()
     end
   end
   return false
+end
+
+--- The Fly cutscene's live animations (field_effects.lua startFlyOut / startFlyIn): fills
+--- `out` with each fly_out / fly_in entry ({ kind, bird = { x, x2, y, y2, cb, attached,
+--- aff = { scale, rot }, invisible, done } }; GBA screen px, the player's spot at (120, 72))
+--- and returns how many. The entries are the engine's own: read them, never change them.
+function EnginePatch.flyAnims(out)
+  local n = 0
+  local FieldEffects = loadModule("src.core.game3.field_effects")
+  local anims = FieldEffects and FieldEffects._anims
+  if type(anims) == "table" then
+    for i = 1, #anims do
+      local a = anims[i]
+      if type(a) == "table" and (a.kind == "fly_out" or a.kind == "fly_in") and type(a.bird) == "table" then
+        n = n + 1
+        out[n] = a
+      end
+    end
+  end
+  for i = #out, n + 1, -1 do out[i] = nil end
+  return n
+end
+
+--- The player's sprite offset (player.lua spriteXOffset / spriteYOffset: riding the Fly
+--- bird, field_effects.lua bird_attach_player) and elevation.
+function EnginePatch.playerRide()
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if not Player then return 0, 0, 3 end
+  return tonumber(Player.spriteXOffset) or 0, tonumber(Player.spriteYOffset) or 0, tonumber(Player.elevation) or 3
+end
+
+--- Lift the player over everything (field_view.lua actorPriority: Player.oamPriority 1 =
+--- the over-actors pass, over roofs and trees; fixedPriority + subpriority 1 = after every
+--- other actor there) while riding the Fly Mount, as the engine's own bird drew over all --
+--- `on` false puts back what this set (only if nothing else changed it meanwhile). The
+--- engine's Teleport / Dig effects use the same fields (field_effects.lua).
+local lifted
+function EnginePatch.liftPlayer(on)
+  local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
+  if not Player then return false end
+  if on then
+    if not lifted then
+      lifted = { oam = Player.oamPriority, fixed = Player.fixedPriority, sub = Player.subpriority }
+    end
+    Player.oamPriority, Player.fixedPriority, Player.subpriority = 1, true, 1
+    return true
+  end
+  if lifted then
+    if Player.oamPriority == 1 then Player.oamPriority = lifted.oam end
+    if Player.fixedPriority == true then Player.fixedPriority = lifted.fixed end
+    if Player.subpriority == 1 then Player.subpriority = lifted.sub end
+    lifted = nil
+  end
+  return true
+end
+
+--- The move number of FLY (field_moves.lua MOVES.FLY; 19 in every Gen 3 game).
+function EnginePatch.flyMoveId()
+  local FieldMoves = loadModule(EnginePatch.TARGETS.fieldMovesFromMenu.mod)
+  local id = FieldMoves and type(FieldMoves.MOVES) == "table" and tonumber(FieldMoves.MOVES.FLY)
+  return id or 19
 end
 
 --- Sets one of a mod's options exactly as the Mod Manager does: its own

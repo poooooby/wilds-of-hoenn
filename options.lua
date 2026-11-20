@@ -132,6 +132,13 @@ return {
     description = "Now and then your partner gives off a little puff of its type: embers from a Fire type, droplets from a Water type, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it.",
   },
   {
+    key = "fly_mount",
+    label = "Fly Mount",
+    type = "toggle",
+    default = false,
+    description = "When you Fly, the Pokemon that knows Fly carries you instead of the plain bird. Off: the original bird.",
+  },
+  {
     key = "classic_enc",
     label = "Classic Enc",
     type = "toggle",

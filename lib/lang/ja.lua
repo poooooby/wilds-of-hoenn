@@ -18,6 +18,7 @@ return {
   ["option|Battler: Key"] = "バトラー：キー",
   ["option|Smooth Follow"] = "なめらか いどう",
   ["option|Type Aura"] = "タイプ オーラ",
+  ["option|Fly Mount"] = "そらを とぶ",
   ["option|Classic Enc"] = "ランダム バトル",
   ["option|Silhouette"] = "シルエット",
   ["option|Species Sizes"] = "おおきさ",
@@ -70,6 +71,8 @@ return {
     "パートナーは いつも おおきさに あわせて うしろに ならびます。 オン： まがる ときに なめらかに まわりこみます。 オフ： むかしの ゲームの ように ひとマスずつ すぐ うしろに つきます。",
   ["Now and then your partner gives off a little puff of its type: embers from a Fire type, droplets from a Water type, leaves, sparks, snow, wisps ... Off: only while you Pet, Play or Talk with it."] =
     "ときどき パートナーから タイプの けむりが ふわっと でます： ほのおタイプは ひのこ みずタイプは しずく ほかにも はっぱ ひばな ゆき おにび‥ オフ： なでる あそぶ はなす の ときだけ。",
+  ["When you Fly, the Pokemon that knows Fly carries you instead of the plain bird. Off: the original bird."] =
+    "そらを とぶを つかうと ふつうの とりの かわりに そらを とぶを おぼえた ポケモンが はこんで くれる。 オフ: もとの とり。",
   ["Classic Encounters: the original step-based random encounters in grass and water (Surf). Visible wild Pokemon stay active either way. Fishing and Rock Smash are unaffected."] =
     "もとの ゲームの くさむらや なみのりの ランダム エンカウント。 みえる やせいの ポケモンは どちらでも でます。 つりや いわくだきは かわりません。",
   ["Off keeps normal colours. Undiscovered silhouettes species not yet caught in your Pokedex. All silhouettes every visible wild Pokemon."] =

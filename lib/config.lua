@@ -19,6 +19,7 @@ Config.DEFAULTS = {
   water_life = true,
   local_scenes = true,
   type_aura = false,
+  fly_mount = false,
   role_pad = "off",
   role_key = "off",
 }
@@ -587,6 +588,18 @@ Config.PMD_WALK_LINGER = 8
 -- and squashed as much on landing (narrower / wider by `widen` of that), facing up or down
 -- swaying `sway` px to one side, the next step to the other.
 Config.PMD_FAKE_STEP = { period = 16, lift = 2, stretch = 0.05, widen = 0.6, sway = 1 }
+-- Fly Mount (lib/fly_mount.lua): the Pokemon carrying you when you Fly, drawn on the
+-- engine's own bird path. `fallbackDex` = the species when no party Pokemon knows Fly (a mod
+-- allows it without the move); `maxScale` caps the bird's zoom (it grows 3.6x flying off,
+-- the rider does not); `seat` = px below the bird's centre that the mount's middle sits, so
+-- the rider (8 px above it) is on its back; `flapTicks` = HGSS wing beat.
+-- `noFlight` (national dex): Fly users with no flying art anywhere (every PMDCollab animation
+-- stands upright, or a flightless bird): Pidgeot flies for them (the user's call). true = every
+-- form, "base" = the base form only (Giratina's Origin Forme does fly).
+Config.FLY_MOUNT = { fallbackDex = 18, maxScale = 1.6, minScale = 0.05, seat = 4, flapTicks = 6,
+  noFlight = { [84] = true, [85] = true, [225] = true, [487] = "base", [493] = true, [623] = true,
+               [644] = true, [646] = true, [649] = true } }
+
 -- Signature effects (lib/signature_fx.lua; which species and where: lib/signature_species.lua):
 -- the defaults of each particle KIND, under a species emitter's own fields. `every` = ticks
 -- per particle (`burst` at once), `life` ticks, `rise` px a tick up (x `speed`, speeding up
@@ -894,6 +907,12 @@ end
 --- leaves ...). Off unless switched on.
 function Config.typeAura(mod)
   return optGet(mod, "type_aura") == true
+end
+
+--- The Fly Mount option: the Pokemon that uses Fly carries you instead of the engine's
+--- black bird (lib/fly_mount.lua). Off unless switched on.
+function Config.flyMountOn(mod)
+  return optGet(mod, "fly_mount") == true
 end
 
 --- The Follower option: off keeps the partner in its ball (lib/follower_adapter.lua). Its

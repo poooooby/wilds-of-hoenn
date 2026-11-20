@@ -68,7 +68,7 @@ GUTTER = 2
 ANIMS = ("walk", "idle")  # output names; SpriteCollab names are Walk / Idle
 # Used by the overworld fights (the Battler's blows and a struck Pokemon's flinch);
 # a species without one simply plays a rapid Idle instead, so they never fail a bake.
-OPTIONAL_ANIMS = ("attack", "hurt", "fly", "hop", "sleep", "dance", "rotate",
+OPTIONAL_ANIMS = ("attack", "hurt", "fly", "mount", "hop", "sleep", "dance", "rotate",
                   "rearup", "eat", "nap", "wake", "bite", "faint", "sit", "lookup", "leapforth")
 # SpriteCollab: Attack (else Strike) / Hurt / Hover / Hop / Sleep / Dance / Rotate, and for
 # Wild Ecology (lib/eco*.lua) RearUp / Eat / EventSleep / Wake / Bite.
@@ -132,8 +132,94 @@ def fly_meta(dex: int, anims: dict) -> dict | None:
     if meta and name == "FlapAround":
         meta = dict(meta, pick=FLAP_PICK, pickDurations=[FLAP_TICKS] * len(FLAP_PICK))
     return meta
+# "mount" (the Pokemon carrying the player when they use Fly, lib/fly_mount.lua): only species
+# that can learn Fly (HM02 in the cart's TM/HM data, plus National Dex Gen 3's `teach` lists;
+# their forms too), drawn the way FireRed's fly bird is -- turned three-quarters toward the
+# camera, heading down-left: the DOWN-LEFT row (PMD row 7) of its best flight animation, baked
+# as one row. Which animation: MOUNT_SOURCE (the 2026-11 mount audit, every Fly user without
+# real flight art compared by eye: Double = Double Team, which shows most of them airborne,
+# wings beating; Charge a held glide; NO_FLIGHT below gets none), else a real Hover, else the FLY_SOURCE pick (not
+# "Walk"), else Walk (Articuno, Latios, Rayquaza ... already fly in theirs). STEADY_MOUNT
+# animations bob up and down in the art (Double Team): each frame is moved so its body stays
+# put (the rider is not bobbed with it), keeping the wing beat.
+FLY_LEARNERS = {
+    6, 16, 17, 18, 21, 22, 83, 84, 85, 142, 144, 145, 146, 149, 151, 163, 164, 169, 176, 178, 198,
+    225, 227, 249, 250, 276, 277, 278, 279, 329, 330, 333, 334, 357, 373, 380, 381, 384,
+    396, 397, 398, 425, 426, 430, 441, 468, 487, 493, 519, 520, 521, 527, 528, 561, 567, 580, 581,
+    623, 627, 628, 629, 630, 635, 637, 641, 642, 643, 644, 645, 646, 649, 661, 662, 663, 701, 714,
+    715, 717, 731, 732, 733, 738, 741, 780, 785, 792, 797, 804, 821, 822, 823, 841, 845, 887, 890,
+    905, 931, 940, 941, 962, 973, 993, 1005, 1016,
+}
+MOUNT_SOURCE = {
+    6: "Double", 151: "Walk", 163: "Double", 178: "Double", 198: "FlapAround",
+    330: "FlapAround", 373: "Charge", 487: "Double", 629: "Double", 641: "Double",
+    642: "Double", 643: "Charge", 645: "Double", 717: "Double", 792: "Double", 797: "Double",
+}
+# No flying art at all (every animation stands upright, or a flightless bird): no mount sheet,
+# Pidgeot flies for them (lib/config.lua Config.FLY_MOUNT.noFlight, which also has Giratina's
+# Altered Forme -- its Origin Forme flies, so 487 is baked)
+NO_FLIGHT = {84, 85, 225, 493, 623, 644, 646, 649}
+STEADY_MOUNT = {"Double", "Hop"}
+MOUNT_ROW = 7  # PMD's 8-row order: Down, DownRight, Right, UpRight, Up, UpLeft, Left, DownLeft
+
+
+def mount_meta(dex: int, anims: dict) -> dict | None:
+    """The AnimData entry the "mount" sheet is baked from (its down-left row), or None."""
+    if dex not in FLY_LEARNERS or dex in NO_FLIGHT:
+        return None
+    name = MOUNT_SOURCE.get(dex)
+    meta = None
+    if name:
+        meta = anims.get(name)
+        if meta and meta.get("source") != name:
+            meta = None
+    if meta is None:
+        hover = anims.get("Hover")
+        if hover and hover.get("source") == "Hover":
+            meta, name = hover, "Hover"
+    if meta is None and FLY_SOURCE.get(dex) not in (None, "Walk"):
+        # an Attack pick lunges about (fine for a bird glimpsed in the sky, not for a mount
+        # carrying the player): its Double Team instead
+        name = "Double" if FLY_SOURCE[dex] == "Attack" and anims.get("Double") else FLY_SOURCE[dex]
+        meta = anims.get(name)
+    if meta is None:
+        name, meta = "Walk", anims.get("Walk")
+    if meta is None:
+        return None
+    meta = dict(meta, row=MOUNT_ROW, steady=name in STEADY_MOUNT)
+    if name == "FlapAround":
+        meta.update(pick=FLAP_PICK, pickDurations=[FLAP_TICKS] * len(FLAP_PICK))
+    return meta
+
+
+def steadied(strip: Image.Image, fw: int, fh: int, cols: int) -> Image.Image:
+    """A one-row strip with each frame moved so its art's centre (the mean of its opaque
+    pixels) stays where the frames' median puts it: an animation that bobs in its art
+    (Double Team) keeps its pose changes but not the bob."""
+    centres = []
+    for c in range(cols):
+        a = strip.crop((c * fw, 0, (c + 1) * fw, fh)).getchannel("A")
+        px, n, sx, sy = a.load(), 0, 0, 0
+        for y in range(fh):
+            for x in range(fw):
+                if px[x, y]:
+                    n, sx, sy = n + 1, sx + x, sy + y
+        centres.append((sx / n, sy / n) if n else None)
+    have = [c for c in centres if c]
+    if not have:
+        return strip
+    mx, my = statistics.median(c[0] for c in have), statistics.median(c[1] for c in have)
+    out = Image.new(strip.mode, strip.size, (0, 0, 0, 0))
+    for c in range(cols):
+        cell = strip.crop((c * fw, 0, (c + 1) * fw, fh))
+        dx, dy = (round(mx - centres[c][0]), round(my - centres[c][1])) if centres[c] else (0, 0)
+        out.paste(cell.crop((max(0, -dx), max(0, -dy), fw - max(0, dx), fh - max(0, dy))),
+                  (c * fw + max(0, dx), max(0, dy)))
+    return out
+
+
 # Animations never drawn swimming: no foam band is baked for them.
-NO_WATER_ANIMS = {"fly", "hop", "sleep", "dance", "rotate", "rearup", "eat", "nap", "wake", "bite",
+NO_WATER_ANIMS = {"fly", "mount", "hop", "sleep", "dance", "rotate", "rearup", "eat", "nap", "wake", "bite",
                   "faint", "sit", "lookup", "leapforth"}
 # "hop" is baked for every species that has one (SpriteCollab: all of them): a fish's leap out
 # of the water (lib/eco_water.lua, lib/water_life.lua), and Wild Ecology's other hops.
@@ -299,6 +385,20 @@ def bake_anim(src_dir: Path, shiny_dir: Path | None, anim_name: str, meta: dict)
         if shiny is not None and shiny.size != sheet.size:
             shiny = None
     shadow = eight_rows(load_sheet(src_dir, source, "Shadow"), fh)
+    row = meta.get("row")
+    if row is not None and not one_row:
+        # one row of it (the mount's down-left), baked as a one-row animation
+        def only(img):
+            if img is None or img.height < (row + 1) * fh:
+                return None
+            strip = img.crop((0, row * fh, img.width, (row + 1) * fh))
+            if meta.get("steady"):
+                strip = steadied(strip, fw, fh, img.width // fw)
+            return eight_rows(strip, fh)
+        sheet, shiny, shadow = only(sheet), only(shiny), only(shadow)
+        if sheet is None:
+            return None
+        one_row = True
     picks = meta.get("pick")
     if picks:
         sheet, shiny = pick_columns(sheet, fw, picks), pick_columns(shiny, fw, picks)
@@ -907,6 +1007,8 @@ def main() -> int:
                 source = SOURCE_ANIM.get(anim, anim.capitalize())
                 if anim == "fly":
                     meta = fly_meta(dex, anims)
+                elif anim == "mount":
+                    meta = mount_meta(dex, anims)
                 elif anim in ECO_ANIMS:
                     meta = anims.get(source)
                     if meta and meta.get("source") != source:
