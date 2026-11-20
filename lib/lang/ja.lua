@@ -28,8 +28,6 @@ return {
   ["choice|LOW"] = "すくない",
   ["choice|NORMAL"] = "ふつう",
   ["choice|HIGH"] = "おおい",
-  ["choice|FULL"] = "すべて",
-  ["choice|AMBIENT"] = "けしき",
   ["choice|OFF"] = "オフ",
   ["choice|HGSS"] = "HGSS",
   ["choice|PMD"] = "PMD",
@@ -49,8 +47,8 @@ return {
     "やせいの ポケモンが でる くさむらや みずの うえに その すがたを みせます。",
   ["How many wild Pokemon are out at once, for grass and water each, growing with the size of the area. Low: about half (up to 4). Normal: up to 8. High: about one and a half times (up to 12)."] =
     "いちどに でている やせいの ポケモンの かず。 くさむらと みず それぞれ ばしょの ひろさで ふえます。 すくない： やく はんぶん(4ひきまで)。 ふつう： 8ひきまで。 おおい： やく 1.5ばい(12ひきまで)。",
-  ["Flying Pokemon in the sky: birds of the area pass overhead, perch on trees, roofs and signposts, and real sea birds dive for food; wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Full: all of it, with big soft-focus birds flying high overhead. Ambient: the same without the high birds. Off: none of it, wild Pokemon all arrive the usual way."] =
-    "そらを とぶ ポケモン： その ばしょの とりポケモンが あたまの うえを とび き や やね や かんばんに とまり うみどりは えさを とりに もぐります。 ひこうタイプの やせいの ポケモンは くさむらから でるかわりに そらから まいおります。 すべて： ぜんぶ たかい そらを とぶ おおきな とりも ふくめて。 けしき： たかい とり いがい。 オフ： なし。",
+  ["Flying Pokemon in the sky: birds of the area pass overhead, and now and then one high up comes down into the field to be met; in towns they perch on trees, roofs and signposts (an aggressive one may swoop at you), and real sea birds dive for food, sometimes staying up on the water with their catch, both met at once; wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Off: none of it, wild Pokemon all arrive the usual way."] =
+    "そらを とぶ ポケモン： その ばしょの とりポケモンが あたまの うえを とび ときどき たかい ところの 1ぴきが おりてきて であえます。 まちでは き や やね や かんばんに とまり きの あらい ポケモンは おそってくる ことも。 うみどりは えさを とりに もぐり ときどき えものと いっしょに みずに のこって 2ひき いっしょに たたかえます。 ひこうタイプの やせいの ポケモンは くさむらから でるかわりに そらから まいおります。 オフ： なし。",
   ["Life in the water, just for the scenery: small fish of the area (Magikarp, Goldeen, Luvdisc ...) leap out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a spray, before sinking back under. Out at sea, Finizen porpoise by now and then (once in a while a whole pod comes up to play). Diving, fish swim by under the sea as dark shadows trailing bubbles. Never battled."] =
     "みずの なかの いきもの(けしき だけ)： その ばしょの ちいさな さかなポケモンが みずから はねて ホエルコや ホエルオーが しおを ふきながら うかびあがります。 うみでは ナミイルカが ときどき とびはね たまに むれで あそびに きます。 ダイビング ちゅうは さかなの かげが あわを ひいて およぎます。 たたかう ことは ありません。",
   ["Little moments in a few special places: ghosts drift through Lavender Town, bug Pokemon dangle from the trees of Petalburg Woods where Slakoth naps and Vigoroth dances on the treetops, and a great Tropius rises out of Fortree's trees. Just for the scenery."] =
@@ -114,6 +112,7 @@ return {
   ["%s is already doing that."] = "%sは もう そうしている。",
   ["Nothing happened."] = "なにも おきなかった。",
   ["Found %s!"] = "%sを みつけた！",
+  ["Two POKéMON are out! There's no clear shot!"] = "ポケモンが ２ひき いる！ ねらいが さだまらない！",
   ["an item"] = "どうぐ",
   ["+%d EXP"] = "+%d けいけんち",
   ["Lv.%d!"] = "Lv.%d！",

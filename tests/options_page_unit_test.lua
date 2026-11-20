@@ -68,6 +68,14 @@ eq(sets[4][4], "high", "left from the first: wraps to the last")
 stored.spawn_amount = "gone"
 eq(rows[2].value(), "NORMAL", "an unknown stored value shows the default")
 
+-- a toggle saved from when it was a choice (Flying Mons Full / Ambient / Off)
+stored.enabled = "ambient"
+eq(rows[1].value(), "ON", "a word left from a choice shows ON")
+rows[1].step(ctx)
+eq(sets[5][4], false, "...a step turns it OFF")
+stored.enabled = "off"
+eq(rows[1].value(), "OFF", "...its old Off shows OFF")
+
 -- no schema (no game): an empty page, no error
 eq(#OptionsPage.rows(mod, nil), 0, "no game: no rows")
 

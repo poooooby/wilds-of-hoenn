@@ -76,6 +76,7 @@ return function(mod)
   local ModernSpawns = V.require("modern_spawns_bridge")
   local Shiny = V.require("shiny")
   local SkyFlyers = V.require("sky_flyers")
+  local WildDouble = V.require("wild_double")
   local WaterLife = V.require("water_life")
   local LocalScenes = V.require("local_scenes")
 
@@ -149,6 +150,12 @@ return function(mod)
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
   })
   spawnManager.sky = skyFlyers
+  -- a high bird overhead now and then comes down into the field (a real wild Pokemon)
+  skyFlyers.onLand = function(b) return spawnManager:landFromSky(b) end
+  -- an aggressive bird perched in town may come down at the player instead of flying off
+  skyFlyers.onAttack = function(b) return spawnManager:skyAttack(b) end
+  -- a sea bird up from its dive may stay on the water with its catch (a real wild Pokemon)
+  skyFlyers.onSurface = function(b) return spawnManager:diverSurface(b) end
   -- fish leaping, whales surfacing (ambient)
   local waterLife = WaterLife.new(mod, {
     occupied = function(x, y) return spawnManager:blocksCell(x, y) end,
@@ -484,6 +491,25 @@ return function(mod)
   -- Classic Encounters: suppresses the vanilla step-based land/water roll
   -- while OFF. Fishing (rollFishing) and Rock Smash (rollRocks) never run
   -- through onStep/encounter.roll, so they stay vanilla regardless.
+  -- the mod's own wild double (lib/wild_double.lua): while both foes stand there is no
+  -- running ("Can't escape!", as the engine has it for any double); from the last one left it
+  -- goes by a wild battle's odds (speed, plus 30 a failed try), against that one
+  mod.hooks:wrap("battle.run", function(next, ctx)
+    if EnginePatch.wildDoubleActive and EnginePatch.wildDoubleActive() and type(ctx) == "table"
+        and type(ctx.battle) == "table" and ctx.battle.double then
+      local st = ctx.battle
+      if not WildDouble.canTryRun(EnginePatch.wildDoubleFoes()) then
+        -- (the engine counts this try toward the escape bonus all the same: noted, so it does not)
+        st._wohBlockedRuns = (st._wohBlockedRuns or 0) + 1
+        return false
+      end
+      local ok, r = pcall(ctx.rng, 0, 255)
+      if not (ok and type(r) == "number") then r = math.random(0, 255) end
+      return WildDouble.escapes(ctx.pSpd, ctx.eSpd, ctx.attempts, st._wohBlockedRuns, r)
+    end
+    return next(ctx)
+  end)
+
   mod.hooks:wrap("encounter.roll", function(next, tableForMap, ctx)
     if not Config.classicEncEnabled(mod) then return nil end
     return next()

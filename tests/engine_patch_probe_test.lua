@@ -165,6 +165,24 @@ do
   end
 end
 
+-- The mod's own wild double (EnginePatch.startWildDouble, lib/wild_double.lua): every piece it
+-- wraps or reads is there, and the two places the engine forces a wild battle single are where
+-- the wraps expect them (Battle.start builds State.new through the module table).
+do
+  check(EnginePatch.wildDoubleSupported(), "engine: every piece the mod's own wild double needs")
+  local init = io.open("src/core/game3/battle/init.lua"):read("a")
+  check(init:find("local double = (opts.double == true) and not opts.wild", 1, true) ~= nil,
+    "engine: Battle.start still forces a wild battle single (the State.new wrap turns it double)")
+  check(init:find("local st = State.new({", 1, true) ~= nil, "engine: Battle.start calls State.new through its table")
+  check(init:find("IntroSeq.begin(st, introOpts)", 1, true) ~= nil, "engine: the intro begins through IntroSeq.begin")
+  local ui = io.open("src/core/game3/battle/ui.lua"):read("a")
+  check(ui:find("BagMenu.show(bag, {", 1, true) ~= nil and ui:find("onBattleUse = function", 1, true) ~= nil,
+    "engine: the battle opens the bag through BagMenu.show with onBattleUse")
+  local eng = io.open("src/core/game3/battle/engine.lua"):read("a")
+  check(eng:find('ModRuntime.wantsHook("battle.run")', 1, true) ~= nil, "engine: the battle.run hook (running from the double)")
+  check(not EnginePatch.wildDoubleActive(), "no double running at rest")
+end
+
 -- Fly Mount (lib/fly_mount.lua; the optional Field.flyTo / FieldEffects.drawFront wraps
 -- and EnginePatch.flyAnims / playerRide / flyMoveId): the engine pieces, and the two wraps
 -- doing what they must -- the chosen Pokemon noted first; the bird hidden only for the

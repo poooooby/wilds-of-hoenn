@@ -56,6 +56,12 @@ local function choiceIndex(row, value)
   return nil
 end
 
+--- Is a toggle's saved value on? true; also a word left from when the option was a choice
+--- (Flying Mons' "full" / "ambient"), unless that word is "off".
+function OptionsPage.isOn(v)
+  return v == true or (type(v) == "string" and v ~= "off")
+end
+
 --- One page row for a schema row (toggle / choice), or nil for a kind this page cannot
 --- show (Mods menu only).
 function OptionsPage.rowFor(mod, row, set)
@@ -63,9 +69,9 @@ function OptionsPage.rowFor(mod, row, set)
   if row.type == "toggle" then
     return {
       id = "woh_" .. row.key, label = label,
-      value = function() return trc("toggle", current(mod, row) == true and "ON" or "OFF") end,
+      value = function() return trc("toggle", OptionsPage.isOn(current(mod, row)) and "ON" or "OFF") end,
       step = function(c)
-        set(gameOf(c), row.key, current(mod, row) ~= true)
+        set(gameOf(c), row.key, not OptionsPage.isOn(current(mod, row)))
         return true
       end,
     }

@@ -85,12 +85,20 @@ local function addSlots(out, seen, t, seaOnly)
         local species = type(s) == "table" and tonumber(s.species or s[1])
         if species and species > 0 and SkyFlyers.flies(species) then
           local sea = area == "water" or EnginePatch.isWaterType(species)
+          -- its levels (a bird that comes down to the field is met at one of them)
+          local lo = tonumber(s.minLevel or s.level or s[2])
+          local hi = tonumber(s.maxLevel or s.level or s[3]) or lo
+          if lo and hi and lo > hi then lo, hi = hi, lo end
           local e = seen[species]
           if e then
             e.weight = e.weight + 1
             e.sea = e.sea or sea
+            if lo then
+              e.minLevel = math.min(e.minLevel or lo, lo)
+              e.maxLevel = math.max(e.maxLevel or hi, hi)
+            end
           else
-            e = { species = species, weight = 1, sea = sea }
+            e = { species = species, weight = 1, sea = sea, minLevel = lo, maxLevel = hi }
             seen[species] = e
             out[#out + 1] = e
           end
@@ -100,7 +108,15 @@ local function addSlots(out, seen, t, seaOnly)
   end
 end
 
---- The Flying-type species seen around `mapId`: { {species, weight, sea}, ... }. A town
+--- A level for a bird of pool entry `entry` that comes down to be met: one of its table
+--- levels (`minLevel`..`maxLevel`), else nil.
+function SkyFlyers.levelFor(entry, rng)
+  local lo, hi = entry and entry.minLevel, entry and entry.maxLevel
+  if not lo then return nil end
+  return (rng or math.random)(lo, hi or lo)
+end
+
+--- The Flying-type species seen around `mapId`: { {species, weight, sea, minLevel, maxLevel}, ... }. A town
 --- or city (or a route without any) takes those of the maps joined to it as well.
 function SkyFlyers.poolFor(mapId)
   local out, seen = {}, {}
@@ -136,7 +152,6 @@ end
 function SkyFlyers:onMapEntered(mapId)
   self:clear()
   self.mapId = mapId
-  self.mode = Config.flyersMode(self.mod)
   self.allowed = Config.flyersOn(self.mod) and EnginePatch.skyAllowed(mapId) or false
   self.pool, self.seaPool, self.perches = {}, {}, nil
   if not self.allowed then return end
@@ -178,28 +193,13 @@ function SkyFlyers:onMapExited()
   self.allowed = false
 end
 
---- The Flying Mons option changed: off drops every ambient bird now; on (from off) starts
---- them on this map; Full <-> Ambient only adds / takes away the high birds.
+--- The Flying Mons option changed: off drops every ambient bird now; on starts them on this map.
 function SkyFlyers:onOptionChanged(mapId)
-  local mode, was = Config.flyersMode(self.mod), self.mode
-  self.mode = mode
-  if mode == "off" then
-    self:onMapExited()
-  elseif was == nil or was == "off" or not self.allowed then
-    self:onMapEntered(mapId or self.mapId)
+  if Config.flyersOn(self.mod) then
+    if not self.allowed then self:onMapEntered(mapId or self.mapId) end
   else
-    self:_dropHighBirds()
+    self:onMapExited()
   end
-end
-
---- Without the high birds (Flying Mons on Ambient): any flying high overhead go now.
-function SkyFlyers:_dropHighBirds()
-  if Config.highBirdsOn(self.mod) then return end
-  local keep = {}
-  for _, b in ipairs(self.birds) do
-    if b.kind == "passer" and b.high then SkyDraw.release(b) else keep[#keep + 1] = b end
-  end
-  self.birds = keep
 end
 
 --- Can a wild Pokemon arrive / leave by air here? (The option on, open sky, a Flying type,
@@ -432,6 +432,34 @@ function SkyFlyers:planArrival(e)
   return { kind = "land", mode = "swoop", plan = FlightPath.plan(phases, rng), view = view }
 end
 
+--- Entity `e` (just placed on its cell) coming down from world point `from` ({x, y, h}:
+--- where an ambient bird high up was) onto its cell, bending away from the player. Returns
+--- its fx table (kind "land": SpawnManager touches it down at the end).
+function SkyFlyers:planLanding(e, from)
+  local cfg, rng = Config.FLYERS.passer, self.rng
+  local tx, ty = e.cellX * 16, e.cellY * 16
+  local a, b = { x = from.x, y = from.y }, { x = tx, y = ty }
+  local plx, ply = self:_playerPx()
+  local curve = between(rng, Config.FLYERS.swoop.arc)
+  if plx and closestTo(a, b, -curve, plx, ply) > closestTo(a, b, curve, plx, ply) then curve = -curve end
+  local phases = { { type = "fly", from = { x = from.x, y = from.y, h = from.h or 1 }, to = { x = tx, y = ty, h = 0 },
+    n = between(rng, cfg.landTicks), curve = curve } }
+  local view = SkyFlyers.newView(e.id, e.renderer, e.dex, self.mod)
+  return { kind = "land", mode = "swoop", plan = FlightPath.plan(phases, rng), view = view }
+end
+
+--- Entity `e` (just placed beside the player) swooping down off perch `spot` at them: a
+--- short, low flight from the perch onto its cell. Returns its fx table (kind "land").
+function SkyFlyers:planPounce(e, spot)
+  local tx, ty = e.cellX * 16, e.cellY * 16
+  local px, py = spot.x * 16, spot.y * 16
+  local d = math.max(math.abs(spot.x - e.cellX), math.abs(spot.y - e.cellY))
+  local phases = { { type = "fly", from = { x = px, y = py, h = 0, lift = spot.lift }, to = { x = tx, y = ty, h = 0 },
+    n = Config.FLYERS.perch.pounceTicks + d * 4, curve = self.rng(0, 1) == 0 and -6 or 6 } }
+  local view = SkyFlyers.newView(e.id, e.renderer, e.dex, self.mod)
+  return { kind = "land", mode = "swoop", plan = FlightPath.plan(phases, self.rng), view = view }
+end
+
 --- Starts entity `e` flying up from its cell and away. Returns its fx table.
 function SkyFlyers:planDeparture(e)
   local cfg, rng = Config.FLYERS.land, self.rng
@@ -551,7 +579,7 @@ function SkyFlyers:_newBird(kind, entry, phases)
   local id = self.nextId
   self.nextId = id + 1
   local bird = SkyFlyers.newView(id, renderer, dex, self.mod)
-  bird.kind, bird.species = kind, entry.species
+  bird.kind, bird.species, bird.entry = kind, entry.species, entry
   bird.plan = FlightPath.plan(phases, self.rng)
   self.birds[#self.birds + 1] = bird
   return bird
@@ -571,7 +599,7 @@ function SkyFlyers:_spawnPasser()
   local entry = pickWeighted(self.pool, rng)
   if not entry then return false end
   local fog = FOG[(EnginePatch.weatherId and EnginePatch.weatherId()) or -1]
-  local high = not fog and Config.highBirdsOn(self.mod) and self:_count("passer", true) < cfg.maxHigh
+  local high = not fog and self:_count("passer", true) < cfg.maxHigh
     and rng(1, 100) <= 40
   local h = high and 1 or (0.45 + rng(0, 15) / 100)
   local look = FlightPath.look(h)
@@ -602,6 +630,11 @@ function SkyFlyers:_spawnPasser()
     bird.high, bird.screenSpace = high, true
     bird.sx, bird.sy = x0, y0
     bird.cam0 = { x = self.cam.x, y = self.cam.y }
+    -- now and then a high one comes all the way down into the field, a real wild Pokemon
+    -- (SpawnManager:landFromSky through `self.onLand`), once it is well into the view
+    if high and entry.minLevel and rng(1, 100) <= cfg.landChance then
+      bird.lander, bird.age, bird.landAt = true, 0, math.floor(n * cfg.landAt)
+    end
   end
   return bird ~= nil
 end
@@ -672,7 +705,12 @@ function SkyFlyers:_spawnDiver()
     { type = "rise", at = at, n = cfg.sinkTicks, event = "splash" },
     { type = "fly", lazy = true, from = { x = wx, y = wy, h = 0 }, n = between(rng, cfg.flyTicks) },
   })
-  if bird then bird.cellX, bird.cellY = x, y end
+  if bird then
+    bird.cellX, bird.cellY = x, y
+    -- now and then it stays up on the water a moment with its catch: a real wild Pokemon
+    -- then (SpawnManager:diverSurface through `self.onSurface`), met by surfing onto it
+    bird.stays = entry.minLevel ~= nil and rng(1, 100) <= cfg.stayChance
+  end
   return bird ~= nil
 end
 
@@ -717,8 +755,36 @@ function SkyFlyers:tick()
   local birds, n = self.birds, 0
   for i = 1, #birds do
     local b = birds[i]
+    -- a high passer coming down into the field: handed over to a real wild Pokemon
+    local landed = false
+    if b.lander then
+      b.age = b.age + 1
+      if b.age >= b.landAt and b.onScreen then
+        b.lander = nil
+        landed = self.onLand ~= nil and self.onLand(b) == true
+      end
+    end
+    if b.stays then
+      -- up from its dive (its take-off is next): one that stays on the water is handed over
+      local ph = FlightPath.current(b.plan)
+      if ph and ph.lazy and b.plan.t == 0 then
+        b.stays = nil
+        landed = self.onSurface ~= nil and self.onSurface(b) == true
+      end
+    end
     if b.sitting and b.perch and self:_playerNear(b.perch.x, b.perch.y, scatterRadius()) then
-      self:_scatter(b)
+      -- an aggressive one may come down at the player instead (SpawnManager:skyAttack
+      -- through `self.onAttack`: a real wild Pokemon that starts a battle); else it flies off
+      if not b.attackTried and self.onAttack then
+        b.attackTried = true
+        landed = self.onAttack(b) == true
+      end
+      if not landed then self:_scatter(b) end
+    end
+    if landed then
+      if b.perch then self.taken[b.perch] = nil end
+      SkyDraw.release(b)
+      goto continue
     end
     local s = stepView(self, b, b.plan)
     if s then
@@ -749,6 +815,7 @@ function SkyFlyers:tick()
       for j = #rings, m + 1, -1 do rings[j] = nil end
       if m == 0 then b.rings = nil end
     end
+    ::continue::
   end
   for i = #birds, n + 1, -1 do birds[i] = nil end
 end

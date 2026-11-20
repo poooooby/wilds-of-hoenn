@@ -1241,6 +1241,75 @@ do
     end
   end
 
+  -- a high bird overhead comes down into the field: a real wild Pokemon flying down from it
+  do
+    sky.cam = { x = 0, y = 0 }
+    local before = smS:count()
+    local bird = { species = 999, entry = { species = 999, minLevel = 5, maxLevel = 7 }, x = 100, y = -40, h = 1 }
+    check(smS:landFromSky(bird), "landFromSky: a bird overhead comes down")
+    eq(smS:count(), before + 1, "...one more wild Pokemon")
+    local landed
+    for _, e in pairs(smS.entities) do
+      if e.fx and e.fx.kind == "land" and e.fx.plan.phases[1].from.h == 1 then landed = e end
+    end
+    check(landed and landed.level >= 5 and landed.level <= 7 and landed.species == 999,
+      "...at one of its table levels, flying down from where the bird was")
+    check(landed and landed.fx.plan.phases[1].from.x == 100, "...its flight starts at the bird")
+    check(not smS:landFromSky({ species = 999, entry = { species = 999 }, x = 1, y = 1, h = 1 }),
+      "no table levels: it does not come down")
+    sky.cam = nil
+    check(not smS:landFromSky(bird), "no view known: it does not come down")
+    if landed then smS:despawn(landed.id) end -- (back to the Spawn Amount for what follows)
+    for _ = 1, 400 do smS:tick(smS.game) end
+  end
+
+  -- an aggressive bird perched in town comes down at the player instead of flying off
+  do
+    local EcoProfile = V.require("eco_profile")
+    local realOf, realLead, realCF = EcoProfile.of, fakeEngine.leadPartyMon, fakeEngine.cellFree
+    local temper = "aggressive"
+    EcoProfile.of = function() return { temper = temper, social = "solo" } end
+    fakeEngine.leadPartyMon = function() return { level = 5, species = 1 } end -- weaker than the bird
+    fakeEngine.cellFree = function(x, y) return x >= 0 and y >= 0 and x < 40 and y < 5 end
+    local savedPlayer = { x = player.x, y = player.y }
+    player.x, player.y = 20, 2
+    local bird = { species = 999, entry = { species = 999, minLevel = 30, maxLevel = 30 },
+                   perch = { x = 24, y = 1, lift = 6 } }
+    local attacked = false
+    for _ = 1, 20 do if smS:skyAttack(bird) then attacked = true break end end
+    check(attacked, "skyAttack: an aggressive bird stronger than the lead comes down at the player")
+    local atk
+    for _, e in pairs(smS.entities) do if e.skyAttacker then atk = e end end
+    check(atk and math.abs(atk.cellX - 20) + math.abs(atk.cellY - 2) == 1 and atk.level == 30,
+      "...a real wild Pokemon on a cell beside them, at its table level")
+    check(atk and atk.fx and atk.fx.kind == "land" and atk.fx.plan.phases[1].from.lift == 6,
+      "...swooping down off its perch")
+    for _ = 1, 120 do smS:tick(smS.game) if atk and not atk.fx then break end end
+    check(atk and atk.react and (atk.react.mode == "turn" or atk.react.mode == "alert" or atk.react.mode == "chase"),
+      "...and down, it turns on the player, angry")
+    -- its attack over with no battle: it flies off again
+    if atk then
+      atk.react, atk.charging = nil, nil
+      smS:tick(smS.game)
+      check(atk.state == "leaving" and atk.fx and atk.fx.kind == "leave", "...no battle: it flies off again")
+    end
+    for _ = 1, 400 do smS:tick(smS.game) end
+    temper = "skittish"
+    check(not smS:skyAttack(bird), "a skittish bird never attacks")
+    temper = "aggressive"
+    fakeEngine.leadPartyMon = function() return { level = 100, species = 1 } end
+    local any = false
+    for _ = 1, 20 do if smS:skyAttack(bird) then any = true end end
+    check(not any, "...nor an aggressive one far weaker than the lead")
+    optionStore.wild_reacts = false
+    fakeEngine.leadPartyMon = function() return { level = 5, species = 1 } end
+    check(not smS:skyAttack(bird), "...nor any with Pokecology off")
+    optionStore.wild_reacts = nil
+    EcoProfile.of, fakeEngine.leadPartyMon, fakeEngine.cellFree = realOf, realLead, realCF
+    player.x, player.y = savedPlayer.x, savedPlayer.y
+    for _ = 1, 400 do smS:tick(smS.game) end
+  end
+
   -- Flying Mons off: the usual rise / fade
   optionStore.flyers = false
   for _ = 1, 400 do smS:tick(smS.game) end

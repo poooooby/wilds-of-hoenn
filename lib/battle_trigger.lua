@@ -34,6 +34,17 @@
 local V = ...
 local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
+local WildDouble = V.require("wild_double")
+-- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
+local I18n
+do
+  local okI, mod = pcall(V.require, "i18n")
+  if okI and type(mod) == "table" then I18n = mod end
+end
+local function tr(english)
+  if I18n then return I18n.t(english) end
+  return english
+end
 
 local BattleTrigger = {}
 BattleTrigger.__index = BattleTrigger
@@ -224,12 +235,28 @@ function BattleTrigger:onPlayerBumped(entity)
   self.pendingLured = entity.lured ~= nil
   self.spawnManager:markEncounterStarting(entity.id)
 
-  local ok, err = EnginePatch.startWild(self.spawnManager.game, enc, {
-    done = function(result) self:_onBattleEnded(entity.id, result) end,
-    -- the species is the one on screen (spawn filters already ran): mods that swap
-    -- species at battle time should leave this battle alone (lib/spawn_filters.lua)
-    wildsOfHoenn = true, speciesLocked = true,
-  })
+  local ok, err
+  if type(entity.caught) == "table" and EnginePatch.startWildDouble then
+    -- a sea bird up from its dive with a fish in its beak (lib/sky_flyers.lua): both at once,
+    -- in the mod's own wild double (lib/wild_double.lua); else the bird alone
+    local fish = {}
+    for k, v in pairs(entity.caught) do fish[k] = v end
+    ok, err = EnginePatch.startWildDouble(self.spawnManager.game, { enc, fish }, {
+      done = function(result) self:_onBattleEnded(entity.id, result) end,
+      refuse = tr("Two POKéMON are out! There's no clear shot!"),
+    }, WildDouble)
+    if not ok and self.log then
+      self.log:warn("[wilds_of_hoenn] wild double did not start (%s): the bird alone", tostring(err))
+    end
+  end
+  if not ok then
+    ok, err = EnginePatch.startWild(self.spawnManager.game, enc, {
+      done = function(result) self:_onBattleEnded(entity.id, result) end,
+      -- the species is the one on screen (spawn filters already ran): mods that swap
+      -- species at battle time should leave this battle alone (lib/spawn_filters.lua)
+      wildsOfHoenn = true, speciesLocked = true,
+    })
+  end
   if not ok then
     -- Couldn't start (a battle is already running, the field is mid-warp,
     -- no healthy party mon, ...): un-pend and leave the entity exactly as
@@ -255,6 +282,7 @@ function BattleTrigger:_giveUp()
   end
   self.pendingId, self.pendingLured, self.pendingAge, self.pendingIdle = nil, false, nil, nil
   self:_hold(false)
+  if EnginePatch.endWildDouble then EnginePatch.endWildDouble() end -- (a double that never opened)
   local e = id and self.spawnManager.entities[id]
   if e and e.state == Config.STATE.ENCOUNTER_STARTING then e.state = Config.STATE.AVAILABLE end
   local p = EnginePatch.playerCell and EnginePatch.playerCell()

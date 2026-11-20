@@ -66,7 +66,11 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   burrow, hunters chase prey, and some glow after dark.
 - 🌊 **Water life:** swimmers dive and resurface, fish leap, Wailmer spout, and Finizen porpoise
   out at sea.
-- 🕊️ **Birds in the sky:** birds fly overhead, perch on roofs and dive for fish.
+- 🕊️ **Birds in the sky:** birds fly overhead, perch on roofs and dive for fish. They are not just
+  scenery: now and then a bird high up comes down into the field to be met, an aggressive one
+  perched in town may swoop down and pick a fight, and a sea bird that stays up on the water with
+  its catch is met together with that fish, in a wild double battle: while both are up no ball
+  can be thrown and there is no running away; once one is down you can catch the other (or run).
 - 👻 **Local scenes:** a few special places have their own moments, in Lavender Town, Petalburg
   Woods and Fortree City.
 - 🎨 **Two sprite styles:** HGSS / PokeMMO art or animated PMDCollab sprites, with alternate and
@@ -91,7 +95,7 @@ Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 | **Language** | EN / JA / PT / ES / DE | ENGLISH | Language of the mod's own text. |
 | **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon. |
 | **Spawn Amount** | LOW / NORMAL / HIGH | NORMAL | How many are out at once. |
-| **Flying Mons** | FULL / AMBIENT / OFF | FULL | Birds in the sky. Ambient leaves out the high flyers. |
+| **Flying Mons** | ON / OFF | ON | Birds in the sky, and wild Flying types swooping in and out. |
 | **Water Life** | ON / OFF | ON | Leaping fish, spouting whales, Finizen and fish under the sea. |
 | **Local Scenes** | ON / OFF | ON | Scenes in a few special places. |
 | **Pokecology** | ON / OFF | ON | Species behaviour and reactions to you. Off: they just wander. |

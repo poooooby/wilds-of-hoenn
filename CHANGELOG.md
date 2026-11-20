@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Birds in the sky can be met (Flying Mons on):
+  - Half the birds flying high overhead come down into the field: a real wild Pokémon of that
+    species, at one of the area's levels, flying down from where the bird was.
+  - An aggressive bird perched in town (Spearow, Fearow, Staraptor, Golbat, Aerodactyl) may
+    swoop down at you instead of flying off, and charge (Pokecology on; a much stronger lead
+    scares it off as before).
+  - A sea bird up from its dive sometimes stays on the water for a few seconds with its catch.
+    Surf onto it and you meet both at once, in a wild double battle: while both are up no Poké
+    Ball can be thrown ("Two POKéMON are out! There's no clear shot!", nothing is used up) and
+    there is no running ("Can't escape!"). Once one is down, a ball flies at the one left and
+    running works as in any wild battle; your two Pokémon stay out to the end.
+
+### Changed
+
+- **Flying Mons is On / Off again** (the high birds are always part of it). A saved Full or
+  Ambient is On, Off stays Off.
+
 ## 2.0.8 (2026-11-20)
 
 ### Changed

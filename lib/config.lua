@@ -11,7 +11,7 @@ Config.DEFAULTS = {
   wild_silhouettes = "off",
   species_sizes = true,
   spawn_amount = "normal",
-  flyers = "full",
+  flyers = true,
   smooth_follow = true,
   show_follower = true,
   portraits = true,
@@ -95,14 +95,26 @@ Config.FLYERS = {
   -- (the high one bobs up and down as it goes, `bob` px either way, a beat every `bobTicks`).
   -- It starts in the band, then moves in perspective as the view scrolls (not held there).
   passer = { every = { 1800, 4200 }, max = 1, maxHigh = 1, ticks = { 300, 480 }, highTicks = { 240, 360 },
-             band = 0.22, arc = { 6, 16 }, bob = { 2, 4 }, bobTicks = { 40, 56 } },
+             band = 0.22, arc = { 6, 16 }, bob = { 2, 4 }, bobTicks = { 40, 56 },
+             -- a high one comes down into the field `landChance` % of the time, a real wild
+             -- Pokemon of that species at one of its table levels, once `landAt` of its way
+             -- across (and on screen), flying down for `landTicks` onto a free cell in view
+             -- (else up to `landMargin` tiles past its edges) at least `landClear` tiles from the player
+             landChance = 50, landAt = 0.4, landTicks = { 70, 100 }, landMargin = 3, landClear = 2 },
   -- a swoop (landing, perching, diving, leaving) starts / ends off screen, mid or high up
   -- (startH, in hundredths), from any side, curving so its path never comes within
   -- `clearRadius` tiles of the player; a wild Pokemon that close arrives / leaves the usual way
   swoop = { startH = { 55, 100 }, clearRadius = 3, arc = { 10, 28 } },
   perch = { every = { 600, 1500 }, max = 2, stay = { 600, 2400 }, fidget = { 180, 480 },
-            flyTicks = { 80, 110 }, scatter = 2, scatterRunning = 3, cryChance = 0.2 },
-  dive = { every = { 900, 2400 }, under = { 120, 300 }, flyTicks = { 70, 90 }, sinkTicks = 14 },
+            flyTicks = { 80, 110 }, scatter = 2, scatterRunning = 3, cryChance = 0.2,
+            -- an AGGRESSIVE one (lib/eco_profile.lua temper) the player comes near may swoop
+            -- down at them instead (Pokecology on; WildReactions.decide by strength, one roll)
+            -- -- a real wild Pokemon beside them, over `pounceTicks` + 4 a tile -- and attack
+            pounceTicks = 24 },
+  -- a sea bird diving for fish; `stayChance` % come up and stay on the water `stayTicks`
+  -- with the fish they caught: real wild Pokemon then (surf onto it: both at once)
+  dive = { every = { 900, 2400 }, under = { 120, 300 }, flyTicks = { 70, 90 }, sinkTicks = 14,
+           stayChance = 30, stayTicks = 180 },
   -- a wild Flying-type Pokemon arriving / leaving by air instead of rising out of the grass
   land = { flyTicks = { 80, 100 }, perchChance = 0.4, perchRange = 4, sit = { 180, 480 }, hopTicks = 22,
            groundStay = { 2700, 7200 } },
@@ -982,25 +994,11 @@ function Config.spawnAmount(mod)
   return Config.SPAWN_AMOUNT[v] or Config.SPAWN_AMOUNT.normal, Config.SPAWN_AMOUNT[v] and v or "normal"
 end
 
---- The Flying Mons option: birds in the sky, perching, and wild Flying-type Pokemon
---- arriving / leaving by air. On unless switched off.
---- The Flying Mons option: "full" (everything, the high birds too), "ambient" (no high
---- birds) or "off". A save from when it was an on / off toggle reads true -> full, false -> off.
-function Config.flyersMode(mod)
-  local v = optGet(mod, "flyers")
-  if v == true then return "full" end
-  if v == false then return "off" end
-  if v == "full" or v == "ambient" or v == "off" then return v end
-  return "full"
-end
-
+--- Flying Mons (`flyers`, a toggle). A save from when it was Full / Ambient / Off keeps
+--- working: "full" / "ambient" read as on, "off" as off.
 function Config.flyersOn(mod)
-  return Config.flyersMode(mod) ~= "off"
-end
-
---- The big blurred passers high overhead (lib/sky_flyers.lua): Flying Mons on Full only.
-function Config.highBirdsOn(mod)
-  return Config.flyersMode(mod) == "full"
+  local v = optGet(mod, "flyers")
+  return v ~= false and v ~= "off"
 end
 
 local VALID_SILHOUETTE ={ off = true, undiscovered = true, all = true }
