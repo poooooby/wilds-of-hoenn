@@ -369,6 +369,38 @@ do
   fakeEngine.lockField, fakeEngine.unlockField, fakeEngine.battleActive, fakeEngine.playerCell = nil, nil, nil, nil
 end
 
+-- ------- a group's leader: a herd battle, its own-species members watching
+do
+  local herdCall, singles = nil, 0
+  fakeEngine.fieldBusy = nil
+  fakeEngine.startWild = function() singles = singles + 1 return true end
+  fakeEngine.startWildHerd = function(game, enc, herd, opts, helper)
+    herdCall = { game = game, enc = enc, herd = herd, opts = opts, helper = helper }
+    return true
+  end
+  local smH = fakeSpawnManager()
+  local l = smH.entities[1]
+  smH.entities[2] = { id = 2, species = 999, level = 11, personality = 7, state = Config.STATE.AVAILABLE }
+  smH.entities[3] = { id = 3, species = 999, level = 13, personality = 8, state = Config.STATE.AVAILABLE }
+  l.group = { leader = 1, members = { 1, 2, 3 } }
+  local btH = BattleTrigger.new({}, smH, { warn = function() end })
+  btH:onPlayerBumped(l)
+  check(herdCall ~= nil and singles == 0, "a group's leader opens a herd battle, not a plain single")
+  eq(herdCall and herdCall.enc.species, 999, "...the leader is the one fought")
+  eq(herdCall and #herdCall.herd, 2, "...the others in it")
+  eq(herdCall and herdCall.opts.text("ZIGZAGOON"), "A wild ZIGZAGOON group appeared!", "...the group's line")
+  herdCall.opts.done("win")
+  check(smH.entities[1] == nil, "the battle over: the leader is gone (its group scatters: SpawnManager)")
+  -- the herd battle cannot start: the leader alone
+  fakeEngine.startWildHerd = function() return nil, "unsupported engine" end
+  local smH2 = fakeSpawnManager()
+  smH2.entities[2] = { id = 2, species = 999, level = 11, personality = 7 }
+  smH2.entities[1].group = { leader = 1, members = { 1, 2 } }
+  BattleTrigger.new({}, smH2, { warn = function() end }):onPlayerBumped(smH2.entities[1])
+  eq(singles, 1, "no herd battle to be had: the leader alone, as ever")
+  fakeEngine.startWildHerd = nil
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

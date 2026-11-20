@@ -61,6 +61,14 @@ local function library(mod)
   return ex
 end
 
+--- Is the library's 3D Battle Scene on (battles in the overworld, WoobleView's sceneEnabled)?
+function HdField.sceneOn(mod)
+  local ex = library(mod)
+  if not (ex and type(ex.sceneEnabled) == "function") then return false end
+  local ok, on = pcall(ex.sceneEnabled)
+  return ok and on == true
+end
+
 --- What a sprite sheet path is: style ("hgss" | "pmd"), art key ("479" or "479-heat"),
 --- base dex number and, for PMD, the animation. nil for anything else (a portrait, an
 --- unknown path). A swimming Pokemon's foam overlay (assets/pmd/foam<anim>/) reads as

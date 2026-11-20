@@ -134,7 +134,10 @@ Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 - **Battler button:** set one in the options to send your partner in or call it back without a
   menu. In FireRed / LeafGreen, that button no longer opens Help in the overworld.
 - **Wild Pokémon only spawn where you can walk.** Water Pokémon fill every lake and sea.
-- **Group battles:** walking into a group battles its leader.
+- **Group battles:** walk into a pack or herd and the whole group appears in the battle ("A wild
+  ZIGZAGOON group appeared!"). While you battle its leader, the others gather at its side,
+  hopping and barking to cheer it on. Once the battle is over they scatter, vanishing into the
+  grass or running off and fading away.
 - **Pokémon your partner has been fighting** keep the HP it left them with when you battle them.
 - **Day and night:** the game's clock decides, or your computer's clock in FireRed and
   LeafGreen.

@@ -183,6 +183,21 @@ do
   check(not EnginePatch.wildDoubleActive(), "no double running at rest")
 end
 
+-- the mod's own herd battle (EnginePatch.startWildHerd): every piece it wraps or reads, and the
+-- singles draw still draws the foe right after its z 0..99 particles (the others go there)
+do
+  check(EnginePatch.wildHerdSupported(), "engine: every piece the mod's own herd battle needs")
+  local ui = io.open("src/core/game3/battle/ui.lua"):read("a")
+  local at = ui:find("Anim.drawParticles(0, 99)", 1, true)
+  local foe = at and ui:find("draw_mon_sprite(st.enemy, ENEMY_MON, false)", at, true)
+  check(foe ~= nil and foe - at < 80,
+    "engine: the singles draw puts the foe right after Anim.drawParticles(0, 99) (the herd stands behind it)")
+  local intro = io.open("src/core/game3/battle/intro_seq.lua"):read("a")
+  check(intro:find('add("msg", { text = intro_msg(st) })', 1, true) ~= nil,
+    "engine: the wild intro's line is a msg step with IntroSeq.introText's text")
+  check(not EnginePatch.wildHerdActive(), "no herd battle running at rest")
+end
+
 -- Fly Mount (lib/fly_mount.lua; the optional Field.flyTo / FieldEffects.drawFront wraps
 -- and EnginePatch.flyAnims / playerRide / flyMoveId): the engine pieces, and the two wraps
 -- doing what they must -- the chosen Pokemon noted first; the bird hidden only for the

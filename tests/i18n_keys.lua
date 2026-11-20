@@ -49,6 +49,8 @@ local PartyRoles = V.require("party_roles")
 for _, line in pairs(PartyRoles.LINES) do add(line, "message (%s = name)") end
 local LevelReady = V.require("level_ready")
 add(LevelReady.MOVE_TEXT, "label over the partner") add(LevelReady.EVOLVE_TEXT, "label over the partner")
+local WildHerd = V.require("wild_herd")
+add(WildHerd.TEXT, "battle message (%s = the leader's name)")
 add("toggle|ON", "options page value") add("toggle|OFF", "options page value")
 
 -- literal tr("...") / trc("ctx", "...") calls in lib/

@@ -95,6 +95,7 @@ tests/sweet_scent_hearts_unit_test.lua
 tests/water_life_unit_test.lua
 tests/wild_double_unit_test.lua
 tests/wild_emote_unit_test.lua
+tests/wild_herd_unit_test.lua
 tests/wild_reactions_unit_test.lua
 
 # bake / validation / asset tools

@@ -35,14 +35,17 @@ local V = ...
 local Config = V.require("config")
 local EnginePatch = V.require("engine_patch")
 local WildDouble = V.require("wild_double")
+local WildHerd = V.require("wild_herd")
+local HdField = V.require("hd_field")
 -- this mod's translations (lib/i18n.lua); English when it cannot be loaded (a bare test)
 local I18n
 do
   local okI, mod = pcall(V.require, "i18n")
   if okI and type(mod) == "table" then I18n = mod end
 end
-local function tr(english)
-  if I18n then return I18n.t(english) end
+local function tr(english, ...)
+  if I18n then return I18n.t(english, ...) end
+  if select("#", ...) > 0 then return string.format(english, ...) end
   return english
 end
 
@@ -249,6 +252,20 @@ function BattleTrigger:onPlayerBumped(entity)
       self.log:warn("[wilds_of_hoenn] wild double did not start (%s): the bird alone", tostring(err))
     end
   end
+  local herd = not ok and not entity.roamer and WildHerd.members(entity, self.spawnManager.entities)
+  if herd and #herd > 0 and EnginePatch.startWildHerd then
+    -- the leader of a group (a pack, herd, swarm ...): the rest of it on screen behind it,
+    -- watching (lib/wild_herd.lua); the leader is fought as ever
+    ok, err = EnginePatch.startWildHerd(self.spawnManager.game, enc, herd, {
+      done = function(result) self:_onBattleEnded(entity.id, result) end,
+      text = function(name) return tr(WildHerd.TEXT, name) end,
+      -- (a battle in WoobleView's 3D world: the pack drawn in closer to the leader)
+      compact = function() return HdField.sceneOn(self.mod) end,
+    }, WildHerd)
+    if not ok and self.log then
+      self.log:warn("[wilds_of_hoenn] herd battle did not start (%s): the leader alone", tostring(err))
+    end
+  end
   if not ok then
     ok, err = EnginePatch.startWild(self.spawnManager.game, enc, {
       done = function(result) self:_onBattleEnded(entity.id, result) end,
@@ -283,6 +300,7 @@ function BattleTrigger:_giveUp()
   self.pendingId, self.pendingLured, self.pendingAge, self.pendingIdle = nil, false, nil, nil
   self:_hold(false)
   if EnginePatch.endWildDouble then EnginePatch.endWildDouble() end -- (a double that never opened)
+  if EnginePatch.endWildHerd then EnginePatch.endWildHerd() end -- (a herd battle neither)
   local e = id and self.spawnManager.entities[id]
   if e and e.state == Config.STATE.ENCOUNTER_STARTING then e.state = Config.STATE.AVAILABLE end
   local p = EnginePatch.playerCell and EnginePatch.playerCell()

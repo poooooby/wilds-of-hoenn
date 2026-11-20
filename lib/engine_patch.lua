@@ -1348,6 +1348,215 @@ function EnginePatch.endWildDouble()
   wdTeardown()
 end
 
+-- ------- the mod's own herd battle -----------------------------------------------------
+-- A wild group's leader is fought in a plain wild single; the rest of its group stands behind
+-- it, watching (lib/wild_herd.lua). For the length of ONE battle (put back in its `done`):
+--   battle/state.lua State.new -- its state noted (our wild battle's, not another one)
+--   battle/intro_seq.lua IntroSeq.begin -- "Wild X appeared!" becomes the group's line
+--   battle/anim.lua Anim.drawParticles -- the singles draw (battle/ui.lua Ui.draw) calls it for
+--     z 0..99 just before it draws the foe: the others are drawn there, left of it, sliding in
+--     and lighting up with it (its presentation's ox / darken), with the engine's own front
+--     pics (Ui.sidePic: a sprite mod's art too) on their feet line (Ui.battlerSpriteCenter)
+local WH_MODS = {
+  bridge = "src.core.game3.battle_bridge", battle = "src.core.game3.battle",
+  state = "src.core.game3.battle.state", intro = "src.core.game3.battle.intro_seq",
+  anim = "src.core.game3.battle.anim", ui = "src.core.game3.battle.ui",
+  pokemon = "src.core.game3.pokemon",
+}
+local wh = nil -- the herd battle running now: { st, pending, herd, orig }
+
+local function whModules()
+  local m = {}
+  for k, path in pairs(WH_MODS) do
+    m[k] = loadModule(path)
+    if type(m[k]) ~= "table" then return nil end
+  end
+  return m
+end
+
+--- Can this engine run the mod's own herd battle (every piece EnginePatch.startWildHerd wraps
+--- or reads is there)?
+function EnginePatch.wildHerdSupported()
+  local m = whModules()
+  if not m then return false end
+  local need = {
+    { m.bridge, "startWild" }, { m.state, "new" }, { m.state, "displayName" }, { m.intro, "begin" },
+    { m.intro, "introText" }, { m.anim, "present" }, { m.anim, "drawParticles" },
+    { m.ui, "sidePic" }, { m.ui, "battlerSpriteCenter" }, { m.pokemon, "picSpecies" },
+    { m.anim, "preloadPack" },
+  }
+  for _, n in ipairs(need) do
+    if type(n[1][n[2]]) ~= "function" then return false end
+  end
+  return true
+end
+
+--- Is the mod's own herd battle running?
+function EnginePatch.wildHerdActive()
+  return wh ~= nil
+end
+
+local function whTeardown()
+  local w = wh
+  if not w then return end
+  wh = nil
+  for _, o in ipairs(w.orig) do o.t[o.k] = o.f end
+end
+
+-- the others, drawn behind the leader where the singles draw puts it (battle/ui.lua
+-- draw_mon_sprite's ENEMY_MON = anim.lua Anim.ENEMY_MON), at its slide / darkness
+-- Growl / Roar's sound waves (the battle's NOISE_LINE sheet: 32x32 frames, frame 3 the
+-- level wave), or false
+local function whWaves(m, w)
+  if w.waves == nil then
+    w.waves = false
+    local okP, pack = pcall(m.anim.preloadPack)
+    local t = okP and type(pack) == "table" and pack.tags and pack.tags.NOISE_LINE
+    local img = t and t.image
+    if img then
+      local iw, ih = img:getDimensions()
+      if iw >= 32 and ih >= 128 then
+        w.waves = { image = img, quad = love.graphics.newQuad(0, 96, 32, 32, iw, ih) }
+      end
+    end
+  end
+  return w.waves or nil
+end
+
+local function whDraw(m, w)
+  local g = love and love.graphics
+  if not g then return end
+  local A, U = m.anim, m.ui
+  local p = A.present("enemy")
+  local ox = (p and tonumber(p.ox)) or 0
+  local darken = (p and tonumber(p.darken)) or 0
+  -- they cheer once they are in (slid in, lit up), each to its own rhythm
+  local cheering = ox == 0 and darken == 0
+  if cheering then w.clock = (w.clock or 0) + 1 end
+  local base = A.ENEMY_MON or { x = 176, y = 40 }
+  local helper = w.helper
+  local scale = helper.SCALE or 0.75
+  local shade = (helper.SHADE or 1) * (1 - darken * (1 - 8 / 255))
+  local alpha = helper.ALPHA or 1
+  local okC, compact = pcall(w.compact or function() return false end)
+  for i, slot in ipairs((okC and compact) and w.slotsCompact or w.slots) do
+    local h = w.herd[i]
+    if h then
+      if h.entry == nil then
+        local picSp = m.pokemon.picSpecies(h.species, h.personality)
+        h.entry = U.sidePic(false, true, picSp, 0, false, h.personality, nil) or false
+      end
+      local img = h.entry and h.entry.image
+      if img then
+        -- (the spot moves each frame with a widescreen / fitted battle: asked every frame)
+        local cx, cy = U.battlerSpriteCenter("enemy", h.species, base, 0, false)
+        -- on its own feet line (its species' centre where the leader stands), moved to its
+        -- place; scaled about its feet (the pic's bottom middle)
+        local x = cx + slot[1] + ox
+        local y = cy + slot[2] + 32
+        local dy, sx, sy, bark = 0, 1, 1, nil
+        if cheering and helper.cheer then dy, sx, sy, bark = helper.cheer(w.clock, i) end
+        g.setColor(shade, shade, shade, alpha)
+        -- (mirrored: turned to face the leader and the battle)
+        g.draw(img, x, y + dy, 0, (helper.FLIP and -scale or scale) * sx, scale * sy, 32, 64)
+        local wv = bark and helper.barkWaves and whWaves(m, w)
+        if wv then
+          -- its bark: the waves from its mouth (the pic's middle, toward the side it faces)
+          local mx = x + (helper.FLIP and 1 or -1) * 16 * scale
+          local my = y + dy - 34 * scale
+          local dir = helper.FLIP and 1 or -1
+          for _, l in ipairs(helper.barkWaves(bark)) do
+            g.setColor(1, 1, 1, l[4] * alpha)
+            g.draw(wv.image, wv.quad, mx + dir * l[1], my + l[2], dir * l[3], 0.45 * dir, 0.45, 16, 16)
+          end
+        end
+      end
+    end
+  end
+  g.setColor(1, 1, 1, 1)
+end
+
+--- Starts the mod's own herd battle: `enc` = the leader's wild encounter (as for
+--- EnginePatch.startWild, fought as a plain wild single), `herd` = the others ({ species,
+--- personality }, WildHerd.members), `opts` = { done(result), text = function(name) -> the
+--- intro's line, compact = function() -> true for the compact places (a 3D battle scene) },
+--- `helper` = lib/wild_herd.lua. Returns what BattleBridge.startWild returns,
+--- or nil, reason (nothing installed then).
+function EnginePatch.startWildHerd(game, enc, herd, opts, helper)
+  opts = opts or {}
+  if wh then return nil, "a herd battle is already running" end
+  if type(enc) ~= "table" or type(herd) ~= "table" or #herd < 1 or not helper then
+    return nil, "a leader and its group needed"
+  end
+  if not EnginePatch.wildHerdSupported() then return nil, "unsupported engine" end
+  local m = whModules()
+  local list = {}
+  for i = 1, math.min(#herd, (helper.MAX or 5) - 1) do
+    list[i] = { species = herd[i].species, personality = herd[i].personality }
+  end
+  -- (drawn farthest first: the slot list's order; the herd's i-th Pokemon takes slot i;
+  -- `opts.compact()` true -> the compact places, for a 3D battle scene)
+  local w = { pending = true, herd = list, slots = helper.slots(#list), slotsCompact = helper.slots(#list, true),
+              compact = opts.compact, helper = helper, orig = {} }
+  wh = w
+  local B, S, I, A = m.battle, m.state, m.intro, m.anim
+  wdWrap(w, S, "new", function(orig)
+    return function(o, ...)
+      local st = orig(o, ...)
+      if wh == w and w.pending and type(o) == "table" and o.wild then
+        w.pending = false
+        w.st = st
+      end
+      return st
+    end
+  end)
+  wdWrap(w, I, "begin", function(orig)
+    return function(st, ...)
+      local r = orig(st, ...)
+      if wh == w and r and st ~= nil and st == w.st and not st.double and type(opts.text) == "function" then
+        local ok, err = pcall(function()
+          local old = I.introText(st)
+          helper.patchIntroText(I._steps, old, opts.text(S.displayName(st.enemy)))
+        end)
+        if not ok then print("[wilds_of_hoenn] herd intro: " .. tostring(err)) end
+      end
+      return r
+    end
+  end)
+  wdWrap(w, A, "drawParticles", function(orig)
+    return function(minZ, maxZ, ...)
+      local st = w.st
+      if wh == w and st and B._st == st and not st.double and minZ == 0 and maxZ == 99 and not A._headless then
+        local ok, err = pcall(whDraw, m, w)
+        if not ok then
+          print("[wilds_of_hoenn] herd draw: " .. tostring(err))
+          w.slots, w.slotsCompact = {}, {} -- (drawn no more this battle; the battle goes on)
+        end
+      end
+      return orig(minZ, maxZ, ...)
+    end
+  end)
+  local userDone = opts.done
+  local o = {
+    done = function(result)
+      if wh == w then whTeardown() end
+      if userDone then return userDone(result) end
+    end,
+    wildsOfHoenn = true, speciesLocked = true,
+  }
+  local ok, a, b = pcall(m.bridge.startWild, nil, game, enc, o)
+  if not ok or not a then
+    if wh == w then whTeardown() end
+    return nil, ok and b or a
+  end
+  return a, b
+end
+
+--- Takes the herd battle's wraps off (a battle that ended without its `done`).
+function EnginePatch.endWildHerd()
+  whTeardown()
+end
+
 --- Thin read-only accessors so the rest of this mod never calls `require`
 --- directly -- every engine touch point is listed above and visible in one
 --- file.

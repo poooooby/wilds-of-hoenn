@@ -17,6 +17,12 @@
     there is no running ("Can't escape!"). Once one is down, a ball flies at the one left and
     running works as in any wild battle; your two Pokémon stay out to the end.
 
+- Group battles: walking into a group's leader shows the whole group sliding in
+  with "A wild ZIGZAGOON group appeared!". You battle the leader as before while the others
+  gather in a loose pack beside it, turned toward it, each hopping and barking (Growl's sound
+  waves) to cheer it on in its own time. Afterwards they scatter, each a moment after the other, vanishing
+  into the grass or running out of it and fading away.
+
 ### Changed
 
 - **Flying Mons is On / Off again** (the high birds are always part of it). A saved Full or

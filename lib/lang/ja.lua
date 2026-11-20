@@ -113,6 +113,7 @@ return {
   ["Nothing happened."] = "なにも おきなかった。",
   ["Found %s!"] = "%sを みつけた！",
   ["Two POKéMON are out! There's no clear shot!"] = "ポケモンが ２ひき いる！ ねらいが さだまらない！",
+  ["A wild %s group appeared!"] = "やせいの %sの むれが あらわれた！",
   ["an item"] = "どうぐ",
   ["+%d EXP"] = "+%d けいけんち",
   ["Lv.%d!"] = "Lv.%d！",

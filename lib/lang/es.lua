@@ -112,6 +112,7 @@ return {
   ["Nothing happened."] = "No ha pasado nada.",
   ["Found %s!"] = "¡Encontró %s!",
   ["Two POKéMON are out! There's no clear shot!"] = "¡Hay dos POKéMON! ¡No hay tiro limpio!",
+  ["A wild %s group appeared!"] = "¡Apareció un grupo de %s salvajes!",
   ["an item"] = "un objeto",
   ["+%d EXP"] = "+%d EXP",
   ["Lv.%d!"] = "¡Nv.%d!",

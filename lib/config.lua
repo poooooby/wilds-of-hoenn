@@ -214,6 +214,10 @@ Config.ECO = {
             -- grass, a fade); only the leader stays -- and a shiny member, should one exist.
             -- Not an escort (another species), not a flock (it takes off after its leader).
             startled = { steps = { 2, 4 }, frames = 6, lag = { 0, 10 } },
+            -- ...and when the leader is gone (battled, caught, knocked out, left), the same,
+            -- each after its own lag (a herd battle's watchers: as the field comes back) --
+            -- vanishing into the grass, or out of it and fading
+            leaderGone = { steps = { 2, 4 }, frames = 6, lag = { 6, 36 } },
             -- each member its own: no two move or pose in step (SpawnManager._riderVary)
             vary = {
               catchUp = { 1.1, 2.1 },     -- px a tick it follows at (the leader walks 16 px in 16)

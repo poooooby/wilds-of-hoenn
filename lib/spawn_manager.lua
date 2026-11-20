@@ -475,8 +475,16 @@ function SpawnManager:_leaveGroup(e, flight)
           -- the leader was met (or left on foot): the flock scatters into the air
           self:despawn(mid, { animate = true, fly = true })
         elseif m.state == Config.STATE.AVAILABLE and not m.fx then
-          local steps = Config.REACT.flee.steps
-          m.runAway = { steps = math.random(steps[1], steps[2]), blocked = 0, phase = "run", t = 0 }
+          -- each after its own lag, over any open ground (out of its grass too: it fades
+          -- there; in the grass it sinks into it)
+          local cfg = Config.ECO.group.leaderGone
+          Eco.abort(m, self)
+          m.lured, m.react, m.riderAnim = nil, nil, nil
+          if m.renderer and m.renderer.act and (m.renderer.act.ecoBurrow or m.renderer.act.ecoSchool) then
+            m.renderer.act = nil
+          end
+          m.runAway = { steps = math.random(cfg.steps[1], cfg.steps[2]), blocked = 0, phase = "run", t = 0,
+                        wait = math.random(cfg.lag[1], cfg.lag[2]), frames = cfg.frames, anyGround = true }
         elseif m.state == Config.STATE.AVAILABLE then
           self:despawn(mid, { animate = true })
         end
