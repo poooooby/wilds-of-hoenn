@@ -195,6 +195,17 @@ do
   local intro = io.open("src/core/game3/battle/intro_seq.lua"):read("a")
   check(intro:find('add("msg", { text = intro_msg(st) })', 1, true) ~= nil,
     "engine: the wild intro's line is a msg step with IntroSeq.introText's text")
+  -- the leader caught: the others flee (engine_patch whCaught reads these)
+  local CS = require("src.core.game3.battle.catch_seq")
+  local cs = io.open("src/core/game3/battle/catch_seq.lua"):read("a")
+  check(type(CS.catchResult) == "function" and cs:find("CatchSeq._st = st", 1, true) ~= nil
+    and cs:find("CatchSeq._caught = caught", 1, true) ~= nil and cs:find("CatchSeq._catchResult = res", 1, true) ~= nil,
+    "engine: CatchSeq notes the battle, the catch and its stored result (the herd flees on a catch)")
+  local State = require("src.core.game3.battle.state")
+  local anim = io.open("src/core/game3/battle/anim.lua"):read("a")
+  check(type(State.isFainted) == "function" and State.isFainted({ mon = { hp = 0 } }) and not State.isFainted({ mon = { hp = 5 } })
+    and anim:find("p.oy = fromOy + step * 8", 1, true) ~= nil and anim:find("p.visible = false", 1, true) ~= nil,
+    "engine: a knocked-out foe reads as fainted and its faint sinks (p.oy) then hides it (the herd flees on a KO)")
   check(not EnginePatch.wildHerdActive(), "no herd battle running at rest")
 end
 

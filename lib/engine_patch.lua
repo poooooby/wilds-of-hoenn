@@ -1423,6 +1423,25 @@ local function whWaves(m, w)
   return w.waves or nil
 end
 
+-- the leader caught? (battle/catch_seq.lua: CatchSeq.begin notes the battle in `_st`; the
+-- "capture_success" step stores the Pokemon and sets `_catchResult`, as the ball clicks shut
+-- and "Gotcha!" plays)
+local function whCaught(w)
+  local CS = loadModule("src.core.game3.battle.catch_seq")
+  if type(CS) ~= "table" or CS._st ~= w.st or not CS._caught then return false end
+  local ok, res = pcall(function() return CS.catchResult and CS.catchResult() end)
+  return ok and res ~= nil
+end
+
+-- the leader knocked out? (its HP at 0 -- battle/state.lua State.isFainted -- and its faint
+-- shown: Anim.faintMon sinks it, p.oy growing, then hides it)
+local function whFainted(m, w, p)
+  local st = w.st
+  if not (st and p and type(m.state.isFainted) == "function") then return false end
+  local ok, down = pcall(m.state.isFainted, st.enemy)
+  return ok and down == true and (p.visible == false or (tonumber(p.oy) or 0) > 0)
+end
+
 local function whDraw(m, w)
   local g = love and love.graphics
   if not g then return end
@@ -1430,14 +1449,21 @@ local function whDraw(m, w)
   local p = A.present("enemy")
   local ox = (p and tonumber(p.ox)) or 0
   local darken = (p and tonumber(p.darken)) or 0
-  -- they cheer once they are in (slid in, lit up), each to its own rhythm
+  -- they come alive once they are in (slid in, lit up), each to its own rhythm
   local cheering = ox == 0 and darken == 0
   if cheering then w.clock = (w.clock or 0) + 1 end
+  -- the leader caught or knocked out: they flee the screen (WildHerd.flee), counted from then on
+  if w.fleeAge then
+    w.fleeAge = w.fleeAge + 1
+  elseif w.helper.flee and (whCaught(w) or whFainted(m, w, p)) then
+    w.fleeAge = 0
+  end
   local base = A.ENEMY_MON or { x = 176, y = 40 }
   local helper = w.helper
-  local scale = helper.SCALE or 0.75
-  local shade = (helper.SHADE or 1) * (1 - darken * (1 - 8 / 255))
-  local alpha = helper.ALPHA or 1
+  local style = helper.styleOf and helper.styleOf(w.kind) or helper
+  local scale = style.scale or helper.SCALE or 0.75
+  local shade = (style.shade or 1) * (1 - darken * (1 - 8 / 255))
+  local alpha = style.alpha or 1
   local okC, compact = pcall(w.compact or function() return false end)
   for i, slot in ipairs((okC and compact) and w.slotsCompact or w.slots) do
     local h = w.herd[i]
@@ -1447,26 +1473,34 @@ local function whDraw(m, w)
         h.entry = U.sidePic(false, true, picSp, 0, false, h.personality, nil) or false
       end
       local img = h.entry and h.entry.image
-      if img then
+      local pose = h.pose or {}
+      h.pose, h.state = pose, h.state or {}
+      if helper.pose then
+        helper.pose(w.kind, i, w.clock or 0, h.state, pose)
+      else
+        pose.dx, pose.dy, pose.sx, pose.sy, pose.rot, pose.flip, pose.bark = 0, 0, 1, 1, 0, helper.FLIP, nil
+        if cheering and helper.cheer then pose.dy, pose.sx, pose.sy, pose.bark = helper.cheer(w.clock, i) end
+      end
+      pose.alpha, pose.gone = 1, false
+      if w.fleeAge then helper.flee(w.kind, i, w.fleeAge, slot[1] < 0 and -1 or 1, pose) end
+      if img and not pose.gone then
         -- (the spot moves each frame with a widescreen / fitted battle: asked every frame)
         local cx, cy = U.battlerSpriteCenter("enemy", h.species, base, 0, false)
         -- on its own feet line (its species' centre where the leader stands), moved to its
         -- place; scaled about its feet (the pic's bottom middle)
-        local x = cx + slot[1] + ox
-        local y = cy + slot[2] + 32
-        local dy, sx, sy, bark = 0, 1, 1, nil
-        if cheering and helper.cheer then dy, sx, sy, bark = helper.cheer(w.clock, i) end
-        g.setColor(shade, shade, shade, alpha)
-        -- (mirrored: turned to face the leader and the battle)
-        g.draw(img, x, y + dy, 0, (helper.FLIP and -scale or scale) * sx, scale * sy, 32, 64)
-        local wv = bark and helper.barkWaves and whWaves(m, w)
+        local x = cx + slot[1] + ox + pose.dx
+        local y = cy + slot[2] + 32 + pose.dy
+        local a = alpha * (pose.alpha or 1)
+        local dir = pose.flip and 1 or -1 -- (front pics face left; flipped = facing right)
+        g.setColor(shade, shade, shade, a)
+        g.draw(img, x, y, pose.rot or 0, -dir * scale * pose.sx, scale * pose.sy, 32, 64)
+        local wv = pose.bark and helper.barkWaves and whWaves(m, w)
         if wv then
           -- its bark: the waves from its mouth (the pic's middle, toward the side it faces)
-          local mx = x + (helper.FLIP and 1 or -1) * 16 * scale
-          local my = y + dy - 34 * scale
-          local dir = helper.FLIP and 1 or -1
-          for _, l in ipairs(helper.barkWaves(bark)) do
-            g.setColor(1, 1, 1, l[4] * alpha)
+          local mx = x + dir * 16 * scale
+          local my = y - 34 * scale
+          for _, l in ipairs(helper.barkWaves(pose.bark)) do
+            g.setColor(1, 1, 1, l[4] * a)
             g.draw(wv.image, wv.quad, mx + dir * l[1], my + l[2], dir * l[3], 0.45 * dir, 0.45, 16, 16)
           end
         end
@@ -1479,7 +1513,8 @@ end
 --- Starts the mod's own herd battle: `enc` = the leader's wild encounter (as for
 --- EnginePatch.startWild, fought as a plain wild single), `herd` = the others ({ species,
 --- personality }, WildHerd.members), `opts` = { done(result), text = function(name) -> the
---- intro's line, compact = function() -> true for the compact places (a 3D battle scene) },
+--- intro's line, compact = function() -> true for the compact places (a 3D battle scene),
+--- kind = the group's kind (WildHerd.kindOf; nil = "land") },
 --- `helper` = lib/wild_herd.lua. Returns what BattleBridge.startWild returns,
 --- or nil, reason (nothing installed then).
 function EnginePatch.startWildHerd(game, enc, herd, opts, helper)
@@ -1496,8 +1531,11 @@ function EnginePatch.startWildHerd(game, enc, herd, opts, helper)
   end
   -- (drawn farthest first: the slot list's order; the herd's i-th Pokemon takes slot i;
   -- `opts.compact()` true -> the compact places, for a 3D battle scene)
-  local w = { pending = true, herd = list, slots = helper.slots(#list), slotsCompact = helper.slots(#list, true),
-              compact = opts.compact, helper = helper, orig = {} }
+  -- `opts.kind` (WildHerd.kindOf: land / float / bird / swim) picks where they stand and how
+  -- they move
+  local kind = opts.kind or "land"
+  local w = { pending = true, herd = list, kind = kind, slots = helper.slots(#list, false, kind),
+              slotsCompact = helper.slots(#list, true, kind), compact = opts.compact, helper = helper, orig = {} }
   wh = w
   local B, S, I, A = m.battle, m.state, m.intro, m.anim
   wdWrap(w, S, "new", function(orig)

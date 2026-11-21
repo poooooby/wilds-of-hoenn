@@ -261,6 +261,8 @@ function BattleTrigger:onPlayerBumped(entity)
       text = function(name) return tr(WildHerd.TEXT, name) end,
       -- (a battle in WoobleView's 3D world: the pack drawn in closer to the leader)
       compact = function() return HdField.sceneOn(self.mod) end,
+      -- land packs beside the leader; fliers, birds and swimmers behind it (WildHerd.kindOf)
+      kind = WildHerd.kindOf(entity, Config.FLYERS and Config.FLYERS.realBirds),
     }, WildHerd)
     if not ok and self.log then
       self.log:warn("[wilds_of_hoenn] herd battle did not start (%s): the leader alone", tostring(err))

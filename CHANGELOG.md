@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Group battles: the group shows up the way it lives. A pack on the ground still gathers at the
+  leader's side, hopping and barking; floaters (Magnemite, Gastly, Zubat, Hoppip ...) hover
+  behind the leader; a flock of birds hops about behind it; a school or pod bobs in the water
+  behind it. Catch or knock out the leader and the others flee the battle screen right away
+  (running off, drifting or flying away, diving) instead of cheering on.
+
 ## 2.1.0-beta.1 (2026-11-20)
 
 ### Added

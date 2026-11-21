@@ -389,6 +389,7 @@ do
   eq(herdCall and herdCall.enc.species, 999, "...the leader is the one fought")
   eq(herdCall and #herdCall.herd, 2, "...the others in it")
   eq(herdCall and herdCall.opts.text("ZIGZAGOON"), "A wild ZIGZAGOON group appeared!", "...the group's line")
+  eq(herdCall and herdCall.opts.kind, "land", "...a land group: the pack beside the leader")
   herdCall.opts.done("win")
   check(smH.entities[1] == nil, "the battle over: the leader is gone (its group scatters: SpawnManager)")
   -- the herd battle cannot start: the leader alone
