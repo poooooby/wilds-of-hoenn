@@ -190,9 +190,25 @@ end
 --- Starts reaction `what` ("flee" | "chase") to the player at (px, py) at once, with no
 --- roll (a sleeper woken by them: lib/eco_sleep.lua). A burrower ducks underground instead
 --- of running (ctx.burrow). Returns the class ("weak" | "strong").
+--- Can `e` get at the player where they are? A swimmer only reaches a player out on the
+--- water (surfing, or under the sea), a land Pokemon only one on land (`ctx.playerWater`;
+--- nil = cannot tell: yes). Without this a Gyarados charged a player walking by the water to
+--- the bank and started the battle across it.
+function WildReactions.reachesPlayer(e, ctx)
+  if not ctx or ctx.playerWater == nil then return true end
+  return (e.terrain == "water") == (ctx.playerWater == true)
+end
+
 function WildReactions.begin(e, what, px, py, ctx)
   local cfg = Config.REACT
   local cls = what == "flee" and "weak" or "strong"
+  -- Safe Towns (`ctx.safe`: a town or city with the option on): nothing comes at the player
+  -- there -- no charge, it just goes on as it was (a skittish one still runs off); nor does a
+  -- swimmer charge a player on land, or a land Pokemon one on the water
+  if cls == "strong" and (ctx.safe or not WildReactions.reachesPlayer(e, ctx)) then
+    e.reactUntil = (ctx.now or 0) + cfg.cooldown
+    return nil
+  end
   if cls == "weak" and ctx.burrow and e.profile and e.profile.burrower and ctx.burrow(e, px, py) then
     e.reactUntil = (ctx.now or 0) + cfg.cooldown
     return cls
@@ -481,6 +497,8 @@ function WildReactions.tick(e, ctx)
       return
     end
     if manhattan(e.cellX, e.cellY, p.x, p.y) <= 1 and not p.moving then
+      -- the player got off the water / onto it meanwhile: out of its reach, it gives up
+      if not WildReactions.reachesPlayer(e, ctx) then return giveUp(e, ctx) end
       -- caught up with a standing player: the battle
       e.facing = faceToward(e.cellX, e.cellY, p.x, p.y) or e.facing
       finish(e, ctx.now, cfg.chaseCooldown, rng)

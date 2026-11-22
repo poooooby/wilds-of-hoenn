@@ -12,6 +12,7 @@ return {
   ["option|Water Life"] = "みずの いきもの",
   ["option|Local Scenes"] = "ばしょの けしき",
   ["option|Pokecology"] = "ポケコロジー",
+  ["option|Safe Towns"] = "あんぜんな まち",
   ["option|Sprite Style"] = "スプライト",
   ["option|Follower"] = "つれあるき",
   ["option|Battler: Pad"] = "バトラー：パッド",
@@ -55,6 +56,8 @@ return {
     "とくべつな ばしょの ちいさな ひとこま： シオンタウンには ゆうれいが ただよい トウカのもりでは むしポケモンが き から ぶらさがり ナマケロが ひるねを して ヤルキモノが こずえで おどります。 ヒワマキシティでは おおきな トロピウスが き の うえに あらわれます。 けしき だけです。",
   ["Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs only the skittish (they run) and the territorial (they charge). They also live like their kind: packs and schools keep together, fish leap out of the water, whales blow spouts, sea birds dive for fish, some sleep by night (or by day) and diggers burrow. Off: they just wander on their own."] =
     "はしったり じてんしゃで ちかづくと やせいの ポケモンが はんのう します： せんとうの ポケモンより よわい ものは おどろいて にげ(ちいさな とりは とびさり) つよい ものは おこって おいかけて きます(つかまると せんとうに なります)。 あるいて とおっても おくびょうな ものは にげ なわばりを まもる ものは おそって きます。 また なかまと むれで うごき さかなは みずから とびはね クジラは しおを ふき うみどりは さかなを とりに もぐり よるや ひるに ねむる ものや あなを ほる ものも います。 オフ： ただ ひとりで うろうろ します。",
+  ["In towns and cities nothing comes at you: a bird perched in town never swoops down at you, and wild Pokemon there never charge (skittish ones still run off). Walking into one yourself still starts a battle. Off: a town's aggressive birds may swoop at you and territorial Pokemon may charge, as on routes."] =
+    "まちの なかでは なにも おそって こない： やねに とまった とりは とびかかって こないし やせいの ポケモンも おいかけて こない (こわがりな ものは いつもどおり にげる)。 じぶんから ぶつかれば いつもどおり せんとうに なる。 オフ： ルートと おなじく まちの あらい とりが とびかかり なわばりを まもる ポケモンが おいかけて くる。",
   ["Overworld sprite style for wild Pokemon and your follower. HGSS / PokeMMO draws each species at its own native size (\"True Size\"), anchored at its feet -- a Snorlax is drawn much bigger than a Rattata."] =
     "やせいの ポケモンと パートナーの スプライト。 HGSS / PokeMMO は それぞれの ポケモンを ほんらいの おおきさで あしもとから えがきます： カビゴンは コラッタより ずっと おおきく えがかれます。",
   ["PMDCollab uses the PMD Explorers-style sprites with fully animated walking and idle loops (species without PMD art fall back to HGSS / PokeMMO)."] =

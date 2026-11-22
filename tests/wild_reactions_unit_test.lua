@@ -594,6 +594,58 @@ do
   check(alerts >= 2, "...the \"!\" popping up again (" .. alerts .. ")")
 end
 
+-- ------- a swimmer never battles a player on land (nor a land Pokemon one on the water)
+do
+  local ctx = { now = 100, rng = function(a) return a end, playerWater = false }
+  local fish = entity(5, 5, 50, 130)
+  fish.terrain = "water"
+  eq(WR.begin(fish, "chase", 5, 6, ctx), nil, "a swimmer does not charge a player on land")
+  eq(fish.react, nil, "...it stays as it was")
+  local f2 = entity(5, 5, 5, 129)
+  f2.terrain = "water"
+  eq(WR.begin(f2, "flee", 5, 6, ctx), "weak", "...a startled one still swims off")
+  ctx.playerWater = true
+  local fish2 = entity(5, 5, 50, 130)
+  fish2.terrain = "water"
+  eq(WR.begin(fish2, "chase", 5, 6, ctx), "strong", "a swimmer charges a surfing player")
+  local landMon = entity(5, 5, 50, 1)
+  eq(WR.begin(landMon, "chase", 5, 6, ctx), nil, "a land Pokemon does not charge a surfing player")
+  ctx.playerWater = nil
+  local any = entity(5, 5, 50, 1)
+  eq(WR.begin(any, "chase", 5, 6, ctx), "strong", "can't tell where the player is: as before")
+  check(WR.reachesPlayer({ terrain = "land" }, { playerWater = false })
+    and not WR.reachesPlayer({ terrain = "water" }, { playerWater = false }), "reachesPlayer: same ground only")
+
+  -- mid-chase the player steps off the water: next to it on the bank, it gives up (no battle)
+  local contacts0 = #contacts
+  local cx = ctxFor({ x = 5, y = 6, moving = false }, 5)
+  cx.playerWater = true
+  local g = entity(5, 4, 50, 130)
+  g.terrain = "water"
+  WR.begin(g, "chase", 5, 6, cx)
+  g.react.mode, g.react.leash, g.react.limit, g.react.t = "chase", 4, 999, 0
+  g.cellY = 5
+  cx.playerWater = false
+  WR.tick(g, cx)
+  eq(#contacts, contacts0, "the player back on land beside it: no battle")
+  check(g.react == nil or g.react.mode ~= "chase", "...it gives up the chase")
+end
+
+-- ------- Safe Towns (ctx.safe): nothing charges at the player; fleeing still happens
+do
+  local ctx = { now = 100, rng = function(a) return a end, safe = true }
+  local e = entity(5, 5, 50, 1)
+  eq(WR.begin(e, "chase", 6, 5, ctx), nil, "Safe Towns: no charge at the player")
+  eq(e.react, nil, "...it goes on as it was")
+  check((e.reactUntil or 0) > 100, "...and rests before reacting again")
+  local f = entity(5, 5, 5, 1)
+  eq(WR.begin(f, "flee", 6, 5, ctx), "weak", "...a skittish one still runs off")
+  check(f.react ~= nil, "...with its reaction under way")
+  ctx.safe = nil
+  local g = entity(5, 5, 50, 1)
+  eq(WR.begin(g, "chase", 6, 5, ctx), "strong", "not a safe town: it charges as ever")
+end
+
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")
   os.exit(1)

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.1.1 (2026-11-22)
+
+### Added
+
+- **Safe Towns** option (on by default): in towns and cities nothing comes at you. A bird
+  perched in town never swoops down to pick a fight, and wild Pokémon there never charge
+  (skittish ones still run off). Walking into one yourself still starts a battle. Off: towns
+  work as in 2.1.0.
+
+### Fixed
+
+- A swimming Pokémon (a Gyarados, say) could charge you while you stood on land and start a
+  battle from the water's edge. Swimmers now only charge you while you're surfing or diving,
+  and land Pokémon only while you're on land; leave the water mid-charge and it gives up.
+
 ## 2.1.0 (2026-11-22)
 
 Everything since 2.0.8 (it includes 2.1.0-beta.1 and 2.1.0-beta.2).

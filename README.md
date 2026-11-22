@@ -69,7 +69,7 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   out at sea.
 - 🕊️ **Birds in the sky:** birds fly overhead, perch on roofs and dive for fish. They are not just
   scenery: now and then a bird high up comes down into the field to be met, an aggressive one
-  perched in town may swoop down and pick a fight, and a sea bird that stays up on the water,
+  perched in town may swoop down and pick a fight (with **Safe Towns** off), and a sea bird that stays up on the water,
   angrily jerking about to keep hold of its catch, is met together with that fish, in a wild
   double battle: while both are up no ball
   can be thrown and there is no running away; once one is down you can catch the other (or run).
@@ -101,6 +101,7 @@ Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 | **Water Life** | ON / OFF | ON | Leaping fish, spouting whales, Finizen and fish under the sea. |
 | **Local Scenes** | ON / OFF | ON | Scenes in a few special places. |
 | **Pokecology** | ON / OFF | ON | Species behaviour and reactions to you. Off: they just wander. |
+| **Safe Towns** | ON / OFF | ON | Nothing comes at you in towns and cities: no bird swoops down, no wild Pokémon charges. |
 | **Sprite Style** | HGSS / PMD | PMD | Art for wild Pokémon and your partner. |
 | **Follower** | ON / OFF | ON | Off keeps your partner in its Poké Ball. |
 | **Battler: Pad** | R / L / OFF | OFF | Controller button that switches your partner between Battle and Follow. |

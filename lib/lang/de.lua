@@ -11,6 +11,7 @@ return {
   ["option|Water Life"] = "Wasserleben",
   ["option|Local Scenes"] = "Ortsszenen",
   ["option|Pokecology"] = "Pokecology",
+  ["option|Safe Towns"] = "Sichere Städte",
   ["option|Sprite Style"] = "Sprite-Stil",
   ["option|Follower"] = "Begleiter",
   ["option|Battler: Pad"] = "Kämpfer: Pad",
@@ -54,6 +55,8 @@ return {
     "Kleine Momente an besonderen Orten: Geister schweben durch Lavandia, Käfer-Pokémon hängen von den Bäumen im Blütenburgwald, wo Bummelz ein Nickerchen macht und Muntier auf den Baumkronen tanzt, und ein großes Tropius steigt aus den Bäumen von Baumhausen. Nur zur Kulisse.",
   ["Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs only the skittish (they run) and the territorial (they charge). They also live like their kind: packs and schools keep together, fish leap out of the water, whales blow spouts, sea birds dive for fish, some sleep by night (or by day) and diggers burrow. Off: they just wander on their own."] =
     "Renne oder fahre nah an wilden Pokémon vorbei, und sie reagieren: schwächere als dein erstes Pokémon erschrecken und laufen weg (kleine Vögel fliegen davon), stärkere werden wütend und jagen dich (holen sie dich ein, beginnt der Kampf). Wer geht, stört nur die Scheuen (sie fliehen) und die Revierhüter (sie greifen an). Außerdem leben sie wie ihre Art: Rudel und Schwärme bleiben zusammen, Fische springen aus dem Wasser, Wale blasen Fontänen, Seevögel tauchen nach Fischen, manche schlafen nachts (oder tagsüber) und Gräber buddeln sich ein. Aus: sie streifen nur allein umher.",
+  ["In towns and cities nothing comes at you: a bird perched in town never swoops down at you, and wild Pokemon there never charge (skittish ones still run off). Walking into one yourself still starts a battle. Off: a town's aggressive birds may swoop at you and territorial Pokemon may charge, as on routes."] =
+    "In Orten und Städten greift dich nichts an: ein Vogel auf einem Dach stürzt sich nie auf dich, und wilde Pokémon dort jagen dich nie (scheue laufen weiter davon). Läufst du selbst in eines hinein, beginnt wie immer ein Kampf. Aus: angriffslustige Vögel in Orten können sich auf dich stürzen und revierbewusste Pokémon dich jagen, wie auf Routen.",
   ["Overworld sprite style for wild Pokemon and your follower. HGSS / PokeMMO draws each species at its own native size (\"True Size\"), anchored at its feet -- a Snorlax is drawn much bigger than a Rattata."] =
     "Sprite-Stil für wilde Pokémon und deinen Begleiter. HGSS / PokeMMO zeichnet jede Art in ihrer echten Größe, an den Füßen verankert: ein Relaxo ist viel größer als ein Rattfratz.",
   ["PMDCollab uses the PMD Explorers-style sprites with fully animated walking and idle loops (species without PMD art fall back to HGSS / PokeMMO)."] =

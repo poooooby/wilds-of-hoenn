@@ -11,6 +11,7 @@ return {
   ["option|Water Life"] = "Vida acuática",
   ["option|Local Scenes"] = "Escenas",
   ["option|Pokecology"] = "Pokecology",
+  ["option|Safe Towns"] = "Ciudad segura",
   ["option|Sprite Style"] = "Estilo sprite",
   ["option|Follower"] = "Acompañante",
   ["option|Battler: Pad"] = "Lucha: mando",
@@ -54,6 +55,8 @@ return {
     "Pequeños momentos en algunos lugares especiales: fantasmas que flotan por Pueblo Lavanda, Pokémon bicho colgando de los árboles del Bosque Petalia, donde Slakoth duerme la siesta y Vigoroth baila en las copas, y un gran Tropius que surge de los árboles de Arborada. Solo de ambiente.",
   ["Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs only the skittish (they run) and the territorial (they charge). They also live like their kind: packs and schools keep together, fish leap out of the water, whales blow spouts, sea birds dive for fish, some sleep by night (or by day) and diggers burrow. Off: they just wander on their own."] =
     "Si pasas corriendo o en bici cerca de Pokémon salvajes, reaccionan: los más débiles que tu primer Pokémon se asustan y huyen (las aves pequeñas salen volando) y los más fuertes se enfadan y te persiguen (si te alcanzan, empieza el combate). Andando solo molestas a los asustadizos (huyen) y a los territoriales (atacan). Además viven como su especie: las manadas y los bancos van juntos, los peces saltan del agua, las ballenas echan chorros, las aves marinas se zambullen a pescar, algunos duermen de noche (o de día) y los excavadores se entierran. No: solo deambulan cada uno a su aire.",
+  ["In towns and cities nothing comes at you: a bird perched in town never swoops down at you, and wild Pokemon there never charge (skittish ones still run off). Walking into one yourself still starts a battle. Off: a town's aggressive birds may swoop at you and territorial Pokemon may charge, as on routes."] =
+    "En pueblos y ciudades nada te ataca: un pájaro posado en un tejado nunca se lanza sobre ti, y los Pokémon salvajes de allí nunca te persiguen (los asustadizos siguen huyendo). Si tú chocas con uno, empieza un combate como siempre. No: los pájaros agresivos de los pueblos pueden lanzarse sobre ti y los Pokémon territoriales perseguirte, como en las rutas.",
   ["Overworld sprite style for wild Pokemon and your follower. HGSS / PokeMMO draws each species at its own native size (\"True Size\"), anchored at its feet -- a Snorlax is drawn much bigger than a Rattata."] =
     "Estilo de los sprites de los Pokémon salvajes y de tu compañero. HGSS / PokeMMO dibuja cada especie a su tamaño real, apoyada en sus pies: un Snorlax se ve mucho más grande que un Rattata.",
   ["PMDCollab uses the PMD Explorers-style sprites with fully animated walking and idle loops (species without PMD art fall back to HGSS / PokeMMO)."] =

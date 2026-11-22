@@ -1305,6 +1305,29 @@ do
     fakeEngine.leadPartyMon = function() return { level = 5, species = 1 } end
     check(not smS:skyAttack(bird), "...nor any with Pokecology off")
     optionStore.wild_reacts = nil
+    -- Safe Towns (on by default): in a town or city nothing comes down at the player
+    local realMT = fakeEngine.mapType
+    local town = 1
+    fakeEngine.mapType = function() return town end
+    smS._mapTypeOf = nil
+    check(smS:_safeTown(), "Safe Towns: a town is safe")
+    local inTown = false
+    for _ = 1, 20 do if smS:skyAttack(bird) then inTown = true end end
+    check(not inTown, "...no bird swoops down at the player there")
+    check(smS:_reactContext().safe == true, "...and the reactions know it (ctx.safe)")
+    town, smS._mapTypeOf = 2, nil
+    check(smS:_safeTown(), "...a city too")
+    town, smS._mapTypeOf = 3, nil
+    check(not smS:_safeTown(), "...not a route")
+    town, smS._mapTypeOf = 1, nil
+    optionStore.safe_towns = false
+    check(not smS:_safeTown(), "the option off: a town is like anywhere")
+    local offAttack = false
+    for _ = 1, 20 do if smS:skyAttack(bird) then offAttack = true break end end
+    check(offAttack, "...and an aggressive bird may come down at the player again")
+    for _, e in pairs(smS.entities) do if e.skyAttacker then smS:despawn(e.id) end end
+    optionStore.safe_towns = nil
+    fakeEngine.mapType, smS._mapTypeOf = realMT, nil
     EcoProfile.of, fakeEngine.leadPartyMon, fakeEngine.cellFree = realOf, realLead, realCF
     player.x, player.y = savedPlayer.x, savedPlayer.y
     for _ = 1, 400 do smS:tick(smS.game) end

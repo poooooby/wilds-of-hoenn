@@ -16,6 +16,7 @@ Config.DEFAULTS = {
   show_follower = true,
   portraits = true,
   wild_reacts = true,
+  safe_towns = true,
   water_life = true,
   local_scenes = true,
   type_aura = false,
@@ -989,6 +990,12 @@ end
 
 --- The Wild Reacts option: wild Pokemon flee from / chase a player running or biking
 --- close by. On unless switched off.
+--- The Safe Towns option: in towns and cities nothing comes at the player (no bird off its
+--- perch, no wild Pokemon charging). On unless switched off.
+function Config.safeTowns(mod)
+  return optGet(mod, "safe_towns") ~= false
+end
+
 function Config.wildReacts(mod)
   return optGet(mod, "wild_reacts") ~= false
 end

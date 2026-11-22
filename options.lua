@@ -70,6 +70,13 @@ return {
     description = "Run or bike close to wild Pokemon and they react: weaker ones than your lead Pokemon are startled and run off (small birds fly away), stronger ones get angry and chase you (catching you starts the battle). Walking past disturbs only the skittish (they run) and the territorial (they charge). They also live like their kind: packs and schools keep together, fish leap out of the water, whales blow spouts, sea birds dive for fish, some sleep by night (or by day) and diggers burrow. Off: they just wander on their own.",
   },
   {
+    key = "safe_towns",
+    label = "Safe Towns",
+    type = "toggle",
+    default = true,
+    description = "In towns and cities nothing comes at you: a bird perched in town never swoops down at you, and wild Pokemon there never charge (skittish ones still run off). Walking into one yourself still starts a battle. Off: a town's aggressive birds may swoop at you and territorial Pokemon may charge, as on routes.",
+  },
+  {
     key = "sprite_style",
     label = "Sprite Style",
     type = "choice",

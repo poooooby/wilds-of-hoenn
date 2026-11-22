@@ -1064,6 +1064,7 @@ end
 function SpawnManager:skyAttack(b)
   local sky = self.sky
   if not (sky and b and b.species and b.perch and self.mapId) then return false end
+  if self:_safeTown() then return false end -- Safe Towns: it flies off, as a calm one does
   local prof = EcoProfile.of(b.species)
   if not (prof and prof.temper == "aggressive") then return false end
   local ctx = self:_reactContext()
@@ -1263,7 +1264,18 @@ function SpawnManager:_reactContext()
   local ctx = self._reactCtx or {}
   self._reactCtx = ctx
   ctx.now, ctx.game, ctx.rng = self.ticks, self.game, math.random
+  ctx.safe = self:_safeTown() -- Safe Towns: no charging at the player here
   ctx.player = EnginePatch.playerCell and EnginePatch.playerCell()
+  -- is the player on the water (surfing, or diving under the sea)? A swimmer only charges a
+  -- player out on the water, a land Pokemon only one on land (WildReactions.reachesPlayer)
+  local surf = EnginePatch.playerSurfState and EnginePatch.playerSurfState()
+  if self.underwater then
+    ctx.playerWater = true
+  elseif surf then
+    ctx.playerWater = surf.surfing == true
+  else
+    ctx.playerWater = nil -- (cannot tell: no limit)
+  end
   if lead then -- (one table kept: this runs every tick)
     local l = ctx._lead or {}
     ctx._lead = l
@@ -1878,6 +1890,17 @@ function SpawnManager:_swimLife(e, eco)
     return
   end
   self:startDive(e)
+end
+
+--- Is this a town or city (map type 1 / 2, read once a map) with the Safe Towns option on?
+--- Nothing comes at the player there (WildReactions.begin's `ctx.safe`, skyAttack).
+function SpawnManager:_safeTown()
+  if not Config.safeTowns(self.mod) then return false end
+  if self._mapTypeOf ~= self.mapId then
+    self._mapTypeOf = self.mapId
+    self._mapType = EnginePatch.mapType and EnginePatch.mapType() or nil
+  end
+  return self._mapType == 1 or self._mapType == 2
 end
 
 -- is `species` a Ghost type (either type)? Cached per species; unknown -> false.
