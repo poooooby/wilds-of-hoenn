@@ -126,12 +126,19 @@ function EcoGlow.collect(e, actors, t)
   local under = sink >= 0.5 or (e.fx and e.fx.under) or false
   local k = EcoGlow.pulse(t or 0, e.id) * (under and cfg.underAlpha or 1)
   local x, y = lightPoint(e)
-  actors[#actors + 1] = { kind = "ow_glow", i = 99000 + (e.id or 0), x = x, y = y, sortY = e.py + 1,
-    elevation = e.elevation, color = g.color, strength = k, under = under,
-    radius = under and cfg.radius * cfg.underGrow or cfg.radius, draw = drawLight }
+  -- (its two actors kept on it and refilled: lights show all night, every frame)
+  local a = e._glowA or { kind = "ow_glow", draw = drawLight }
+  e._glowA = a
+  a.i, a.x, a.y, a.sortY, a.elevation = 99000 + (e.id or 0), x, y, e.py + 1, e.elevation
+  a.color, a.strength, a.under = g.color, k, under
+  a.radius = under and cfg.radius * cfg.underGrow or cfg.radius
+  actors[#actors + 1] = a
   if e.glowTrail then
-    actors[#actors + 1] = { kind = "ow_glow", i = 99500 + (e.id or 0), x = x, y = y, sortY = e.py + 1,
-      elevation = e.elevation, color = g.color, strength = 1, points = e.glowTrail, draw = drawLight }
+    local b = e._glowB or { kind = "ow_glow", draw = drawLight, strength = 1 }
+    e._glowB = b
+    b.i, b.x, b.y, b.sortY, b.elevation = 99500 + (e.id or 0), x, y, e.py + 1, e.elevation
+    b.color, b.points = g.color, e.glowTrail
+    actors[#actors + 1] = b
   end
 end
 

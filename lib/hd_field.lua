@@ -216,12 +216,13 @@ end
 --- every draw of a tagged sheet and redraw it at window resolution about its own pivot,
 --- which is wrong for a sliced, mirrored reflection (lib/reflection.lua). The tag is put
 --- back right after, even when `fn` fails.
-function HdField.untagged(mod, image, fn)
+function HdField.untagged(mod, image, fn, ...)
+  -- (the rest of the arguments go to `fn`: a per-frame caller needs no closure)
   local spec = image and specs[image]
   local ex = spec and library(mod)
-  if not (ex and type(ex.untag) == "function") then return fn() end
+  if not (ex and type(ex.untag) == "function") then return fn(...) end
   pcall(ex.untag, image)
-  local ok, err = pcall(fn)
+  local ok, err = pcall(fn, ...)
   pcall(ex.tag, image, spec)
   if not ok then error(err, 0) end
 end

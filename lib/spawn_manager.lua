@@ -1399,6 +1399,7 @@ function SpawnManager:calmReactions()
   end
 end
 
+local EMPTY = {} -- (read only: an empty list to loop over)
 function SpawnManager:tick(game)
   self.game = game or self.game
   self.ticks = (self.ticks or 0) + 1
@@ -1591,7 +1592,7 @@ function SpawnManager:tick(game)
     -- _swimLife already did; the same phase, so calling it twice changes nothing)
     if e and e.terrain == "water" and self:_bobsStill(e) then self:_bobAt(e, reactCtx ~= nil) end
   end
-  for _, id in ipairs(gone or {}) do
+  for _, id in ipairs(gone or EMPTY) do
     if type(id) == "table" then self:despawn(id.takeoff or id.leave, { animate = true }) else self:despawn(id) end
   end
   self:refill("land")
@@ -1749,8 +1750,9 @@ function SpawnManager:collectActors(actors, camX, camY)
         zage = sleep and sleep.zzz and sleep.zzz - ((e.vary and e.vary.reactLag) or 8)
       end
       if sleep and sleep.sleeping and not sleep.waking and zage and zage >= 0 then
-        actors[#actors + 1] = WildEmote.zzzActor(zage, e.px, e.py, EcoSleep.headOf(e.renderer, sleep.anim), id,
-          false, Config.ECO.sleep.zzzEvery)
+        e._zzz = WildEmote.zzzActor(zage, e.px, e.py, EcoSleep.headOf(e.renderer, sleep.anim), id,
+          false, Config.ECO.sleep.zzzEvery, nil, e._zzz)
+        actors[#actors + 1] = e._zzz
       end
       -- a shiny one twinkles now and then (not as a silhouette, nor while it arrives / leaves)
       if e.shiny and not e.fx and e.renderer and not e.renderer.silhouette then
@@ -2018,8 +2020,20 @@ function SpawnManager:_applyFx(e)
     r.alpha = nil
     return
   end
-  local v = SpawnFx.visual(e.fx)
-  if v.sink then r.act = { sink = v.sink, spawnFx = true } end
+  local v = SpawnFx.visual(e.fx, self._fxVisual)
+  self._fxVisual = v
+  if v.sink then
+    -- (its own act from last tick refilled -- cleared first, so nothing else written onto
+    -- it lingers -- instead of a new one every tick)
+    local a = r.act
+    if a and a.spawnFx then
+      for k in pairs(a) do a[k] = nil end
+    else
+      a = {}
+    end
+    a.sink, a.spawnFx = v.sink, true
+    r.act = a
+  end
   r.alpha = v.alpha
 end
 

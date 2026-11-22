@@ -416,10 +416,11 @@ end
 --- visible height for an index without `top`.
 --- `anims` (optional): the animations to measure instead of Walk and Idle (a Pokemon asleep
 --- lies lower: lib/local_scenes.lua's zzz sit over its Sleep pose).
+local HEAD_ANIMS = { "walk", "idle" }
 function PmdRenderer:headLift(anims)
   local s = PmdRenderer.scaleOf(self.info) * self:hdScale()
   local best
-  for _, anim in ipairs(anims or { "walk", "idle" }) do
+  for _, anim in ipairs(anims or HEAD_ANIMS) do
     local entry = self.info and self.info[anim]
     local top = entry and tonumber(entry.top)
     if top then

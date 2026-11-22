@@ -727,17 +727,23 @@ function LocalScenes:tick()
       self.timers[cadence] = t
     end
   end
-  local keep = {}
-  for _, c in ipairs(self.scenes) do
+  -- (the scenes kept go into the spare list, the two swapped: no new list a tick)
+  local keep = self._spareScenes or {}
+  for i = #keep, 1, -1 do keep[i] = nil end
+  local list = self.scenes
+  for _, c in ipairs(list) do
     c.t = c.t + 1
     local tickFn = TICKERS[c.kind]
     if tickFn and tickFn(self, c) then
       keep[#keep + 1] = c
     else
       if c.spot then self.taken[c.spot] = nil end
-      for _, s in ipairs(c.cells or {}) do self.taken[s] = nil end
+      if c.cells then
+        for _, s in ipairs(c.cells) do self.taken[s] = nil end
+      end
     end
   end
+  self._spareScenes = list
   self.scenes = keep
 end
 
@@ -769,8 +775,10 @@ function LocalScenes:collectActors(actors, camX, camY)
       actors[#actors + 1] = spriteActor(c)
       if c.kind == "tropius" then actors[#actors + 1] = leavesActor(c) end
       if c.kind == "sleeper" and c.t > Config.LOCAL_SCENES.sleeper.fade then
-        actors[#actors + 1] = WildEmote.zzzActor(c.t - Config.LOCAL_SCENES.sleeper.fade, c.x, c.y,
-          sleeperHead(c.renderer) * (Config.LOCAL_SCENES.sleeper.scale or 1) + c.spot.lift, c.id, true, Config.LOCAL_SCENES.sleeper.zzzEvery, c.alpha)
+        c._zzz = WildEmote.zzzActor(c.t - Config.LOCAL_SCENES.sleeper.fade, c.x, c.y,
+          sleeperHead(c.renderer) * (Config.LOCAL_SCENES.sleeper.scale or 1) + c.spot.lift, c.id, true,
+          Config.LOCAL_SCENES.sleeper.zzzEvery, c.alpha, c._zzz)
+        actors[#actors + 1] = c._zzz
       end
     end
   end

@@ -33,6 +33,18 @@ if type(V) == "table" and V.require then
   local okI, mod = pcall(V.require, "i18n")
   if okI and type(mod) == "table" then I18n = mod end
 end
+-- a module required on first use and kept (the mod loader's require builds garbage on
+-- every call; these are asked for every tick)
+local lazyMods = {}
+local function lazy(name)
+  local m = lazyMods[name]
+  if m == nil then
+    m = V.require(name)
+    lazyMods[name] = m
+  end
+  return m
+end
+
 local function tr(english, ...)
   if I18n then return I18n.t(english, ...) end
   if select("#", ...) > 0 then return string.format(english, ...) end
@@ -131,7 +143,7 @@ end
 --- The text floating over the follower's head ("New move ready!" ...), or nil.
 function FollowerAdapter:readyLabel()
   if not self.levelReady or self.away or self.action or self.swap then return nil end
-  local text = V.require("level_ready").textFor(self.readyPending, self.readyClock)
+  local text = lazy("level_ready").textFor(self.readyPending, self.readyClock)
   return text and tr(text) or nil
 end
 
@@ -464,7 +476,7 @@ end
 -- the art's width as drawn (px), for which columns of tiles it spans
 local function drawnWidth(r)
   if r.isPmd then
-    local PmdRenderer = V.require("pmd_renderer")
+    local PmdRenderer = lazy("pmd_renderer")
     local w = PmdRenderer.contentSize(r.info, r.hdScale and r:hdScale() or 1)
     return (w and w > 0) and w or CELL
   end
@@ -676,7 +688,8 @@ function FollowerAdapter:tick()
   end
   local mon, role
   if self.companion then
-    mon, role = self.companion:resolve(EnginePatch.partyMons())
+    self._party = EnginePatch.partyMons(self._party or {})
+    mon, role = self.companion:resolve(self._party)
   else
     local sp = EnginePatch.leadPartySpecies()
     mon, role = sp and { species = sp } or nil, "follow"
@@ -785,7 +798,7 @@ function FollowerAdapter:tick()
     -- art rising away from the player), its height above the tile walking up (it trails
     -- below, drawn in front), sideways how far its head reaches ahead of its tile
     -- (measured: side views are seldom centred). Eased so a turn glides.
-    local PmdRenderer = V.require("pmd_renderer")
+    local PmdRenderer = lazy("pmd_renderer")
     local cw = PmdRenderer.contentSize(r.info, r:hdScale())
     local push = ActorRenderer.followerPush(npc.facing, cw, r:headLift(), r:frontReach(npc.facing))
     local tx, ty = ActorRenderer.behindOffset(npc.facing, push)
@@ -1111,7 +1124,7 @@ function FollowerAdapter:collectActors(actors)
   local offY = (r and r.pushY or 0) + (act and act.dy or 0)
   local width, ground = CELL, CELL -- the ground point's depth in the tile
   if r and r.isPmd then
-    local PmdRenderer = V.require("pmd_renderer")
+    local PmdRenderer = lazy("pmd_renderer")
     width = PmdRenderer.contentSize(r.info, r:hdScale())
     ground = PmdRenderer.groundOf(r.info and r.info.walk, PmdRenderer.scaleOf(r.info))
   elseif r and r.frameWidth then

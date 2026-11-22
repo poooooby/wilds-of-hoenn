@@ -332,9 +332,14 @@ function SignatureFx.pmdPoints(mod, info, key, anim, spec)
 end
 
 --- Emitter points of an HGSS sheet (`frameCount` frames stacked; its NORMAL variant).
+local normalPath = {} -- sheet path -> its NORMAL variant's (asked every frame)
 function SignatureFx.hgssPoints(mod, path, frameCount, frameW, frameH, spec)
   if type(path) ~= "string" then return nil end
-  local normal = path:gsub("%-shiny%.png$", "-normal.png")
+  local normal = normalPath[path]
+  if not normal then
+    normal = path:gsub("%-shiny%.png$", "-normal.png")
+    normalPath[path] = normal
+  end
   return sheetPoints(mod, spec, "hgss", normal, frameW, frameH, 1, frameCount)
 end
 
@@ -568,6 +573,12 @@ end
 --- Called by a renderer right BEFORE its sprite: `r` (the renderer), its spec, the image /
 --- quad it draws, where quad px (0, 0) lands on screen (x, y) and its scale (sx, sy),
 --- `alpha` (the sprite's). Draws the glow and the particles that go behind it.
+-- the glow's uniforms (filled per draw, sent at once) and its draw (no closure a frame)
+local glowRect, glowTexel = { 0, 0, 0, 0 }, { 0, 0 }
+local function glowBlit(g, image, pq, gx, gy, sx, sy)
+  g.draw(image, pq, gx, gy, 0, sx, sy)
+end
+
 local function drawBehind(r, spec, image, quad, x, y, sx, sy, camX, camY, alpha)
   local gl = spec.glow
   if gl and image and quad then
@@ -580,16 +591,13 @@ local function drawBehind(r, spec, image, quad, x, y, sx, sy, camX, camY, alpha)
       local g = love.graphics
       local prev = g.getShader()
       local cr, cg, cb, ca = SignatureFx.glowColor(gl, SignatureFx.clock + stateOf(r).phase)
-      local ok = pcall(function()
-        sh:send("rect", { qx / iw, qy / ih, (qx + qw) / iw, (qy + qh) / ih })
-        sh:send("texel", { 1 / iw, 1 / ih })
-      end)
+      glowRect[1], glowRect[2], glowRect[3], glowRect[4] = qx / iw, qy / ih, (qx + qw) / iw, (qy + qh) / ih
+      glowTexel[1], glowTexel[2] = 1 / iw, 1 / ih
+      local ok = pcall(sh.send, sh, "rect", glowRect) and pcall(sh.send, sh, "texel", glowTexel)
       if ok then
         g.setShader(sh)
         g.setColor(cr, cg, cb, ca * (alpha or 1))
-        HdField.untagged(r.mod, image, function()
-          g.draw(image, pq, gx, gy, 0, sx * hd, sy * hd)
-        end)
+        HdField.untagged(r.mod, image, glowBlit, g, image, pq, gx, gy, sx * hd, sy * hd)
         g.setShader(prev)
         g.setColor(1, 1, 1, 1)
       end

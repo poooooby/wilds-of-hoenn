@@ -12,6 +12,10 @@
 
 ### Changed
 
+- Less memory churn in the overworld: your partner, swimmers, sleepers' z's, night glows,
+  signature effects, Water Life and local scenes no longer build throwaway data every frame
+  (about a quarter of what the mod's overworld code made before), so the game's garbage
+  collector has less to do.
 - Group battles: a pack on the ground now stands behind its leader, smaller and solid, peeking
   out on both sides of it, instead of off to its left.
 

@@ -2799,10 +2799,15 @@ function EnginePatch.partyMenu()
 end
 
 --- The party as a plain list (slot order), or {} without a session.
-function EnginePatch.partyMons()
+function EnginePatch.partyMons(out)
   local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
   local ok, session = pcall(Runtime and Runtime.getSession)
-  local out = {}
+  -- (`out`: filled in place, for a caller asking every tick; it reads it at once)
+  if out then
+    for i = #out, 1, -1 do out[i] = nil end
+  else
+    out = {}
+  end
   if not (ok and type(session) == "table" and type(session.party) == "table") then return out end
   for i = 1, 6 do
     if type(session.party[i]) == "table" then out[#out + 1] = session.party[i] end
@@ -2849,13 +2854,13 @@ end
 --- The player's surf state: { surfing, dismounting } -- `surfing` is true from
 --- the hop onto the water until the dismount onto land begins (player.lua
 --- Player.surfHopping / surfing / dismounting). Both false without a player.
+local surfState = { surfing = false, dismounting = false }
 function EnginePatch.playerSurfState()
+  -- (one table, refilled: the follower asks every tick; callers read it at once, never keep it)
   local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
-  if not Player then return { surfing = false, dismounting = false } end
-  return {
-    surfing = Player.surfing == true or Player.surfHopping == true,
-    dismounting = Player.dismounting == true,
-  }
+  surfState.surfing = Player ~= nil and (Player.surfing == true or Player.surfHopping == true)
+  surfState.dismounting = Player ~= nil and Player.dismounting == true
+  return surfState
 end
 
 --- Is the player riding a bike (player.lua Player.biking, either bike)? The follower
