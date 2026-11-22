@@ -19,6 +19,7 @@ local SpawnFilters = V.require("spawn_filters")
 local SweetScentHearts = V.require("sweet_scent_hearts")
 local SpawnFx = V.require("spawn_fx")
 local SkyFlyers = V.require("sky_flyers")
+local WaterLife = V.require("water_life")
 local WildReactions = V.require("wild_reactions")
 local WildEmote = V.require("wild_emote")
 local ShinySparkle = V.require("shiny_sparkle")
@@ -474,8 +475,16 @@ function SpawnManager:_leaveGroup(e, flight)
           -- the leader was met (or left on foot): the flock scatters into the air
           self:despawn(mid, { animate = true, fly = true })
         elseif m.state == Config.STATE.AVAILABLE and not m.fx then
-          local steps = Config.REACT.flee.steps
-          m.runAway = { steps = math.random(steps[1], steps[2]), blocked = 0, phase = "run", t = 0 }
+          -- each after its own lag, over any open ground (out of its grass too: it fades
+          -- there; in the grass it sinks into it)
+          local cfg = Config.ECO.group.leaderGone
+          Eco.abort(m, self)
+          m.lured, m.react, m.riderAnim = nil, nil, nil
+          if m.renderer and m.renderer.act and (m.renderer.act.ecoBurrow or m.renderer.act.ecoSchool) then
+            m.renderer.act = nil
+          end
+          m.runAway = { steps = math.random(cfg.steps[1], cfg.steps[2]), blocked = 0, phase = "run", t = 0,
+                        wait = math.random(cfg.lag[1], cfg.lag[2]), frames = cfg.frames, anyGround = true }
         elseif m.state == Config.STATE.AVAILABLE then
           self:despawn(mid, { animate = true })
         end
@@ -919,7 +928,7 @@ end
 
 -- Puts an already rolled encounter on `cell` as a visible wild Pokemon.
 -- `keepShiny` skips the shiny roll (the encounter's own `shiny` stands).
-function SpawnManager:_place(terrain, cell, enc, keepShiny)
+function SpawnManager:_place(terrain, cell, enc, keepShiny, noFx)
   local dex = FormSource.artKeyFor(self.mod, enc.species)
   if not dex then return false end
   -- the engine's own shiny, plus a shiny chain's bonus (Modern Spawns); never a bonus for
@@ -976,7 +985,7 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
   self.order[#self.order + 1] = id
   -- after the map's first fill, a new Pokemon rises out of the grass / surfaces / fades
   -- in -- or, a Flying type with the sky open, swoops down onto its cell
-  if self.filled then
+  if self.filled and not noFx then
     if self.sky and self.sky:canFly(e) and self.sky:clearOfPlayer(e.cellX, e.cellY) then
       e.fx = self.sky:planArrival(e)
     elseif self.underwater and self.water and self.water:canSwim(e) then
@@ -987,6 +996,173 @@ function SpawnManager:_place(terrain, cell, enc, keepShiny)
     end
   end
   return true, e
+end
+
+-- ------- birds coming down out of the sky -----------------------------------------
+
+-- a free cell of `terrain` for a bird coming down: inside the view (else just past its edges,
+-- `Config.FLYERS.passer.landMargin` tiles) and at least `landClear` tiles from the player
+function SpawnManager:_skyCell(terrain)
+  local sky = self.sky
+  local cam = sky and sky.cam
+  if not cam then return nil end
+  local cfg = Config.FLYERS.passer
+  local vw, vh = 240, 160
+  if EnginePatch.viewSize then vw, vh = EnginePatch.viewSize() end
+  local x0, y0 = math.floor(cam.x / 16), math.floor(cam.y / 16)
+  local x1, y1 = math.floor((cam.x + vw - 1) / 16), math.floor((cam.y + vh - 1) / 16)
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  local px, py = p and p.x, p and p.y
+  local inView, near = {}, {}
+  local m = cfg.landMargin
+  for _, c in ipairs(self.source:eligibleCells(terrain)) do
+    if c.x >= x0 - m and c.x <= x1 + m and c.y >= y0 - m and c.y <= y1 + m and self:_cellFree(c.x, c.y)
+      and not (px and math.max(math.abs(c.x - px), math.abs(c.y - py)) < cfg.landClear) then
+      if c.x >= x0 and c.x <= x1 and c.y >= y0 and c.y <= y1 then inView[#inView + 1] = c else near[#near + 1] = c end
+    end
+  end
+  local list = #inView > 0 and inView or near
+  if #list == 0 then return nil end
+  return list[math.random(1, #list)]
+end
+
+--- An ambient bird high overhead (lib/sky_flyers.lua `b`: its species, its pool entry's
+--- levels, where it is now) comes down into the field: a real wild Pokemon of that species
+--- at one of its table levels, flying down from where the bird was onto a free cell in view
+--- (its own water for a sea bird, else the grass). True when it came down.
+function SpawnManager:landFromSky(b)
+  local sky = self.sky
+  if not (sky and b and b.species and b.x and self.mapId) then return false end
+  local entry = b.entry or {}
+  local order = entry.sea and { "water", "land" } or { "land" }
+  local terrain, cell
+  for _, t in ipairs(order) do
+    cell = self:_skyCell(t)
+    if cell then terrain = t break end
+  end
+  if not cell then return false end
+  local level = SkyFlyers.levelFor(entry, math.random)
+  if not level or not EnginePatch.repelAllows(level) then return false end
+  local enc = self:encounterFor(b.species, level)
+  enc = SpawnFilters.apply(self.mapId, terrain, enc, false)
+  local ok, e = self:_place(terrain, cell, enc, false, true)
+  if not (ok and e) then return false end
+  if not (e.isFlyer and sky:canFly(e)) then
+    -- (another mod swapped in something that does not fly: it appears the usual way)
+    self:_startFx(e, "appear")
+    return true
+  end
+  e.fx = sky:planLanding(e, { x = b.x, y = b.y, h = b.h })
+  return true
+end
+
+--- An ambient bird perched in town (lib/sky_flyers.lua `b`) the player comes close to: an
+--- AGGRESSIVE one (its temper, lib/eco_profile.lua) may swoop down at them instead of
+--- flying off -- WildReactions.decide by its strength against the lead, one roll -- as a
+--- real wild Pokemon on a free cell beside them, angry, charging: the battle on contact.
+--- Pokecology (Wild Reacts) must be on. True when it attacks.
+function SpawnManager:skyAttack(b)
+  local sky = self.sky
+  if not (sky and b and b.species and b.perch and self.mapId) then return false end
+  local prof = EcoProfile.of(b.species)
+  if not (prof and prof.temper == "aggressive") then return false end
+  local ctx = self:_reactContext()
+  local p = ctx and ctx.player
+  if not (p and ctx.lead) then return false end
+  local level = SkyFlyers.levelFor(b.entry, math.random)
+  if not level or not EnginePatch.repelAllows(level) then return false end
+  local cls, ratio = WildReactions.classify(level, ctx.bst and ctx.bst(b.species), ctx.lead.level, ctx.lead.bst)
+  local what, pct = WildReactions.decide("aggressive", cls, ratio)
+  if what ~= "chase" or math.random(1, 100) > (pct or 0) then return false end
+  -- a free open cell beside the player, the perch's side first
+  local best, bd
+  for _, d in ipairs(Behavior.DIRS or { "up", "down", "left", "right" }) do
+    local dd = Behavior.DELTA[d]
+    local x, y = p.x + dd[1], p.y + dd[2]
+    if EnginePatch.cellFree(x, y) and Behavior._openGround(x, y) and self:_cellFree(x, y) then
+      local dist = (x - b.perch.x) ^ 2 + (y - b.perch.y) ^ 2
+      if not bd or dist < bd then best, bd = { x = x, y = y }, dist end
+    end
+  end
+  if not best then return false end
+  local enc = SpawnFilters.apply(self.mapId, "land", self:encounterFor(b.species, level), false)
+  local ok, e = self:_place("land", best, enc, false, true)
+  if not (ok and e) then return false end
+  e.skyAttacker = true
+  e.fx = sky:planPounce(e, b.perch)
+  if EnginePatch.playCry then pcall(EnginePatch.playCry, e.species) end
+  return true
+end
+
+--- How high a mark over a wild Pokemon's head goes ("!", "?", the anger mark, hearts): just
+--- over its head as it is drawn now (renderer:headLiftNow -- its pose and facing now, steady
+--- while it animates -- not the tallest pose its art has: a bird's raised wings put marks far
+--- above it), `Config.MARK_GAP` px of air between; clamped to 10..96.
+function SpawnManager.markLift(r)
+  local lift = r and ((r.headLiftNow and r:headLiftNow()) or (r.headLift and r:headLift())
+    or (r.visualHeight and r:visualHeight()) or (r.frameHeight and r:frameHeight())) or 20
+  return math.max(10, math.min(96, (tonumber(lift) or 20) + Config.MARK_GAP))
+end
+
+--- A sea bird fighting to keep the fish in its beak (`age` ticks into its stay, `seed` its
+--- id): (dx, dy, tilt) for its renderer's `act` -- now and then a burst of quick jerks, tilting
+--- one way and the other, a little hop up at the start; a slow sway in between. Pure.
+function SpawnManager.fishFight(age, seed)
+  local cfg = Config.FLYERS.dive.fight
+  seed = math.floor(tonumber(seed) or 0)
+  local period = cfg.every[1] + (seed * 7) % (cfg.every[2] - cfg.every[1] + 1)
+  local t = (age + seed * 13) % period
+  if t < cfg.burst then
+    local k = 1 - t / cfg.burst                                  -- strongest at its start
+    local s = (math.floor(t / cfg.flip) % 2 == 0) and 1 or -1    -- one way, then the other
+    return s * cfg.jerk * k, -cfg.hop * k, s * cfg.tilt * k
+  end
+  return 0, 0, math.sin((age + seed * 5) / cfg.swayTicks) * cfg.sway
+end
+
+-- a fish of this map's water (its Surf / fishing tables, lib/water_life.lua WaterLife.isFish)
+-- at one of its levels, as an encounter: what a diving sea bird comes up with; or nil
+function SpawnManager:_caughtFish()
+  local t = EnginePatch.tableFor and EnginePatch.tableFor(self.mapId)
+  if type(t) ~= "table" then return nil end
+  local slots = {}
+  for _, area in ipairs({ "water", "fishing", "oldRod", "goodRod", "superRod" }) do
+    local a = t[area]
+    local list = type(a) == "table" and (a.slots or a.mons or a) or nil
+    if type(list) == "table" then
+      for _, sl in ipairs(list) do
+        local sp = type(sl) == "table" and tonumber(sl.species or sl[1])
+        if sp and sp > 0 and WaterLife.isFish(sp) then slots[#slots + 1] = sl end
+      end
+    end
+  end
+  if #slots == 0 then return nil end
+  local sl = slots[math.random(1, #slots)]
+  local lo = tonumber(sl.minLevel or sl.level or sl[2]) or 5
+  local hi = tonumber(sl.maxLevel or sl.level or sl[3]) or lo
+  if lo > hi then lo, hi = hi, lo end
+  return self:encounterFor(tonumber(sl.species or sl[1]), math.random(lo, hi))
+end
+
+--- An ambient sea bird (lib/sky_flyers.lua `b`) up from its dive that stays on the water a
+--- moment (Config.FLYERS.dive.stayChance): a real wild Pokemon on its cell for `stayTicks`,
+--- with the fish it caught (`e.caught`, a fish of this water at one of its levels). Surfing
+--- onto it then battles both at once (lib/battle_trigger.lua, the mod's own wild double).
+--- After its stay it flies off. True when it stays.
+function SpawnManager:diverSurface(b)
+  if not (b and b.species and b.cellX and self.mapId) then return false end
+  if not self:_cellFree(b.cellX, b.cellY) then return false end
+  local level = SkyFlyers.levelFor(b.entry, math.random)
+  if not level or not EnginePatch.repelAllows(level) then return false end
+  local fish = self:_caughtFish()
+  if not fish then return false end
+  local enc = SpawnFilters.apply(self.mapId, "water", self:encounterFor(b.species, level), false)
+  local ok, e = self:_place("water", { x = b.cellX, y = b.cellY }, enc, false, true)
+  if not (ok and e) then return false end
+  e.caught = fish
+  e.skyStay = Config.FLYERS.dive.stayTicks
+  e.noFight = true -- (the partner's Battler leaves it be)
+  return true
 end
 
 -- ------- tooling: a chosen species instead of a rolled one -------------------
@@ -1223,6 +1399,7 @@ function SpawnManager:calmReactions()
   end
 end
 
+local EMPTY = {} -- (read only: an empty list to loop over)
 function SpawnManager:tick(game)
   self.game = game or self.game
   self.ticks = (self.ticks or 0) + 1
@@ -1303,6 +1480,25 @@ function SpawnManager:tick(game)
         lure.ticks, lure.age = lure.ticks - 1, lure.age + 1
         if e.moving then Behavior._advanceMove(e) end
         if lure.ticks <= 0 then e.lured = nil end
+      elseif e.skyStay then
+        -- a sea bird up from its dive with a fish (SpawnManager:diverSurface): it sits on the
+        -- water a moment (bobbing), fighting to keep its catch -- jerking and tilting, an
+        -- anger mark over its head (collectActors) -- then flies off
+        e.react = nil
+        e.skyStay = e.skyStay - 1
+        e.fishAge = (e.fishAge or 0) + 1
+        local r = e.renderer
+        if r then
+          local dx, dy, tilt = SpawnManager.fishFight(e.fishAge, e.id)
+          local a = r.act
+          if not (a and a.fishFight) then a = { fishFight = true } r.act = a end
+          a.dx, a.dy, a.tilt = dx, dy, tilt
+        end
+        if e.skyStay <= 0 then
+          e.skyStay = nil
+          if r and r.act and r.act.fishFight then r.act = nil end
+          self:despawn(e.id, { animate = true, fly = true })
+        end
       elseif e.runAway then
         -- its fight with the Battler was called off: it runs off, then disappears
         if self:_tickRunAway(e) then
@@ -1318,6 +1514,12 @@ function SpawnManager:tick(game)
           Behavior._advanceMove(e)
         else
           WildReactions.finish(e, self.ticks, Config.REACT.cooldown)
+        end
+      elseif e.skyAttacker and not e.charging and not e.moving then
+        -- a town bird that came down at the player (SpawnManager:skyAttack): its attack over
+        -- without a battle, it flies off again (there is no grass here to go home to)
+        if not (EnginePatch.fieldBusy and EnginePatch.fieldBusy()) then
+          self:despawn(e.id, { animate = true, fly = true })
         end
       elseif e.chaseHome and not e.moving and Behavior.offTerrain(e) then
         -- a chaser left out on open ground (its chase cut short): home it goes, quietly;
@@ -1348,6 +1550,7 @@ function SpawnManager:tick(game)
         e.swimCfg = (reactCtx and e.profile and e.profile.water == "drifter") and Config.ECO.water.drift or nil
         Behavior.tick(e, self.game)
         self:_swimLife(e, reactCtx ~= nil)
+        self:_ghostLife(e)
         if reactCtx and not e.fx then Eco.consider(e, reactCtx, self) end
       end
       self:_wakeOnStep(e)
@@ -1390,7 +1593,7 @@ function SpawnManager:tick(game)
     -- _swimLife already did; the same phase, so calling it twice changes nothing)
     if e and e.terrain == "water" and self:_bobsStill(e) then self:_bobAt(e, reactCtx ~= nil) end
   end
-  for _, id in ipairs(gone or {}) do
+  for _, id in ipairs(gone or EMPTY) do
     if type(id) == "table" then self:despawn(id.takeoff or id.leave, { animate = true }) else self:despawn(id) end
   end
   self:refill("land")
@@ -1531,12 +1734,14 @@ function SpawnManager:collectActors(actors, camX, camY)
           emote, emoteAge = lr.emote, lr.emoteAge - e.vary.reactLag
         end
       end
+      if not emote and e.caught and e.skyStay then
+        -- fighting to keep its catch: the anger mark, popping up again and again
+        emote, emoteAge = "anger", (e.fishAge or 0) % Config.FLYERS.dive.fight.markEvery
+      end
       if emote then
-        local r = e.renderer
-        local lift = r and r.headLift and r:headLift()
-          or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
+        -- right over its head as it is drawn now (SpawnManager.markLift)
         actors[#actors + 1] = WildEmote.actor(emote, emoteAge or 0, e.px, e.py,
-          math.max(10, math.min(96, (lift or 20) + 4)), e.elevation, id)
+          SpawnManager.markLift(e.renderer), e.elevation, id)
       end
       -- asleep: "z"s float up (a group member's a moment after its leader's)
       local sleep, zage = e.eco, e.eco and e.eco.zzz
@@ -1546,8 +1751,9 @@ function SpawnManager:collectActors(actors, camX, camY)
         zage = sleep and sleep.zzz and sleep.zzz - ((e.vary and e.vary.reactLag) or 8)
       end
       if sleep and sleep.sleeping and not sleep.waking and zage and zage >= 0 then
-        actors[#actors + 1] = WildEmote.zzzActor(zage, e.px, e.py, EcoSleep.headOf(e.renderer, sleep.anim), id,
-          false, Config.ECO.sleep.zzzEvery)
+        e._zzz = WildEmote.zzzActor(zage, e.px, e.py, EcoSleep.headOf(e.renderer, sleep.anim), id,
+          false, Config.ECO.sleep.zzzEvery, nil, e._zzz)
+        actors[#actors + 1] = e._zzz
       end
       -- a shiny one twinkles now and then (not as a silhouette, nor while it arrives / leaves)
       if e.shiny and not e.fx and e.renderer and not e.renderer.silhouette then
@@ -1558,12 +1764,8 @@ function SpawnManager:collectActors(actors, camX, camY)
         if a then actors[#actors + 1] = a end
       end
       if e.lured then
-        -- just above the highest point its art reaches in any frame (headLift), so the
-        -- idle / walk animation never covers the hearts, plus a 4 px gap
-        local r = e.renderer
-        local lift = r and r.headLift and r:headLift()
-          or (r and r.visualHeight and r:visualHeight()) or (r and r.frameHeight and r:frameHeight()) or 20
-        actors[#actors + 1] = SweetScentHearts.actor(e.px, e.py, math.max(10, math.min(96, (lift or 20) + 4)),
+        -- right over its head as it is drawn now (SpawnManager.markLift)
+        actors[#actors + 1] = SweetScentHearts.actor(e.px, e.py, SpawnManager.markLift(e.renderer),
           e.lured.age, e.lured.ticks, e.elevation, id)
       end
     end
@@ -1678,6 +1880,51 @@ function SpawnManager:_swimLife(e, eco)
   self:startDive(e)
 end
 
+-- is `species` a Ghost type (either type)? Cached per species; unknown -> false.
+local ghostCache = {}
+local function isGhost(species)
+  local hit = ghostCache[species]
+  if hit ~= nil then return hit end
+  local ghost = false
+  if species and EnginePatch.speciesTypes and EnginePatch.typeName then
+    local ok, t1, t2 = pcall(EnginePatch.speciesTypes, species)
+    if ok then
+      ghost = EnginePatch.typeName(t1 or 0) == "GHOST" or (t2 ~= nil and EnginePatch.typeName(t2) == "GHOST")
+    end
+  end
+  ghostCache[species] = ghost
+  return ghost
+end
+SpawnManager._isGhost = isGhost
+
+--- Per tick for a Ghost-type on land left to itself: now and then it fades out and in
+--- again somewhere near (Config.GHOST_FADE), as a swimmer dives.
+function SpawnManager:_ghostLife(e)
+  if e.terrain == "water" or e.group or e.rider or not isGhost(e.species) then return end
+  local d = Config.GHOST_FADE
+  if not e.fadeIn then e.fadeIn = math.random(d.min, d.max) end
+  e.fadeIn = e.fadeIn - 1
+  if e.fadeIn > 0 or e.fx or e.moving or e.roamer or e.isFlyer or e.lured or e.react or e.engaged
+      or e.charging or e.eco or e.runAway or e.defeated then
+    return
+  end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p and math.max(math.abs(p.x - e.cellX), math.abs(p.y - e.cellY)) <= d.clearRadius then
+    e.fadeIn = 120 -- the player is right there: later
+    return
+  end
+  self:startGhostFade(e)
+end
+
+--- `e` (a Ghost-type) fades out where it stands, stays unseen a while and fades in again a
+--- few tiles away (`_stepDive`, the same steps as a swimmer's dive).
+function SpawnManager:startGhostFade(e)
+  e.fadeIn = nil
+  e.fx = SpawnFx.new("leave", "fade", Config.GHOST_FADE.fadeTicks)
+  e.fx.dive, e.fx.ghost = true, true
+  self:_applyFx(e)
+end
+
 --- `e` goes under (Config.SWIM.dive): it sinks with rings and a ripple, stays down a while,
 --- and surfaces a few tiles away (`_stepDive`). A whale sounding after its spout too.
 function SpawnManager:startDive(e)
@@ -1710,9 +1957,33 @@ end
 --- surfacing in rings like a new arrival.
 function SpawnManager:_stepDive(e)
   local fx, d = e.fx, Config.SWIM.dive
+  if fx.ghost then d = Config.GHOST_FADE end
   if fx.under then
     fx.under = fx.under - 1
     if fx.under > 0 then return end
+    if fx.ghost then
+      -- a ghost fades in again on a free cell of its own ground the player can reach
+      -- (or where it was)
+      local spots = {}
+      for dy = -d.hop, d.hop do
+        for dx = -d.hop, d.hop do
+          local x, y = e.cellX + dx, e.cellY + dy
+          if (dx ~= 0 or dy ~= 0) and EnginePatch.terrainAt(x, y) == e.terrain and self:_cellFree(x, y)
+            and not (self.source and self.source.canStay and not self.source:canStay(x, y, e.terrain))
+            and not (EnginePatch.isWarpCell and EnginePatch.isWarpCell(x, y)) then
+            spots[#spots + 1] = { x = x, y = y }
+          end
+        end
+      end
+      if #spots > 0 then
+        local c = spots[math.random(1, #spots)]
+        e.cellX, e.cellY, e.px, e.py = c.x, c.y, c.x * 16, c.y * 16
+      end
+      e.facing = ({ "up", "down", "left", "right" })[math.random(1, 4)]
+      e.fx = SpawnFx.new("appear", "fade", d.fadeTicks)
+      self:_applyFx(e)
+      return
+    end
     -- a group member comes up beside its leader, once the leader has
     local g = e.group
     local leader = g and g.leader ~= e.id and self.entities[g.leader] or nil
@@ -1819,8 +2090,20 @@ function SpawnManager:_applyFx(e)
     r.alpha = nil
     return
   end
-  local v = SpawnFx.visual(e.fx)
-  if v.sink then r.act = { sink = v.sink, spawnFx = true } end
+  local v = SpawnFx.visual(e.fx, self._fxVisual)
+  self._fxVisual = v
+  if v.sink then
+    -- (its own act from last tick refilled -- cleared first, so nothing else written onto
+    -- it lingers -- instead of a new one every tick)
+    local a = r.act
+    if a and a.spawnFx then
+      for k in pairs(a) do a[k] = nil end
+    else
+      a = {}
+    end
+    a.sink, a.spawnFx = v.sink, true
+    r.act = a
+  end
   r.alpha = v.alpha
 end
 
@@ -1852,6 +2135,10 @@ function SpawnManager:_touchDown(e)
   local p = EnginePatch.playerCell and EnginePatch.playerCell()
   if p and ((p.x == e.cellX and p.y == e.cellY) or (p.moving and p.targetX == e.cellX and p.targetY == e.cellY)) then
     self:despawn(e.id, { animate = true })
+  elseif e.skyAttacker then
+    -- down beside the player off its perch: angry, charging (the battle on contact)
+    local ctx = self:_reactContext()
+    if ctx and p then WildReactions.begin(e, "chase", p.x, p.y, ctx) end
   elseif fx and fx.fishing and e.profile and e.profile.catch and not e.eco then
     -- up from its plunge with a fish in its beak (Cramorant)
     local s = EcoAir.catchState(e, self)

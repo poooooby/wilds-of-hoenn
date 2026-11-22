@@ -49,12 +49,16 @@ local PartyRoles = V.require("party_roles")
 for _, line in pairs(PartyRoles.LINES) do add(line, "message (%s = name)") end
 local LevelReady = V.require("level_ready")
 add(LevelReady.MOVE_TEXT, "label over the partner") add(LevelReady.EVOLVE_TEXT, "label over the partner")
+local WildHerd = V.require("wild_herd")
+add(WildHerd.TEXT, "battle message (%s = the leader's name)")
+add(WildHerd.CHEER_TEXT, "battle message (%s = the leader's name)")
+add(WildHerd.ROSE_TEXT, "battle message (%s = the leader's name)")
 add("toggle|ON", "options page value") add("toggle|OFF", "options page value")
 
 -- literal tr("...") / trc("ctx", "...") calls in lib/
 local BS = string.char(92)
 for _, file in ipairs({ "follower_interaction", "party_roles", "role_hotkey", "forager", "overworld_battle",
-                        "follower_adapter", "options_page", "follower_dialogue", "popup_text" }) do
+                        "follower_adapter", "options_page", "follower_dialogue", "popup_text", "battle_trigger" }) do
   local src = assert(io.open("lib/" .. file .. ".lua")):read("*a")
   for s in src:gmatch('[^%w_]tr%("([^"]+)"') do add(s:gsub(BS .. "'", "'"), "text") end
   for c, s in src:gmatch('[^%w_]trc%("(%w+)", "([^"]+)"') do add(c .. "|" .. s, "text") end

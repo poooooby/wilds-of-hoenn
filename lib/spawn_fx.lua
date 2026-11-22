@@ -28,11 +28,17 @@ end
 --- What the renderer shows now: `sink` (0 = standing, 1 = gone below the grass / water
 --- line) for grass and water, `alpha` for a fade. Appear runs sink 1 -> 0 / alpha 0 -> 1,
 --- leave the other way.
-function SpawnFx.visual(fx)
+function SpawnFx.visual(fx, out)
   local p = SpawnFx.progress(fx)
   local shown = (fx and fx.kind == "leave") and (1 - p) or p -- 1 = fully there
-  if fx and fx.mode == "fade" then return { alpha = shown } end
-  return { sink = 1 - shown }
+  -- (`out`: filled in place, for the per-tick caller)
+  out = out or {}
+  if fx and fx.mode == "fade" then
+    out.alpha, out.sink = shown, nil
+  else
+    out.alpha, out.sink = nil, 1 - shown
+  end
+  return out
 end
 
 --- One tick on; true once it has finished.

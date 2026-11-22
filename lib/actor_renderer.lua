@@ -545,6 +545,48 @@ end
 --- Sweet Scent hearts) start, so no pose covers them. A frame stands on the tile's bottom
 --- (anchorOffset), lowered by its baked bottom pad and, swimming, SWIM_DROP; the size
 --- grows about the feet. Falls back to the frame height when the pixels are unreadable.
+-- [path .. "#" .. frame] = the top row of that frame's art (false = empty / unreadable)
+local frameTopCache = {}
+
+--- The top row of frame `f` (0-based) of an `frameCount`-frame sheet's art, read from its
+--- pixels once (nil when it cannot be read or the frame is empty).
+function ActorRenderer.frameTopOf(mod, path, frameCount, f)
+  local key = path .. "#" .. tostring(f)
+  local hit = frameTopCache[key]
+  if hit ~= nil then return hit or nil end
+  frameTopCache[key] = false
+  local data = ActorRenderer.sheetData(mod, path)
+  if not data then return nil end
+  local w, h = data:getDimensions()
+  local fh = math.floor(h / (frameCount or 18))
+  local bytes, byte = data:getString(), string.byte
+  for y = 0, fh - 1 do
+    local row = ((f * fh + y) * w) * 4
+    for x = 0, w - 1 do
+      if byte(bytes, row + x * 4 + 4) > 0 then
+        frameTopCache[key] = y
+        return y
+      end
+    end
+  end
+  return nil
+end
+
+--- How high its head is now, above its tile's bottom, as drawn: the top of its STAND frame
+--- the way it faces now (read from the pixels once) -- not the tallest pose of all, as headLift,
+--- and steady while it walks or flaps (a mark over it would hop with every frame). Where a mark
+--- over its head goes ("!", "?", hearts, a label). headLift until it has been drawn.
+function ActorRenderer:headLiftNow()
+  local path, facing = self._drawnPath, self._drawnFacing
+  local fh = self:frameHeight()
+  local fc = self.frameCount or 18
+  local f = path and facing and ActorRenderer.frameIndexFor(facing, ActorRenderer.POSE_STAND, fc)
+  local top = f and fh and ActorRenderer.frameTopOf(self.mod, path, fc, f)
+  if not top then return self:headLift() end
+  local k = HdField.scaleOfPath(self.mod, path) or 1
+  return (fh - top) * k - ActorRenderer.feetPadFor(self.mod, path, fc) * k - ActorRenderer.swimDropFor(path)
+end
+
 function ActorRenderer:headLift()
   local path = self:imagePath()
   local fh = self:frameHeight()
@@ -622,6 +664,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   local frameIndex = ActorRenderer.frameIndexFor(facing, pose, self.frameCount)
   local quad = quadFor(path, image, frameIndex, self.frameCount)
   if not quad then return end
+  self._drawnPath, self._drawnFacing = path, facing -- (headLiftNow)
 
   local _qx, _qy, frameW, frameH = quad:getViewport()
   local drawX, drawY, flipX = ActorRenderer.drawOffset(facing, frameW, frameH)
@@ -714,7 +757,9 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
     self._sigKey, self._sigSpec = self.dex, SignatureFx().specFor(self.dex) or false
   end
   local sig = self._sigSpec
-  if sig and (reveal or self.silhouette or shade) then sig = nil end
+  -- tilted (a sea bird fighting its catch, lib/spawn_manager.lua fishFight): turned about its feet
+  local tilt = act and tonumber(act.tilt) or 0
+  if sig and (reveal or self.silhouette or shade or tilt ~= 0) then sig = nil end
   if sig then
     love.graphics.setColor(1, 1, 1, 1)
     SignatureFx().drawBehind(self, sig, image, quad, ox, oy, sx, sy, camX, camY, alpha)
@@ -726,12 +771,13 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
       love.graphics.setColor(1, 1, 1, alpha)
     end
   end
-  if mul == 1 and sink <= 0 then
+  if mul == 1 and sink <= 0 and tilt == 0 then
     love.graphics.draw(image, quad, ox, oy, 0, flipX, 1)
   else
     local boxLeft = (x - camX) + (flipX < 0 and drawX - frameW or drawX) + pushX
     local boxTop = (y - camY) + drawY + pushY
-    love.graphics.draw(image, quad, boxLeft + frameW / 2, boxTop + frameH, 0, sx, sy, frameW / 2, frameH)
+    sx, sy = flipX * mul * wide, mul * (1 - sink)
+    love.graphics.draw(image, quad, boxLeft + frameW / 2, boxTop + frameH, tilt, sx, sy, frameW / 2, frameH)
   end
   if self.silhouette or shade or tint or alpha < 1 then
     love.graphics.setColor(1, 1, 1, 1)

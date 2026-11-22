@@ -855,6 +855,12 @@ function WaterLife:_tickPod(c, cfg)
 end
 
 --- One tick: new creatures on their timers, every one a step on.
+-- one more tick on each effect in `list` (nil: none)
+local function ageAll(list)
+  if not list then return end
+  for i = 1, #list do list[i].age = list[i].age + 1 end
+end
+
 function WaterLife:tick()
   if not self.allowed then return end
   self.poolAge = (self.poolAge or 0) + 1
@@ -871,8 +877,11 @@ function WaterLife:tick()
     end
     self.timers[kind] = t
   end
-  local keep = {}
-  for _, c in ipairs(self.creatures) do
+  -- (the creatures kept go into the spare list, the two swapped: no new list a tick)
+  local keep = self._spareCreatures or {}
+  for i = #keep, 1, -1 do keep[i] = nil end
+  local list = self.creatures
+  for _, c in ipairs(list) do
     if c.kind == "swim" then
       if self:_tickSwimmer(c) then keep[#keep + 1] = c else SkyDraw.release(c) end
       goto continue
@@ -895,13 +904,15 @@ function WaterLife:tick()
         self:_splashAt(c, math.floor((c.cx * 16 + c.drift * 16) / 16 + 0.5), c.cy)
       end
     end
-    for _, list in ipairs({ c.rings or {}, c.splashes or {}, c.sprays or {}, c.puffs or {} }) do
-      for _, fx in ipairs(list) do fx.age = fx.age + 1 end
-    end
+    ageAll(c.rings)
+    ageAll(c.splashes)
+    ageAll(c.sprays)
+    ageAll(c.puffs)
     local alive = c.t < c.n + 40 -- (the last splash plays out)
     if alive then keep[#keep + 1] = c end
     ::continue::
   end
+  self._spareCreatures = list
   self.creatures = keep
 end
 

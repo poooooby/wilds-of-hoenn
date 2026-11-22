@@ -87,6 +87,7 @@ local function imageFor(name)
 end
 
 --- How wide a renderer's art is drawn (px): HGSS visualWidth, PMD its content size.
+local pmdRenderer -- lib/pmd_renderer.lua, required on first use (false: none)
 function ShinySparkle.bodyWidth(r)
   if not r then return 16 end
   if r.visualWidth then
@@ -94,8 +95,12 @@ function ShinySparkle.bodyWidth(r)
     if ok and tonumber(w) and w > 0 then return w end
   end
   if r.isPmd and r.info then
-    local okP, PmdRenderer = pcall(V.require, "pmd_renderer")
-    if okP and PmdRenderer and PmdRenderer.contentSize then
+    if pmdRenderer == nil then
+      local okP, m = pcall(V.require, "pmd_renderer")
+      pmdRenderer = okP and m or false
+    end
+    local PmdRenderer = pmdRenderer or nil
+    if PmdRenderer and PmdRenderer.contentSize then
       local w = PmdRenderer.contentSize(r.info, r.hdScale and r:hdScale() or 1)
       if tonumber(w) and w > 0 then return w end
     end

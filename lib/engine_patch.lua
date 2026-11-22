@@ -1050,6 +1050,608 @@ function EnginePatch.startWild(game, encounter, opts)
   return BattleBridge.startWild(nil, game, encounter, opts)
 end
 
+-- ------- the mod's own wild double battle ------------------------------------------
+-- Gen1Recomp forces every wild battle single (battle_bridge.lua:475, battle/init.lua:606).
+-- For the length of ONE battle the functions below are wrapped (all module-table fields,
+-- called through their tables), then put back in the battle's `done`:
+--   battle/state.lua:307 State.new -- `double` forced on, so foe.party[2] becomes battler 3
+--   battle/intro_seq.lua:636 IntroSeq.begin -- the wild intro's steps given ids for both foes
+--     (and the player's second Pokemon); battler 3 starts dark and off screen like battler 1
+--   IntroSeq.update -- battler 3 follows battler 1's slide-in / undarken
+--   ui/game3/bag_menu.lua:285 BagMenu.battleUse / BagMenu.show (its onBattleUse) -- a Poke
+--     Ball refused (our line, nothing used) while both foes stand; with one left it is noted
+--   battle/catching.lua Catching.isBall -- the double's own turn step for that ball (init.lua
+--     D.useBag, file-local: it uses the ball up and says the trainer blocked it) is recognised;
+--   battle/battle_text.lua BattleText.get -- ...its three lines silenced;
+--   Battle.update -- ...and once that step is over, the ball is thrown at the foe left: the
+--     game's own catch (Catching.tryCatch + CatchSeq, the singles path's), phase "catching"
+--   battle/catch_seq.lua CatchSeq.update -- a miss puts st.enemy back (the catch scene reads
+--     st.enemy, so a ball at battler 3 has it stand in for the moment)
+-- Both player Pokemon stay out to the end. Running: main.lua's battle.run hook.
+local WD_MODS = {
+  bridge = "src.core.game3.battle_bridge", battle = "src.core.game3.battle",
+  state = "src.core.game3.battle.state", intro = "src.core.game3.battle.intro_seq",
+  anim = "src.core.game3.battle.anim", ui = "src.core.game3.battle.ui",
+  bag = "src.ui.game3.bag_menu", catching = "src.core.game3.battle.catching",
+  catchseq = "src.core.game3.battle.catch_seq", text = "src.core.game3.battle.battle_text",
+}
+local wd = nil -- the special double running now: { st, pending, helper, refuse, orig, follow }
+
+local function wdModules()
+  local m = {}
+  for k, path in pairs(WD_MODS) do
+    m[k] = loadModule(path)
+    if type(m[k]) ~= "table" then return nil end
+  end
+  return m
+end
+
+--- Can this engine run the mod's own wild double (every piece EnginePatch.startWildDouble
+--- wraps or reads is there)?
+function EnginePatch.wildDoubleSupported()
+  local m = wdModules()
+  if not m then return false end
+  local need = {
+    { m.bridge, "startWild" }, { m.battle, "update" }, { m.state, "new" }, { m.state, "isAlive" },
+    { m.state, "battler" }, { m.intro, "begin" }, { m.intro, "update" }, { m.anim, "present" },
+    { m.ui, "push" }, { m.ui, "pushTimed" }, { m.ui, "pushGated" },
+    { m.bag, "battleUse" }, { m.bag, "show" }, { m.bag, "showMessage" },
+    { m.catching, "isBall" }, { m.catching, "tryCatch" }, { m.catching, "playerSecretId" },
+    { m.catchseq, "begin" }, { m.catchseq, "update" }, { m.catchseq, "result" }, { m.text, "get" },
+  }
+  for _, n in ipairs(need) do
+    if type(n[1][n[2]]) ~= "function" then return false end
+  end
+  return true
+end
+
+--- Is the mod's own wild double running?
+function EnginePatch.wildDoubleActive()
+  return wd ~= nil
+end
+
+--- How many foes still stand in the mod's own wild double (nil when none is running, or
+--- before its battle has opened).
+function EnginePatch.wildDoubleFoes()
+  local w = wd
+  if not (w and w.st) then return nil end
+  local S = loadModule(WD_MODS.state)
+  if not S then return nil end
+  return (S.isAlive(w.st, 1) and 1 or 0) + (S.isAlive(w.st, 3) and 1 or 0)
+end
+
+local function wdTeardown()
+  local w = wd
+  if not w then return end
+  wd = nil
+  for _, o in ipairs(w.orig) do o.t[o.k] = o.f end
+end
+
+local function wdWrap(w, t, k, make)
+  local f = t[k]
+  w.orig[#w.orig + 1] = { t = t, k = k, f = f }
+  t[k] = make(f)
+end
+
+-- the ball the player threw at the last foe: its double turn step is over (the ball used up,
+-- its lines silenced), so it flies now -- the game's own catch, as a wild single throws it
+local function wdThrow(m, w)
+  local c = w.catchNext
+  w.catchNext, w.mute = nil, 0
+  local st, S, B = w.st, m.state, m.battle
+  local tid = w.helper.lastFoe({ [1] = S.isAlive(st, 1), [3] = S.isAlive(st, 3) })
+  if not tid then return end
+  local target = S.battler(st, tid)
+  if tid ~= 1 then
+    -- (the catch scene's text and the stored Pokemon read st.enemy: battler 3 stands in for it;
+    -- battler 1 is down, so nothing is drawn twice)
+    w.alias = st.enemy
+    st.enemy = target
+  end
+  local session
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  if Runtime and Runtime.getSession then
+    local ok, s2 = pcall(Runtime.getSession)
+    if ok then session = s2 end
+  end
+  local ad = B._adapter
+  local rng = (ad and ad.rng and ad:rng()) or st.rng
+  local caught, shakes = m.catching.tryCatch(c.itemId, target, st, session, rng)
+  local Ui = m.ui
+  m.catchseq.begin(st, c.itemId, caught, shakes, {
+    -- (battle/init.lua catch_push)
+    pushMsg = function(text, wait, o)
+      if o then Ui.pushGated(text, o.gate, o.pause) elseif wait then Ui.pushTimed(text, wait) else Ui.push(text) end
+    end,
+    headless = false, session = session, target = tid,
+  })
+  B._phase = "catching"
+end
+
+--- Starts the mod's own wild double: `encs` = two wild encounters ({species, level,
+--- personality, ivs, ...}, as for EnginePatch.startWild), `opts` = { done(result), refuse =
+--- the bag's line for a Poke Ball thrown at two }, `helper` = lib/wild_double.lua. Returns
+--- what BattleBridge.startWild returns, or nil, reason (nothing installed then).
+function EnginePatch.startWildDouble(game, encs, opts, helper)
+  opts = opts or {}
+  if wd then return nil, "a double is already running" end
+  if type(encs) ~= "table" or #encs < 2 or not helper then return nil, "two encounters needed" end
+  if not EnginePatch.wildDoubleSupported() then return nil, "unsupported engine" end
+  local m = wdModules()
+  local ids = EnginePatch.trainerIds()
+  local session
+  local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
+  if Runtime and Runtime.getSession then
+    local ok, s = pcall(Runtime.getSession)
+    if ok then session = s end
+  end
+  local party = {}
+  for i, enc in ipairs(encs) do
+    local e = {}
+    for k, v in pairs(enc) do e[k] = v end
+    if i > 1 then
+      -- the engine stamps the player's ids and rolls the held item for the first foe only
+      if ids then
+        e.otId = ids.otId
+        local okS, sid = pcall(m.catching.playerSecretId, session)
+        e.otSecretId = okS and sid or ids.otSecretId
+      end
+      if e.item == nil and EnginePatch.layoutName() == "rse" then e.item = EnginePatch.wildHeldItem(e.species) end
+    end
+    party[i] = e
+  end
+  -- (no species on the container: the engine takes foe.party[1] as battler 1 then)
+  local foe = { party = party, level = party[1].level }
+  local w = { pending = true, helper = helper, refuse = opts.refuse, orig = {} }
+  wd = w
+  local B, S, I, A, G, C = m.battle, m.state, m.intro, m.anim, m.bag, m.catching
+  wdWrap(w, S, "new", function(orig)
+    return function(o, ...)
+      if wd == w and w.pending and type(o) == "table" and o.wild and type(o.foeParty) == "table"
+          and #o.foeParty >= 2 then
+        w.pending = false
+        o.double = true
+        local st = orig(o, ...)
+        w.st = st
+        return st
+      end
+      return orig(o, ...)
+    end
+  end)
+  wdWrap(w, I, "begin", function(orig)
+    return function(st, ...)
+      local r = orig(st, ...)
+      if wd == w and r and st ~= nil and st == w.st and st.double then
+        pcall(function()
+          local foeIds, plIds = {}, { 0 }
+          for _, id in ipairs({ 1, 3 }) do if S.isAlive(st, id) then foeIds[#foeIds + 1] = id end end
+          if S.isAlive(st, 2) then plIds[2] = 2 end
+          helper.patchIntroSteps(I._steps, foeIds, plIds)
+          local p3 = A.present(3)
+          if p3 then p3.visible, p3.ox, p3.darken = true, -240, 10 / 16 end
+          w.follow = true
+        end)
+      end
+      return r
+    end
+  end)
+  wdWrap(w, I, "update", function(orig)
+    return function(...)
+      local r = orig(...)
+      if wd == w and w.follow then
+        -- battler 3 slides in and lights up with battler 1 (the wild intro moves only that one)
+        local p1, p3 = A.present(1), A.present(3)
+        if p1 and p3 then
+          p3.ox, p3.darken = p1.ox, p1.darken
+          if (p1.ox or 0) == 0 and (p1.darken or 0) == 0 then w.follow = false end
+        else
+          w.follow = false
+        end
+      end
+      return r
+    end
+  end)
+  wdWrap(w, G, "battleUse", function(orig)
+    return function(itemId, ...)
+      local st = w.st
+      if wd == w and st and B._st == st and st.double and C.isBall(itemId)
+          and S.isAlive(st, 1) and S.isAlive(st, 3) then
+        G.showMessage(w.refuse or "There are two POKéMON! There's no clear shot!")
+        return
+      end
+      return orig(itemId, ...)
+    end
+  end)
+  -- (another mod's bag screen may hand the battle its pick without BagMenu.battleUse: the
+  -- battle's own callback, ui.lua open_battle_bag's onBattleUse, refuses it too -- the
+  -- battle message box says it and the command menu comes back, as Ui.refuseItems does)
+  wdWrap(w, G, "show", function(orig)
+    return function(bag, sopts, ...)
+      local st = w.st
+      if wd == w and st and B._st == st and type(sopts) == "table" and type(sopts.onBattleUse) == "function" then
+        local cb = sopts.onBattleUse
+        sopts.onBattleUse = function(itemId, ...)
+          if wd == w and st.double and itemId ~= nil and C.isBall(itemId) then
+            local foes = (S.isAlive(st, 1) and 1 or 0) + (S.isAlive(st, 3) and 1 or 0)
+            if helper.ballRule(foes) == "refuse" then
+              local Ui = m.ui
+              Ui._selCmd, Ui._selReturn, Ui._mode = nil, "menu", "selmsg"
+              Ui.push(w.refuse or "There are two POKéMON! There's no clear shot!")
+              return
+            end
+            w.armed = itemId -- (one foe left: this ball is thrown at it, in its turn)
+          end
+          return cb(itemId, ...)
+        end
+      end
+      return orig(bag, sopts, ...)
+    end
+  end)
+  local CS, T = m.catchseq, m.text
+  wdWrap(w, C, "isBall", function(orig)
+    return function(id, ...)
+      local r = orig(id, ...)
+      if r and wd == w and w.armed ~= nil and id == w.armed and w.st and B._st == w.st and B._phase == "actions" then
+        -- the double's turn step for our ball (D.useBag): it uses the ball up; its lines go
+        -- quiet, and the ball is thrown once the step is over (Battle.update below)
+        w.armed, w.catchNext, w.mute = nil, { itemId = id }, 3
+      end
+      return r
+    end
+  end)
+  wdWrap(w, T, "get", function(orig)
+    return function(id, ...)
+      if wd == w and (w.mute or 0) > 0 and helper.BLOCKED_BALL_TEXT[id] then
+        w.mute = w.mute - 1
+        return ""
+      end
+      return orig(id, ...)
+    end
+  end)
+  wdWrap(w, B, "update", function(orig)
+    return function(...)
+      local st = w.st
+      if wd == w and st and B._st == st and w.catchNext and B._phase == "actions" then
+        local ok, err = pcall(wdThrow, m, w)
+        if not ok then print("[wilds_of_hoenn] wild double: " .. tostring(err)) end
+      end
+      return orig(...)
+    end
+  end)
+  wdWrap(w, CS, "update", function(orig)
+    return function(...)
+      local done = orig(...)
+      if done and wd == w and w.alias and CS.result() ~= "catch" then
+        w.st.enemy, w.alias = w.alias, nil -- (missed: battler 1 back in its place)
+      end
+      return done
+    end
+  end)
+  local userDone = opts.done
+  local o = {
+    done = function(result)
+      if wd == w then wdTeardown() end
+      if userDone then return userDone(result) end
+    end,
+    wildsOfHoenn = true, speciesLocked = true,
+  }
+  local ok, a, b = pcall(m.bridge.startWild, nil, game, foe, o)
+  if not ok or not a then
+    if wd == w then wdTeardown() end
+    return nil, ok and b or a
+  end
+  return a, b
+end
+
+--- Takes the special double's wraps off (a battle that ended without its `done`).
+function EnginePatch.endWildDouble()
+  wdTeardown()
+end
+
+-- ------- the mod's own herd battle -----------------------------------------------------
+-- A wild group's leader is fought in a plain wild single; the rest of its group stands behind
+-- it, watching (lib/wild_herd.lua). For the length of ONE battle (put back in its `done`):
+--   battle/state.lua State.new -- its state noted (our wild battle's, not another one)
+--   battle/intro_seq.lua IntroSeq.begin -- "Wild X appeared!" becomes the group's line; the
+--     group's boost is added to the intro's end (cheer, a wait, "power rose")
+--   battle/intro_seq.lua IntroSeq.update -- the leader's stat stages go up, one per member, as
+--     the intro reaches that point, and the stat-up animation (Anim.launchGeneral) plays on it
+--   battle/anim.lua Anim.drawParticles -- the singles draw (battle/ui.lua Ui.draw) calls it for
+--     z 0..99 just before it draws the foe: the others are drawn there, behind it, sliding in
+--     and lighting up with it (its presentation's ox / darken), with the engine's own front
+--     pics (Ui.sidePic: a sprite mod's art too) on their feet line (Ui.battlerSpriteCenter)
+local WH_MODS = {
+  bridge = "src.core.game3.battle_bridge", battle = "src.core.game3.battle",
+  state = "src.core.game3.battle.state", intro = "src.core.game3.battle.intro_seq",
+  anim = "src.core.game3.battle.anim", ui = "src.core.game3.battle.ui",
+  pokemon = "src.core.game3.pokemon",
+}
+local wh = nil -- the herd battle running now: { st, pending, herd, orig }
+
+local function whModules()
+  local m = {}
+  for k, path in pairs(WH_MODS) do
+    m[k] = loadModule(path)
+    if type(m[k]) ~= "table" then return nil end
+  end
+  return m
+end
+
+--- Can this engine run the mod's own herd battle (every piece EnginePatch.startWildHerd wraps
+--- or reads is there)?
+function EnginePatch.wildHerdSupported()
+  local m = whModules()
+  if not m then return false end
+  local need = {
+    { m.bridge, "startWild" }, { m.state, "new" }, { m.state, "displayName" }, { m.intro, "begin" }, { m.intro, "update" },
+    { m.intro, "introText" }, { m.anim, "present" }, { m.anim, "drawParticles" },
+    { m.ui, "sidePic" }, { m.ui, "battlerSpriteCenter" }, { m.pokemon, "picSpecies" },
+    { m.anim, "preloadPack" },
+  }
+  for _, n in ipairs(need) do
+    if type(n[1][n[2]]) ~= "function" then return false end
+  end
+  return true
+end
+
+--- Is the mod's own herd battle running?
+function EnginePatch.wildHerdActive()
+  return wh ~= nil
+end
+
+local function whTeardown()
+  local w = wh
+  if not w then return end
+  wh = nil
+  for _, o in ipairs(w.orig) do o.t[o.k] = o.f end
+end
+
+-- the others, drawn behind the leader where the singles draw puts it (battle/ui.lua
+-- draw_mon_sprite's ENEMY_MON = anim.lua Anim.ENEMY_MON), at its slide / darkness
+-- Growl / Roar's sound waves (the battle's NOISE_LINE sheet: 32x32 frames, frame 3 the
+-- level wave), or false
+local function whWaves(m, w)
+  if w.waves == nil then
+    w.waves = false
+    local okP, pack = pcall(m.anim.preloadPack)
+    local t = okP and type(pack) == "table" and pack.tags and pack.tags.NOISE_LINE
+    local img = t and t.image
+    if img then
+      local iw, ih = img:getDimensions()
+      if iw >= 32 and ih >= 128 then
+        w.waves = { image = img, quad = love.graphics.newQuad(0, 96, 32, 32, iw, ih) }
+      end
+    end
+  end
+  return w.waves or nil
+end
+
+-- the leader caught? (battle/catch_seq.lua: CatchSeq.begin notes the battle in `_st`; the
+-- "capture_success" step stores the Pokemon and sets `_catchResult`, as the ball clicks shut
+-- and "Gotcha!" plays)
+local function whCaught(w)
+  local CS = loadModule("src.core.game3.battle.catch_seq")
+  if type(CS) ~= "table" or CS._st ~= w.st or not CS._caught then return false end
+  local ok, res = pcall(function() return CS.catchResult and CS.catchResult() end)
+  return ok and res ~= nil
+end
+
+-- the leader knocked out? (its HP at 0 -- battle/state.lua State.isFainted -- and its faint
+-- shown: Anim.faintMon sinks it, p.oy growing, then hides it)
+local function whFainted(m, w, p)
+  local st = w.st
+  if not (st and p and type(m.state.isFainted) == "function") then return false end
+  local ok, down = pcall(m.state.isFainted, st.enemy)
+  return ok and down == true and (p.visible == false or (tonumber(p.oy) or 0) > 0)
+end
+
+-- the stat-up animation on the leader (battle/anim.lua Anim.launchGeneral "STATS_CHANGE",
+-- launched the way the intro's own general step does, with the stats' argument)
+local function whBoostAnim(A, st, stats, helper)
+  local Sec = loadModule("src.core.game3.battle.effects.secondary")
+  local Ctx = loadModule("src.core.game3.battle.anim_ctx")
+  if not (type(Sec) == "table" and type(Ctx) == "table" and Ctx.build and A.launchGeneral) then return end
+  local arg = helper.boostAnimArg(stats, Sec.STAT_ANIM, Sec.statAnimArg)
+  if not arg then return end
+  local b = st.enemy
+  local sp = b and (b.species or (b.mon and b.mon.species))
+  A.launchGeneral("STATS_CHANGE", {
+    attackerSide = "enemy", targetSide = "enemy", isReversed = true,
+    attackerSpecies = sp, targetSpecies = sp, animArg = arg,
+    ctx = Ctx.build("enemy", "enemy", { animArg = arg }),
+  })
+end
+
+local function whDraw(m, w)
+  local g = love and love.graphics
+  if not g then return end
+  local A, U = m.anim, m.ui
+  local p = A.present("enemy")
+  local ox = (p and tonumber(p.ox)) or 0
+  local darken = (p and tonumber(p.darken)) or 0
+  -- they come alive once they are in (slid in, lit up), each to its own rhythm
+  local cheering = ox == 0 and darken == 0
+  if cheering then w.clock = (w.clock or 0) + 1 end
+  -- the leader caught or knocked out: they flee the screen (WildHerd.flee), counted from then on
+  if w.fleeAge then
+    w.fleeAge = w.fleeAge + 1
+  elseif w.helper.flee and (whCaught(w) or whFainted(m, w, p)) then
+    w.fleeAge = 0
+  end
+  local base = A.ENEMY_MON or { x = 176, y = 40 }
+  local helper = w.helper
+  local style = helper.styleOf and helper.styleOf(w.kind) or helper
+  local scale = style.scale or helper.SCALE or 0.75
+  local shade = (style.shade or 1) * (1 - darken * (1 - 8 / 255))
+  local alpha = style.alpha or 1
+  local okC, compact = pcall(w.compact or function() return false end)
+  for i, slot in ipairs((okC and compact) and w.slotsCompact or w.slots) do
+    local h = w.herd[i]
+    if h then
+      if h.entry == nil then
+        local picSp = m.pokemon.picSpecies(h.species, h.personality)
+        h.entry = U.sidePic(false, true, picSp, 0, false, h.personality, nil) or false
+      end
+      local img = h.entry and h.entry.image
+      local pose = h.pose or {}
+      h.pose, h.state = pose, h.state or {}
+      if helper.pose then
+        helper.pose(w.kind, i, w.clock or 0, h.state, pose)
+      else
+        pose.dx, pose.dy, pose.sx, pose.sy, pose.rot, pose.flip, pose.bark = 0, 0, 1, 1, 0, helper.FLIP, nil
+        if cheering and helper.cheer then pose.dy, pose.sx, pose.sy, pose.bark = helper.cheer(w.clock, i) end
+      end
+      pose.alpha, pose.gone = 1, false
+      if w.fleeAge then helper.flee(w.kind, i, w.fleeAge, slot[1] < 0 and -1 or 1, pose) end
+      if img and not pose.gone then
+        -- (the spot moves each frame with a widescreen / fitted battle: asked every frame)
+        local cx, cy = U.battlerSpriteCenter("enemy", h.species, base, 0, false)
+        -- on its own feet line (its species' centre where the leader stands), moved to its
+        -- place; scaled about its feet (the pic's bottom middle)
+        local x = cx + slot[1] + ox + pose.dx
+        local y = cy + slot[2] + 32 + pose.dy
+        local a = alpha * (pose.alpha or 1)
+        local dir = pose.flip and 1 or -1 -- (front pics face left; flipped = facing right)
+        g.setColor(shade, shade, shade, a)
+        g.draw(img, x, y, pose.rot or 0, -dir * scale * pose.sx, scale * pose.sy, 32, 64)
+        local wv = pose.bark and helper.barkWaves and whWaves(m, w)
+        if wv then
+          -- its bark: the waves from its mouth (the pic's middle, toward the side it faces)
+          local mx = x + dir * 16 * scale
+          local my = y - 34 * scale
+          w.waveList = helper.barkWaves(pose.bark, w.waveList)
+          for _, l in ipairs(w.waveList) do
+            g.setColor(1, 1, 1, l[4] * a)
+            g.draw(wv.image, wv.quad, mx + dir * l[1], my + l[2], dir * l[3], 0.45 * dir, 0.45, 16, 16)
+          end
+        end
+      end
+    end
+  end
+  g.setColor(1, 1, 1, 1)
+end
+
+--- Starts the mod's own herd battle: `enc` = the leader's wild encounter (as for
+--- EnginePatch.startWild, fought as a plain wild single), `herd` = the others ({ species,
+--- personality }, WildHerd.members), `opts` = { done(result), text = function(name) -> the
+--- intro's line, compact = function() -> true for the compact places (a 3D battle scene),
+--- boost = function(name, mon) -> the leader's stats to raise (+1 each), the cheer line, the
+--- risen line (WildHerd.boosts; nil = no boost),
+--- kind = the group's kind (WildHerd.kindOf; nil = "land") },
+--- `helper` = lib/wild_herd.lua. Returns what BattleBridge.startWild returns,
+--- or nil, reason (nothing installed then).
+function EnginePatch.startWildHerd(game, enc, herd, opts, helper)
+  opts = opts or {}
+  if wh then return nil, "a herd battle is already running" end
+  if type(enc) ~= "table" or type(herd) ~= "table" or #herd < 1 or not helper then
+    return nil, "a leader and its group needed"
+  end
+  if not EnginePatch.wildHerdSupported() then return nil, "unsupported engine" end
+  local m = whModules()
+  local list = {}
+  for i = 1, math.min(#herd, (helper.MAX or 5) - 1) do
+    list[i] = { species = herd[i].species, personality = herd[i].personality }
+  end
+  -- (drawn farthest first: the slot list's order; the herd's i-th Pokemon takes slot i;
+  -- `opts.compact()` true -> the compact places, for a 3D battle scene)
+  -- `opts.kind` (WildHerd.kindOf: land / float / bird / swim) picks where they stand and how
+  -- they move
+  local kind = opts.kind or "land"
+  local w = { pending = true, herd = list, kind = kind, slots = helper.slots(#list, false, kind),
+              slotsCompact = helper.slots(#list, true, kind), compact = opts.compact, helper = helper,
+              orig = {} }
+  wh = w
+  local B, S, I, A = m.battle, m.state, m.intro, m.anim
+  wdWrap(w, S, "new", function(orig)
+    return function(o, ...)
+      local st = orig(o, ...)
+      if wh == w and w.pending and type(o) == "table" and o.wild then
+        w.pending = false
+        w.st = st
+      end
+      return st
+    end
+  end)
+  wdWrap(w, I, "begin", function(orig)
+    return function(st, ...)
+      local r = orig(st, ...)
+      if wh == w and r and st ~= nil and st == w.st and not st.double and type(opts.text) == "function" then
+        local ok, err = pcall(function()
+          local old = I.introText(st)
+          helper.patchIntroText(I._steps, old, opts.text(S.displayName(st.enemy)))
+        end)
+        if not ok then print("[wilds_of_hoenn] herd intro: " .. tostring(err)) end
+      end
+      -- the group lends its leader strength, shown at the intro's end (WildHerd.addBoostSteps);
+      -- its stat stages go up as the stat-up animation plays (the IntroSeq.update wrap below)
+      if wh == w and r and st ~= nil and st == w.st and not st.double and type(opts.boost) == "function"
+          and not w.boostSteps then
+        local ok, err = pcall(function()
+          local stats, cheer, rose = opts.boost(S.displayName(st.enemy), st.enemy.mon)
+          local at = stats and #stats > 0 and helper.addBoostSteps(I._steps, cheer, rose)
+          if at then w.boostSteps, w.boostAt, w.boostStats = I._steps, at, stats end
+        end)
+        if not ok then print("[wilds_of_hoenn] herd boost: " .. tostring(err)) end
+      end
+      return r
+    end
+  end)
+  wdWrap(w, I, "update", function(orig)
+    return function(...)
+      local a, b = orig(...)
+      -- the boost lands as the intro reaches its wait step (WildHerd.addBoostSteps): the
+      -- stat-up animation launched on the leader there (the intro holds while it runs), its
+      -- stages up -- or, the intro over without getting there, just the stages; once
+      local st = w.st
+      if wh == w and w.boostStats and st and B._st == st then
+        local there = I._steps == w.boostSteps and (tonumber(I._i) or 0) >= w.boostAt
+        if there or I._steps ~= w.boostSteps then
+          local stats = w.boostStats
+          w.boostStats = nil
+          pcall(helper.applyBoosts, st.enemy and st.enemy.stages, stats)
+          if there and not A._headless then
+            local ok, err = pcall(whBoostAnim, A, st, stats, helper)
+            if not ok then print("[wilds_of_hoenn] herd boost anim: " .. tostring(err)) end
+          end
+        end
+      end
+      return a, b
+    end
+  end)
+  wdWrap(w, A, "drawParticles", function(orig)
+    return function(minZ, maxZ, ...)
+      local st = w.st
+      if wh == w and st and B._st == st and not st.double and minZ == 0 and maxZ == 99 and not A._headless then
+        local ok, err = pcall(whDraw, m, w)
+        if not ok then
+          print("[wilds_of_hoenn] herd draw: " .. tostring(err))
+          w.slots, w.slotsCompact = {}, {} -- (drawn no more this battle; the battle goes on)
+        end
+      end
+      return orig(minZ, maxZ, ...)
+    end
+  end)
+  local userDone = opts.done
+  local o = {
+    done = function(result)
+      if wh == w then whTeardown() end
+      if userDone then return userDone(result) end
+    end,
+    wildsOfHoenn = true, speciesLocked = true,
+  }
+  local ok, a, b = pcall(m.bridge.startWild, nil, game, enc, o)
+  if not ok or not a then
+    if wh == w then whTeardown() end
+    return nil, ok and b or a
+  end
+  return a, b
+end
+
+--- Takes the herd battle's wraps off (a battle that ended without its `done`).
+function EnginePatch.endWildHerd()
+  whTeardown()
+end
+
 --- Thin read-only accessors so the rest of this mod never calls `require`
 --- directly -- every engine touch point is listed above and visible in one
 --- file.
@@ -2197,10 +2799,15 @@ function EnginePatch.partyMenu()
 end
 
 --- The party as a plain list (slot order), or {} without a session.
-function EnginePatch.partyMons()
+function EnginePatch.partyMons(out)
   local Runtime = loadModule(EnginePatch.READONLY.getSession.mod)
   local ok, session = pcall(Runtime and Runtime.getSession)
-  local out = {}
+  -- (`out`: filled in place, for a caller asking every tick; it reads it at once)
+  if out then
+    for i = #out, 1, -1 do out[i] = nil end
+  else
+    out = {}
+  end
   if not (ok and type(session) == "table" and type(session.party) == "table") then return out end
   for i = 1, 6 do
     if type(session.party[i]) == "table" then out[#out + 1] = session.party[i] end
@@ -2247,13 +2854,13 @@ end
 --- The player's surf state: { surfing, dismounting } -- `surfing` is true from
 --- the hop onto the water until the dismount onto land begins (player.lua
 --- Player.surfHopping / surfing / dismounting). Both false without a player.
+local surfState = { surfing = false, dismounting = false }
 function EnginePatch.playerSurfState()
+  -- (one table, refilled: the follower asks every tick; callers read it at once, never keep it)
   local Player = loadModule(EnginePatch.READONLY.playerRunning.mod)
-  if not Player then return { surfing = false, dismounting = false } end
-  return {
-    surfing = Player.surfing == true or Player.surfHopping == true,
-    dismounting = Player.dismounting == true,
-  }
+  surfState.surfing = Player ~= nil and (Player.surfing == true or Player.surfHopping == true)
+  surfState.dismounting = Player ~= nil and Player.dismounting == true
+  return surfState
 end
 
 --- Is the player riding a bike (player.lua Player.biking, either bike)? The follower

@@ -82,12 +82,15 @@ do
   local actors = {}
   EcoGlow.collect(e, actors, 10)
   check(#actors == 1 and actors[1].kind == "ow_glow" and not actors[1].under, "one light at the surface")
-  local up = actors[1]
+  -- (its actor is kept and refilled every frame: the values read now)
+  local first = actors[1]
+  local up = { radius = first.radius, strength = first.strength }
   e.renderer.act = { sink = 1 }
   actors = {}
   EcoGlow.collect(e, actors, 10)
   check(actors[1].under and actors[1].radius > up.radius and actors[1].strength < up.strength,
     "sunk under the water: still glowing, dimmer and wider")
+  check(actors[1] == first, "the same actor refilled (no new table a frame)")
   local f = mon("tail", true)
   f.moving = true
   for _ = 1, 12 do EcoGlow.tick(f, true) end

@@ -11,7 +11,7 @@ Config.DEFAULTS = {
   wild_silhouettes = "off",
   species_sizes = true,
   spawn_amount = "normal",
-  flyers = "full",
+  flyers = true,
   smooth_follow = true,
   show_follower = true,
   portraits = true,
@@ -56,6 +56,14 @@ Config.SWIM = {
   dive = { min = 600, max = 2700, sinkTicks = 22, underMin = 60, underMax = 180, hop = 3, clearRadius = 2 },
 }
 
+-- A wild Ghost-type on land (lib/spawn_manager.lua _ghostLife) now and then fades out where
+-- it stands, stays unseen a while (passing through: nobody meets it, nothing fights it) and
+-- fades in again on a free cell of its own ground within `hop` tiles -- the way a swimmer
+-- dives. Every `min..max` ticks, not with the player within `clearRadius` tiles; `fadeTicks`
+-- to fade out, `underMin..underMax` unseen. Not a group (its members ride with it).
+Config.GHOST_FADE = { min = 600, max = 2400, fadeTicks = 30, underMin = 90, underMax = 240, hop = 3,
+                      clearRadius = 2 }
+
 -- Density, per terrain (land and water each): MIN_VISIBLE plus one more Pokemon for
 -- every TILES_PER_ADDITIONAL eligible tiles, at most MAX_VISIBLE. These are the
 -- Normal values of the Spawn Amount option; SPAWN_AMOUNT holds Low and High.
@@ -81,6 +89,10 @@ Config.SWEET_SCENT = { min = 2, max = 3, minDist = 1, maxDist = 4, lureTicks = 3
 -- bigger (`scale`), sliding faster across the ground (`parallax`, about the view's
 -- centre) and out of focus (`blur`, px of the drawn sprite), hazed toward the sky and
 -- see-through. `h` 0 = low (landing, perched), 0.5 = mid, 1 = high; between, interpolated.
+-- px of air between a Pokemon's head (as drawn now: renderer:headLiftNow) and a mark over it
+-- ("!", "?", anger, hearts, z's, the partner's labels and moods)
+Config.MARK_GAP = 1
+
 Config.FLYERS = {
   layers = {
     { h = 0,   scale = 1.0, parallax = 1.0,  blur = 0,   alpha = 1.0,  haze = 0 },
@@ -95,14 +107,32 @@ Config.FLYERS = {
   -- (the high one bobs up and down as it goes, `bob` px either way, a beat every `bobTicks`).
   -- It starts in the band, then moves in perspective as the view scrolls (not held there).
   passer = { every = { 1800, 4200 }, max = 1, maxHigh = 1, ticks = { 300, 480 }, highTicks = { 240, 360 },
-             band = 0.22, arc = { 6, 16 }, bob = { 2, 4 }, bobTicks = { 40, 56 } },
+             band = 0.22, arc = { 6, 16 }, bob = { 2, 4 }, bobTicks = { 40, 56 },
+             -- a high one comes down into the field `landChance` % of the time, a real wild
+             -- Pokemon of that species at one of its table levels, once `landAt` of its way
+             -- across (and on screen), flying down for `landTicks` onto a free cell in view
+             -- (else up to `landMargin` tiles past its edges) at least `landClear` tiles from the player
+             landChance = 50, landAt = 0.4, landTicks = { 70, 100 }, landMargin = 3, landClear = 2 },
   -- a swoop (landing, perching, diving, leaving) starts / ends off screen, mid or high up
   -- (startH, in hundredths), from any side, curving so its path never comes within
   -- `clearRadius` tiles of the player; a wild Pokemon that close arrives / leaves the usual way
   swoop = { startH = { 55, 100 }, clearRadius = 3, arc = { 10, 28 } },
   perch = { every = { 600, 1500 }, max = 2, stay = { 600, 2400 }, fidget = { 180, 480 },
-            flyTicks = { 80, 110 }, scatter = 2, scatterRunning = 3, cryChance = 0.2 },
-  dive = { every = { 900, 2400 }, under = { 120, 300 }, flyTicks = { 70, 90 }, sinkTicks = 14 },
+            flyTicks = { 80, 110 }, scatter = 2, scatterRunning = 3, cryChance = 0.2,
+            -- an AGGRESSIVE one (lib/eco_profile.lua temper) the player comes near may swoop
+            -- down at them instead (Pokecology on; WildReactions.decide by strength, one roll)
+            -- -- a real wild Pokemon beside them, over `pounceTicks` + 4 a tile -- and attack
+            pounceTicks = 24 },
+  -- a sea bird diving for fish; `stayChance` % come up and stay on the water `stayTicks`
+  -- with the fish they caught: real wild Pokemon then (surf onto it: both at once)
+  dive = { every = { 900, 2400 }, under = { 120, 300 }, flyTicks = { 70, 90 }, sinkTicks = 14,
+           stayChance = 30, stayTicks = 180,
+           -- ...fighting to keep its catch: a burst of jerks every `every` ticks, `burst` long,
+           -- flipping side every `flip` ticks, `jerk` px across, a `hop` px up, `tilt` radians;
+           -- in between a slow `sway` (radians, over `swayTicks`); its anger mark pops up again
+           -- every `markEvery` ticks
+           fight = { every = { 34, 52 }, burst = 14, flip = 2, jerk = 2, hop = 1.5, tilt = 0.3,
+                     sway = 0.06, swayTicks = 9, markEvery = 50 } },
   -- a wild Flying-type Pokemon arriving / leaving by air instead of rising out of the grass
   land = { flyTicks = { 80, 100 }, perchChance = 0.4, perchRange = 4, sit = { 180, 480 }, hopTicks = 22,
            groundStay = { 2700, 7200 } },
@@ -192,6 +222,10 @@ Config.ECO = {
             -- grass, a fade); only the leader stays -- and a shiny member, should one exist.
             -- Not an escort (another species), not a flock (it takes off after its leader).
             startled = { steps = { 2, 4 }, frames = 6, lag = { 0, 10 } },
+            -- ...and when the leader is gone (battled, caught, knocked out, left), the same,
+            -- each after its own lag (a herd battle's watchers: as the field comes back) --
+            -- vanishing into the grass, or out of it and fading
+            leaderGone = { steps = { 2, 4 }, frames = 6, lag = { 6, 36 } },
             -- each member its own: no two move or pose in step (SpawnManager._riderVary)
             vary = {
               catchUp = { 1.1, 2.1 },     -- px a tick it follows at (the leader walks 16 px in 16)
@@ -982,25 +1016,11 @@ function Config.spawnAmount(mod)
   return Config.SPAWN_AMOUNT[v] or Config.SPAWN_AMOUNT.normal, Config.SPAWN_AMOUNT[v] and v or "normal"
 end
 
---- The Flying Mons option: birds in the sky, perching, and wild Flying-type Pokemon
---- arriving / leaving by air. On unless switched off.
---- The Flying Mons option: "full" (everything, the high birds too), "ambient" (no high
---- birds) or "off". A save from when it was an on / off toggle reads true -> full, false -> off.
-function Config.flyersMode(mod)
-  local v = optGet(mod, "flyers")
-  if v == true then return "full" end
-  if v == false then return "off" end
-  if v == "full" or v == "ambient" or v == "off" then return v end
-  return "full"
-end
-
+--- Flying Mons (`flyers`, a toggle). A save from when it was Full / Ambient / Off keeps
+--- working: "full" / "ambient" read as on, "off" as off.
 function Config.flyersOn(mod)
-  return Config.flyersMode(mod) ~= "off"
-end
-
---- The big blurred passers high overhead (lib/sky_flyers.lua): Flying Mons on Full only.
-function Config.highBirdsOn(mod)
-  return Config.flyersMode(mod) == "full"
+  local v = optGet(mod, "flyers")
+  return v ~= false and v ~= "off"
 end
 
 local VALID_SILHOUETTE ={ off = true, undiscovered = true, all = true }

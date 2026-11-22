@@ -27,8 +27,6 @@ return {
   ["choice|LOW"] = "BAJO",
   ["choice|NORMAL"] = "NORMAL",
   ["choice|HIGH"] = "ALTO",
-  ["choice|FULL"] = "COMPLETO",
-  ["choice|AMBIENT"] = "AMBIENTE",
   ["choice|OFF"] = "NO",
   ["choice|HGSS"] = "HGSS",
   ["choice|PMD"] = "PMD",
@@ -48,8 +46,8 @@ return {
     "Muestra Pokémon salvajes visibles en las zonas de hierba y agua donde aparecen.",
   ["How many wild Pokemon are out at once, for grass and water each, growing with the size of the area. Low: about half (up to 4). Normal: up to 8. High: about one and a half times (up to 12)."] =
     "Cuántos Pokémon salvajes hay a la vez, en hierba y en agua, según el tamaño de la zona. Bajo: más o menos la mitad (hasta 4). Normal: hasta 8. Alto: una vez y media (hasta 12).",
-  ["Flying Pokemon in the sky: birds of the area pass overhead, perch on trees, roofs and signposts, and real sea birds dive for food; wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Full: all of it, with big soft-focus birds flying high overhead. Ambient: the same without the high birds. Off: none of it, wild Pokemon all arrive the usual way."] =
-    "Pokémon voladores en el cielo: las aves de la zona pasan por encima, se posan en árboles, tejados y carteles, y las aves marinas se lanzan al agua a pescar; los Pokémon salvajes de tipo Volador bajan del cielo (y vuelven a despegar) en vez de salir de la hierba. Completo: todo, con grandes aves desenfocadas volando muy alto. Ambiente: lo mismo sin las aves altas. No: nada de esto.",
+  ["Flying Pokemon in the sky: birds of the area pass overhead, and now and then one high up comes down into the field to be met; in towns they perch on trees, roofs and signposts (an aggressive one may swoop at you), and real sea birds dive for food, sometimes staying up on the water with their catch, both met at once; wild Flying-type Pokemon swoop down to land (and take off again) instead of rising out of the grass. Off: none of it, wild Pokemon all arrive the usual way."] =
+    "Pokémon voladores en el cielo: las aves de la zona pasan por encima, y de vez en cuando una de las que vuelan alto baja al campo para enfrentarte; en los pueblos se posan en árboles, tejados y carteles (una agresiva puede lanzarse contra ti), y las aves marinas se lanzan al agua a pescar y a veces se quedan en el agua con su presa, y luchas contra las dos a la vez; los Pokémon salvajes de tipo Volador bajan del cielo (y vuelven a despegar) en vez de salir de la hierba. No: nada de esto.",
   ["Life in the water, just for the scenery: small fish of the area (Magikarp, Goldeen, Luvdisc ...) leap out of the water and splash back in, and Wailmer and Wailord surface for a while, blowing a spray, before sinking back under. Out at sea, Finizen porpoise by now and then (once in a while a whole pod comes up to play). Diving, fish swim by under the sea as dark shadows trailing bubbles. Never battled."] =
     "Vida en el agua, solo de ambiente: los peces de la zona (Magikarp, Goldeen, Luvdisc...) saltan fuera del agua y vuelven a caer, y Wailmer y Wailord salen a la superficie un rato, echando un chorro, antes de hundirse. En el mar, algún Finizen salta de vez en cuando (y a veces llega todo un grupo a jugar). Buceando, los peces pasan bajo el mar como sombras oscuras con burbujas. Nunca se lucha con ellos.",
   ["Little moments in a few special places: ghosts drift through Lavender Town, bug Pokemon dangle from the trees of Petalburg Woods where Slakoth naps and Vigoroth dances on the treetops, and a great Tropius rises out of Fortree's trees. Just for the scenery."] =
@@ -113,6 +111,10 @@ return {
   ["%s is already doing that."] = "%s ya está haciendo eso.",
   ["Nothing happened."] = "No ha pasado nada.",
   ["Found %s!"] = "¡Encontró %s!",
+  ["Two POKéMON are out! There's no clear shot!"] = "¡Hay dos POKéMON! ¡No hay tiro limpio!",
+  ["A wild %s group appeared!"] = "¡Apareció un grupo de %s salvajes!",
+  ["%s's group cheers it on!"] = "¡El grupo de %s lo anima!",
+  ["%s's power rose!"] = "¡El poder de %s aumentó!",
   ["an item"] = "un objeto",
   ["+%d EXP"] = "+%d EXP",
   ["Lv.%d!"] = "¡Nv.%d!",

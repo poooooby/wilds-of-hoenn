@@ -93,7 +93,9 @@ tests/sprite_source_unit_test.lua
 tests/sweat_drop_unit_test.lua
 tests/sweet_scent_hearts_unit_test.lua
 tests/water_life_unit_test.lua
+tests/wild_double_unit_test.lua
 tests/wild_emote_unit_test.lua
+tests/wild_herd_unit_test.lua
 tests/wild_reactions_unit_test.lua
 
 # bake / validation / asset tools
@@ -157,6 +159,10 @@ dist/vivid-worlds-v2.0.5-hgss-pmd.zip
 dist/vivid-worlds-v2.0.5.zip
 dist/vivid-worlds-v2.0.6-hgss-pmd.zip
 dist/vivid-worlds-v2.0.6.zip
+dist/vivid-worlds-v2.0.7-hgss-pmd.zip
+dist/vivid-worlds-v2.0.7.zip
+dist/vivid-worlds-v2.0.8-hgss-pmd.zip
+dist/vivid-worlds-v2.0.8.zip
 dist/wilds-of-hoenn-v1.10.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.10.0-hgss.zip
 dist/wilds-of-hoenn-v1.10.1-hgss-pmd.zip

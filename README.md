@@ -63,10 +63,16 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   chase you, and packs, herds and schools move together. Startle a skittish group and the others
   scurry off and vanish, leaving its leader dashing about its patch in a fright before it calms
   down. Some sleep by night or by day, diggers
-  burrow, hunters chase prey, and some glow after dark.
+  burrow, hunters chase prey, and some glow after dark. Ghosts now and then fade from sight
+  and drift back in a few steps away.
 - 🌊 **Water life:** swimmers dive and resurface, fish leap, Wailmer spout, and Finizen porpoise
   out at sea.
-- 🕊️ **Birds in the sky:** birds fly overhead, perch on roofs and dive for fish.
+- 🕊️ **Birds in the sky:** birds fly overhead, perch on roofs and dive for fish. They are not just
+  scenery: now and then a bird high up comes down into the field to be met, an aggressive one
+  perched in town may swoop down and pick a fight, and a sea bird that stays up on the water,
+  angrily jerking about to keep hold of its catch, is met together with that fish, in a wild
+  double battle: while both are up no ball
+  can be thrown and there is no running away; once one is down you can catch the other (or run).
 - 👻 **Local scenes:** a few special places have their own moments, in Lavender Town, Petalburg
   Woods and Fortree City.
 - 🎨 **Two sprite styles:** HGSS / PokeMMO art or animated PMDCollab sprites, with alternate and
@@ -91,7 +97,7 @@ Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 | **Language** | EN / JA / PT / ES / DE | ENGLISH | Language of the mod's own text. |
 | **Show Wild Mons** | ON / OFF | ON | Visible wild Pokémon. |
 | **Spawn Amount** | LOW / NORMAL / HIGH | NORMAL | How many are out at once. |
-| **Flying Mons** | FULL / AMBIENT / OFF | FULL | Birds in the sky. Ambient leaves out the high flyers. |
+| **Flying Mons** | ON / OFF | ON | Birds in the sky, and wild Flying types swooping in and out. |
 | **Water Life** | ON / OFF | ON | Leaping fish, spouting whales, Finizen and fish under the sea. |
 | **Local Scenes** | ON / OFF | ON | Scenes in a few special places. |
 | **Pokecology** | ON / OFF | ON | Species behaviour and reactions to you. Off: they just wander. |
@@ -129,7 +135,15 @@ Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 - **Battler button:** set one in the options to send your partner in or call it back without a
   menu. In FireRed / LeafGreen, that button no longer opens Help in the overworld.
 - **Wild Pokémon only spawn where you can walk.** Water Pokémon fill every lake and sea.
-- **Group battles:** walking into a group battles its leader.
+- **Group battles:** walk into a pack or herd and the whole group appears in the battle ("A wild
+  ZIGZAGOON group appeared!"). While you battle its leader, the others show up the way they
+  live: a pack on the ground gathers behind it, hopping and barking to cheer it on; Magnemite,
+  Gastly, Zubat and other floaters hover behind it; a flock of birds hops about behind it; a
+  school of fish bobs in the water behind it. The bigger the group, the stronger its leader:
+  each member cheering it on raises one of its stats by a stage (its stronger attack first,
+  then Defense, Sp. Def and Speed). Catch or knock out the leader and the rest flee
+  the battle at once. Once the battle is over they scatter, vanishing into the grass or running
+  off and fading away.
 - **Pokémon your partner has been fighting** keep the HP it left them with when you battle them.
 - **Day and night:** the game's clock decides, or your computer's clock in FireRed and
   LeafGreen.

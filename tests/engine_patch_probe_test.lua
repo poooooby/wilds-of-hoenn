@@ -165,6 +165,70 @@ do
   end
 end
 
+-- The mod's own wild double (EnginePatch.startWildDouble, lib/wild_double.lua): every piece it
+-- wraps or reads is there, and the two places the engine forces a wild battle single are where
+-- the wraps expect them (Battle.start builds State.new through the module table).
+do
+  check(EnginePatch.wildDoubleSupported(), "engine: every piece the mod's own wild double needs")
+  local init = io.open("src/core/game3/battle/init.lua"):read("a")
+  check(init:find("local double = (opts.double == true) and not opts.wild", 1, true) ~= nil,
+    "engine: Battle.start still forces a wild battle single (the State.new wrap turns it double)")
+  check(init:find("local st = State.new({", 1, true) ~= nil, "engine: Battle.start calls State.new through its table")
+  check(init:find("IntroSeq.begin(st, introOpts)", 1, true) ~= nil, "engine: the intro begins through IntroSeq.begin")
+  local ui = io.open("src/core/game3/battle/ui.lua"):read("a")
+  check(ui:find("BagMenu.show(bag, {", 1, true) ~= nil and ui:find("onBattleUse = function", 1, true) ~= nil,
+    "engine: the battle opens the bag through BagMenu.show with onBattleUse")
+  local eng = io.open("src/core/game3/battle/engine.lua"):read("a")
+  check(eng:find('ModRuntime.wantsHook("battle.run")', 1, true) ~= nil, "engine: the battle.run hook (running from the double)")
+  check(not EnginePatch.wildDoubleActive(), "no double running at rest")
+end
+
+-- the mod's own herd battle (EnginePatch.startWildHerd): every piece it wraps or reads, and the
+-- singles draw still draws the foe right after its z 0..99 particles (the others go there)
+do
+  check(EnginePatch.wildHerdSupported(), "engine: every piece the mod's own herd battle needs")
+  local ui = io.open("src/core/game3/battle/ui.lua"):read("a")
+  local at = ui:find("Anim.drawParticles(0, 99)", 1, true)
+  local foe = at and ui:find("draw_mon_sprite(st.enemy, ENEMY_MON, false)", at, true)
+  check(foe ~= nil and foe - at < 80,
+    "engine: the singles draw puts the foe right after Anim.drawParticles(0, 99) (the herd stands behind it)")
+  local intro = io.open("src/core/game3/battle/intro_seq.lua"):read("a")
+  check(intro:find('add("msg", { text = intro_msg(st) })', 1, true) ~= nil,
+    "engine: the wild intro's line is a msg step with IntroSeq.introText's text")
+  -- the leader caught: the others flee (engine_patch whCaught reads these)
+  local CS = require("src.core.game3.battle.catch_seq")
+  local cs = io.open("src/core/game3/battle/catch_seq.lua"):read("a")
+  check(type(CS.catchResult) == "function" and cs:find("CatchSeq._st = st", 1, true) ~= nil
+    and cs:find("CatchSeq._caught = caught", 1, true) ~= nil and cs:find("CatchSeq._catchResult = res", 1, true) ~= nil,
+    "engine: CatchSeq notes the battle, the catch and its stored result (the herd flees on a catch)")
+  local State = require("src.core.game3.battle.state")
+  local anim = io.open("src/core/game3/battle/anim.lua"):read("a")
+  check(type(State.isFainted) == "function" and State.isFainted({ mon = { hp = 0 } }) and not State.isFainted({ mon = { hp = 5 } })
+    and anim:find("p.oy = fromOy + step * 8", 1, true) ~= nil and anim:find("p.visible = false", 1, true) ~= nil,
+    "engine: a knocked-out foe reads as fainted and its faint sinks (p.oy) then hides it (the herd flees on a KO)")
+  -- the group's boost (WildHerd.addBoostSteps): a "general" intro step plays a named battle
+  -- animation, STATS_CHANGE is one, and a battler's stat stages carry the keys WildHerd.boosts names
+  local AnimM = require("src.core.game3.battle.anim")
+  local Sec = require("src.core.game3.battle.effects.secondary")
+  local Ctx = require("src.core.game3.battle.anim_ctx")
+  check(intro:find('if kind == "wait" then', 1, true) ~= nil and intro:find("if Anim.busy() or IntroSeq._waitingFade", 1, true) ~= nil
+    and type(AnimM.launchGeneral) == "function" and type(Ctx.build) == "function"
+    and type(Sec.statAnimArg) == "function" and type(Sec.STAT_ANIM) == "table" and Sec.STAT_ANIM.MULTIPLE_PLUS1 ~= nil
+    and io.open("src/core/game3/battle/anim_seq.lua"):read("a"):find("STATS_CHANGE", 1, true) ~= nil,
+    "engine: an intro wait holds while an animation runs, and STATS_CHANGE takes the stats' argument (the group's boost)")
+  local okB, b = pcall(State.newBattler, { species = 1, level = 5 }, "enemy", {})
+  local stg = okB and type(b) == "table" and b.stages
+  if not stg then
+    local stSrc = io.open("src/core/game3/battle/state.lua"):read("a")
+    check(stSrc:find("attack = 0, defense = 0, spAtk = 0, spDef = 0, speed = 0", 1, true) ~= nil,
+      "engine: a battler's stat stages are attack / defense / spAtk / spDef / speed (the group's boost)")
+  else
+    check(stg.attack == 0 and stg.defense == 0 and stg.spAtk == 0 and stg.spDef == 0 and stg.speed == 0,
+      "engine: a battler's stat stages are attack / defense / spAtk / spDef / speed (the group's boost)")
+  end
+  check(not EnginePatch.wildHerdActive(), "no herd battle running at rest")
+end
+
 -- Fly Mount (lib/fly_mount.lua; the optional Field.flyTo / FieldEffects.drawFront wraps
 -- and EnginePatch.flyAnims / playerRide / flyMoveId): the engine pieces, and the two wraps
 -- doing what they must -- the chosen Pokemon noted first; the bird hidden only for the

@@ -1,5 +1,69 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Wild Ghost-types in the overworld now and then fade out of sight and fade back in a few
+  steps away, the way swimmers dive and come up again. While unseen they can't be bumped
+  into or fought.
+
+- Group battles: the bigger the group, the stronger its leader. After you send out your
+  Pokémon, the group cheers its leader on and the stat-up animation plays: one stat stage for
+  each member there (its stronger attacking stat first, then Defense, Sp. Def and Speed). Like
+  any stat change, it is lost if the leader leaves the field (Haze, Roar) and never carries
+  over to a caught Pokémon.
+
+### Changed
+
+- Less memory churn in the overworld: your partner, swimmers, sleepers' z's, night glows,
+  signature effects, Water Life and local scenes no longer build throwaway data every frame
+  (about a quarter of what the mod's overworld code made before), so the game's garbage
+  collector has less to do.
+- Group battles: a pack on the ground now stands behind its leader, smaller and solid, peeking
+  out on both sides of it, instead of off to its left.
+
+## 2.1.0-beta.2 (2026-11-20)
+
+### Changed
+
+- Group battles: the group shows up the way it lives. A pack on the ground still gathers at the
+  leader's side, hopping and barking; floaters (Magnemite, Gastly, Zubat, Hoppip ...) hover
+  behind the leader; a flock of birds hops about behind it; a school or pod bobs in the water
+  behind it. Catch or knock out the leader and the others flee the battle screen right away
+  (running off, drifting or flying away, diving) instead of cheering on.
+
+## 2.1.0-beta.1 (2026-11-20)
+
+### Added
+
+- Birds in the sky can be met (Flying Mons on):
+  - Half the birds flying high overhead come down into the field: a real wild Pokémon of that
+    species, at one of the area's levels, flying down from where the bird was.
+  - An aggressive bird perched in town (Spearow, Fearow, Staraptor, Golbat, Aerodactyl) may
+    swoop down at you instead of flying off, and charge (Pokecology on; a much stronger lead
+    scares it off as before).
+  - A sea bird up from its dive sometimes stays on the water for a few seconds with its catch,
+    an anger mark over its head, jerking and tilting as it fights to keep the fish in its beak.
+    Surf onto it and you meet both at once, in a wild double battle: while both are up no Poké
+    Ball can be thrown ("Two POKéMON are out! There's no clear shot!", nothing is used up) and
+    there is no running ("Can't escape!"). Once one is down, a ball flies at the one left and
+    running works as in any wild battle; your two Pokémon stay out to the end.
+
+- Group battles: walking into a group's leader shows the whole group sliding in
+  with "A wild ZIGZAGOON group appeared!". You battle the leader as before while the others
+  gather in a loose pack beside it, turned toward it, each hopping and barking (Growl's sound
+  waves) to cheer it on in its own time. Afterwards they scatter, each a moment after the other, vanishing
+  into the grass or running out of it and fading away.
+
+### Changed
+
+- **Flying Mons is On / Off again** (the high birds are always part of it). A saved Full or
+  Ambient is On, Off stays Off.
+- The marks over a Pokémon's head ("!", "?", the anger mark, Sweet Scent's hearts, a sleeper's
+  "z"s, your partner's labels and moods) sit right on top of its head as it is shown, instead
+  of above the tallest pose its sprite has (a bird's raised wings put them far up).
+
 ## 2.0.8 (2026-11-20)
 
 ### Changed

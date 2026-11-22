@@ -416,10 +416,11 @@ end
 --- visible height for an index without `top`.
 --- `anims` (optional): the animations to measure instead of Walk and Idle (a Pokemon asleep
 --- lies lower: lib/local_scenes.lua's zzz sit over its Sleep pose).
+local HEAD_ANIMS = { "walk", "idle" }
 function PmdRenderer:headLift(anims)
   local s = PmdRenderer.scaleOf(self.info) * self:hdScale()
   local best
-  for _, anim in ipairs(anims or { "walk", "idle" }) do
+  for _, anim in ipairs(anims or HEAD_ANIMS) do
     local entry = self.info and self.info[anim]
     local top = entry and tonumber(entry.top)
     if top then
@@ -435,6 +436,77 @@ function PmdRenderer:headLift(anims)
     end
   end
   return best or self:visualHeight()
+end
+
+-- [path .. "#" .. col .. "," .. row] = the top row of that cell's art (false = empty / unreadable)
+local cellTopCache = {}
+
+-- the top row of cell (col, row) of a baked sheet with `entry`'s cell size, read once
+local function cellTopOf(mod, path, entry, col, row)
+  local key = path .. "#" .. col .. "," .. row
+  local hit = cellTopCache[key]
+  if hit ~= nil then return hit or nil end
+  cellTopCache[key] = false
+  local data = ActorRenderer.sheetData(mod, path)
+  if not data then return nil end
+  local w, h = data:getDimensions()
+  local cw, ch = entry.cw, entry.ch
+  if not (cw and ch) or (col + 1) * cw > w or (row + 1) * ch > h then return nil end
+  local bytes, byte = data:getString(), string.byte
+  for y = 0, ch - 1 do
+    local base = ((row * ch + y) * w + col * cw) * 4
+    for x = 0, cw - 1 do
+      if byte(bytes, base + x * 4 + 4) > 0 then
+        cellTopCache[key] = y
+        return y
+      end
+    end
+  end
+  return nil
+end
+
+-- [path .. "#" .. row] = the median top of that row's frames (false = unreadable)
+local rowTopCache = {}
+
+-- the median of the art tops of row `row`'s frames (an idle bounce or a wing beat goes up and
+-- down: the middle of it is where its head usually is)
+local function rowTopOf(mod, path, entry, row)
+  local key = path .. "#" .. row
+  local hit = rowTopCache[key]
+  if hit ~= nil then return hit or nil end
+  local tops = {}
+  for col = 0, #(entry.durations or { 1 }) - 1 do
+    local t = cellTopOf(mod, path, entry, col, row)
+    if t then tops[#tops + 1] = t end
+  end
+  if #tops == 0 then
+    rowTopCache[key] = false
+    return nil
+  end
+  table.sort(tops)
+  local m = tops[math.floor((#tops + 1) / 2)]
+  rowTopCache[key] = m
+  return m
+end
+
+--- How high its head is now, above its tile's bottom, as drawn: the middle of where the
+--- frames of the animation and facing it shows now reach (read from the pixels once) -- not
+--- the tallest pose of all, as headLift, and steady while it animates (a mark over it would
+--- hop with every frame). Where a mark over its head goes ("!", "?", hearts, z's, a label).
+--- headLift until it has been drawn.
+function PmdRenderer:headLiftNow()
+  local anim, path = self._drawnAnim, self._drawnPath
+  local entry = anim and self.info and self.info[anim]
+  local top = type(entry) == "table" and path and rowTopOf(self.mod, path, entry, self._drawnRow or 0)
+  if not top then return self:headLift() end
+  local s = PmdRenderer.scaleOf(self.info) * self:hdScale()
+  local anchor, groundY = tonumber(entry.ay), PmdRenderer.groundOf(entry, s)
+  if self.swimming then
+    local _, band = PmdRenderer.cropHeight(entry)
+    if band then anchor, groundY = band, Config.PMD_SWIM_Y or 18 end
+  end
+  if not anchor then return self:headLift() end
+  return CELL - groundY + (anchor - top) * s
 end
 
 --- Rows of a cell drawn while swimming: `body` = the sheet's own rows down to the top
@@ -550,6 +622,7 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
   self._drawnAnim = anim
   local col = PmdRenderer.frameAt(entry.durations, self.clock)
   local row = PmdRenderer.rowIn(entry, facing)
+  self._drawnPath, self._drawnRow = path, row -- (headLiftNow)
   -- swimming: the sheet cut off at the top of the foam bowl, the band sheet (the bowl
   -- and the body inside it) drawn right after with the same transform
   local crop, bandCrop
@@ -655,7 +728,11 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     self._sigKey, self._sigSpec = self.dex, SignatureFx.specFor(self.dex) or false
   end
   local sig = self._sigSpec
-  if sig and (part or self.silhouette or shade) then sig = nil end
+  -- tilted (a sea bird fighting its catch, lib/spawn_manager.lua fishFight): turned about its
+  -- ground point -- its waterline when swimming -- by act.tilt radians
+  local tilt = act and tonumber(act.tilt) or 0
+  if tilt ~= 0 and part then tilt = 0 end
+  if sig and (part or self.silhouette or shade or tilt ~= 0) then sig = nil end
   if sig then SignatureFx.drawBehind(self, sig, image, quad, dx, dy, scaleX, scaleY, camX, camY, alpha) end
   if self.silhouette then
     love.graphics.setColor(0, 0, 0, alpha)
@@ -671,6 +748,14 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     local gx = (x - camX) + CELL / 2 + math.floor(self.pushX + 0.5) + math.floor(((act and act.dx) or 0) + 0.5)
     local gy = (y - camY) + PmdRenderer.groundOf(entry, scale) + math.floor(self.pushY + 0.5) + math.floor(((act and act.dy) or 0) + 0.5)
     love.graphics.draw(image, part, gx, gy, 0, scale, scale, partOx, partOy)
+  elseif tilt ~= 0 then
+    local _, _, _, qh = quad:getViewport()
+    local px, py = entry.ax or CELL / 2, crop and qh or (entry.ay or qh)
+    love.graphics.draw(image, quad, dx + px * scaleX, dy + py * scaleY, tilt, scaleX, scaleY, px, py)
+    if foamQuad then
+      love.graphics.draw(foamImage, foamQuad, dx + px * scaleX, dy + py * scaleY, tilt, scaleX, scaleY, px, py)
+    end
+    foamQuad = nil
   else
     love.graphics.draw(image, quad, dx, dy, 0, scaleX, scaleY)
   end

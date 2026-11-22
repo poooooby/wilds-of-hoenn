@@ -1241,6 +1241,75 @@ do
     end
   end
 
+  -- a high bird overhead comes down into the field: a real wild Pokemon flying down from it
+  do
+    sky.cam = { x = 0, y = 0 }
+    local before = smS:count()
+    local bird = { species = 999, entry = { species = 999, minLevel = 5, maxLevel = 7 }, x = 100, y = -40, h = 1 }
+    check(smS:landFromSky(bird), "landFromSky: a bird overhead comes down")
+    eq(smS:count(), before + 1, "...one more wild Pokemon")
+    local landed
+    for _, e in pairs(smS.entities) do
+      if e.fx and e.fx.kind == "land" and e.fx.plan.phases[1].from.h == 1 then landed = e end
+    end
+    check(landed and landed.level >= 5 and landed.level <= 7 and landed.species == 999,
+      "...at one of its table levels, flying down from where the bird was")
+    check(landed and landed.fx.plan.phases[1].from.x == 100, "...its flight starts at the bird")
+    check(not smS:landFromSky({ species = 999, entry = { species = 999 }, x = 1, y = 1, h = 1 }),
+      "no table levels: it does not come down")
+    sky.cam = nil
+    check(not smS:landFromSky(bird), "no view known: it does not come down")
+    if landed then smS:despawn(landed.id) end -- (back to the Spawn Amount for what follows)
+    for _ = 1, 400 do smS:tick(smS.game) end
+  end
+
+  -- an aggressive bird perched in town comes down at the player instead of flying off
+  do
+    local EcoProfile = V.require("eco_profile")
+    local realOf, realLead, realCF = EcoProfile.of, fakeEngine.leadPartyMon, fakeEngine.cellFree
+    local temper = "aggressive"
+    EcoProfile.of = function() return { temper = temper, social = "solo" } end
+    fakeEngine.leadPartyMon = function() return { level = 5, species = 1 } end -- weaker than the bird
+    fakeEngine.cellFree = function(x, y) return x >= 0 and y >= 0 and x < 40 and y < 5 end
+    local savedPlayer = { x = player.x, y = player.y }
+    player.x, player.y = 20, 2
+    local bird = { species = 999, entry = { species = 999, minLevel = 30, maxLevel = 30 },
+                   perch = { x = 24, y = 1, lift = 6 } }
+    local attacked = false
+    for _ = 1, 20 do if smS:skyAttack(bird) then attacked = true break end end
+    check(attacked, "skyAttack: an aggressive bird stronger than the lead comes down at the player")
+    local atk
+    for _, e in pairs(smS.entities) do if e.skyAttacker then atk = e end end
+    check(atk and math.abs(atk.cellX - 20) + math.abs(atk.cellY - 2) == 1 and atk.level == 30,
+      "...a real wild Pokemon on a cell beside them, at its table level")
+    check(atk and atk.fx and atk.fx.kind == "land" and atk.fx.plan.phases[1].from.lift == 6,
+      "...swooping down off its perch")
+    for _ = 1, 120 do smS:tick(smS.game) if atk and not atk.fx then break end end
+    check(atk and atk.react and (atk.react.mode == "turn" or atk.react.mode == "alert" or atk.react.mode == "chase"),
+      "...and down, it turns on the player, angry")
+    -- its attack over with no battle: it flies off again
+    if atk then
+      atk.react, atk.charging = nil, nil
+      smS:tick(smS.game)
+      check(atk.state == "leaving" and atk.fx and atk.fx.kind == "leave", "...no battle: it flies off again")
+    end
+    for _ = 1, 400 do smS:tick(smS.game) end
+    temper = "skittish"
+    check(not smS:skyAttack(bird), "a skittish bird never attacks")
+    temper = "aggressive"
+    fakeEngine.leadPartyMon = function() return { level = 100, species = 1 } end
+    local any = false
+    for _ = 1, 20 do if smS:skyAttack(bird) then any = true end end
+    check(not any, "...nor an aggressive one far weaker than the lead")
+    optionStore.wild_reacts = false
+    fakeEngine.leadPartyMon = function() return { level = 5, species = 1 } end
+    check(not smS:skyAttack(bird), "...nor any with Pokecology off")
+    optionStore.wild_reacts = nil
+    EcoProfile.of, fakeEngine.leadPartyMon, fakeEngine.cellFree = realOf, realLead, realCF
+    player.x, player.y = savedPlayer.x, savedPlayer.y
+    for _ = 1, 400 do smS:tick(smS.game) end
+  end
+
   -- Flying Mons off: the usual rise / fade
   optionStore.flyers = false
   for _ = 1, 400 do smS:tick(smS.game) end
@@ -1260,6 +1329,36 @@ do
   fakeEngine.mapBounds = realBounds
   fakeEngine.playerCell = realPlayer
   check(C.FLYERS.land.groundStay[1] > 0, "a flyer stays a while on the ground")
+end
+
+-- ------- a mark over a wild Pokemon's head: over its head as drawn now, not its tallest pose
+do
+  local C = V.require("config")
+  local now = { headLiftNow = function() return 12 end, headLift = function() return 21 end }
+  eq(SpawnManager.markLift(now), 12 + C.MARK_GAP, "a mark sits just over its head as drawn now")
+  local old = { headLift = function() return 21 end }
+  eq(SpawnManager.markLift(old), 21 + C.MARK_GAP, "...a renderer that cannot tell: over its tallest pose")
+  eq(SpawnManager.markLift(nil), 20 + C.MARK_GAP, "...none: a default height")
+  eq(SpawnManager.markLift({ headLiftNow = function() return 400 end }), 96, "...never sky high")
+end
+
+-- ------- a sea bird up with its catch fights to keep it: bursts of jerks, tilting both ways
+do
+  local C = V.require("config")
+  local f = C.FLYERS.dive.fight
+  local left, right, calm, maxTilt = 0, 0, 0, 0
+  for age = 1, 200 do
+    local dx, dy, tilt = SpawnManager.fishFight(age, 7)
+    maxTilt = math.max(maxTilt, math.abs(tilt))
+    if tilt > f.sway + 1e-9 then right = right + 1 elseif tilt < -f.sway - 1e-9 then left = left + 1 else calm = calm + 1 end
+    check(math.abs(dx) <= f.jerk + 1e-9 and dy <= 0 and dy >= -f.hop - 1e-9, "fishFight: jerks stay small (" .. age .. ")")
+  end
+  check(left > 0 and right > 0, ("fishFight: it tilts both ways in its bursts (%d / %d)"):format(left, right))
+  check(calm > left + right, "...and sways gently in between, most of the time")
+  check(maxTilt <= f.tilt + 1e-9, "...never more than its tilt")
+  local a = { SpawnManager.fishFight(5, 3) }
+  local b = { SpawnManager.fishFight(5, 3) }
+  check(a[1] == b[1] and a[3] == b[3], "...the same each time for the same bird and moment (pure)")
 end
 
 -- ------- Wild Reacts: a running player close by startles them; one reacting is no Battler target
@@ -1521,6 +1620,55 @@ do
   fakeEngine.terrainAt, fakeEngine.isWater, fakeEngine.playerCell = realT, realW, realPC
   fakeEngine.startRipple = nil
 end
+-- ------- ghosts: now and then they fade out and in again a few tiles off
+do
+  local Config = V.require("config")
+  local realT, realPC, realST, realTN = fakeEngine.terrainAt, fakeEngine.playerCell, fakeEngine.speciesTypes,
+    fakeEngine.typeName
+  fakeEngine.terrainAt = function() return "land" end
+  fakeEngine.playerCell = function() return { x = 30, y = 30 } end
+  fakeEngine.speciesTypes = function(sp) if sp == 92 then return 7, 3 end return 0, 0 end
+  fakeEngine.typeName = function(t) return ({ [0] = "NORMAL", [3] = "POISON", [7] = "GHOST" })[t] end
+  local smG = SpawnManager.new(mod)
+  smG:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local e
+  for _, x in pairs(smG.entities) do e = e or x end
+  for id, x in pairs(smG.entities) do if x ~= e then smG:despawn(id) end end
+  e.terrain, e.cellX, e.cellY, e.px, e.py, e.fx, e.group = "land", 5, 5, 80, 80, nil, nil
+
+  check(SpawnManager._isGhost(92) and not SpawnManager._isGhost(19), "Gastly is a ghost, Rattata is not")
+  e.species = 19
+  e.fadeIn = 1
+  smG:_ghostLife(e)
+  eq(e.fx, nil, "a Pokemon that is no ghost never fades")
+  e.species = 92
+  fakeEngine.playerCell = function() return { x = 6, y = 5 } end
+  e.fadeIn = 1
+  smG:_ghostLife(e)
+  eq(e.fx, nil, "not with the player right beside it")
+  fakeEngine.playerCell = function() return { x = 30, y = 30 } end
+  e.fadeIn = 1
+  smG:_ghostLife(e)
+  check(e.fx and e.fx.ghost and e.fx.dive and e.fx.kind == "leave" and e.fx.mode == "fade", "its time comes: it fades out")
+  eq(#smG:fightTargets(), 0, "...no Battler target meanwhile")
+  for _ = 1, Config.GHOST_FADE.fadeTicks do smG:_stepDive(e) end
+  check(e.fx.under and e.fx.under >= Config.GHOST_FADE.underMin, "faded: unseen a while")
+  eq(e.renderer.alpha, 0, "...out of sight")
+  eq(smG:entityAt(5, 5), nil, "...and nobody bumps into it")
+  e.fx.under = 1
+  smG:_stepDive(e)
+  check(e.fx and e.fx.kind == "appear" and e.fx.mode == "fade" and not e.fx.dive, "then it fades in again")
+  check((e.cellX ~= 5 or e.cellY ~= 5) and math.abs(e.cellX - 5) <= Config.GHOST_FADE.hop
+    and math.abs(e.cellY - 5) <= Config.GHOST_FADE.hop, "...a few tiles off (" .. e.cellX .. "," .. e.cellY .. ")")
+  eq(e.px, e.cellX * 16, "...drawn there")
+  e.fx, e.group = nil, { leader = e.id, members = { e.id } }
+  e.fadeIn = 1
+  smG:_ghostLife(e)
+  eq(e.fx, nil, "a group's leader stays (its members ride with it)")
+
+  fakeEngine.terrainAt, fakeEngine.playerCell, fakeEngine.speciesTypes, fakeEngine.typeName = realT, realPC, realST, realTN
+end
+
 -- ------- group spacing by art size, and a pod at rest swimming round its leader
 do
   local Config = V.require("config")

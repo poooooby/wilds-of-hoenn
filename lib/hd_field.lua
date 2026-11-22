@@ -61,6 +61,14 @@ local function library(mod)
   return ex
 end
 
+--- Is the library's 3D Battle Scene on (battles in the overworld, WoobleView's sceneEnabled)?
+function HdField.sceneOn(mod)
+  local ex = library(mod)
+  if not (ex and type(ex.sceneEnabled) == "function") then return false end
+  local ok, on = pcall(ex.sceneEnabled)
+  return ok and on == true
+end
+
 --- What a sprite sheet path is: style ("hgss" | "pmd"), art key ("479" or "479-heat"),
 --- base dex number and, for PMD, the animation. nil for anything else (a portrait, an
 --- unknown path). A swimming Pokemon's foam overlay (assets/pmd/foam<anim>/) reads as
@@ -208,12 +216,13 @@ end
 --- every draw of a tagged sheet and redraw it at window resolution about its own pivot,
 --- which is wrong for a sliced, mirrored reflection (lib/reflection.lua). The tag is put
 --- back right after, even when `fn` fails.
-function HdField.untagged(mod, image, fn)
+function HdField.untagged(mod, image, fn, ...)
+  -- (the rest of the arguments go to `fn`: a per-frame caller needs no closure)
   local spec = image and specs[image]
   local ex = spec and library(mod)
-  if not (ex and type(ex.untag) == "function") then return fn() end
+  if not (ex and type(ex.untag) == "function") then return fn(...) end
   pcall(ex.untag, image)
-  local ok, err = pcall(fn)
+  local ok, err = pcall(fn, ...)
   pcall(ex.tag, image, spec)
   if not ok then error(err, 0) end
 end

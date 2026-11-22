@@ -174,6 +174,42 @@ do
     check(not bird.sitting, "the player comes close: it takes off")
     check(sky.taken[spot] == nil, "...and frees the perch")
   end
+  -- an aggressive one may come down at the player instead (SpawnManager:skyAttack)
+  local asked = 0
+  sky.onAttack = function() asked = asked + 1 return true end
+  player.x, player.y = 0, 19
+  local b2
+  for _ = 1, 60 * 60 do
+    sky:tick()
+    for _, b in ipairs(sky.birds) do if b.kind == "perch" and b.sitting then b2 = b end end
+    if b2 then break end
+  end
+  if b2 then
+    local spot = b2.perch
+    player.x, player.y = spot.x, spot.y + 1
+    sky:tick()
+    eq(asked, 1, "the player comes close: asked once whether it attacks")
+    local still = false
+    for _, b in ipairs(sky.birds) do if b == b2 then still = true end end
+    check(not still and sky.taken[spot] == nil, "...it does: the ambient bird is gone, its perch free")
+    -- one that does not attack flies off as before, asked only once
+    sky.onAttack = function() asked = asked + 1 return false end
+    player.x, player.y = 0, 19
+    local b3
+    for _ = 1, 60 * 60 do
+      sky:tick()
+      for _, b in ipairs(sky.birds) do if b.kind == "perch" and b.sitting then b3 = b end end
+      if b3 then break end
+    end
+    if b3 then
+      player.x, player.y = b3.perch.x, b3.perch.y + 1
+      sky:tick() sky:tick() sky:tick()
+      check(asked == 2 and not b3.sitting, "...it does not: it takes off, asked only once")
+    end
+  else
+    check(false, "a second bird perched")
+  end
+  sky.onAttack = nil
   player.x, player.y = 0, 19
   mapType, neighbours = 3, {}
 end
@@ -358,7 +394,7 @@ do
   end
 end
 
--- ------- Flying Mons on Ambient: no bird flies high overhead (lower passers still do)
+-- ------- Flying Mons: birds high and lower overhead; Off takes them all away; old saves
 do
   local function run(minutes)
     local sky = SkyFlyers.new(mod)
@@ -379,35 +415,22 @@ do
     end
     return high, low, sky
   end
-  optionStore.flyers = "ambient"
-  local high, low = run(8)
-  eq(high, 0, "Ambient: none high overhead")
-  check(low > 0, "...the lower passers still come (" .. low .. ")")
-  optionStore.flyers = "full"
-  local highOn, _, sky = run(8)
-  check(highOn > 0, "Full: some fly high (" .. highOn .. ")")
-  -- Full -> Ambient with a high bird in the air and a bird perched: only the high one goes
-  sky.birds[#sky.birds + 1] = { kind = "passer", high = true, id = 9999 }
-  sky.birds[#sky.birds + 1] = { kind = "percher", id = 9998 }
-  optionStore.flyers = "ambient"
-  sky:onOptionChanged("ROUTE_104")
-  local highLeft, perched = 0, 0
-  for _, b in ipairs(sky.birds) do
-    if b.high then highLeft = highLeft + 1 end
-    if b.id == 9998 then perched = perched + 1 end
-  end
-  eq(highLeft, 0, "Full -> Ambient: the high bird in the air is gone")
-  eq(perched, 1, "...a perched bird stays put")
-  optionStore.flyers = "off"
+  optionStore.flyers = true
+  local highOn, low, sky = run(8)
+  check(highOn > 0, "On: some fly high overhead (" .. highOn .. ")")
+  check(low > 0, "...and lower ones too (" .. low .. ")")
+  optionStore.flyers = false
   sky:onOptionChanged("ROUTE_104")
   eq(sky:count(), 0, "Off: every bird goes")
-  -- an old save's on / off toggle
   optionStore.flyers = true
-  eq(Config.flyersMode(mod), "full", "a saved On reads as Full")
-  optionStore.flyers = false
-  eq(Config.flyersMode(mod), "off", "a saved Off reads as Off")
+  sky:onOptionChanged("ROUTE_104")
+  check(sky.allowed, "On again: the sky opens on this map")
+  -- a save from when it was Full / Ambient / Off
+  for _, c in ipairs({ { "full", true }, { "ambient", true }, { "off", false }, { true, true }, { false, false }, { nil, true } }) do
+    optionStore.flyers = c[1]
+    eq(Config.flyersOn(mod), c[2], "a saved " .. tostring(c[1]) .. " reads as " .. (c[2] and "On" or "Off"))
+  end
   optionStore.flyers = nil
-  eq(Config.flyersMode(mod), "full", "never set: Full")
 end
 
 -- ------- swoops stay clear of the player
@@ -470,6 +493,71 @@ do
   check(hph and hph.bob and hph.bob[1] >= Config.FLYERS.passer.bob[1], "the high passer bobs")
   check(lph and lph.bob == nil, "a lower passer flies its arc smoothly")
   sky:onMapExited()
+end
+
+-- ------- a high passer comes down into the field half the time (a real wild Pokemon)
+do
+  local saved = tables.ROUTE_104.land.slots
+  tables.ROUTE_104.land.slots = { { species = 10, minLevel = 4, maxLevel = 6 }, { species = 10, minLevel = 7, maxLevel = 8 } }
+  local pool = SkyFlyers.poolFor("ROUTE_104")
+  local taillow
+  for _, e in ipairs(pool) do if e.species == 10 then taillow = e end end
+  check(taillow and taillow.minLevel == 4 and taillow.maxLevel == 8, "the pool keeps a species' table levels (4-8)")
+  local lv = SkyFlyers.levelFor(taillow)
+  check(lv >= 4 and lv <= 8, "...a bird coming down is met at one of them (" .. lv .. ")")
+  eq(SkyFlyers.levelFor({ species = 10 }), nil, "...no levels known: none")
+  optionStore.flyers = "full"
+  local sky = SkyFlyers.new(mod)
+  sky:onMapEntered("ROUTE_104")
+  sky:collectActors({}, 160, 320)
+  local landers, highs = 0, 0
+  for _ = 1, 400 do
+    sky.birds = {}
+    sky:_spawnPasser()
+    local b = sky.birds[1]
+    if b and b.high and b.entry.minLevel then -- (Wingull's water slot here has no levels: it never comes down)
+      highs = highs + 1
+      if b.lander then landers = landers + 1 end
+    end
+  end
+  local share = landers / math.max(1, highs)
+  check(share > 0.35 and share < 0.65, ("about half the high passers come down (%d of %d)"):format(landers, highs))
+  -- one that comes down: handed over once it is on screen and well on its way
+  local got
+  sky.onLand = function(b) got = b return true end
+  local lander
+  for _ = 1, 400 do
+    sky.birds = {}
+    sky:_spawnPasser()
+    if sky.birds[1] and sky.birds[1].lander then lander = sky.birds[1] break end
+  end
+  sky.timers.passer, sky.timers.perch, sky.timers.dive = 99999, 99999, 99999
+  for _ = 1, 600 do
+    if got then break end
+    sky:collectActors({}, 160, 320)
+    sky:tick()
+  end
+  check(got == lander and got.age >= got.landAt, "it is handed over once well across the view")
+  check(#sky.birds == 0, "...and the ambient bird is gone")
+  -- the field cannot take it: it flies on
+  sky.onLand = function() return false end
+  for _ = 1, 400 do
+    sky.birds = {}
+    sky:_spawnPasser()
+    if sky.birds[1] and sky.birds[1].lander then break end
+  end
+  for _ = 1, 200 do sky:collectActors({}, 160, 320) sky:tick() end
+  local b = sky.birds[1]
+  check(b == nil or not b.lander, "...no cell for it: it flies on overhead")
+  -- the landing: one flight from where the bird was down onto the cell
+  local e = { id = 77, cellX = 12, cellY = 10 }
+  local fx = sky:planLanding(e, { x = 200, y = 40, h = 1 })
+  local ph = fx.plan.phases[1]
+  check(fx.kind == "land" and fx.mode == "swoop" and #fx.plan.phases == 1, "planLanding: one swoop that lands")
+  check(ph.from.x == 200 and ph.from.h == 1 and ph.to.x == 192 and ph.to.y == 160 and ph.to.h == 0,
+    "...from the bird's place high up down onto its cell")
+  sky:onMapExited()
+  tables.ROUTE_104.land.slots = saved
 end
 
 -- ------- a passer crossing the view is "over" the field (wild Pokemon look up at it)

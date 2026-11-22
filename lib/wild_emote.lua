@@ -137,12 +137,14 @@ end
 --- The zzz over a sleeper on the tile whose top-left is (wx, wy), its head `lift` px above
 --- the tile's ground line, as a field actor (`over`: drawn after the map's upper layer, a
 --- sleeper on a tree top).
-function WildEmote.zzzActor(age, wx, wy, lift, id, over, every, alphaMul)
-  return {
-    kind = "ow_zzz", elevation = 3, oamPriority = over and 1 or nil, sortY = wy + 18,
-    x = wx + 10, y = wy + 16 - (lift or 16) - 2, i = 99000 + (tonumber(id) or 0),
-    zAge = age, zEvery = every, zAlpha = alphaMul, draw = drawZzz,
-  }
+--- `out` (optional): a table to fill in place and return -- the sleeper's own, kept
+--- between frames (a sleeper shows z's all night).
+function WildEmote.zzzActor(age, wx, wy, lift, id, over, every, alphaMul, out)
+  out = out or {}
+  out.kind, out.elevation, out.oamPriority, out.sortY = "ow_zzz", 3, over and 1 or nil, wy + 18
+  out.x, out.y, out.i = wx + 10, wy + 16 - (lift or 16) - 2, 99000 + (tonumber(id) or 0)
+  out.zAge, out.zEvery, out.zAlpha, out.draw = age, every, alphaMul, drawZzz
+  return out
 end
 
 local sheet -- the engine's bubble sheet (false: not available)
