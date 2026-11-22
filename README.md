@@ -136,9 +136,11 @@ Change these in the Mod Manager, or in game from **OPTIONS → VIVID WORLDS**.
 - **Wild Pokémon only spawn where you can walk.** Water Pokémon fill every lake and sea.
 - **Group battles:** walk into a pack or herd and the whole group appears in the battle ("A wild
   ZIGZAGOON group appeared!"). While you battle its leader, the others show up the way they
-  live: a pack on the ground gathers at its side, hopping and barking to cheer it on; Magnemite,
+  live: a pack on the ground gathers behind it, hopping and barking to cheer it on; Magnemite,
   Gastly, Zubat and other floaters hover behind it; a flock of birds hops about behind it; a
-  school of fish bobs in the water behind it. Catch or knock out the leader and the rest flee
+  school of fish bobs in the water behind it. The bigger the group, the stronger its leader:
+  each member cheering it on raises one of its stats by a stage (its stronger attack first,
+  then Defense, Sp. Def and Speed). Catch or knock out the leader and the rest flee
   the battle at once. Once the battle is over they scatter, vanishing into the grass or running
   off and fading away.
 - **Pokémon your partner has been fighting** keep the HP it left them with when you battle them.

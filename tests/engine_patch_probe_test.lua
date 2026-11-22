@@ -206,6 +206,26 @@ do
   check(type(State.isFainted) == "function" and State.isFainted({ mon = { hp = 0 } }) and not State.isFainted({ mon = { hp = 5 } })
     and anim:find("p.oy = fromOy + step * 8", 1, true) ~= nil and anim:find("p.visible = false", 1, true) ~= nil,
     "engine: a knocked-out foe reads as fainted and its faint sinks (p.oy) then hides it (the herd flees on a KO)")
+  -- the group's boost (WildHerd.addBoostSteps): a "general" intro step plays a named battle
+  -- animation, STATS_CHANGE is one, and a battler's stat stages carry the keys WildHerd.boosts names
+  local AnimM = require("src.core.game3.battle.anim")
+  local Sec = require("src.core.game3.battle.effects.secondary")
+  local Ctx = require("src.core.game3.battle.anim_ctx")
+  check(intro:find('if kind == "wait" then', 1, true) ~= nil and intro:find("if Anim.busy() or IntroSeq._waitingFade", 1, true) ~= nil
+    and type(AnimM.launchGeneral) == "function" and type(Ctx.build) == "function"
+    and type(Sec.statAnimArg) == "function" and type(Sec.STAT_ANIM) == "table" and Sec.STAT_ANIM.MULTIPLE_PLUS1 ~= nil
+    and io.open("src/core/game3/battle/anim_seq.lua"):read("a"):find("STATS_CHANGE", 1, true) ~= nil,
+    "engine: an intro wait holds while an animation runs, and STATS_CHANGE takes the stats' argument (the group's boost)")
+  local okB, b = pcall(State.newBattler, { species = 1, level = 5 }, "enemy", {})
+  local stg = okB and type(b) == "table" and b.stages
+  if not stg then
+    local stSrc = io.open("src/core/game3/battle/state.lua"):read("a")
+    check(stSrc:find("attack = 0, defense = 0, spAtk = 0, spDef = 0, speed = 0", 1, true) ~= nil,
+      "engine: a battler's stat stages are attack / defense / spAtk / spDef / speed (the group's boost)")
+  else
+    check(stg.attack == 0 and stg.defense == 0 and stg.spAtk == 0 and stg.spDef == 0 and stg.speed == 0,
+      "engine: a battler's stat stages are attack / defense / spAtk / spDef / speed (the group's boost)")
+  end
   check(not EnginePatch.wildHerdActive(), "no herd battle running at rest")
 end
 

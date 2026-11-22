@@ -42,35 +42,38 @@ do
   eq(#WildHerd.members(leader, nil), 0, "no entities: no herd")
 end
 
--- ------- slots: a loose pack left of the leader, on the screen
+-- ------- slots: a loose pack behind the leader, on the screen
 do
   for n = 1, WildHerd.MAX - 1 do eq(#WildHerd.slots(n), n, n .. " others: " .. n .. " places") end
   eq(#WildHerd.slots(0), 0, "none: no places")
   eq(#WildHerd.slots(9), WildHerd.MAX - 1, "more than fit: the most there are")
   for n = 1, WildHerd.MAX - 1 do
     local s = WildHerd.slots(n)
-    local rows = {}
+    local left, right = false, false
     for i, p in ipairs(s) do
       if i > 1 then check(s[i - 1][2] <= p[2], n .. " others: drawn farthest (highest) first, slot " .. i) end
       -- (the leader stands at x 176 on a 240 px screen; a 64 px pic at SCALE)
-      check(p[1] < 0, n .. " others: left of the leader (" .. p[1] .. ")")
-      check(176 + p[1] - 32 * WildHerd.SCALE >= 0, n .. " others: on the screen (" .. p[1] .. ")")
-      check(p[2] <= 0 and p[2] > -24, n .. " others: about on the leader's ground (" .. p[2] .. ")")
-      rows[p[2] < -12 and "back" or "front"] = true
+      check(176 + p[1] <= 240 and 176 + p[1] - 32 * WildHerd.SCALE >= 0,
+        n .. " others: on the screen (" .. p[1] .. ")")
+      check(math.abs(p[1]) <= 60, n .. " others: close behind it (" .. p[1] .. ")")
+      check(p[2] < 0 and p[2] > -24, n .. " others: behind it, a little higher up (" .. p[2] .. ")")
+      if p[1] < 0 then left = true end
+      if p[1] > 0 then right = true end
       for j = 1, i - 1 do
         local q = s[j]
         local d = math.sqrt((p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2)
         check(d >= 21, n .. " others: slots " .. j .. " and " .. i .. " not hugging (" .. string.format("%.1f", d) .. " px)")
       end
     end
-    if n >= 3 then check(rows.back and rows.front, n .. " others: a huddle, not a line (a back row and a front row)") end
+    if n >= 2 then check(left and right, n .. " others: on both sides of it") end
   end
-  check(WildHerd.FLIP, "mirrored: they face the leader")
+  check(not WildHerd.FLIP, "facing the player, as the leader does")
+  check(WildHerd.SCALE < 1, "smaller than the leader (in the background)")
   for n = 1, WildHerd.MAX - 1 do
     local full, near = WildHerd.slots(n), WildHerd.slots(n, true)
     eq(#near, n, n .. " others, compact: as many places")
     for i = 1, n do
-      check(near[i][1] < 0 and near[i][1] > full[i][1], n .. " others, compact: still left of the leader, nearer it")
+      check(math.abs(near[i][1]) <= math.abs(full[i][1]), n .. " others, compact: nearer the leader")
       check(near[i][2] <= 0 and near[i][2] >= full[i][2], n .. " others, compact: no farther back")
     end
   end
@@ -105,9 +108,13 @@ do
   local w0, w1 = WildHerd.barkWaves(0), WildHerd.barkWaves(c.barkTicks - 1)
   eq(#w0, 3, "a bark: three sound waves")
   check(w1[2][1] > w0[2][1] and w1[2][4] < w0[2][4], "...moving away from its mouth, fading")
+  local buf = WildHerd.barkWaves(0)
+  local e1 = buf[1]
+  local again = WildHerd.barkWaves(5, buf)
+  check(again == buf and buf[1] == e1 and #buf == 3, "...filled in place when handed a list (no garbage)")
 end
 
--- ------- kinds: land beside the leader, the rest behind it
+-- ------- kinds: all behind the leader
 do
   local birds = { [16] = true, [278] = true }
   eq(WildHerd.kindOf({ dex = 263, terrain = "land" }, birds), "land", "Zigzagoon: land")
@@ -123,7 +130,7 @@ do
   local land = WildHerd.styleOf("land")
   for _, kind in ipairs({ "float", "bird", "swim" }) do
     local st = WildHerd.styleOf(kind)
-    check(st.scale < land.scale, kind .. ": smaller than the land pack (in the background)")
+    check(st.scale < 1, kind .. ": smaller than the leader (in the background)")
     check(not st.flip, kind .. ": facing the player, as the leader does")
     for n = 1, WildHerd.MAX - 1 do
       local s = WildHerd.slots(n, false, kind)
@@ -191,7 +198,7 @@ do
   for t = 1, 600 do WildHerd.pose("bird", 2, t, s2, out) end
   check(s2.seed ~= s.seed, "two birds on their own paths")
   WildHerd.pose("land", 1, 0, {}, out)
-  check(out.flip == true, "land: mirrored, facing the leader")
+  check(out.flip == false, "land: facing the player, as the leader does")
 end
 
 -- ------- caught: they flee the battle screen
@@ -211,13 +218,51 @@ do
     local o0 = WildHerd.flee(kind, 1, 0, -1, WildHerd.pose(kind, 1, 100, {}, {}))
     local o1 = WildHerd.flee(kind, 1, 20, -1, WildHerd.pose(kind, 1, 100, {}, {}))
     if kind == "land" then
-      check(o1.dx < o0.dx - 30 and o1.flip == false, "land: runs off to the left, turned away")
+      check(o1.dx < o0.dx - 30 and o1.flip == false, "land: runs off to its side (left), facing that way")
+      local r1 = WildHerd.flee(kind, 1, 20, 1, WildHerd.pose(kind, 1, 100, {}, {}))
+      check(r1.dx > o0.dx + 30 and r1.flip == true, "land: ...or right, from the right side")
     elseif kind == "swim" then
       check(o1.dy > o0.dy and o1.alpha < 1, "swim: dives, going under")
     else
       check(o1.dy < o0.dy - 10 and o1.alpha < 1, kind .. ": up and away, fading")
     end
   end
+end
+
+-- ------- the group lends its leader strength
+do
+  eq(#WildHerd.boosts(0, {}), 0, "alone: no boost")
+  local b = WildHerd.boosts(1, { attack = 20, spAtk = 12 })
+  eq(#b, 1, "one member: one stat")
+  eq(b[1], "attack", "...its stronger attacking stat")
+  eq(WildHerd.boosts(1, { attack = 12, spAtk = 20 })[1], "spAtk", "a special attacker: Sp. Atk")
+  eq(WildHerd.boosts(1, nil)[1], "attack", "no stats known: Attack")
+  local four = WildHerd.boosts(4, { attack = 20, spAtk = 12 })
+  eq(table.concat(four, ","), "attack,defense,spDef,speed", "four members: four stats, one each")
+  eq(#WildHerd.boosts(9, {}), WildHerd.MAX - 1, "never more than the group on screen")
+  local stages = { attack = 0, defense = 5, spDef = 6, speed = -1 }
+  eq(WildHerd.applyBoosts(stages, four), 3, "three went up (one was already at +6)")
+  eq(stages.attack, 1, "+1 Attack")
+  eq(stages.defense, 6, "+1 Defense, up to the cap")
+  eq(stages.spDef, 6, "never past +6")
+  eq(stages.speed, 0, "a lowered stat goes up too")
+  eq(WildHerd.applyBoosts(nil, four), 0, "no stages: nothing")
+  local steps = { { kind = "msg", data = { text = "Go! SWAMPERT!" } } }
+  eq(WildHerd.addBoostSteps(steps, "cheer", "rose"), 3, "boost steps added: the wait is step 3")
+  eq(#steps, 4, "...three of them")
+  eq(steps[1].data.text, "Go! SWAMPERT!", "...after the intro's own steps")
+  eq(steps[2].data.text, "cheer", "the cheer line first")
+  check(steps[3].kind == "wait" and steps[3].data.wohBoost and steps[3].data.frames == 1,
+    "then a short wait, where the stat-up animation plays")
+  eq(steps[4].data.text, "rose", "then the line saying it rose")
+  eq(WildHerd.addBoostSteps(nil, "a", "b"), nil, "no steps: nothing")
+  local SA = { MULTIPLE_PLUS1 = 55 }
+  local function argOf(stat, d) return (stat == "attack" and 15 or 99) + d - 1 end
+  eq(WildHerd.boostAnimArg({ "attack", "defense" }, SA, argOf), 55, "several stats: the multiple-stats animation")
+  eq(WildHerd.boostAnimArg({ "attack" }, SA, argOf), 15, "one: that stat's own")
+  eq(WildHerd.boostAnimArg({}, SA, argOf), nil, "none: no animation")
+  eq(string.format(WildHerd.CHEER_TEXT, "ZIGZAGOON"), "ZIGZAGOON's group cheers it on!", "the English cheer")
+  eq(string.format(WildHerd.ROSE_TEXT, "ZIGZAGOON"), "ZIGZAGOON's power rose!", "the English rise")
 end
 
 -- ------- the intro's line

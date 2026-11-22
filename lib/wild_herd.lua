@@ -17,25 +17,22 @@ WildHerd.MAX = 5
 -- the intro's line (translated by the caller; %s = the leader's name, as the battle shows it)
 WildHerd.TEXT = "A wild %s group appeared!"
 
--- the others' places: a loose pack in the open space LEFT of the leader, the middle left of
--- the screen (px from the leader's sprite centre, on its feet line) -- between the foe's health
--- box above and the player's Pokemon below. Not a line: a back row a little higher up (farther
--- off; it may reach further left, over the player's Pokemon) and a front row nearer the leader,
--- staggered, each at least ~22 px from the next (close, not hugging). One more each time the
--- group is bigger; the farthest back first in each list (drawn first). Mirrored (`FLIP`):
--- front pics face the player's way (left); over here they turn to face the battle and their
--- leader. Smaller (`SCALE`), a little darker (`SHADE`) and a little see-through (`ALPHA`): in
--- the background.
+-- the others' places: a loose pack BEHIND the leader (px from the leader's sprite centre, on its
+-- feet line), a little higher up (farther off) and on both sides of it, peeking out round it
+-- (a front pic's art sits right of its centre: the right-hand places clear its tail) --
+-- drawn before it, so it covers them. One more each time the group is bigger; the farthest
+-- back first in each list (drawn first). Facing the player, as the leader does. Smaller
+-- (`SCALE`) and a little darker (`SHADE`): in the background (solid: `ALPHA` 1).
 WildHerd.SLOTS = {
-  { { -72, -8 } },
-  { { -90, -16 }, { -62, -5 } },
-  { { -104, -19 }, { -62, -18 }, { -84, -4 } },
-  { { -76, -21 }, { -114, -20 }, { -96, -6 }, { -56, -5 } },
+  { { 38, -19 } },
+  { { 40, -12 }, { -32, -7 } },
+  { { 38, -19 }, { -36, -8 }, { 56, -4 } },
+  { { 38, -19 }, { -16, -17 }, { -40, -7 }, { 56, -4 } },
 }
-WildHerd.FLIP = true
-WildHerd.SCALE = 0.75
+WildHerd.FLIP = false
+WildHerd.SCALE = 0.55
 WildHerd.SHADE = 0.85
-WildHerd.ALPHA = 0.8
+WildHerd.ALPHA = 1
 
 --- The group `leader` leads, as the herd battle's other Pokemon: a list of { species, level,
 --- personality, id } (each member still there, never the leader itself), at most
@@ -108,14 +105,19 @@ end
 --- The bark's sound waves at age `age` (0..barkTicks-1): a list of { dx, dy, angle, alpha }
 --- from its mouth (px, facing right toward the leader), three lines fanning out as Growl's
 --- do, moving away and fading. Pure.
-function WildHerd.barkWaves(age)
+local WAVE_ANGLES = { -0.5, 0, 0.5 }
+function WildHerd.barkWaves(age, out)
   local c = WildHerd.CHEER
   local k = math.max(0, math.min(1, (tonumber(age) or 0) / c.barkTicks))
-  local out = {}
-  for i, ang in ipairs({ -0.5, 0, 0.5 }) do
+  -- (`out`: filled in place, entries reused -- the draw asks every frame; no garbage)
+  out = out or {}
+  for i = 1, 3 do
+    local ang = WAVE_ANGLES[i]
     local d = 4 + 14 * k
     local a = (1 - k) * (i == 2 and 1 or 0.85)
-    out[i] = { d * math.cos(ang), d * math.sin(ang), ang, a }
+    local l = out[i] or {}
+    l[1], l[2], l[3], l[4] = d * math.cos(ang), d * math.sin(ang), ang, a
+    out[i] = l
   end
   return out
 end
@@ -148,8 +150,8 @@ end
 -- each kind's places ({ dx, dy } from the leader's sprite centre on its feet line, by group
 -- size, the farthest back -- highest -- first: the order they are drawn in), size, shade,
 -- see-through, and whether they face right (mirrored; front pics face the player, left).
--- "land" stands in the open space LEFT of the leader (WildHerd.SLOTS); the rest stand BEHIND
--- it (drawn before it, so it covers them), higher up and smaller: in the background.
+-- They all stand BEHIND it (drawn before it, so it covers them), higher up and smaller: in the
+-- background. "land" = WildHerd.SLOTS, on the ground; the rest a little smaller.
 WildHerd.KINDS = {
   land = { slots = WildHerd.SLOTS, scale = WildHerd.SCALE, shade = WildHerd.SHADE, alpha = WildHerd.ALPHA,
            flip = WildHerd.FLIP },
@@ -273,7 +275,7 @@ function WildHerd.pose(kind, k, t, s, out)
 end
 
 -- the leader caught: each runs off the battle screen `lag` ticks after the one before (plus
--- a little of its own): land runs off to the left (turned away), hopping; float drifts up
+-- a little of its own): land runs off to its own side (facing that way), hopping; float drifts up
 -- and away; a bird crouches, then flies up and off; swim dives. `ticks` = how long each takes.
 WildHerd.FLEE = { lag = 6, ticks = { land = 60, float = 45, bird = 46, swim = 32 } }
 
@@ -304,11 +306,71 @@ function WildHerd.flee(kind, k, age, side, out)
     out.dy = out.dy + 0.5 * a
     out.alpha = 1 - a / len
   else
-    out.dx, out.flip, out.rot = out.dx - 3.2 * a, false, 0
+    out.dx, out.flip, out.rot = out.dx + side * 3.2 * a, side > 0, 0
     out.dy, out.sx, out.sy = -3 * math.abs(math.sin(math.pi * a / 8)), 1, 1
     out.alpha = a > len - 12 and (len - a) / 12 or 1
   end
   return out
+end
+
+-- the group lends its leader strength: one stat stage per Pokemon of it on screen, at the end
+-- of the intro (after the player's send-out), as a totem's aura would -- its stronger attacking
+-- stat first, then these; the lines (translated by the caller; %s = the leader's name)
+WildHerd.BOOST_AFTER = { "defense", "spDef", "speed" }
+WildHerd.CHEER_TEXT = "%s's group cheers it on!"
+WildHerd.ROSE_TEXT = "%s's power rose!"
+
+--- The leader's stats the group raises (+1 stage each), one per member (`n`, at most
+--- WildHerd.MAX - 1): its stronger attacking stat (`mon.spAtk` over `mon.attack` -> "spAtk",
+--- else "attack"), then WildHerd.BOOST_AFTER. Pure.
+function WildHerd.boosts(n, mon)
+  n = math.max(0, math.min(WildHerd.MAX - 1, math.floor(tonumber(n) or 0)))
+  local out = {}
+  if n == 0 then return out end
+  local atk = mon and tonumber(mon.attack) or 0
+  local spa = mon and tonumber(mon.spAtk) or 0
+  out[1] = spa > atk and "spAtk" or "attack"
+  for i = 2, n do out[i] = WildHerd.BOOST_AFTER[i - 1] end
+  return out
+end
+
+--- Raises `stages` (a battler's stat stages) by one for each stat in `stats`, capped at +6.
+--- Returns how many went up. Pure.
+function WildHerd.applyBoosts(stages, stats)
+  local up = 0
+  if type(stages) ~= "table" then return up end
+  for _, k in ipairs(stats or {}) do
+    local v = tonumber(stages[k])
+    if v and v < 6 then
+      stages[k] = v + 1
+      up = up + 1
+    end
+  end
+  return up
+end
+
+--- Adds the group's boost to the end of the intro's steps (IntroSeq._steps, in place): the
+--- cheer line, a one-frame wait flagged `wohBoost` (the intro holds there while a battle
+--- animation runs: the caller launches the stat-up one, STATS_CHANGE, as the intro reaches
+--- it -- the intro's own "general" step cannot pass it the stats' argument), the line saying
+--- it rose. Returns the wait step's index (nil: no steps). Pure.
+function WildHerd.addBoostSteps(steps, cheer, rose)
+  if type(steps) ~= "table" then return nil end
+  steps[#steps + 1] = { kind = "msg", data = { text = cheer } }
+  steps[#steps + 1] = { kind = "wait", data = { frames = 1, wohBoost = true } }
+  local at = #steps
+  steps[#steps + 1] = { kind = "msg", data = { text = rose } }
+  return at
+end
+
+--- The stat-up animation's argument for raising `stats` by one (the engine's own numbers,
+--- battle/effects/secondary.lua: `statAnim` = its STAT_ANIM, `argOf(stat, delta)` = its
+--- statAnimArg): several stats -> MULTIPLE_PLUS1, one -> that stat's +1. nil for none. Pure.
+function WildHerd.boostAnimArg(stats, statAnim, argOf)
+  local n = type(stats) == "table" and #stats or 0
+  if n == 0 then return nil end
+  if n > 1 then return statAnim and statAnim.MULTIPLE_PLUS1 end
+  return argOf and argOf(stats[1], 1)
 end
 
 --- Swaps the wild intro's "Wild X appeared!" for `text` in the intro's steps (IntroSeq._steps,

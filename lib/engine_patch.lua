@@ -1352,9 +1352,12 @@ end
 -- A wild group's leader is fought in a plain wild single; the rest of its group stands behind
 -- it, watching (lib/wild_herd.lua). For the length of ONE battle (put back in its `done`):
 --   battle/state.lua State.new -- its state noted (our wild battle's, not another one)
---   battle/intro_seq.lua IntroSeq.begin -- "Wild X appeared!" becomes the group's line
+--   battle/intro_seq.lua IntroSeq.begin -- "Wild X appeared!" becomes the group's line; the
+--     group's boost is added to the intro's end (cheer, a wait, "power rose")
+--   battle/intro_seq.lua IntroSeq.update -- the leader's stat stages go up, one per member, as
+--     the intro reaches that point, and the stat-up animation (Anim.launchGeneral) plays on it
 --   battle/anim.lua Anim.drawParticles -- the singles draw (battle/ui.lua Ui.draw) calls it for
---     z 0..99 just before it draws the foe: the others are drawn there, left of it, sliding in
+--     z 0..99 just before it draws the foe: the others are drawn there, behind it, sliding in
 --     and lighting up with it (its presentation's ox / darken), with the engine's own front
 --     pics (Ui.sidePic: a sprite mod's art too) on their feet line (Ui.battlerSpriteCenter)
 local WH_MODS = {
@@ -1380,7 +1383,7 @@ function EnginePatch.wildHerdSupported()
   local m = whModules()
   if not m then return false end
   local need = {
-    { m.bridge, "startWild" }, { m.state, "new" }, { m.state, "displayName" }, { m.intro, "begin" },
+    { m.bridge, "startWild" }, { m.state, "new" }, { m.state, "displayName" }, { m.intro, "begin" }, { m.intro, "update" },
     { m.intro, "introText" }, { m.anim, "present" }, { m.anim, "drawParticles" },
     { m.ui, "sidePic" }, { m.ui, "battlerSpriteCenter" }, { m.pokemon, "picSpecies" },
     { m.anim, "preloadPack" },
@@ -1442,6 +1445,23 @@ local function whFainted(m, w, p)
   return ok and down == true and (p.visible == false or (tonumber(p.oy) or 0) > 0)
 end
 
+-- the stat-up animation on the leader (battle/anim.lua Anim.launchGeneral "STATS_CHANGE",
+-- launched the way the intro's own general step does, with the stats' argument)
+local function whBoostAnim(A, st, stats, helper)
+  local Sec = loadModule("src.core.game3.battle.effects.secondary")
+  local Ctx = loadModule("src.core.game3.battle.anim_ctx")
+  if not (type(Sec) == "table" and type(Ctx) == "table" and Ctx.build and A.launchGeneral) then return end
+  local arg = helper.boostAnimArg(stats, Sec.STAT_ANIM, Sec.statAnimArg)
+  if not arg then return end
+  local b = st.enemy
+  local sp = b and (b.species or (b.mon and b.mon.species))
+  A.launchGeneral("STATS_CHANGE", {
+    attackerSide = "enemy", targetSide = "enemy", isReversed = true,
+    attackerSpecies = sp, targetSpecies = sp, animArg = arg,
+    ctx = Ctx.build("enemy", "enemy", { animArg = arg }),
+  })
+end
+
 local function whDraw(m, w)
   local g = love and love.graphics
   if not g then return end
@@ -1499,7 +1519,8 @@ local function whDraw(m, w)
           -- its bark: the waves from its mouth (the pic's middle, toward the side it faces)
           local mx = x + dir * 16 * scale
           local my = y - 34 * scale
-          for _, l in ipairs(helper.barkWaves(pose.bark)) do
+          w.waveList = helper.barkWaves(pose.bark, w.waveList)
+          for _, l in ipairs(w.waveList) do
             g.setColor(1, 1, 1, l[4] * a)
             g.draw(wv.image, wv.quad, mx + dir * l[1], my + l[2], dir * l[3], 0.45 * dir, 0.45, 16, 16)
           end
@@ -1514,6 +1535,8 @@ end
 --- EnginePatch.startWild, fought as a plain wild single), `herd` = the others ({ species,
 --- personality }, WildHerd.members), `opts` = { done(result), text = function(name) -> the
 --- intro's line, compact = function() -> true for the compact places (a 3D battle scene),
+--- boost = function(name, mon) -> the leader's stats to raise (+1 each), the cheer line, the
+--- risen line (WildHerd.boosts; nil = no boost),
 --- kind = the group's kind (WildHerd.kindOf; nil = "land") },
 --- `helper` = lib/wild_herd.lua. Returns what BattleBridge.startWild returns,
 --- or nil, reason (nothing installed then).
@@ -1535,7 +1558,8 @@ function EnginePatch.startWildHerd(game, enc, herd, opts, helper)
   -- they move
   local kind = opts.kind or "land"
   local w = { pending = true, herd = list, kind = kind, slots = helper.slots(#list, false, kind),
-              slotsCompact = helper.slots(#list, true, kind), compact = opts.compact, helper = helper, orig = {} }
+              slotsCompact = helper.slots(#list, true, kind), compact = opts.compact, helper = helper,
+              orig = {} }
   wh = w
   local B, S, I, A = m.battle, m.state, m.intro, m.anim
   wdWrap(w, S, "new", function(orig)
@@ -1558,7 +1582,40 @@ function EnginePatch.startWildHerd(game, enc, herd, opts, helper)
         end)
         if not ok then print("[wilds_of_hoenn] herd intro: " .. tostring(err)) end
       end
+      -- the group lends its leader strength, shown at the intro's end (WildHerd.addBoostSteps);
+      -- its stat stages go up as the stat-up animation plays (the IntroSeq.update wrap below)
+      if wh == w and r and st ~= nil and st == w.st and not st.double and type(opts.boost) == "function"
+          and not w.boostSteps then
+        local ok, err = pcall(function()
+          local stats, cheer, rose = opts.boost(S.displayName(st.enemy), st.enemy.mon)
+          local at = stats and #stats > 0 and helper.addBoostSteps(I._steps, cheer, rose)
+          if at then w.boostSteps, w.boostAt, w.boostStats = I._steps, at, stats end
+        end)
+        if not ok then print("[wilds_of_hoenn] herd boost: " .. tostring(err)) end
+      end
       return r
+    end
+  end)
+  wdWrap(w, I, "update", function(orig)
+    return function(...)
+      local a, b = orig(...)
+      -- the boost lands as the intro reaches its wait step (WildHerd.addBoostSteps): the
+      -- stat-up animation launched on the leader there (the intro holds while it runs), its
+      -- stages up -- or, the intro over without getting there, just the stages; once
+      local st = w.st
+      if wh == w and w.boostStats and st and B._st == st then
+        local there = I._steps == w.boostSteps and (tonumber(I._i) or 0) >= w.boostAt
+        if there or I._steps ~= w.boostSteps then
+          local stats = w.boostStats
+          w.boostStats = nil
+          pcall(helper.applyBoosts, st.enemy and st.enemy.stages, stats)
+          if there and not A._headless then
+            local ok, err = pcall(whBoostAnim, A, st, stats, helper)
+            if not ok then print("[wilds_of_hoenn] herd boost anim: " .. tostring(err)) end
+          end
+        end
+      end
+      return a, b
     end
   end)
   wdWrap(w, A, "drawParticles", function(orig)

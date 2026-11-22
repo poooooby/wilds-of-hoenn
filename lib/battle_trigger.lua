@@ -259,6 +259,10 @@ function BattleTrigger:onPlayerBumped(entity)
     ok, err = EnginePatch.startWildHerd(self.spawnManager.game, enc, herd, {
       done = function(result) self:_onBattleEnded(entity.id, result) end,
       text = function(name) return tr(WildHerd.TEXT, name) end,
+      -- the bigger the group, the stronger its leader: +1 to a stat for each one of the rest
+      boost = function(name, mon)
+        return WildHerd.boosts(#herd, mon), tr(WildHerd.CHEER_TEXT, name), tr(WildHerd.ROSE_TEXT, name)
+      end,
       -- (a battle in WoobleView's 3D world: the pack drawn in closer to the leader)
       compact = function() return HdField.sceneOn(self.mod) end,
       -- land packs beside the leader; fliers, birds and swimmers behind it (WildHerd.kindOf)

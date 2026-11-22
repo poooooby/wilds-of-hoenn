@@ -114,6 +114,8 @@ return {
   ["Found %s!"] = "%sを みつけた！",
   ["Two POKéMON are out! There's no clear shot!"] = "ポケモンが ２ひき いる！ ねらいが さだまらない！",
   ["A wild %s group appeared!"] = "やせいの %sの むれが あらわれた！",
+  ["%s's group cheers it on!"] = "%sの むれが はげましている！",
+  ["%s's power rose!"] = "%sの ちからが あがった！",
   ["an item"] = "どうぐ",
   ["+%d EXP"] = "+%d けいけんち",
   ["Lv.%d!"] = "Lv.%d！",

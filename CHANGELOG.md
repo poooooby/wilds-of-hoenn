@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Group battles: the bigger the group, the stronger its leader. After you send out your
+  Pokémon, the group cheers its leader on and the stat-up animation plays: one stat stage for
+  each member there (its stronger attacking stat first, then Defense, Sp. Def and Speed). Like
+  any stat change, it is lost if the leader leaves the field (Haze, Roar) and never carries
+  over to a caught Pokémon.
+
+### Changed
+
+- Group battles: a pack on the ground now stands behind its leader, smaller and solid, peeking
+  out on both sides of it, instead of off to its left.
+
 ## 2.1.0-beta.2 (2026-11-20)
 
 ### Changed

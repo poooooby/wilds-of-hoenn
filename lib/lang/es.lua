@@ -113,6 +113,8 @@ return {
   ["Found %s!"] = "¡Encontró %s!",
   ["Two POKéMON are out! There's no clear shot!"] = "¡Hay dos POKéMON! ¡No hay tiro limpio!",
   ["A wild %s group appeared!"] = "¡Apareció un grupo de %s salvajes!",
+  ["%s's group cheers it on!"] = "¡El grupo de %s lo anima!",
+  ["%s's power rose!"] = "¡El poder de %s aumentó!",
   ["an item"] = "un objeto",
   ["+%d EXP"] = "+%d EXP",
   ["Lv.%d!"] = "¡Nv.%d!",
