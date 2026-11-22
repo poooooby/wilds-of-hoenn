@@ -1550,6 +1550,7 @@ function SpawnManager:tick(game)
         e.swimCfg = (reactCtx and e.profile and e.profile.water == "drifter") and Config.ECO.water.drift or nil
         Behavior.tick(e, self.game)
         self:_swimLife(e, reactCtx ~= nil)
+        self:_ghostLife(e)
         if reactCtx and not e.fx then Eco.consider(e, reactCtx, self) end
       end
       self:_wakeOnStep(e)
@@ -1879,6 +1880,51 @@ function SpawnManager:_swimLife(e, eco)
   self:startDive(e)
 end
 
+-- is `species` a Ghost type (either type)? Cached per species; unknown -> false.
+local ghostCache = {}
+local function isGhost(species)
+  local hit = ghostCache[species]
+  if hit ~= nil then return hit end
+  local ghost = false
+  if species and EnginePatch.speciesTypes and EnginePatch.typeName then
+    local ok, t1, t2 = pcall(EnginePatch.speciesTypes, species)
+    if ok then
+      ghost = EnginePatch.typeName(t1 or 0) == "GHOST" or (t2 ~= nil and EnginePatch.typeName(t2) == "GHOST")
+    end
+  end
+  ghostCache[species] = ghost
+  return ghost
+end
+SpawnManager._isGhost = isGhost
+
+--- Per tick for a Ghost-type on land left to itself: now and then it fades out and in
+--- again somewhere near (Config.GHOST_FADE), as a swimmer dives.
+function SpawnManager:_ghostLife(e)
+  if e.terrain == "water" or e.group or e.rider or not isGhost(e.species) then return end
+  local d = Config.GHOST_FADE
+  if not e.fadeIn then e.fadeIn = math.random(d.min, d.max) end
+  e.fadeIn = e.fadeIn - 1
+  if e.fadeIn > 0 or e.fx or e.moving or e.roamer or e.isFlyer or e.lured or e.react or e.engaged
+      or e.charging or e.eco or e.runAway or e.defeated then
+    return
+  end
+  local p = EnginePatch.playerCell and EnginePatch.playerCell()
+  if p and math.max(math.abs(p.x - e.cellX), math.abs(p.y - e.cellY)) <= d.clearRadius then
+    e.fadeIn = 120 -- the player is right there: later
+    return
+  end
+  self:startGhostFade(e)
+end
+
+--- `e` (a Ghost-type) fades out where it stands, stays unseen a while and fades in again a
+--- few tiles away (`_stepDive`, the same steps as a swimmer's dive).
+function SpawnManager:startGhostFade(e)
+  e.fadeIn = nil
+  e.fx = SpawnFx.new("leave", "fade", Config.GHOST_FADE.fadeTicks)
+  e.fx.dive, e.fx.ghost = true, true
+  self:_applyFx(e)
+end
+
 --- `e` goes under (Config.SWIM.dive): it sinks with rings and a ripple, stays down a while,
 --- and surfaces a few tiles away (`_stepDive`). A whale sounding after its spout too.
 function SpawnManager:startDive(e)
@@ -1911,9 +1957,33 @@ end
 --- surfacing in rings like a new arrival.
 function SpawnManager:_stepDive(e)
   local fx, d = e.fx, Config.SWIM.dive
+  if fx.ghost then d = Config.GHOST_FADE end
   if fx.under then
     fx.under = fx.under - 1
     if fx.under > 0 then return end
+    if fx.ghost then
+      -- a ghost fades in again on a free cell of its own ground the player can reach
+      -- (or where it was)
+      local spots = {}
+      for dy = -d.hop, d.hop do
+        for dx = -d.hop, d.hop do
+          local x, y = e.cellX + dx, e.cellY + dy
+          if (dx ~= 0 or dy ~= 0) and EnginePatch.terrainAt(x, y) == e.terrain and self:_cellFree(x, y)
+            and not (self.source and self.source.canStay and not self.source:canStay(x, y, e.terrain))
+            and not (EnginePatch.isWarpCell and EnginePatch.isWarpCell(x, y)) then
+            spots[#spots + 1] = { x = x, y = y }
+          end
+        end
+      end
+      if #spots > 0 then
+        local c = spots[math.random(1, #spots)]
+        e.cellX, e.cellY, e.px, e.py = c.x, c.y, c.x * 16, c.y * 16
+      end
+      e.facing = ({ "up", "down", "left", "right" })[math.random(1, 4)]
+      e.fx = SpawnFx.new("appear", "fade", d.fadeTicks)
+      self:_applyFx(e)
+      return
+    end
     -- a group member comes up beside its leader, once the leader has
     local g = e.group
     local leader = g and g.leader ~= e.id and self.entities[g.leader] or nil

@@ -1620,6 +1620,55 @@ do
   fakeEngine.terrainAt, fakeEngine.isWater, fakeEngine.playerCell = realT, realW, realPC
   fakeEngine.startRipple = nil
 end
+-- ------- ghosts: now and then they fade out and in again a few tiles off
+do
+  local Config = V.require("config")
+  local realT, realPC, realST, realTN = fakeEngine.terrainAt, fakeEngine.playerCell, fakeEngine.speciesTypes,
+    fakeEngine.typeName
+  fakeEngine.terrainAt = function() return "land" end
+  fakeEngine.playerCell = function() return { x = 30, y = 30 } end
+  fakeEngine.speciesTypes = function(sp) if sp == 92 then return 7, 3 end return 0, 0 end
+  fakeEngine.typeName = function(t) return ({ [0] = "NORMAL", [3] = "POISON", [7] = "GHOST" })[t] end
+  local smG = SpawnManager.new(mod)
+  smG:onMapEntered("ROUTE_1", { world = { player = { cellX = -1, cellY = -1 } } })
+  local e
+  for _, x in pairs(smG.entities) do e = e or x end
+  for id, x in pairs(smG.entities) do if x ~= e then smG:despawn(id) end end
+  e.terrain, e.cellX, e.cellY, e.px, e.py, e.fx, e.group = "land", 5, 5, 80, 80, nil, nil
+
+  check(SpawnManager._isGhost(92) and not SpawnManager._isGhost(19), "Gastly is a ghost, Rattata is not")
+  e.species = 19
+  e.fadeIn = 1
+  smG:_ghostLife(e)
+  eq(e.fx, nil, "a Pokemon that is no ghost never fades")
+  e.species = 92
+  fakeEngine.playerCell = function() return { x = 6, y = 5 } end
+  e.fadeIn = 1
+  smG:_ghostLife(e)
+  eq(e.fx, nil, "not with the player right beside it")
+  fakeEngine.playerCell = function() return { x = 30, y = 30 } end
+  e.fadeIn = 1
+  smG:_ghostLife(e)
+  check(e.fx and e.fx.ghost and e.fx.dive and e.fx.kind == "leave" and e.fx.mode == "fade", "its time comes: it fades out")
+  eq(#smG:fightTargets(), 0, "...no Battler target meanwhile")
+  for _ = 1, Config.GHOST_FADE.fadeTicks do smG:_stepDive(e) end
+  check(e.fx.under and e.fx.under >= Config.GHOST_FADE.underMin, "faded: unseen a while")
+  eq(e.renderer.alpha, 0, "...out of sight")
+  eq(smG:entityAt(5, 5), nil, "...and nobody bumps into it")
+  e.fx.under = 1
+  smG:_stepDive(e)
+  check(e.fx and e.fx.kind == "appear" and e.fx.mode == "fade" and not e.fx.dive, "then it fades in again")
+  check((e.cellX ~= 5 or e.cellY ~= 5) and math.abs(e.cellX - 5) <= Config.GHOST_FADE.hop
+    and math.abs(e.cellY - 5) <= Config.GHOST_FADE.hop, "...a few tiles off (" .. e.cellX .. "," .. e.cellY .. ")")
+  eq(e.px, e.cellX * 16, "...drawn there")
+  e.fx, e.group = nil, { leader = e.id, members = { e.id } }
+  e.fadeIn = 1
+  smG:_ghostLife(e)
+  eq(e.fx, nil, "a group's leader stays (its members ride with it)")
+
+  fakeEngine.terrainAt, fakeEngine.playerCell, fakeEngine.speciesTypes, fakeEngine.typeName = realT, realPC, realST, realTN
+end
+
 -- ------- group spacing by art size, and a pod at rest swimming round its leader
 do
   local Config = V.require("config")

@@ -63,7 +63,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
   chase you, and packs, herds and schools move together. Startle a skittish group and the others
   scurry off and vanish, leaving its leader dashing about its patch in a fright before it calms
   down. Some sleep by night or by day, diggers
-  burrow, hunters chase prey, and some glow after dark.
+  burrow, hunters chase prey, and some glow after dark. Ghosts now and then fade from sight
+  and drift back in a few steps away.
 - 🌊 **Water life:** swimmers dive and resurface, fish leap, Wailmer spout, and Finizen porpoise
   out at sea.
 - 🕊️ **Birds in the sky:** birds fly overhead, perch on roofs and dive for fish. They are not just

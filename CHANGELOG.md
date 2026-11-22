@@ -4,6 +4,10 @@
 
 ### Added
 
+- Wild Ghost-types in the overworld now and then fade out of sight and fade back in a few
+  steps away, the way swimmers dive and come up again. While unseen they can't be bumped
+  into or fought.
+
 - Group battles: the bigger the group, the stronger its leader. After you send out your
   Pokémon, the group cheers its leader on and the stat-up animation plays: one stat stage for
   each member there (its stronger attacking stat first, then Defense, Sp. Def and Speed). Like

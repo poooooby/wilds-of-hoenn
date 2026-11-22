@@ -56,6 +56,14 @@ Config.SWIM = {
   dive = { min = 600, max = 2700, sinkTicks = 22, underMin = 60, underMax = 180, hop = 3, clearRadius = 2 },
 }
 
+-- A wild Ghost-type on land (lib/spawn_manager.lua _ghostLife) now and then fades out where
+-- it stands, stays unseen a while (passing through: nobody meets it, nothing fights it) and
+-- fades in again on a free cell of its own ground within `hop` tiles -- the way a swimmer
+-- dives. Every `min..max` ticks, not with the player within `clearRadius` tiles; `fadeTicks`
+-- to fade out, `underMin..underMax` unseen. Not a group (its members ride with it).
+Config.GHOST_FADE = { min = 600, max = 2400, fadeTicks = 30, underMin = 90, underMax = 240, hop = 3,
+                      clearRadius = 2 }
+
 -- Density, per terrain (land and water each): MIN_VISIBLE plus one more Pokemon for
 -- every TILES_PER_ADDITIONAL eligible tiles, at most MAX_VISIBLE. These are the
 -- Normal values of the Spawn Amount option; SPAWN_AMOUNT holds Low and High.
