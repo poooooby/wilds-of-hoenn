@@ -11,8 +11,13 @@
 
 - Big Pokémon in the PMDCollab style (Lugia, Groudon, Wailord ...) no longer hang below their
   feet when seen from behind (or, for a few, from the front): each facing now stands on the same
-  ground line as the player. Flyers and floaters keep their hover. Big partners squeeze under
-  low roofs and tree tops as before.
+  ground line as the player. Flyers and floaters keep their hover.
+
+### Changed
+
+- A big partner walking up a narrow path between trees squeezes in sideways to fit between
+  them (sliding a little toward the middle of the gap) instead of being squashed flat. It
+  still ducks under a roof right behind it.
 
 ## 2.1.1 (2026-11-22)
 

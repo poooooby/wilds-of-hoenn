@@ -713,7 +713,10 @@ Config.HGSS_FOLLOWER = { down = 0, upOverlap = 10, side = 0 }
 -- squashed (`widen` x the squash), easing in and out by `ease` of the way each tick.
 -- While it crouches more than `sweatFrom` it sweats (lib/sweat_drop.lua): one drop for a light
 -- crouch, up to `sweatMax` drops, cycling faster, the harder it is squashed.
-Config.FOLLOWER_DUCK = { nudge = 4, minScale = 0.5, widen = 0.15, ease = 0.2, sweatFrom = 0.03, sweatMax = 3 }
+-- squeezeMin / squeezeShift: squeezing sideways between covering tiles at its sides (a path
+-- between trees): at most to half its width, slid at most 8 px toward the gap's middle
+Config.FOLLOWER_DUCK = { nudge = 4, minScale = 0.5, widen = 0.15, ease = 0.2, sweatFrom = 0.03, sweatMax = 3,
+  squeezeMin = 0.5, squeezeShift = 8 }
 Config.PMD_FOLLOWER_IDLE_DELAY = 300
 Config.PMD_FOLLOWER_IDLE_SPEED = 0.5
 -- Resting on Idle's first frame, the follower is nudged so that frame's feet sit on its

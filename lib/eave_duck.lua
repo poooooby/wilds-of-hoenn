@@ -63,6 +63,84 @@ function EaveDuck.need(row, top)
   return math.max(0, (row + 1) * CELL - top)
 end
 
+--- Per column c0..c1: the lowest row holding a covering tile of a structure behind the
+--- follower (lowestRow for that column alone), or false -- written into `out` (index 1 =
+--- column c0).
+function EaveDuck.columns(c0, c1, r0, feetRow, covers, solid, out)
+  out = out or {}
+  local n = 0
+  for col = c0, c1 do
+    n = n + 1
+    out[n] = EaveDuck.lowestRow(col, col, r0, feetRow, covers, solid) or false
+  end
+  for k = #out, n + 1, -1 do out[k] = nil end
+  return out
+end
+
+--- Per column c0..c1: does any covering tile (a structure behind it OR in front, a tree's
+--- crown) lie over the art, rows r0 .. feetRow - 1? -- written into `out` (index 1 = c0).
+function EaveDuck.coveredColumns(c0, c1, r0, feetRow, covers, out)
+  out = out or {}
+  local n = 0
+  for col = c0, c1 do
+    n = n + 1
+    local hit = false
+    for row = r0, feetRow - 1 do
+      if covers(col, row) then hit = true break end
+    end
+    out[n] = hit
+  end
+  for k = #out, n + 1, -1 do out[k] = nil end
+  return out
+end
+
+--- Squeezing SIDEWAYS through a gap (a big Pokemon walking up a path between trees): when the
+--- columns over the art's middle (`cx`, world px) are clear and only columns to its sides hold
+--- covering tiles behind it (`cols` from EaveDuck.columns, starting at column `c0`), the art
+--- (`half` px each side of `cx`) is drawn narrower, `scale` of its width (>= `minScale`), and
+--- slid `dx` px (at most `shiftMax`) toward the middle of the clear gap, so it fits between
+--- them. `sides` (optional, EaveDuck.coveredColumns): every column with covering tiles over
+--- the art, in front of it too -- the gap's edges are those (a tree it walks past hides a
+--- wing the usual way, but squeezed it fits between the trees). Returns scale, dx -- 1, 0
+--- when nothing is at its sides (or a tree in front covers its middle: hidden as usual), and
+--- nil when a structure BEHIND it covers its middle column (squeezing cannot help: duck
+--- instead). Pure.
+function EaveDuck.squeeze(cx, half, c0, cols, minScale, shiftMax, sides)
+  local n = #cols
+  if n == 0 or not half or half <= 0 then return 1, 0 end
+  local cc = math.floor(cx / CELL)
+  local function behindAt(col)
+    if col < c0 or col > c0 + n - 1 then return false end
+    return cols[col - c0 + 1] ~= false
+  end
+  if behindAt(cc) then return nil end
+  local function blocked(col)
+    if col < c0 or col > c0 + n - 1 then return false end
+    if sides then return sides[col - c0 + 1] == true or cols[col - c0 + 1] ~= false end
+    return cols[col - c0 + 1] ~= false
+  end
+  if blocked(cc) then return 1, 0 end
+  local L, R = cc, cc
+  while L - 1 >= c0 and not blocked(L - 1) do L = L - 1 end
+  while R + 1 <= c0 + n - 1 and not blocked(R + 1) do R = R + 1 end
+  local leftOpen, rightOpen = not blocked(L - 1), not blocked(R + 1)
+  if leftOpen and rightOpen then return 1, 0 end
+  -- the gap's edges (an open side: as far as the art reaches, plus the room to slide over)
+  local m = shiftMax or 8
+  local A = leftOpen and (cx - half - m) or L * CELL
+  local B = rightOpen and (cx + half + m) or (R + 1) * CELL
+  local scale = math.max(minScale or 0.5, math.min(1, (B - A) / (2 * half)))
+  local h = half * scale
+  -- the squeezed box as near its own place as fits in the gap
+  local centre = cx
+  if centre - h < A then centre = A + h end
+  if centre + h > B then centre = B - h end
+  if B - A < 2 * h then centre = (A + B) / 2 end -- (too wide even squeezed: the middle)
+  local dx = centre - cx
+  if dx > m then dx = m elseif dx < -m then dx = -m end
+  return scale, dx
+end
+
 --- From the overlap and the art's height (px above its feet): the px it moves down and how
 --- much it squashes (0..1, like act.sink), within `cfg` = { nudge, minScale }.
 function EaveDuck.split(need, height, cfg)

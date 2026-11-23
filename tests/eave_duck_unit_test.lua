@@ -73,6 +73,57 @@ check(dy == 8 and math.abs(squash - 0.4) < 1e-9, "too much: never squashed below
 dy, squash = ED.split(0, 70, cfg)
 check(dy == 0 and squash == 0, "nothing over it: standing tall")
 
+-- ------- squeezing sideways between trees (walking up a narrow path)
+do
+  -- tree crowns behind it on columns 0-1 and 4 (their trunks end above its row), the path
+  -- (columns 2-3) open; it stands on row 4
+  local cv, sd = map({
+    "CC..C",
+    "CC..C",
+    "WW..W",
+    "WW..W",
+    ".....",
+  })
+  local cols = ED.columns(0, 4, 0, 4, cv, sd)
+  check(cols[1] and cols[2] and not cols[3] and not cols[4] and cols[5], "columns: trees at the sides, the path clear")
+  -- 80 px of art centred on the path's left column (x 40): the gap is 32..64
+  local scale, dx = ED.squeeze(40, 40, 0, cols, 0.5, 8)
+  eq(scale, 0.5, "too wide for the gap: squeezed as far as it goes")
+  eq(dx, 8, "...and slid toward the gap's middle, at most 8 px")
+  -- 36 px of art in the middle of the gap (x 48): squeezed just enough
+  scale, dx = ED.squeeze(48, 18, 0, cols, 0.5, 8)
+  check(math.abs(scale - 32 / 36) < 1e-9, "a little too wide: squeezed to fit the gap exactly")
+  eq(dx, 0, "...in place")
+  -- narrower than the gap: nothing to do
+  scale, dx = ED.squeeze(48, 12, 1, ED.columns(1, 3, 0, 4, cv, sd), 0.5, 8)
+  check(scale == 1 and dx == 0, "fits the gap: drawn as it is")
+  -- only one side blocked: squeezed toward the open side
+  local cols2 = ED.columns(1, 4, 0, 4, cv, sd) -- columns 1..4: tree, path, path, tree... drop the right tree
+  cols2[4] = false
+  scale, dx = ED.squeeze(40, 20, 1, cols2, 0.5, 8)
+  check(scale > 0.85 and dx == 8, "one side blocked, room on the other: slid over first, squeezed only a little")
+  -- a tree whose trunk goes on past its row is in front of it: not in the way
+  local cv3, sd3 = map({ "CC..C", "WW..W", "WW..." })
+  local front = ED.columns(0, 4, 0, 2, cv3, sd3)
+  check(not front[1] and not front[2] and front[5], "trees in front of it (trunks past its row) do not count")
+  -- ...for ducking; squeezing fits it between them all the same
+  local sides = ED.coveredColumns(0, 4, 0, 2, cv3)
+  check(sides[1] and sides[2] and not sides[3] and not sides[4] and sides[5], "coveredColumns: every covered column")
+  scale, dx = ED.squeeze(40, 34, 0, front, 0.5, 8)
+  eq(dx, -8, "without the trees in front: it slides into them")
+  scale, dx = ED.squeeze(40, 34, 0, front, 0.5, 8, sides)
+  eq(scale, 0.5, "with them: squeezed between the trees")
+  eq(dx, 8, "...toward the gap's middle")
+  -- walking right behind a tree in front of it: hidden as usual, no squeeze
+  scale, dx = ED.squeeze(8, 34, 0, front, 0.5, 8, sides)
+  check(scale == 1 and dx == 0, "a tree in front over its middle: drawn as it is (the tree hides it)")
+  -- its middle under a roof: squeezing cannot help (it ducks instead)
+  local cv2, sd2 = map({ "CCCCC", "WWWWW", "....." })
+  eq(ED.squeeze(40, 40, 0, ED.columns(0, 4, 0, 2, cv2, sd2), 0.5, 8), nil, "a roof right behind it: no squeeze (duck)")
+  scale, dx = ED.squeeze(40, 40, 0, ED.columns(0, 4, 0, 2, function() return false end, sd2), 0.5, 8)
+  check(scale == 1 and dx == 0, "nothing covering: drawn as it is")
+end
+
 print("")
 if failures > 0 then
   io.stderr:write(failures .. " failure(s)\n")

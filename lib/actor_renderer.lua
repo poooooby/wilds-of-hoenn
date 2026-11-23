@@ -697,6 +697,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   if act then pushX, pushY = pushX + (act.dx or 0), pushY + (act.dy or 0) end
   -- ducking under an eave (a follower, lib/eave_duck.lua): moved down a little
   pushY = pushY + (self.duckDy or 0) + (self.bobDy or 0) -- (bobDy: a swimmer bobbing)
+  pushX = pushX + (self.squeezeDx or 0) -- (squeezing through a gap: slid toward its middle)
 
   -- recalled into the player (a Battler out of strength): shrink and slide
   -- toward them; sinking into the ground: squash toward the feet
@@ -722,6 +723,9 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
     sink = 1 - (1 - sink) * (1 - duck)
     wide = 1 + duck * (Config.FOLLOWER_DUCK and Config.FOLLOWER_DUCK.widen or 0)
   end
+  -- squeezing sideways through a gap (a follower, lib/eave_duck.lua squeeze): narrower
+  local squeeze = tonumber(self.squeeze) or 0
+  if squeeze > 0 then wide = wide * (1 - squeeze) end
   if sink >= 1 then return end
   local flash = act and tonumber(act.flash) or 0
   if flash > 0 then tint = math.min(tint or 1, 1 - 0.6 * math.min(1, flash)) end
@@ -743,7 +747,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
   end
   -- where quad px (0, 0) lands and the scale it is drawn at (for the signature effect)
   local ox, oy, sx, sy
-  if mul == 1 and sink <= 0 then
+  if mul == 1 and sink <= 0 and wide == 1 then
     ox, oy, sx, sy = (x - camX) + drawX + pushX, (y - camY) + drawY + pushY, flipX, 1
   else
     -- scale about the bottom centre of the frame's box (its feet)
@@ -771,7 +775,7 @@ function ActorRenderer:draw(x, y, camX, camY, facing, walkPhase, _stepFlip)
       love.graphics.setColor(1, 1, 1, alpha)
     end
   end
-  if mul == 1 and sink <= 0 and tilt == 0 then
+  if mul == 1 and sink <= 0 and wide == 1 and tilt == 0 then
     love.graphics.draw(image, quad, ox, oy, 0, flipX, 1)
   else
     local boxLeft = (x - camX) + (flipX < 0 and drawX - frameW or drawX) + pushX

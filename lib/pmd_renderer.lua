@@ -843,6 +843,14 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     scaleX = scale * (1 + duck * (Config.FOLLOWER_DUCK and Config.FOLLOWER_DUCK.widen or 0))
     dx = dx - math.floor(entry.ax * (scaleX - scale) + 0.5)
   end
+  -- squeezing sideways through a gap (a follower, lib/eave_duck.lua squeeze): narrower about
+  -- its anchor, slid toward the gap's middle
+  local squeeze = tonumber(self.squeeze) or 0
+  if not crop and (squeeze > 0 or (self.squeezeDx or 0) ~= 0) then
+    local before = scaleX
+    scaleX = scaleX * (1 - squeeze)
+    dx = dx + math.floor(entry.ax * (before - scaleX) + (self.squeezeDx or 0) + 0.5)
+  end
   if act then
     dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5)
     -- sinking into the ground: squash toward the feet (the ground point stays put)

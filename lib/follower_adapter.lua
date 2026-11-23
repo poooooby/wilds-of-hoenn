@@ -494,7 +494,7 @@ local function solidTile(x, y) return EnginePatch.isWall(x, y) == true end
 
 function FollowerAdapter:_tickDuck(npc, r)
   local cfg = Config.FOLLOWER_DUCK
-  local wantDy, wantDuck = 0, 0
+  local wantDy, wantDuck, wantSqueeze, wantDx = 0, 0, 0, 0
   if EnginePatch.coversActors and EnginePatch.isWall and (r.recall or 1) >= 1 and npc.px and npc.py then
     local height = r.headLift and r:headLift() or nil
     if height and height > CELL then
@@ -508,10 +508,25 @@ function FollowerAdapter:_tickDuck(npc, r)
       if not (s and s.npc == npc and s.c0 == c0 and s.c1 == c1 and s.r0 == r0 and s.feetRow == feetRow) then
         s = s or {}
         s.npc, s.c0, s.c1, s.r0, s.feetRow = npc, c0, c1, r0, feetRow
-        s.row = EaveDuck.lowestRow(c0, c1, r0, feetRow, coversTile, solidTile)
+        -- per column (a gap between trees is squeezed through sideways), and the lowest of all
+        s.cols = EaveDuck.columns(c0, c1, r0, feetRow, coversTile, solidTile, s.cols)
+        s.sides = EaveDuck.coveredColumns(c0, c1, r0, feetRow, coversTile, s.sides)
+        local low = nil
+        for _, row in ipairs(s.cols) do
+          if row and (not low or row > low) then low = row end
+        end
+        s.row = low
         self.duckScan = s
       end
-      wantDy, wantDuck = EaveDuck.split(EaveDuck.need(s.row, top), height, cfg)
+      -- covering tiles only to its sides (walking up a path between trees, in front of it or
+      -- behind): squeezed narrower (and slid toward the gap's middle) instead of squashed; a
+      -- roof right behind its middle: it ducks
+      local sc, sdx = EaveDuck.squeeze(cx, half, c0, s.cols, cfg.squeezeMin, cfg.squeezeShift, s.sides)
+      if sc then
+        wantSqueeze, wantDx = 1 - sc, sdx
+      else
+        wantDy, wantDuck = EaveDuck.split(EaveDuck.need(s.row, top), height, cfg)
+      end
     end
   end
   local k = cfg.ease
@@ -519,8 +534,12 @@ function FollowerAdapter:_tickDuck(npc, r)
   r.duck = (r.duck or 0) + (wantDuck - (r.duck or 0)) * k
   if math.abs(r.duckDy - wantDy) < 0.05 then r.duckDy = wantDy end
   if math.abs(r.duck - wantDuck) < 0.002 then r.duck = wantDuck end
-  -- crouching (not just dipping): a sweat drop by its head (collectActors)
-  if r.duck > Config.FOLLOWER_DUCK.sweatFrom then
+  r.squeeze = (r.squeeze or 0) + (wantSqueeze - (r.squeeze or 0)) * k
+  r.squeezeDx = (r.squeezeDx or 0) + (wantDx - (r.squeezeDx or 0)) * k
+  if math.abs(r.squeeze - wantSqueeze) < 0.002 then r.squeeze = wantSqueeze end
+  if math.abs(r.squeezeDx - wantDx) < 0.05 then r.squeezeDx = wantDx end
+  -- crouching or squeezing through (not just dipping): a sweat drop by its head (collectActors)
+  if math.max(r.duck, r.squeeze) > Config.FOLLOWER_DUCK.sweatFrom then
     self.sweatAge = (self.sweatAge or 0) + 1
   else
     self.sweatAge = nil
@@ -1038,7 +1057,7 @@ function FollowerAdapter:collectActors(actors)
     head = head * (1 - ((r and r.duck) or 0))
     local lift = math.max(2, math.floor(head - CELL + POPUP_GAP + 0.5))
     local a = PopupText.actor(popup and popup.text or ready,
-      npc.px + ((r and r.pushX) or 0) + ((act and act.dx) or state.dx or 0),
+      npc.px + ((r and r.pushX) or 0) + ((r and r.squeezeDx) or 0) + ((act and act.dx) or state.dx or 0),
       npc.py + ((r and r.pushY) or 0) + ((r and r.duckDy) or 0) + ((act and act.dy) or state.dy or 0),
       npc.elevation, lift, popup and 0 or 1,
       popup and popup.age or self.readyClock) -- its age animates a level-up
@@ -1057,7 +1076,7 @@ function FollowerAdapter:collectActors(actors)
     local act = sr.act
     local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
     local lift = (sr:headLift() or CELL) * (1 - (sr.duck or 0))
-    local a = ShinySparkle.actor(self.sparkleAge, 0, npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0),
+    local a = ShinySparkle.actor(self.sparkleAge, 0, npc.px + CELL / 2 + (sr.pushX or 0) + (sr.squeezeDx or 0) + ((act and act.dx) or 0),
       feetY - lift, lift * 0.85, ShinySparkle.bodyWidth(sr) * 0.5 * 0.8, feetY + 1, npc.elevation)
     if a then actors[#actors + 1] = a end
   end
@@ -1067,7 +1086,7 @@ function FollowerAdapter:collectActors(actors)
   -- that generic aura
   if sr and npc.px and npc.py and (sr.recall or 1) >= 1 and sr.headLift and not underPlayer then
     local act = sr.act
-    local x = npc.px + (sr.pushX or 0) + ((act and act.dx) or 0)
+    local x = npc.px + (sr.pushX or 0) + (sr.squeezeDx or 0) + ((act and act.dx) or 0)
     local y = npc.py + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
     local lift = (sr:headLift() or CELL) * (1 - (sr.duck or 0))
     local parts
@@ -1093,7 +1112,7 @@ function FollowerAdapter:collectActors(actors)
     local act = sr.act
     local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0) + ((act and act.dy) or 0)
     local top = feetY - ((sr.headLiftNow and sr:headLiftNow() or sr:headLift()) or CELL) * (1 - (sr.duck or 0))
-    local x = npc.px + CELL / 2 + (sr.pushX or 0) + ((act and act.dx) or 0)
+    local x = npc.px + CELL / 2 + (sr.pushX or 0) + (sr.squeezeDx or 0) + ((act and act.dx) or 0)
     -- (headLiftNow: the head as it is drawn now)
     actors[#actors + 1] = MoodFx.actor(self.moodKind, self.moodAge or 0, x, top - Config.MARK_GAP, feetY + 1,
       math.min(1, (self.moodAge or 0) / 10))
@@ -1101,16 +1120,19 @@ function FollowerAdapter:collectActors(actors)
   if self.sweatAge and sr and (sr.recall or 1) >= 0.5 and sr.headLift then
     local height = (sr.headLiftNow and sr:headLiftNow() or sr:headLift()) or CELL
     local squashed = height * (1 - (sr.duck or 0))
-    local half = drawnWidth(sr) / 2
+    local half = drawnWidth(sr) / 2 * (1 - (sr.squeeze or 0))
     -- on the side it faces (its head), touching the top of it
     local facing = (sr.act and sr.act.facing) or npc.facing
     local side = facing == "left" and -1 or 1
-    local x = npc.px + CELL / 2 + (sr.pushX or 0) + side * math.floor(half * 0.35) - (side < 0 and 5 or 0)
+    local x = npc.px + CELL / 2 + (sr.pushX or 0) + (sr.squeezeDx or 0) + side * math.floor(half * 0.35)
+      - (side < 0 and 5 or 0)
     local feetY = npc.py + CELL + (sr.pushY or 0) + (sr.duckDy or 0)
     local cfg = Config.FOLLOWER_DUCK
-    local fade = math.min(1, ((sr.duck or 0) - cfg.sweatFrom) / 0.08)
+    -- squashed down or squeezed through a gap, whichever is harder
+    local strain = math.max(sr.duck or 0, (sr.squeeze or 0) * (1 - cfg.minScale) / math.max(0.01, 1 - cfg.squeezeMin))
+    local fade = math.min(1, (strain - cfg.sweatFrom) / 0.08)
     -- the harder it is squashed, the more it sweats (1 .. sweatMax drops, faster)
-    local intensity = ((sr.duck or 0) - cfg.sweatFrom) / math.max(0.01, (1 - cfg.minScale) - cfg.sweatFrom)
+    local intensity = (strain - cfg.sweatFrom) / math.max(0.01, (1 - cfg.minScale) - cfg.sweatFrom)
     -- the other drops on the other side of its head (toward its middle when it faces away)
     local span = side * -math.max(8, math.floor(math.min(half, 24) * 0.7))
     local drops = SweatDrop.drops(self.sweatAge, intensity, cfg.sweatMax, span)
@@ -1121,7 +1143,7 @@ function FollowerAdapter:collectActors(actors)
   local r = self.renderer
   if r and (r.recall or 1) < 0.5 then return end -- inside the player: no grass
   local act = r and r.act
-  local offX = (r and r.pushX or 0) + (act and act.dx or 0)
+  local offX = (r and r.pushX or 0) + (r and r.squeezeDx or 0) + (act and act.dx or 0)
   local offY = (r and r.pushY or 0) + (act and act.dy or 0)
   local width, ground = CELL, CELL -- the ground point's depth in the tile
   if r and r.isPmd then
