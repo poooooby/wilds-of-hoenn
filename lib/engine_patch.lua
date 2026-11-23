@@ -1773,6 +1773,26 @@ function EnginePatch.grassSheet()
   return nil
 end
 
+--- Is (cx, cy) a hot spring tile (Lavaridge Town's spa: MB_HOT_SPRINGS)? The engine's own
+--- test (collision.lua Collision.isHotSprings on the tile's behaviour); false when a piece is
+--- missing.
+function EnginePatch.isHotSprings(cx, cy)
+  local Collision = EnginePatch.collision()
+  if not (Collision and Collision.behavior and Collision.isHotSprings) then return false end
+  local ok, hot = pcall(function() return Collision.isHotSprings(Collision.behavior(cx, cy)) end)
+  return ok and hot == true
+end
+
+--- The hot spring water the engine draws over an object standing in the spa
+--- (field_effects.lua: load_sheet("hot_springs_water", 16, 16, 1), frame 0 -- a light blue
+--- band over the bottom of the tile): `sheet, quad`, or nil before it can load.
+function EnginePatch.hotSpringsSheet()
+  local sheet = EnginePatch.fieldEffectSheet("hot_springs_water", 16, 16, 1)
+  local q = sheet and sheet.quads and sheet.quads[0]
+  if q then return sheet, q end
+  return nil
+end
+
 --- The grass that covers a standing Pokemon's feet on (cx, cy): `sheet, quad`. Ruby /
 --- Sapphire / Emerald's LONG grass (Routes 119 and 120: FxRse.B.longGrass on the tile's
 --- behaviour) is the engine's `long_grass` sheet at the frame its animation settles on

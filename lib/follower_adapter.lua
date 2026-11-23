@@ -22,6 +22,7 @@ local RendererFactory = V.require("renderer_factory")
 local SpriteSource = V.require("sprite_source")
 local FormSource = V.require("form_source")
 local GrassCover = V.require("grass_cover")
+local HotSprings = V.require("hot_springs")
 local FollowerActions = V.require("follower_actions")
 local EaveDuck = V.require("eave_duck")
 local SweatDrop = V.require("sweat_drop")
@@ -1133,6 +1134,14 @@ function FollowerAdapter:collectActors(actors)
   local npx, npy = npc.px or npc.cellX * CELL, npc.py or npc.cellY * CELL
   GrassCover.appendFeet(actors, npx + CELL / 2 + offX, npy + ground + offY,
     width * 0.6, npy, npc.elevation, 0)
+  -- Lavaridge's hot spring: the engine's water band over its lower half, as on the player
+  if not npc.hidden then
+    local toX = npc.moving and npc.targetX or npc.cellX
+    local toY = npc.moving and npc.targetY or npc.cellY
+    -- (its feet: the tile's bottom -- PMD art is raised so it never reaches below the player's)
+    HotSprings.append(actors, npx + CELL / 2 + offX, npy + CELL + offY + (r and r.duckDy or 0), width,
+      npc.cellX, npc.cellY, toX, toY, npy, npc.elevation, 0, r and r.alpha)
+  end
 
 end
 

@@ -125,6 +125,99 @@ local function pathOf(self, anim, foam)
 end
 PmdRenderer._pathOf = pathOf
 
+--- Per row of a baked sheet (`bytes` = its RGBA, `w` x `h`, `cw` x `ch` cells, `durations` =
+--- the frames' ticks): the bottom edge that row's frames show most of the time -- the bake's
+--- `foot` rule (the median of the frames' bottom edges, each weighted by how long it is held),
+--- for one facing. PMD grounds a species on one `foot` for all four facings, and a big one's
+--- back view reaches well below it (Lugia's Walk 14 px, Groudon's Idle 7): drawn as baked it
+--- hung below the player's feet. `[row] = bottom` (cell px; nil for an empty row). Each cell
+--- is scanned from its bottom up, so only its empty bottom rows are read. Pure; for testing.
+function PmdRenderer.rowFeetFrom(bytes, w, h, cw, ch, durations)
+  if not (cw and ch) or cw <= 0 or ch <= 0 or cw > w then return nil end
+  local byte = string.byte
+  local cols = math.floor(w / cw)
+  if type(durations) == "table" and #durations > 0 then cols = math.min(cols, #durations) end
+  local out = {}
+  for row = 0, math.floor(h / ch) - 1 do
+    local list, total = {}, 0
+    for col = 0, cols - 1 do
+      local bottom
+      for y = ch - 1, 0, -1 do
+        local base = ((row * ch + y) * w + col * cw) * 4
+        for x = 0, cw - 1 do
+          if byte(bytes, base + x * 4 + 4) > 0 then bottom = y + 1 break end
+        end
+        if bottom then break end
+      end
+      if bottom then
+        local t = durations and tonumber(durations[col + 1]) or 1
+        if not t or t <= 0 then t = 1 end
+        list[#list + 1] = { bottom, t }
+        total = total + t
+      end
+    end
+    if #list > 0 then
+      table.sort(list, function(a, b) return a[1] < b[1] end)
+      local seen, lo, hi = 0, nil, nil
+      for _, e in ipairs(list) do
+        seen = seen + e[2]
+        if not lo and seen * 2 >= total then lo = e[1] end
+        if seen * 2 > total then hi = e[1] break end
+      end
+      out[row] = (lo + (hi or lo)) / 2
+    end
+  end
+  return out
+end
+
+--- How far (px, as drawn) a row whose frames stand on `rowFoot` (cell px) is raised so its
+--- feet are not below the player's: the anchor (ay) is placed by groundOf, and the art --
+--- grown `k` times about that anchor by gen3-hd-sprites -- reaches (rowFoot - ay) * s * k
+--- below it. Only ever up (a row standing higher keeps its stance). Pure; for testing.
+function PmdRenderer.liftOf(entry, rowFoot, s, k)
+  local ay, foot = tonumber(entry and entry.ay), tonumber(entry and entry.foot)
+  rowFoot = tonumber(rowFoot)
+  if not (ay and foot and rowFoot) then return 0 end
+  s = s or 1
+  return math.max(0, (rowFoot - ay) * s * (k or 1) - math.max(1, foot - ay) * s)
+end
+
+-- [path] = rowFeetFrom's table (false = unreadable)
+local rowFeetCache = {}
+
+--- Px (as drawn, at scale `s`) the art of `entry` (sheet `path`) is raised facing `row`, so a
+--- big Pokemon's back view does not hang below the player's feet (rowFeetFrom / liftOf). Read
+--- from the sheet's pixels once per sheet. 0 for a one-row animation (no facing: its own
+--- foot is its row's) or when unreadable.
+function PmdRenderer:rowLift(entry, path, row, s)
+  if type(entry) ~= "table" or entry.rows == 1 or not path then return 0 end
+  local feet = rowFeetCache[path]
+  if feet == nil then
+    feet = false
+    local data = ActorRenderer.sheetData(self.mod, path)
+    if data then
+      local w, h = data:getDimensions()
+      feet = PmdRenderer.rowFeetFrom(data:getString(), w, h, entry.cw, entry.ch, entry.durations) or false
+    end
+    rowFeetCache[path] = feet
+  end
+  if not feet then return 0 end
+  return PmdRenderer.liftOf(entry, feet[row], s, HdField.scaleOfPath(self.mod, path) or 1)
+end
+
+--- The most any row of `anim` is raised (rowLift), at scale `s`.
+function PmdRenderer:maxRowLift(anim, s)
+  local entry = self.info and self.info[anim]
+  if type(entry) ~= "table" or entry.rows == 1 then return 0 end
+  local path = pathOf(self, anim)
+  local best = 0
+  for row = 0, 3 do
+    local l = self:rowLift(entry, path, row, s)
+    if l > best then best = l end
+  end
+  return best
+end
+
 --- Px (cell scale) Idle's first frame is raised facing `row` while resting, x the ease
 --- (`restEase`, 1 while held, eased to 0 once the loop plays). Measured once per sheet,
 --- and only for a renderer that rests (a follower): 0 otherwise.
@@ -431,6 +524,12 @@ function PmdRenderer:headLift(anims)
       end
       if anchor then
         local lift = CELL - groundY + (anchor - top) * s
+        -- a raised facing (rowLift) takes its head up with it: each row's own highest point
+        -- plus its own lift (the tallest row is seldom the raised one)
+        if not self.swimming then
+          local raised = self:_raisedHead(anim, entry, anchor, groundY, s)
+          if raised then lift = raised end
+        end
         if not best or lift > best then best = lift end
       end
     end
@@ -489,6 +588,35 @@ local function rowTopOf(mod, path, entry, row)
   return m
 end
 
+-- the highest any frame of `row` reaches (cell px; nil = empty / unreadable)
+local function rowMinTop(mod, path, entry, row)
+  local best
+  for col = 0, #(entry.durations or { 1 }) - 1 do
+    local t = cellTopOf(mod, path, entry, col, row)
+    if t and (not best or t < best) then best = t end
+  end
+  return best
+end
+
+--- headLift for `anim` when some facing is raised (rowLift): the highest of each row's own
+--- reach plus its own lift. nil when no row is raised (or the pixels cannot be read): the
+--- bake's `top` then stands.
+function PmdRenderer:_raisedHead(anim, entry, anchor, groundY, s)
+  if type(entry) ~= "table" or entry.rows == 1 then return nil end
+  local base = PmdRenderer.scaleOf(self.info)
+  if self:maxRowLift(anim, base) <= 0 then return nil end
+  local path = pathOf(self, anim)
+  local best
+  for row = 0, 3 do
+    local top = rowMinTop(self.mod, path, entry, row)
+    if top then
+      local h = CELL - groundY + (anchor - top) * s + self:rowLift(entry, path, row, base)
+      if not best or h > best then best = h end
+    end
+  end
+  return best
+end
+
 --- How high its head is now, above its tile's bottom, as drawn: the middle of where the
 --- frames of the animation and facing it shows now reach (read from the pixels once) -- not
 --- the tallest pose of all, as headLift, and steady while it animates (a mark over it would
@@ -506,7 +634,9 @@ function PmdRenderer:headLiftNow()
     if band then anchor, groundY = band, Config.PMD_SWIM_Y or 18 end
   end
   if not anchor then return self:headLift() end
-  return CELL - groundY + (anchor - top) * s
+  local raised = self.swimming and 0
+    or self:rowLift(entry, path, self._drawnRow or 0, PmdRenderer.scaleOf(self.info))
+  return CELL - groundY + (anchor - top) * s + raised
 end
 
 --- Rows of a cell drawn while swimming: `body` = the sheet's own rows down to the top
@@ -584,7 +714,7 @@ function PmdRenderer:reflectionGeometry(x, y, facing, _walkPhase, out)
   else
     dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x, y)
   end
-  local rest = band and 0 or self:restOffset(row) * scale
+  local rest = band and 0 or (self:restOffset(row) * scale + self:rowLift(entry, path, row, scale))
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY - rest + 0.5)
   if act then dx, dy = dx + math.floor((act.dx or 0) + 0.5), dy + math.floor((act.dy or 0) + 0.5) end
   -- gen3-hd-sprites grows it about that same point
@@ -685,6 +815,15 @@ function PmdRenderer:draw(x, y, camX, camY, facing, _walkPhase, _stepFlip)
     dx, dy = PmdRenderer.placement(entry, scale, PmdRenderer.groundOf(entry, scale), x - camX, y - camY)
   end
   local rest = crop and 0 or self:restOffset(row) * scale -- resting: frame 0's feet on the line
+  -- a big one's back view raised so its feet are not below the player's (rowLift); squashed
+  -- under an eave or sinking into the ground, the lift squashes with it, toward the ground
+  if not crop and not part then
+    local raise = self:rowLift(entry, path, row, scale)
+    if raise > 0 then
+      local sink = act and tonumber(act.sink) or 0
+      rest = rest + raise * (1 - (tonumber(self.duck) or 0)) * (1 - math.max(0, math.min(1, sink)))
+    end
+  end
   dx, dy = dx + math.floor(self.pushX + 0.5), dy + math.floor(self.pushY + (self.duckDy or 0) + (self.bobDy or 0) - rest + 0.5)
   local scaleY, scaleX = scale, scale
   -- no Walk art: a step faked from the one frame (rise, stretch, land, sway), about its feet

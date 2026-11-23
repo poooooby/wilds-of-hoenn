@@ -53,6 +53,7 @@ tests/hd_field_unit_test.lua
 tests/health_bar_unit_test.lua
 tests/hit_effect_unit_test.lua
 tests/holder_ready_unit_test.lua
+tests/hot_springs_unit_test.lua
 tests/i18n_coverage_unit_test.lua
 tests/i18n_keys.lua
 tests/interaction_limiter_unit_test.lua
@@ -163,6 +164,14 @@ dist/vivid-worlds-v2.0.7-hgss-pmd.zip
 dist/vivid-worlds-v2.0.7.zip
 dist/vivid-worlds-v2.0.8-hgss-pmd.zip
 dist/vivid-worlds-v2.0.8.zip
+dist/vivid-worlds-v2.1.0-beta.1-hgss-pmd.zip
+dist/vivid-worlds-v2.1.0-beta.1.zip
+dist/vivid-worlds-v2.1.0-beta.2-hgss-pmd.zip
+dist/vivid-worlds-v2.1.0-beta.2.zip
+dist/vivid-worlds-v2.1.0-hgss-pmd.zip
+dist/vivid-worlds-v2.1.0.zip
+dist/vivid-worlds-v2.1.1-hgss-pmd.zip
+dist/vivid-worlds-v2.1.1.zip
 dist/wilds-of-hoenn-v1.10.0-hgss-pmd.zip
 dist/wilds-of-hoenn-v1.10.0-hgss.zip
 dist/wilds-of-hoenn-v1.10.1-hgss-pmd.zip

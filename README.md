@@ -56,6 +56,8 @@ A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3
 - 🍂 **Forager:** on routes and in caves it digs up items as you walk. Friendlier partners find
   more and rarer items.
 - 🚲 It rides along in its Poké Ball on a bike, when you Fly, and during cutscenes.
+- ♨️ It takes a soak with you in Lavaridge Town's hot spring, sinking into the water just like
+  you do.
 
 ### A Living World
 

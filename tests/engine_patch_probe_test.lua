@@ -404,6 +404,18 @@ do
   check(okG, "EnginePatch.grassRustle runs on the real engine (no sheet without a ROM: nil)")
 end
 
+-- the follower's hot spring water (lib/hot_springs.lua): the engine's own tile test and sheet
+do
+  local okC, Collision = pcall(require, "src.core.game3.collision")
+  check(okC and type(Collision.isHotSprings) == "function" and type(Collision.behavior) == "function",
+    "engine: Collision.isHotSprings / behavior (the follower's hot spring water)")
+  local fx = io.open("src/core/game3/field_effects.lua"):read("a")
+  check(fx:find('load_sheet("hot_springs_water", 16, 16, 1)', 1, true) ~= nil,
+    "engine: the hot spring water is still the hot_springs_water sheet, 16 x 16, one frame")
+  check(pcall(EnginePatch.isHotSprings, 3, 3) and pcall(EnginePatch.hotSpringsSheet),
+    "EnginePatch.isHotSprings / hotSpringsSheet run on the real engine")
+end
+
 -- the hour for Wild Ecology's sleepers (EnginePatch.localHour): the game's clock module
 do
   local okR, Rtc = pcall(require, "src.core.game3.rtc")

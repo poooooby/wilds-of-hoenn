@@ -186,6 +186,43 @@ eq(wild:restOffset(1), 0, "...no nudge, and its sheet is never scanned")
 rs.restEase = 1
 eq(rs:restOffset(1), 0, "no pixels to read (no love): no nudge")
 
+-- ------- a big one's back view raised so its feet are not below the player's (rowLift)
+do
+  -- a 2-frame sheet of 4 x 6 cells, 2 rows: row 0 art ends at y 3 / 4, row 1 at 6 / 6
+  local w, h, cw, ch = 8, 12, 4, 6
+  local px = {}
+  for i = 1, w * h do px[i] = "    " end
+  local function dot(x, y) px[y * w + x + 1] = "­­­­" end
+  dot(1, 2) -- row 0 frame 0: bottom 3
+  dot(5, 3) -- row 0 frame 1: bottom 4
+  dot(1, 11) -- row 1 frame 0: bottom 6
+  dot(6, 10) dot(6, 11) -- row 1 frame 1: bottom 6
+  local feet = PmdRenderer.rowFeetFrom(table.concat(px), w, h, cw, ch, { 30, 10 })
+  eq(feet[0], 3, "a row's feet: the bottom it shows most of the time (frame 0 is held 30 of 40 ticks)")
+  eq(feet[1], 6, "...per row")
+  local even = PmdRenderer.rowFeetFrom(table.concat(px), w, h, cw, ch, { 10, 10 })
+  eq(even[0], 3.5, "...held as long: between the two")
+
+  -- Lugia's Walk: ay 52.5, foot 51 (front rows); its back view stands on 65
+  local lugia = { ay = 52.5, foot = 51 }
+  eq(PmdRenderer.liftOf(lugia, 51, 1, 1), 0, "a row on the species' foot: not moved")
+  eq(PmdRenderer.liftOf(lugia, 65, 1, 1), 11.5, "the back view 14 px lower: raised to the player's feet line")
+  eq(PmdRenderer.liftOf(lugia, 65, 2, 1), 23, "...at the drawn scale")
+  -- Groudon's Walk: ay 47.5, foot 53 -- its art reaches 5.5 below the anchor; grown x1.25 about it
+  local groudon = { ay = 47.5, foot = 53 }
+  eq(PmdRenderer.liftOf(groudon, 53, 1, 1), 0, "art standing on its foot: not moved")
+  check(math.abs(PmdRenderer.liftOf(groudon, 53, 1, 1.25) - 1.375) < 1e-9,
+    "...grown by gen3-hd-sprites about its anchor: raised by what reaches below")
+  -- flyers and floaters keep their hover: never lowered
+  local flyer = { ay = 40, foot = 30 } -- art 10 px above its shadow point
+  eq(PmdRenderer.liftOf(flyer, 30, 1, 1), 0, "a flyer above its shadow: not lowered")
+  eq(PmdRenderer.liftOf(flyer, 25, 1, 1.5), 0, "...any row, any size")
+  eq(PmdRenderer.liftOf(flyer, 44, 1, 1), 3, "...only a row reaching below the feet line is raised")
+  eq(PmdRenderer.liftOf({}, 60, 1, 1), 0, "no anchor / foot: not moved")
+  local one = PmdRenderer.new({}, 4, false, { walk = { cols = 4, durations = W }, sleep = { rows = 1, cols = 1 } })
+  eq(one:rowLift(one.info.sleep, "x.png", 0, 1), 0, "a one-row animation (no facing): not moved")
+end
+
 -- ------- recall: the follower shrinking into the player while they surf
 eq(PmdRenderer.ease(0), 0, "ease(0) = 0")
 eq(PmdRenderer.ease(1), 1, "ease(1) = 1")

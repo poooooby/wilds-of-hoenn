@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- ♨️ Your partner takes a soak with you in Lavaridge Town's hot spring: the spring's water covers
+  its lower half the way it covers yours.
+
+### Fixed
+
+- Big Pokémon in the PMDCollab style (Lugia, Groudon, Wailord ...) no longer hang below their
+  feet when seen from behind (or, for a few, from the front): each facing now stands on the same
+  ground line as the player. Flyers and floaters keep their hover. Big partners squeeze under
+  low roofs and tree tops as before.
+
 ## 2.1.1 (2026-11-22)
 
 ### Added
