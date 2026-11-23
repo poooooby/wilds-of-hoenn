@@ -117,7 +117,7 @@ return function(mod)
   end
 
   mod.exports = mod.exports or {}
-  mod.exports.version = "2.1.1"
+  mod.exports.version = "2.1.2"
   mod.exports.engineReady = false
   -- Public extension points for consumers; defaults stay unchanged.
   mod.exports.spriteAtlas = SpriteAtlas
